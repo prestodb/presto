@@ -63,7 +63,9 @@ public class TestGeographyType
         extends AbstractTestQueryFramework
 {
     private static final String SCHEMA = "geography";
+    private static final String V2 = "WITH (\"format-version\" = '2')";
     private static final String V3 = "WITH (\"format-version\" = '3')";
+    private static final String V3_ORC = "WITH (\"format-version\" = '3', \"write.format.default\" = 'ORC')";
 
     /**
      * One geography of every type Presto's spherical geography functions accept, with valid
@@ -267,7 +269,7 @@ public class TestGeographyType
     {
         assertQueryFails(
                 session,
-                "CREATE TABLE test_geography_v2 (geog SphericalGeography) WITH (format_version = '2')",
+                "CREATE TABLE test_geography_v2 (geog SphericalGeography) " + V2,
                 "Iceberg geography column 'geog' requires format version 3 or higher, but the table is at format version 2");
         assertQueryFails(
                 session,
@@ -275,7 +277,7 @@ public class TestGeographyType
                 "Iceberg geography column 'geog' requires format version 3 or higher, but the table is at format version 2");
         assertQueryFails(
                 session,
-                "CREATE TABLE test_geography_orc (geog SphericalGeography) WITH (format_version = '3', \"write.format.default\" = 'ORC')",
+                "CREATE TABLE test_geography_orc (geog SphericalGeography) " + V3_ORC,
                 "Writing to Iceberg geography column 'geog' is only supported for the PARQUET file format, but the table uses ORC");
     }
 
@@ -288,8 +290,8 @@ public class TestGeographyType
     {
         String v2Table = "test_geography_add_column_v2";
         String orcTable = "test_geography_add_column_orc";
-        assertUpdate(session, format("CREATE TABLE %s (id INTEGER) WITH (format_version = '2')", v2Table));
-        assertUpdate(session, format("CREATE TABLE %s (id INTEGER) WITH (format_version = '3', \"write.format.default\" = 'ORC')", orcTable));
+        assertUpdate(session, format("CREATE TABLE %s (id INTEGER) %s", v2Table, V2));
+        assertUpdate(session, format("CREATE TABLE %s (id INTEGER) %s", orcTable, V3_ORC));
         try {
             assertQueryFails(
                     session,
@@ -325,6 +327,65 @@ public class TestGeographyType
             assertUpdate(session, format("INSERT INTO %s VALUES (2, to_spherical_geography(ST_GeometryFromText('POINT (10 20)')))", table), 1);
 
             assertQuery(session, format("SELECT id, ST_AsText(geog) FROM %s", table), "VALUES (1, NULL), (2, 'POINT (10 20)')");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE " + table);
+        }
+    }
+
+    /**
+     * EPSG:4326 names the same WGS84 longitude-latitude coordinates as the default CRS, so a
+     * column created by another engine with that CRS can be written as well as read, and the
+     * write must leave the declared CRS in place.
+     */
+    @Test
+    public void testWriteToEpsg4326GeographyColumn()
+    {
+        String table = "test_geography_epsg_4326";
+        assertUpdate(session, format("CREATE TABLE %s (id INTEGER) %s", table, V3));
+        try {
+            assertUpdate(session, format("INSERT INTO %s VALUES 1", table), 1);
+            // Presto always creates geography columns with the default CRS, so the column is
+            // added the way another engine would add it
+            loadTable(table).updateSchema().addColumn("geog", Types.GeographyType.of("EPSG:4326")).commit();
+
+            assertUpdate(session, format("INSERT INTO %s VALUES (2, to_spherical_geography(ST_GeometryFromText('POINT (10 20)')))", table), 1);
+
+            assertQuery(session, format("SELECT id, ST_AsText(geog) FROM %s", table), "VALUES (1, NULL), (2, 'POINT (10 20)')");
+            assertEquals(loadTable(table).schema().findType("geog"), Types.GeographyType.of("EPSG:4326"));
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE " + table);
+        }
+    }
+
+    /**
+     * Presto reads geography only from Parquet data files, so a query reading a geography
+     * column, directly or nested, from an ORC data file must fail. Presto never writes such a
+     * file, so the column is added through the Iceberg API to a table with ORC data. The other
+     * columns of the same file must stay readable.
+     */
+    @Test
+    public void testOrcGeographyReadIsRejected()
+    {
+        String table = "test_geography_orc_read";
+        assertUpdate(session, format("CREATE TABLE %s (id INTEGER) %s", table, V3_ORC));
+        try {
+            assertUpdate(session, format("INSERT INTO %s VALUES 1", table), 1);
+            loadTable(table).updateSchema()
+                    .addColumn("geog", Types.GeographyType.crs84())
+                    .addColumn("geogs", Types.ListType.ofOptional(0, Types.GeographyType.crs84()))
+                    .commit();
+
+            assertQuery(session, format("SELECT id FROM %s", table), "VALUES 1");
+            assertQueryFails(
+                    session,
+                    format("SELECT geog FROM %s", table),
+                    "Reading Iceberg geography column 'geog' is only supported for the PARQUET file format, but the data file uses ORC");
+            assertQueryFails(
+                    session,
+                    format("SELECT geogs FROM %s", table),
+                    "Reading Iceberg geography column 'geogs' is only supported for the PARQUET file format, but the data file uses ORC");
         }
         finally {
             assertUpdate(session, "DROP TABLE " + table);

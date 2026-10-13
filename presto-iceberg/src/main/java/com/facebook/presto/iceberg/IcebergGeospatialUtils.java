@@ -40,15 +40,14 @@ import org.apache.iceberg.types.Types;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.facebook.presto.common.block.ColumnarArray.toColumnarArray;
 import static com.facebook.presto.common.block.ColumnarMap.toColumnarMap;
 import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.geospatial.GeometryUtils.getEnvelope;
-import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.geospatial.SphericalGeographyUtils.validateSphericalGeography;
-import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
 import static com.facebook.presto.iceberg.IcebergUtil.opsFromTable;
@@ -67,9 +66,26 @@ public final class IcebergGeospatialUtils
 
     private IcebergGeospatialUtils() {}
 
+    /**
+     * Presto's geospatial types are recognized by their signature rather than by comparing
+     * against the GEOMETRY and SPHERICAL_GEOGRAPHY singletons. The plugin bundles its own copy
+     * of the geospatial classes, so a type created by the engine, such as one deserialized
+     * from a column handle on a worker, is a different class from the plugin's singleton and
+     * would never compare equal to it.
+     */
+    public static boolean isGeometryType(Type type)
+    {
+        return type.getTypeSignature().getBase().equalsIgnoreCase(StandardTypes.GEOMETRY);
+    }
+
+    public static boolean isSphericalGeographyType(Type type)
+    {
+        return type.getTypeSignature().getBase().equalsIgnoreCase(StandardTypes.SPHERICAL_GEOGRAPHY);
+    }
+
     public static boolean isGeospatialType(Type type)
     {
-        return GEOMETRY.equals(type) || SPHERICAL_GEOGRAPHY.equals(type);
+        return isGeometryType(type) || isSphericalGeographyType(type);
     }
 
     public static boolean isGeospatialType(org.apache.iceberg.types.Type type)
@@ -79,19 +95,29 @@ public final class IcebergGeospatialUtils
 
     public static boolean containsGeospatialType(Type type)
     {
-        if (isGeospatialType(type)) {
+        return containsType(type, IcebergGeospatialUtils::isGeospatialType);
+    }
+
+    public static boolean containsSphericalGeographyType(Type type)
+    {
+        return containsType(type, IcebergGeospatialUtils::isSphericalGeographyType);
+    }
+
+    private static boolean containsType(Type type, Predicate<Type> predicate)
+    {
+        if (predicate.test(type)) {
             return true;
         }
         if (type instanceof ArrayType) {
-            return containsGeospatialType(((ArrayType) type).getElementType());
+            return containsType(((ArrayType) type).getElementType(), predicate);
         }
         if (type instanceof MapType) {
             MapType mapType = (MapType) type;
-            return containsGeospatialType(mapType.getKeyType()) || containsGeospatialType(mapType.getValueType());
+            return containsType(mapType.getKeyType(), predicate) || containsType(mapType.getValueType(), predicate);
         }
         if (type instanceof RowType) {
             return ((RowType) type).getFields().stream()
-                    .anyMatch(field -> containsGeospatialType(field.getType()));
+                    .anyMatch(field -> containsType(field.getType(), predicate));
         }
         return false;
     }
@@ -198,7 +224,7 @@ public final class IcebergGeospatialUtils
             try {
                 OGCGeometry geometry = OGCGeometry.fromBinary(ByteBuffer.wrap(type.getSlice(block, position).getBytes()));
                 geometry.setSpatialReference(null);
-                if (SPHERICAL_GEOGRAPHY.equals(type)) {
+                if (isSphericalGeographyType(type)) {
                     validateSphericalGeography(getEnvelope(geometry), geometry);
                 }
                 type.writeSlice(builder, EsriGeometrySerde.serialize(geometry));
@@ -267,6 +293,28 @@ public final class IcebergGeospatialUtils
             valueIsNull[position] = columnarRow.isNull(position);
         }
         return RowBlock.fromFieldBlocks(positionCount, Optional.of(valueIsNull), fieldBlocks);
+    }
+
+    /**
+     * Rejects reading geography columns from a data file in a format other than Parquet.
+     * Presto only writes geography to Parquet, and reading it from other formats is not
+     * supported, so such a read fails rather than returning values whose encoding has not
+     * been verified. Columns of other types can still be read from the same file.
+     */
+    public static void validateGeospatialRead(List<IcebergColumnHandle> columns, FileFormat fileFormat)
+    {
+        if (fileFormat == FileFormat.PARQUET) {
+            return;
+        }
+        for (IcebergColumnHandle column : columns) {
+            if (containsSphericalGeographyType(column.getType())) {
+                throw new PrestoException(NOT_SUPPORTED, format(
+                        "Reading Iceberg geography column '%s' is only supported for the %s file format, but the data file uses %s",
+                        column.getName(),
+                        FileFormat.PARQUET,
+                        fileFormat));
+            }
+        }
     }
 
     /**

@@ -68,8 +68,6 @@ public class PluginManagerUtil
             .add("com.facebook.drift.annotations.")
             .add("com.facebook.drift.TException")
             .add("com.facebook.drift.TApplicationException")
-            .add("com.facebook.presto.geospatial.")
-            .add("com.esri.core.geometry.")
             .build();
 
     private PluginManagerUtil()

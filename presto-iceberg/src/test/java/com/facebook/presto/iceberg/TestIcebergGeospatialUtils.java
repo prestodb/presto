@@ -16,8 +16,13 @@ package com.facebook.presto.iceberg;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.geospatial.SphericalGeographyType;
 import com.facebook.presto.geospatial.serde.EsriGeometrySerde;
+import com.facebook.presto.geospatial.type.GeometryType;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
@@ -26,22 +31,76 @@ import org.apache.iceberg.types.Types;
 import org.testng.annotations.Test;
 
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.Optional;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
+import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY_TYPE_NAME;
 import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
+import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY_TYPE_NAME;
 import static com.facebook.presto.iceberg.FileFormat.ORC;
 import static com.facebook.presto.iceberg.FileFormat.PARQUET;
+import static com.facebook.presto.iceberg.IcebergColumnHandle.primitiveIcebergColumnHandle;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.isGeometryType;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.isSphericalGeographyType;
 import static com.facebook.presto.iceberg.IcebergGeospatialUtils.transformGeometryBlock;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.validateGeospatialRead;
 import static com.facebook.presto.iceberg.IcebergGeospatialUtils.validateGeospatialWrite;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.apache.iceberg.types.Types.NestedField.optional;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestIcebergGeospatialUtils
 {
+    /**
+     * The plugin bundles its own copy of the geospatial classes, so the types the engine
+     * hands it are instances of a different class than the plugin's GEOMETRY and
+     * SPHERICAL_GEOGRAPHY, and never equal to them. Subclasses stand in for those types here:
+     * they share the signature but not the class, so they must be recognized by signature.
+     */
+    @Test
+    public void testGeospatialTypesAreRecognizedBySignature()
+    {
+        Type geometry = new GeometryType(new TypeSignature(GEOMETRY_TYPE_NAME)) {};
+        Type geography = new SphericalGeographyType(new TypeSignature(SPHERICAL_GEOGRAPHY_TYPE_NAME)) {};
+        assertNotEquals(geometry, GEOMETRY);
+        assertNotEquals(geography, SPHERICAL_GEOGRAPHY);
+
+        assertTrue(isGeometryType(geometry));
+        assertFalse(isSphericalGeographyType(geometry));
+        assertTrue(isSphericalGeographyType(geography));
+        assertFalse(isGeometryType(geography));
+        assertFalse(isSphericalGeographyType(INTEGER));
+        assertFalse(isSphericalGeographyType(new ArrayType(geography)));
+    }
+
+    @Test
+    public void testReadAcceptsGeographyFromParquet()
+    {
+        validateGeospatialRead(columns(SPHERICAL_GEOGRAPHY, new ArrayType(SPHERICAL_GEOGRAPHY)), PARQUET);
+        // Only geography is rejected; geometry and other columns can be read from any format
+        validateGeospatialRead(columns(INTEGER, GEOMETRY), ORC);
+    }
+
+    @Test
+    public void testReadRejectsGeographyOutsideParquet()
+    {
+        assertReadFromFileFails(
+                columns(INTEGER, SPHERICAL_GEOGRAPHY),
+                ORC,
+                "Reading Iceberg geography column 'col1' is only supported for the PARQUET file format, but the data file uses ORC");
+        assertReadFromFileFails(
+                columns(RowType.from(ImmutableList.of(RowType.field("inner", SPHERICAL_GEOGRAPHY)))),
+                ORC,
+                "Reading Iceberg geography column 'col0' is only supported for the PARQUET file format, but the data file uses ORC");
+    }
+
     @Test
     public void testReadConvertsWellKnownBinary()
     {
@@ -167,6 +226,27 @@ public class TestIcebergGeospatialUtils
             assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
             assertEquals(e.getMessage(), expectedMessage);
         }
+    }
+
+    private static void assertReadFromFileFails(List<IcebergColumnHandle> columns, FileFormat fileFormat, String expectedMessage)
+    {
+        try {
+            validateGeospatialRead(columns, fileFormat);
+            fail("Expected the read to be rejected");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+            assertEquals(e.getMessage(), expectedMessage);
+        }
+    }
+
+    private static List<IcebergColumnHandle> columns(Type... types)
+    {
+        ImmutableList.Builder<IcebergColumnHandle> columns = ImmutableList.builder();
+        for (int i = 0; i < types.length; i++) {
+            columns.add(primitiveIcebergColumnHandle(i + 1, "col" + i, types[i], Optional.empty()));
+        }
+        return columns.build();
     }
 
     private static Schema schema(org.apache.iceberg.types.Type type)

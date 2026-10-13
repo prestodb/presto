@@ -37,8 +37,6 @@ import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
-import com.facebook.presto.geospatial.SphericalGeographyType;
-import com.facebook.presto.geospatial.type.GeometryType;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.orc.metadata.OrcType;
 import com.facebook.presto.spi.PrestoException;
@@ -84,6 +82,8 @@ import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isArrayType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isMapType;
 import static com.facebook.presto.hive.metastore.MetastoreUtil.isRowType;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.isGeometryType;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.isSphericalGeographyType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -127,9 +127,9 @@ public final class TypeConverter
             case TIME:
                 return TimeType.TIME;
             case GEOMETRY:
-                return GeometryType.GEOMETRY;
+                return typeManager.getType(new TypeSignature(StandardTypes.GEOMETRY));
             case GEOGRAPHY:
-                return toPrestoSphericalGeography((Types.GeographyType) type);
+                return toPrestoSphericalGeography((Types.GeographyType) type, typeManager);
             case TIMESTAMP:
                 Types.TimestampType timestampType = (Types.TimestampType) type.asPrimitiveType();
                 if (timestampType.shouldAdjustToUTC()) {
@@ -168,7 +168,7 @@ public final class TypeConverter
      * defaults themselves, so either form is accepted. Any other value means the column
      * carries semantics Presto would silently misinterpret.
      */
-    private static Type toPrestoSphericalGeography(Types.GeographyType type)
+    private static Type toPrestoSphericalGeography(Types.GeographyType type, TypeManager typeManager)
     {
         if (!isWgs84(type.crs())) {
             throw new PrestoException(NOT_SUPPORTED, format(
@@ -183,14 +183,16 @@ public final class TypeConverter
                     type.algorithm(),
                     EdgeAlgorithm.SPHERICAL));
         }
-        return SphericalGeographyType.SPHERICAL_GEOGRAPHY;
+        return typeManager.getType(new TypeSignature(StandardTypes.SPHERICAL_GEOGRAPHY));
     }
 
     /**
      * Iceberg geography coordinates are always longitude-latitude on the WGS84 datum, so
      * {@code EPSG:4326} names the same coordinates as the default {@code OGC:CRS84} despite
      * its axis order being formally latitude-longitude. Iceberg 1.10 reports the default
-     * CRS as null, so null is WGS84 too.
+     * CRS as null, so null is WGS84 too. This holds for writes as well: the values Presto
+     * writes are WGS84 longitude-latitude, so an existing {@code EPSG:4326} column can be
+     * written. Tables created by Presto always record the default CRS.
      */
     private static boolean isWgs84(String crs)
     {
@@ -275,7 +277,7 @@ public final class TypeConverter
         if (type instanceof UuidType) {
             return Types.UUIDType.get();
         }
-        if (type instanceof SphericalGeographyType) {
+        if (isSphericalGeographyType(type)) {
             // Presto's SPHERICAL_GEOGRAPHY is always WGS84 with spherical edges, which are
             // Iceberg's defaults. crs84() leaves both unset so the schema serializes as the
             // canonical "geography" rather than spelling out the default CRS and algorithm.
@@ -385,10 +387,10 @@ public final class TypeConverter
         if (TimeType.TIME.equals(type)) {
             return HIVE_LONG.getTypeInfo();
         }
-        if (GeometryType.GEOMETRY.equals(type)) {
+        if (isGeometryType(type)) {
             return HIVE_GEOMETRY.getTypeInfo();
         }
-        if (SphericalGeographyType.SPHERICAL_GEOGRAPHY.equals(type)) {
+        if (isSphericalGeographyType(type)) {
             // Iceberg stores geography as well-known binary
             return HIVE_BINARY.getTypeInfo();
         }
