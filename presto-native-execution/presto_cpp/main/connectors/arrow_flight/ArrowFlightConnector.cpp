@@ -19,6 +19,9 @@
 #include <utility>
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/connectors/arrow_flight/Macros.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/vector/DecodedVector.h"
+#include "velox/vector/FlatVector.h"
 #include "velox/vector/arrow/Bridge.h"
 
 using namespace facebook::velox::connector;
@@ -42,6 +45,36 @@ std::shared_ptr<arrow::flight::Location> getDefaultLocation(
                 defaultHost.value(), defaultPort.value()));
 
   return std::make_shared<arrow::flight::Location>(std::move(defaultLocation));
+}
+
+// Presto's TimeZoneKey.UTC_KEY.
+constexpr velox::TimeZoneKey kUtcZoneKey = 0;
+
+// Arrow has no equivalent of Presto's TIMESTAMP WITH TIME ZONE, which Velox
+// stores as a BIGINT packing millis UTC with a zone key. The Flight shim sends
+// these columns as UTC Arrow timestamps, which Velox imports as TIMESTAMP, so
+// repack them to match the requested output type.
+velox::VectorPtr toTimestampWithTimeZone(
+    const velox::VectorPtr& input,
+    velox::memory::MemoryPool* pool) {
+  VELOX_CHECK(
+      input->type()->isTimestamp(),
+      "Expected TIMESTAMP to convert to TIMESTAMP WITH TIME ZONE, got {}",
+      input->type()->toString());
+
+  const auto size = input->size();
+  velox::DecodedVector decoded(*input);
+  auto vec = velox::BaseVector::create<velox::FlatVector<int64_t>>(
+      velox::TIMESTAMP_WITH_TIME_ZONE(), size, pool);
+  for (velox::vector_size_t i = 0; i < size; ++i) {
+    if (decoded.isNullAt(i)) {
+      vec->setNull(i, true);
+    } else {
+      vec->set(
+          i, velox::pack(decoded.valueAt<velox::Timestamp>(i), kUtcZoneKey));
+    }
+  }
+  return vec;
 }
 } // namespace
 
@@ -274,12 +307,20 @@ velox::RowVectorPtr ArrowFlightDataSource::projectOutputColumns(
   std::vector<velox::VectorPtr> children;
   children.reserve(columnIndices_.size());
 
-  for (int const idx : columnIndices_) {
-    auto column = input->column(idx);
+  // i is the output column's position; columnIndices_[i] is the matching
+  // column's position in the record batch, which can differ when columns are
+  // projected by name.
+  for (velox::column_index_t i = 0; i < columnIndices_.size(); ++i) {
+    auto column = input->column(columnIndices_[i]);
     ArrowArray array;
     ArrowSchema schema;
     AFC_RAISE_NOT_OK(arrow::ExportArray(*column, &array, &schema));
-    children.push_back(velox::importFromArrowAsOwner(schema, array, pool));
+    auto child = velox::importFromArrowAsOwner(schema, array, pool);
+
+    if (velox::isTimestampWithTimeZoneType(outputType_->childAt(i))) {
+      child = toTimestampWithTimeZone(child, pool);
+    }
+    children.push_back(std::move(child));
   }
 
   return std::make_shared<velox::RowVector>(

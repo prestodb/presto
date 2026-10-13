@@ -33,6 +33,11 @@ The ``AT TIME ZONE`` operator sets the time zone of a timestamp::
     SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles';
     2012-10-30 18:00:00.000 America/Los_Angeles
 
+For a ``TIMESTAMP WITH TIME ZONE`` input, the result depends on
+``legacy_timestamp_with_timezone``. When enabled, the result remains a
+``TIMESTAMP WITH TIME ZONE`` in the requested zone. When disabled, the result
+is a ``TIMESTAMP`` containing the wall-clock time in the requested zone.
+
 Date and Time Functions
 -----------------------
 

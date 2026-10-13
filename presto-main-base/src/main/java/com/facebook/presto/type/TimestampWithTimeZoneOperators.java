@@ -53,7 +53,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static com.facebook.presto.type.DateTimeOperators.modulo24Hour;
 import static com.facebook.presto.util.DateTimeUtils.parseTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithTimeZone;
-import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
+import static com.facebook.presto.util.DateTimeZoneIndex.renderingChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -128,12 +128,12 @@ public final class TimestampWithTimeZoneOperators
     @ScalarFunction("date")
     @ScalarOperator(CAST)
     @SqlType(StandardTypes.DATE)
-    public static long castToDate(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
+    public static long castToDate(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
         // round down the current timestamp to days
-        ISOChronology chronology = unpackChronology(value);
+        ISOChronology chronology = renderingChronology(properties, value);
         long date = chronology.dayOfYear().roundFloor(unpackMillisUtc(value));
-        // date is currently midnight in timezone of the original value
+        // date is currently midnight in the rendering timezone
         // convert to UTC
         long millis = date + chronology.getZone().getOffset(date);
         return TimeUnit.MILLISECONDS.toDays(millis);
@@ -143,7 +143,7 @@ public final class TimestampWithTimeZoneOperators
     @SqlType(StandardTypes.TIME)
     public static long castToTime(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        return properties.isLegacyTimestamp() ? modulo24Hour(unpackChronology(value), unpackMillisUtc(value)) : modulo24Hour(castToTimestamp(properties, value));
+        return properties.isLegacyTimestamp() ? modulo24Hour(renderingChronology(properties, value), unpackMillisUtc(value)) : modulo24Hour(castToTimestamp(properties, value));
     }
 
     @ScalarOperator(CAST)
@@ -155,8 +155,8 @@ public final class TimestampWithTimeZoneOperators
             return packDateTimeWithZone(millis, unpackZoneKey(value));
         }
         else {
-            long millis = modulo24Hour(castToTimestamp(properties, value));
             ISOChronology localChronology = unpackChronology(value);
+            long millis = modulo24Hour(localChronology.getZone().convertUTCToLocal(unpackMillisUtc(value)));
 
             // This cast does treat TIME as wall time in given TZ. This means that in order to get
             // its UTC representation we need to shift the value by the offset of TZ.
@@ -175,7 +175,7 @@ public final class TimestampWithTimeZoneOperators
             return unpackMillisUtc(value);
         }
         else {
-            ISOChronology chronology = getChronology(unpackZoneKey(value));
+            ISOChronology chronology = renderingChronology(properties, value);
             return chronology.getZone().convertUTCToLocal(unpackMillisUtc(value));
         }
     }
@@ -183,9 +183,9 @@ public final class TimestampWithTimeZoneOperators
     @ScalarOperator(CAST)
     @LiteralParameters("x")
     @SqlType("varchar(x)")
-    public static Slice castToSlice(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
+    public static Slice castToSlice(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long value)
     {
-        return utf8Slice(printTimestampWithTimeZone(value));
+        return utf8Slice(printTimestampWithTimeZone(properties, value));
     }
 
     @ScalarOperator(CAST)

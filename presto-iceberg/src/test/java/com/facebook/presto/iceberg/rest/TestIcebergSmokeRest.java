@@ -26,11 +26,12 @@ import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergDistributedSmokeTestBase;
 import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
+import com.facebook.presto.iceberg.ManifestFileCache;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.cache.CacheBuilder;
 import org.apache.iceberg.Table;
-import org.apache.iceberg.rest.RESTCatalog;
 import org.assertj.core.util.Files;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -129,7 +130,9 @@ public class TestIcebergSmokeRest
                 new PrestoS3ConfigurationUpdater(new HiveS3Config()),
                 new HiveGcsConfigurationInitializer(new HiveGcsConfig()),
                 new HiveAzureConfigurationInitializer(new HiveAzureConfig()),
-                new NodeVersion("test_version"));
+                new NodeVersion("test_version"),
+                getHdfsEnvironment(),
+                new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024));
     }
 
     @Override
@@ -152,7 +155,7 @@ public class TestIcebergSmokeRest
                 .setAuthenticationServerUri(authEndpoint);
 
         IcebergRestCatalogFactory catalogFactory = (IcebergRestCatalogFactory) getCatalogFactory(restConfig);
-        RESTCatalog catalog = (RESTCatalog) catalogFactory.getCatalog(getSession().toConnectorSession());
+        PrestoRestCatalog catalog = (PrestoRestCatalog) catalogFactory.getCatalog(getSession().toConnectorSession());
 
         assertEquals(catalog.properties().get(OAUTH2_SERVER_URI), authEndpoint);
     }
@@ -167,7 +170,7 @@ public class TestIcebergSmokeRest
                 .setBasicAuthPassword("s3cr3t");
 
         IcebergRestCatalogFactory catalogFactory = (IcebergRestCatalogFactory) getCatalogFactory(restConfig);
-        RESTCatalog catalog = (RESTCatalog) catalogFactory.getCatalog(getSession().toConnectorSession());
+        PrestoRestCatalog catalog = (PrestoRestCatalog) catalogFactory.getCatalog(getSession().toConnectorSession());
         Map<String, String> properties = catalog.properties();
 
         assertEquals(properties.get(AUTH_TYPE), AUTH_TYPE_BASIC);
@@ -182,7 +185,7 @@ public class TestIcebergSmokeRest
                 .setServerUri(serverUri);
 
         IcebergRestCatalogFactory catalogFactory = (IcebergRestCatalogFactory) getCatalogFactory(restConfig);
-        RESTCatalog catalog = (RESTCatalog) catalogFactory.getCatalog(getSession().toConnectorSession());
+        PrestoRestCatalog catalog = (PrestoRestCatalog) catalogFactory.getCatalog(getSession().toConnectorSession());
         Map<String, String> properties = catalog.properties();
 
         assertNull(properties.get(AUTH_TYPE));

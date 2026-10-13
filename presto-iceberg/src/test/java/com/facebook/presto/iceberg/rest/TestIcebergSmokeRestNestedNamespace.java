@@ -27,9 +27,11 @@ import com.facebook.presto.iceberg.IcebergCatalogName;
 import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergNativeCatalogFactory;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
+import com.facebook.presto.iceberg.ManifestFileCache;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.QueryRunner;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.Table;
@@ -142,7 +144,9 @@ public class TestIcebergSmokeRestNestedNamespace
                 new PrestoS3ConfigurationUpdater(new HiveS3Config()),
                 new HiveGcsConfigurationInitializer(new HiveGcsConfig()),
                 new HiveAzureConfigurationInitializer(new HiveAzureConfig()),
-                new NodeVersion("test_version"));
+                new NodeVersion("test_version"),
+                getHdfsEnvironment(),
+                new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024));
     }
 
     @Override

@@ -252,6 +252,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.supportsRowLineage;
 import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetLocation;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
+import static com.facebook.presto.iceberg.IcebergUtil.tryGetReadSchema;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetSchema;
 import static com.facebook.presto.iceberg.IcebergUtil.validateBranchExists;
 import static com.facebook.presto.iceberg.IcebergUtil.validateMinimumFormatVersion;
@@ -497,6 +498,13 @@ public abstract class IcebergAbstractMetadata
                     runtimeStats);
         }
 
+        // Native workers need the base table's column handles to read the data files behind a changelog scan
+        Map<String, IcebergColumnHandle> dataColumnHandles = ImmutableMap.of();
+        if (handle.getIcebergTableName().getTableType() == CHANGELOG) {
+            dataColumnHandles = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager).stream()
+                    .collect(toImmutableMap(IcebergColumnHandle::getName, Functions.identity()));
+        }
+
         ConnectorTableLayout layout = getTableLayout(
                 session,
                 new IcebergTableLayoutHandle.Builder()
@@ -510,6 +518,7 @@ public abstract class IcebergAbstractMetadata
                         .setPartitionColumnPredicate(partitionColumnPredicate.simplify())
                         .setPartitions(Optional.ofNullable(partitions.isEmpty() ? null : partitions))
                         .setTable(handle)
+                        .setDataColumnHandles(dataColumnHandles)
                         .build());
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
@@ -626,16 +635,27 @@ public abstract class IcebergAbstractMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) table;
-        return getTableOrViewMetadata(session, icebergTableHandle.getSchemaTableName(), icebergTableHandle.getIcebergTableName());
+        return getTableOrViewMetadata(
+                session,
+                icebergTableHandle.getSchemaTableName(),
+                icebergTableHandle.getIcebergTableName(),
+                icebergTableHandle.getTableSchemaJson().map(SchemaParser::fromJson));
     }
 
-    protected ConnectorTableMetadata getTableOrViewMetadata(ConnectorSession session, SchemaTableName table, IcebergTableName icebergTableName)
+    /**
+     * @param readSchema the schema this read should use, empty to use the table's current schema
+     */
+    protected ConnectorTableMetadata getTableOrViewMetadata(
+            ConnectorSession session,
+            SchemaTableName table,
+            IcebergTableName icebergTableName,
+            Optional<Schema> readSchema)
     {
         SchemaTableName schemaTableName = new SchemaTableName(table.getSchemaName(), icebergTableName.getTableName());
         try {
             Table icebergTable = getIcebergTable(session, schemaTableName);
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-            columns.addAll(getColumnMetadata(session, icebergTable));
+            columns.addAll(getColumnMetadata(session, icebergTable, readSchema.orElseGet(icebergTable::schema)));
             if (icebergTableName.getTableType() == CHANGELOG) {
                 return ChangelogUtil.getChangelogTableMeta(table, typeManager, columns.build());
             }
@@ -669,7 +689,8 @@ public abstract class IcebergAbstractMetadata
             try {
                 IcebergTableName tableName = IcebergTableName.from(table.getTableName());
                 if (!tableName.isSystemTable()) {
-                    columns.put(table, getTableOrViewMetadata(session, table, tableName).getColumns());
+                    // Listing columns has no version expression to honor, so use the current schema.
+                    columns.put(table, getTableOrViewMetadata(session, table, tableName, Optional.empty()).getColumns());
                 }
             }
             catch (TableNotFoundException e) {
@@ -985,7 +1006,9 @@ public abstract class IcebergAbstractMetadata
     @Override
     public boolean isLegacyGetLayoutSupported(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return !isPushdownFilterEnabled(session);
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+
+        return !isPushdownFilterEnabled(session) || icebergTableHandle.getIcebergTableName().getTableType() == CHANGELOG;
     }
 
     private ColumnMetadata getColumnMetadata(ConnectorSession session, Table table, String columnName)
@@ -1013,6 +1036,11 @@ public abstract class IcebergAbstractMetadata
 
     protected List<ColumnMetadata> getColumnMetadata(ConnectorSession session, Table table)
     {
+        return getColumnMetadata(session, table, table.schema());
+    }
+
+    protected List<ColumnMetadata> getColumnMetadata(ConnectorSession session, Table table, Schema schema)
+    {
         Map<String, List<String>> partitionFields = getPartitionFields(table.spec(), ALL);
         DerivedColumnSpecList derivedColumnSpecList = IcebergUtil.getDerivedColumnSpec(table);
         List<String> derivedColumnNames = derivedColumnSpecList.getDerivedColumnSpecs().stream().map(DerivedColumnSpec::getDerivedColumnName).collect(toImmutableList());
@@ -1021,7 +1049,7 @@ public abstract class IcebergAbstractMetadata
         Map<String, DerivedColumnSpec> derivedColumnSpecMap =
                 derivedColumnSpecList.getDerivedColumnSpecs().stream()
                         .collect(toImmutableMap(DerivedColumnSpec::getDerivedColumnName, derivedColumnSpec -> derivedColumnSpec));
-        return table.schema().columns().stream()
+        return schema.columns().stream()
                 .map(column -> ColumnMetadata.builder()
                         .setName(normalizeIdentifier(session, column.name()))
                         .setType(toPrestoType(column.type(), typeManager))
@@ -1449,6 +1477,77 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
+    public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, com.facebook.presto.common.type.Type type, boolean ignoreExisting)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have fields added");
+        validateNoBranchSpecified(handle, "ADD COLUMN");
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        // Resolve parent using step-by-step traversal (exact-then-case-insensitive), avoiding Schema.caseInsensitiveFindField
+        // which builds a whole-schema lowercase index and fails on case-colliding fields elsewhere in the table.
+        String parentName = String.join(".", parentPath);
+        NestedField parentField = findNestedField(icebergTable.schema(), parentPath)
+                .orElseThrow(() -> new PrestoException(COLUMN_NOT_FOUND,
+                        format("Cannot find parent field '%s' in table '%s'", parentName, handle.getSchemaTableName())));
+
+        if (!parentField.type().isStructType()) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    format("Parent field '%s' in table '%s' is not a struct/ROW type", parentName, handle.getSchemaTableName()));
+        }
+
+        String canonicalParentName = icebergTable.schema().findColumnName(parentField.fieldId());
+
+        // Check child existence within the parent struct's field list.
+        Types.StructType parentStruct = parentField.type().asStructType();
+        Optional<NestedField> existingField = findFieldInStruct(parentStruct, fieldName);
+        if (existingField.isPresent()) {
+            if (ignoreExisting) {
+                return;
+            }
+            throw new PrestoException(ALREADY_EXISTS, format("Field '%s' already exists in '%s'", fieldName, canonicalParentName));
+        }
+
+        org.apache.iceberg.types.Type icebergType = toIcebergType(type);
+        try {
+            icebergTable.updateSchema()
+                    .addColumn(canonicalParentName, fieldName, icebergType)
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to add field: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
+    private static Optional<NestedField> findNestedField(Schema schema, List<String> path)
+    {
+        if (path.isEmpty()) {
+            return Optional.empty();
+        }
+        Optional<NestedField> current = findFieldInStruct(schema.asStruct(), path.get(0));
+        for (int i = 1; i < path.size() && current.isPresent(); i++) {
+            if (!current.get().type().isStructType()) {
+                return Optional.empty();
+            }
+            current = findFieldInStruct(current.get().type().asStructType(), path.get(i));
+        }
+        return current;
+    }
+
+    private static Optional<NestedField> findFieldInStruct(Types.StructType structType, String fieldName)
+    {
+        Optional<NestedField> exactMatch = structType.fields().stream()
+                .filter(field -> field.name().equals(fieldName))
+                .findFirst();
+        if (exactMatch.isPresent()) {
+            return exactMatch;
+        }
+        return structType.fields().stream()
+                .filter(field -> field.name().equalsIgnoreCase(fieldName))
+                .findFirst();
+    }
+
+    @Override
     public void setColumnDefault(ConnectorSession session, ConnectorTableHandle tableHandle, String columnName, Object defaultValue)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
@@ -1535,7 +1634,8 @@ public abstract class IcebergAbstractMetadata
             schema = ChangelogUtil.changelogTableSchema(getRowTypeFromColumnMeta(getColumnMetadata(session, icebergTable)));
         }
         else {
-            schema = icebergTable.schema();
+            // The correct schema was already worked out and stored as tableSchemaJson in table.
+            schema = table.getTableSchemaJson().map(SchemaParser::fromJson).orElseGet(icebergTable::schema);
         }
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
@@ -1617,13 +1717,13 @@ public abstract class IcebergAbstractMetadata
         // Get Iceberg tables schema, properties, and location with missing
         // filesystem metadata will fail.
         // See https://github.com/prestodb/presto/pull/21181
-        Optional<Schema> tableSchema = tryGetSchema(table);
+        Optional<Schema> tableSchema = tryGetReadSchema(table, name, tableVersion, tableSnapshotId);
         Optional<String> tableSchemaJson = tableSchema.map(SchemaParser::toJson);
 
         return new IcebergTableHandle(
                 tableNameToLoad.getSchemaName(),
                 new IcebergTableName(tableNameToLoad.getTableName(), name.getTableType(), tableSnapshotId, name.getBranchName(), name.getChangelogEndSnapshot()),
-                name.getSnapshotId().isPresent(),
+                tableVersion.isPresent() || name.getSnapshotId().isPresent(),
                 tryGetLocation(table),
                 tryGetProperties(table),
                 tableSchemaJson,

@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import DataTable, { createTheme } from "react-data-table-component";
+import DataTable from "react-data-table-component";
 
 import {
     addToHistory,
@@ -37,12 +37,7 @@ import {
     precisionRound,
 } from "../utils";
 import { QueryHeader } from "./QueryHeader";
-
-createTheme("dark", {
-    background: {
-        default: "transparent",
-    },
-});
+import { PRESTO_DARK_THEME } from "./DataTableTheme";
 
 function TaskList({ tasks }) {
     function removeQueryId(id) {
@@ -118,14 +113,17 @@ function TaskList({ tasks }) {
     const customStyles = {
         headCells: {
             style: {
-                padding: "2px", // override the cell padding for head cells
+                // 8.x overrides the `padding` shorthand with its own layout styles, so use the longhands
+                paddingLeft: "2px", // override the cell padding for head cells
+                paddingRight: "2px",
                 fontSize: "15px",
                 overflowX: "auto", // Enables horizontal scrolling
             },
         },
         cells: {
             style: {
-                padding: "2px", // override the cell padding for data cells
+                paddingLeft: "2px", // override the cell padding for data cells
+                paddingRight: "2px",
                 fontSize: "15px",
                 overflowX: "auto", // Enables horizontal scrolling
             },
@@ -383,7 +381,15 @@ function TaskList({ tasks }) {
         },
     ];
 
-    return <DataTable columns={columns} data={tasks} theme="dark" customStyles={customStyles} striped="true" />;
+    return (
+        <DataTable
+            columns={columns}
+            data={tasks}
+            theme={PRESTO_DARK_THEME}
+            customStyles={customStyles}
+            striped={true}
+        />
+    );
 }
 
 const BAR_CHART_WIDTH = 800;

@@ -14,13 +14,10 @@
 #pragma once
 
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
+#include "velox/core/QueryCtx.h"
 
 namespace facebook::velox::config {
 class ConfigBase;
-}
-
-namespace facebook::velox::core {
-class QueryConfig;
 }
 
 namespace facebook::presto {
@@ -30,21 +27,31 @@ namespace facebook::presto {
 std::unordered_map<std::string, std::string> toVeloxConfigs(
     const protocol::SessionRepresentation& session);
 
-/// Translates Presto configs to Velox 'QueryConfig' config map. It is the
-/// temporary overload that builds a QueryConfig from session properties and
-/// extraCredentials, including all extraCredentials so they can be consumed by
-/// UDFs and connectors.
-/// This implementation is a temporary solution until a more unified
+/// The configs a task runs with, and which of their entries hold credentials.
+struct TaskConfigs {
+  /// Session properties and system config, with the task's extra credentials
+  /// flattened in.
+  velox::core::QueryConfig queryConfig;
+
+  /// Per catalog, that catalog's session properties with the same credentials
+  /// flattened in.
+  std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>
+      connectorConfigs;
+
+  /// Where each credential landed. Reported from the writes that produced the
+  /// configs above, because a credential and an ordinary setting are
+  /// indistinguishable once both are config entries.
+  velox::core::CredentialKeys credentialKeys;
+};
+
+/// Builds a task's configs from its session and extra credentials, together
+/// with a record of which entries the credentials became. Flattening the
+/// credentials into configs is a temporary solution until a more unified
 /// configuration mechanism (TokenProvider) is available.
-velox::core::QueryConfig toVeloxConfigs(
-    const protocol::SessionRepresentation& session,
-    const std::map<std::string, std::string>& extraCredentials);
+TaskConfigs toTaskConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest);
 
 std::unordered_map<std::string, std::string>
 toVeloxConfigsFromSessionProperties(
     const std::map<std::string, std::string>& sessionProperties);
-
-std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>
-toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest);
 
 } // namespace facebook::presto

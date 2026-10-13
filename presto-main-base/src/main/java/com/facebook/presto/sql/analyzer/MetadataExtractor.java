@@ -45,7 +45,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_SCHEMA;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
-import static com.facebook.presto.util.MetadataUtils.getTableColumnMetadata;
+import static com.facebook.presto.util.MetadataUtils.getTableColumnsMetadataByName;
 import static java.util.Objects.requireNonNull;
 
 public class MetadataExtractor
@@ -124,7 +124,7 @@ public class MetadataExtractor
             })));
 
             metadataHandle.addTableColumnMetadata(tableName, executor.get().submit(wrapCallableWithTraceContext(session,
-                    () -> getTableColumnMetadata(session, metadataResolver, tableName))));
+                    () -> getTableColumnsMetadataByName(session, metadataResolver, tableName))));
         });
     }
 

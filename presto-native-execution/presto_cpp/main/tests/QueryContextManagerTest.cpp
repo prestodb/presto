@@ -91,6 +91,28 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
   EXPECT_EQ(queryCtx->queryConfig().requestDataSizesMaxWaitSec(), 20);
 }
 
+TEST_F(QueryContextManagerTest, extraCredentialsReachQueryCtxAsCredentialKeys) {
+  protocol::TaskId taskId = "scan.0.0.1.0";
+  protocol::SessionRepresentation session{
+      .systemProperties = {{"preferred_output_batch_rows", "1024"}},
+      .catalogProperties = {{"hive", {{"orc_max_merge_distance", "512kB"}}}}};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.session = session;
+  updateRequest.extraCredentials["cat_token"] = "test_cat_token_value";
+
+  auto queryCtx = taskManager_->getQueryContextManager()->findOrCreateQueryCtx(
+      taskId, updateRequest);
+
+  // The credential and the ordinary property are indistinguishable in the
+  // config; only 'credentialKeys()' tells a trace which one to redact.
+  EXPECT_EQ(
+      queryCtx->queryConfig().rawConfigsCopy().at("cat_token"),
+      "test_cat_token_value");
+  EXPECT_TRUE(queryCtx->credentialKeys().isQueryConfigCredential("cat_token"));
+  EXPECT_TRUE(
+      queryCtx->credentialKeys().isConnectorCredential("hive", "cat_token"));
+}
+
 TEST_F(QueryContextManagerTest, nativeConnectorSessionProperties) {
   protocol::TaskId taskId = "scan.0.0.1.0";
   protocol::SessionRepresentation session;
@@ -299,6 +321,7 @@ TEST_F(QueryContextManagerTest, findOrCreateBatchQueryCtxWithAbortedPool) {
   protocol::SessionRepresentation session{.systemProperties = {}};
   protocol::TaskUpdateRequest updateRequest;
   updateRequest.session = session;
+  updateRequest.extraCredentials["cat_token"] = "test_cat_token_value";
   auto* queryCtxManager = taskManager_->getQueryContextManager();
 
   queryCtxManager->clearCache();
@@ -306,6 +329,7 @@ TEST_F(QueryContextManagerTest, findOrCreateBatchQueryCtxWithAbortedPool) {
       queryCtxManager->findOrCreateBatchQueryCtx(taskId, updateRequest);
   ASSERT_NE(queryCtx, nullptr);
   ASSERT_FALSE(queryCtx->pool()->aborted());
+  EXPECT_TRUE(queryCtx->credentialKeys().isQueryConfigCredential("cat_token"));
 
   const auto firstPoolName = queryCtx->pool()->name();
   ASSERT_THAT(firstPoolName, testing::HasSubstr("batch_"));
@@ -326,5 +350,7 @@ TEST_F(QueryContextManagerTest, findOrCreateBatchQueryCtxWithAbortedPool) {
   const auto newPoolName = newQueryCtx->pool()->name();
   ASSERT_THAT(newPoolName, testing::HasSubstr("batch_"));
   ASSERT_NE(firstPoolName, newPoolName);
+  EXPECT_TRUE(
+      newQueryCtx->credentialKeys().isQueryConfigCredential("cat_token"));
 }
 } // namespace facebook::presto

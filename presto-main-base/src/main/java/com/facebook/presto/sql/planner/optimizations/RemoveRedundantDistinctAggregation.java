@@ -54,24 +54,17 @@ import static java.util.Objects.requireNonNull;
 public class RemoveRedundantDistinctAggregation
         implements PlanOptimizer
 {
-    private boolean isEnabledForTesting;
-
     @Override
-    public void setEnabledForTesting(boolean isSet)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
-        isEnabledForTesting = isSet;
+        return forceEnableOptimizer || isRemoveRedundantDistinctAggregationEnabled(session);
     }
 
     @Override
-    public boolean isEnabled(Session session)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
-        return isEnabledForTesting || isRemoveRedundantDistinctAggregationEnabled(session);
-    }
-
-    @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
-    {
-        if (isEnabled(session)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             Rewriter rewriter = new RemoveRedundantDistinctAggregation.Rewriter();
             PlanWithProperties result = rewriter.accept(plan);
             return PlanOptimizerResult.optimizerResult(result.getNode(), rewriter.isPlanChanged());

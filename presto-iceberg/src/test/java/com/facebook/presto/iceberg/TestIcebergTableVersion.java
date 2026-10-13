@@ -15,30 +15,52 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.Session.SessionBuilder;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.CatalogMetadata;
+import com.facebook.presto.metadata.MetadataUtil;
+import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.connector.ConnectorTableVersion;
+import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
+import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
+import com.facebook.presto.spi.connector.classloader.ClassLoaderSafeConnectorMetadata;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 public class TestIcebergTableVersion
         extends AbstractTestQueryFramework
@@ -343,6 +365,176 @@ public class TestIcebergTableVersion
         finally {
             assertQuerySucceeds("DROP TABLE IF EXISTS " + tableName);
         }
+    }
+
+    /**
+     * One old snapshot can be requested in two ways, and the two are equivalent:
+     * "SELECT ... FROM t FOR VERSION AS OF 123" and "SELECT ... FROM \"t@123\"".
+     *
+     * A table must not be modified while its past is being read. Rows cannot be deleted from an old
+     * snapshot, because an old snapshot is history and is never edited by Iceberg; only a new
+     * snapshot is added on top of the current one. That refusal is implemented by beginDelete and
+     * supportsMetadataDelete, and both decide it by asking the table handle whether one old snapshot
+     * is being read.
+     *
+     * The question used to be answered correctly by the handle for "t@123" but not for
+     * FOR VERSION AS OF, so a delete through "t@123" was refused while one through
+     * FOR VERSION AS OF was not.
+     *
+     * The two methods are called directly by this test. A DELETE statement cannot be used, because
+     * AS OF is allowed by the grammar only on a table that is selected from, never on DELETE, UPDATE
+     * or MERGE.
+     */
+    @Test
+    public void testDeleteIsRefusedForOldSnapshot()
+            throws Exception
+    {
+        TransactionId transactionId = getQueryRunner().getTransactionManager().beginTransaction(false);
+        try {
+            Session session = Session.builder(getSession())
+                    .setTransactionId(transactionId)
+                    .build();
+            QualifiedObjectName name = QualifiedObjectName.valueOf(session.getCatalog().get(), schemaName, tab2);
+
+            TableHandle newestData = handleFor(session, name, Optional.empty());
+            IcebergAbstractMetadata metadata = icebergMetadata(session, newestData);
+            ConnectorSession connectorSession = session.toConnectorSession(newestData.getConnectorId());
+
+            // Deleting from the table as it is now is allowed.
+            assertTrue(
+                    metadata.supportsMetadataDelete(connectorSession, newestData.getConnectorHandle(), Optional.empty()),
+                    "a table read with no AS OF can be deleted from");
+
+            // Deleting from one old snapshot is not, whichever way you asked for that snapshot.
+            // The "tab2@id" name is the way that already worked; the version expressions are the
+            // ones this fix is about. All four must be refused the same way.
+            assertDeleteIsRefused(metadata, connectorSession,
+                    handleFor(session, QualifiedObjectName.valueOf(session.getCatalog().get(), schemaName, tab2 + "@" + tab2VersionId1), Optional.empty()),
+                    "the table name \"" + tab2 + "@" + tab2VersionId1 + "\"");
+
+            for (ConnectorTableVersion version : versionsThatPickOneSnapshot()) {
+                assertDeleteIsRefused(metadata, connectorSession, handleFor(session, name, Optional.of(version)), version.toString());
+            }
+        }
+        finally {
+            getQueryRunner().getTransactionManager().asyncAbort(transactionId);
+        }
+    }
+
+    private void assertDeleteIsRefused(IcebergAbstractMetadata metadata, ConnectorSession session, TableHandle handle, String askedBy)
+    {
+        ConnectorTableHandle connectorHandle = handle.getConnectorHandle();
+
+        assertFalse(
+                metadata.supportsMetadataDelete(session, connectorHandle, Optional.empty()),
+                "metadata delete must be refused when the snapshot was picked by " + askedBy);
+
+        PrestoException e = expectThrows(PrestoException.class, () -> metadata.beginDelete(session, connectorHandle));
+        assertEquals(
+                e.getErrorCode(),
+                NOT_SUPPORTED.toErrorCode(),
+                "delete must be refused when the snapshot was picked by " + askedBy);
+    }
+
+    /**
+     * The three ways a query can pick one snapshot. The last one picks by time and lands on the
+     * newest snapshot, which still counts as picking one: the query asked for a fixed point in
+     * time, not for whatever happens to be newest.
+     */
+    private List<ConnectorTableVersion> versionsThatPickOneSnapshot()
+    {
+        return ImmutableList.of(
+                new ConnectorTableVersion(VersionType.VERSION, VersionOperator.EQUAL, BIGINT, tab2VersionId1),
+                new ConnectorTableVersion(VersionType.VERSION, VersionOperator.LESS_THAN, BIGINT, tab2VersionId2),
+                new ConnectorTableVersion(VersionType.TIMESTAMP, VersionOperator.EQUAL, BIGINT, System.currentTimeMillis()));
+    }
+
+    private TableHandle handleFor(Session session, QualifiedObjectName name, Optional<ConnectorTableVersion> tableVersion)
+    {
+        return MetadataUtil.getOptionalTableHandle(session, getQueryRunner().getTransactionManager(), name, tableVersion)
+                .orElseThrow(() -> new AssertionError("no table handle for " + name));
+    }
+
+    /**
+     * The metadata we get from the transaction is wrapped, and the wrapper only forwards SPI calls.
+     * The two methods under test are SPI calls, but they need an IcebergTableHandle, so unwrap to
+     * reach the Iceberg metadata itself.
+     */
+    private IcebergAbstractMetadata icebergMetadata(Session session, TableHandle handle)
+            throws Exception
+    {
+        CatalogMetadata catalogMetadata = getQueryRunner().getTransactionManager()
+                .getCatalogMetadata(session.getTransactionId().get(), handle.getConnectorId());
+        Field delegate = ClassLoaderSafeConnectorMetadata.class.getDeclaredField("delegate");
+        delegate.setAccessible(true);
+        return (IcebergAbstractMetadata) delegate.get(catalogMetadata.getMetadataFor(handle.getConnectorId()));
+    }
+
+    @Test
+    public void testTableVersionWithSchemaEvolution()
+    {
+        String dropTable = "test_tt_evolution_drop";
+        String addTable = "test_tt_evolution_add";
+        String renameTable = "test_tt_evolution_rename";
+
+        try {
+            // A schema change writes new table metadata without creating a new snapshot, so the
+            // snapshots below are the ones taken before each ALTER, and each records its own schema.
+            assertUpdate("CREATE TABLE " + schemaName + "." + dropTable + " (a integer, b integer)");
+            assertUpdate("INSERT INTO " + schemaName + "." + dropTable + " VALUES (1, 2)", 1);
+            long dropVersion = getLatestSnapshotId(dropTable);
+            assertUpdate("ALTER TABLE " + schemaName + "." + dropTable + " DROP COLUMN b");
+
+            assertUpdate("CREATE TABLE " + schemaName + "." + addTable + " (a integer)");
+            assertUpdate("INSERT INTO " + schemaName + "." + addTable + " VALUES 1", 1);
+            long addVersion = getLatestSnapshotId(addTable);
+            assertUpdate("ALTER TABLE " + schemaName + "." + addTable + " ADD COLUMN c integer");
+
+            assertUpdate("CREATE TABLE " + schemaName + "." + renameTable + " (a integer, b integer)");
+            assertUpdate("INSERT INTO " + schemaName + "." + renameTable + " VALUES (1, 2)", 1);
+            long renameVersion = getLatestSnapshotId(renameTable);
+            assertUpdate("ALTER TABLE " + schemaName + "." + renameTable + " RENAME COLUMN b TO b_renamed");
+
+            // Iceberg keeps data history and schema apart. A snapshot is a set of data files;
+            // the schema lives in the table metadata. ALTER TABLE writes new table metadata and
+            // makes no new snapshot, so the table still has exactly the one snapshot the INSERT
+            // made, and that snapshot is still the newest one.
+            assertQuery("SELECT count(*) FROM " + schemaName + ".\"" + dropTable + "$snapshots\"", "VALUES 1");
+            assertEquals(getLatestSnapshotId(dropTable), dropVersion, "DROP COLUMN must not create a snapshot");
+
+            // Control: the current schema of each table reflects the ALTER.
+            assertQuery("SELECT * FROM " + schemaName + "." + dropTable, "VALUES 1");
+            assertQuery("SELECT * FROM " + schemaName + "." + addTable, "VALUES (1, null)");
+            assertQuery("SELECT b_renamed FROM " + schemaName + "." + renameTable, "VALUES 2");
+
+            // A dropped column is still part of the schema of the snapshot that predates the drop,
+            // and its values are still in that snapshot's data files.
+            assertColumnCount("SELECT * FROM " + schemaName + "." + dropTable + " FOR VERSION AS OF " + dropVersion, 2,
+                    "snapshot " + dropVersion + " was written with columns (a, b)");
+            assertQuery("SELECT * FROM " + schemaName + "." + dropTable + " FOR VERSION AS OF " + dropVersion, "VALUES (1, 2)");
+            assertQuery("SELECT b FROM " + schemaName + "." + dropTable + " FOR VERSION AS OF " + dropVersion, "VALUES 2");
+
+            // A column added after a snapshot is not part of that snapshot's schema.
+            assertColumnCount("SELECT * FROM " + schemaName + "." + addTable + " FOR VERSION AS OF " + addVersion, 1,
+                    "column c did not exist yet at snapshot " + addVersion);
+            assertQuery("SELECT * FROM " + schemaName + "." + addTable + " FOR VERSION AS OF " + addVersion, "VALUES 1");
+            assertQueryFails("SELECT c FROM " + schemaName + "." + addTable + " FOR VERSION AS OF " + addVersion, ".*Column 'c' cannot be resolved.*");
+
+            // A snapshot that predates a rename knows the column by its old name only.
+            assertQuery("SELECT b FROM " + schemaName + "." + renameTable + " FOR VERSION AS OF " + renameVersion, "VALUES 2");
+            assertQueryFails("SELECT b_renamed FROM " + schemaName + "." + renameTable + " FOR VERSION AS OF " + renameVersion, ".*Column 'b_renamed' cannot be resolved.*");
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + schemaName + "." + dropTable);
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + schemaName + "." + addTable);
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + schemaName + "." + renameTable);
+        }
+    }
+
+    private void assertColumnCount(String sql, int expected, String why)
+    {
+        List<Type> types = computeActual(sql).getTypes();
+        assertEquals(types.size(), expected, why + ", but the read returned " + types);
     }
 
     @Test

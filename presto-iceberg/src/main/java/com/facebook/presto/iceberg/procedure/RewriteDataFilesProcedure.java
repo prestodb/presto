@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg.procedure;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.hive.BaseHiveColumnHandle;
 import com.facebook.presto.iceberg.CommitTaskData;
 import com.facebook.presto.iceberg.IcebergAbstractMetadata;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
@@ -67,6 +68,7 @@ import java.util.Set;
 
 import static com.facebook.presto.common.Utils.checkArgument;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
+import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.getSupportedSortFields;
 import static com.facebook.presto.iceberg.IcebergMetadataColumn.Z_ORDER;
@@ -89,6 +91,7 @@ import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProce
 import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.extractSortFieldStrings;
 import static com.facebook.presto.spi.procedure.TableDataRewriteDistributedProcedure.extractZOrderColumns;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -192,12 +195,27 @@ public class RewriteDataFilesProcedure
 
     private ConnectorDistributedProcedureHandle beginCallDistributedProcedure(ConnectorSession session, IcebergRewriteDataFilesProcedureContext procedureContext, IcebergTableLayoutHandle layoutHandle, Object[] arguments, OptionalInt sortOrderIndex)
     {
-        if (layoutHandle.isPushdownFilterEnabled()) {
-            throw new PrestoException(NOT_SUPPORTED,
-                    "Cannot execute rewrite_data_files when native-only filter push down is enabled.");
-        }
-
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+            if (layoutHandle.isPushdownFilterEnabled()) {
+                Set<String> partitionColumnNames = layoutHandle.getPartitionColumns().stream()
+                        .map(BaseHiveColumnHandle::getName)
+                        .collect(toImmutableSet());
+                // Check domainPredicate directly (not getValidPredicate) so that subfield
+                // predicates like c3.a=5 are also caught — getValidPredicate drops them.
+                boolean hasNonPartitionDomainPredicate = layoutHandle.getDomainPredicate()
+                        .getDomains()
+                        .map(domains -> domains.keySet().stream()
+                                .anyMatch(subfield -> !partitionColumnNames.contains(subfield.getRootName())))
+                        .orElse(false);
+                // Check remainingPredicate for complex expressions like lower(c2)='bar' that
+                // could not be expressed as domain predicates and are pushed to Velox as-is.
+                boolean hasRemainingPredicate = !layoutHandle.getRemainingPredicate().equals(TRUE_CONSTANT);
+                if (hasNonPartitionDomainPredicate || hasRemainingPredicate) {
+                    throw new PrestoException(NOT_SUPPORTED,
+                            "rewrite_data_files with a non-partition column filter is not supported when pushdown_filter_enabled=true");
+                }
+            }
+
             Table icebergTable = procedureContext.getTable();
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 

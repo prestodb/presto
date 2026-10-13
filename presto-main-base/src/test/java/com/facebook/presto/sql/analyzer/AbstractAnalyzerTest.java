@@ -114,6 +114,8 @@ import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_O
 import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_WITH_SUBFIELDS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
@@ -469,6 +471,71 @@ public class AbstractAnalyzerTest
                 new SchemaTableName("s1", "v_char_varchar_stale"),
                 ImmutableList.of(ColumnMetadata.builder().setName("b").setType(CharType.createCharType(3)).build()));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataCharVarcharStale, viewDataCharVarcharStale, false));
+
+        String viewDataTimestampZoneForward = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select CAST(null AS TIMESTAMP) a",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("a", TIMESTAMP_WITH_TIME_ZONE)),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataTimestampZoneForward = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_timestamp_zone_forward"),
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(TIMESTAMP_WITH_TIME_ZONE).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataTimestampZoneForward, viewDataTimestampZoneForward, false));
+
+        String viewDataTimestampZoneReverse = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select CAST(null AS TIMESTAMP WITH TIME ZONE) a",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("a", TIMESTAMP)),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataTimestampZoneReverse = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_timestamp_zone_reverse"),
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(TIMESTAMP).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataTimestampZoneReverse, viewDataTimestampZoneReverse, false));
+
+        String viewDataTimestampZoneNested = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select CAST(null AS ARRAY(TIMESTAMP)) a",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("a", new ArrayType(TIMESTAMP_WITH_TIME_ZONE))),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataTimestampZoneNested = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_timestamp_zone_nested"),
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(new ArrayType(TIMESTAMP_WITH_TIME_ZONE)).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataTimestampZoneNested, viewDataTimestampZoneNested, false));
+
+        String viewDataTimestampZoneMatch = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select CAST(null AS TIMESTAMP WITH TIME ZONE) a",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("a", TIMESTAMP_WITH_TIME_ZONE)),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataTimestampZoneMatch = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_timestamp_zone_match"),
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(TIMESTAMP_WITH_TIME_ZONE).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataTimestampZoneMatch, viewDataTimestampZoneMatch, false));
+
+        String viewDataAtTimeZoneNonLegacy = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select TIMESTAMP '2020-06-15 12:00:00 UTC' AT TIME ZONE 'America/Los_Angeles' a",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("a", TIMESTAMP)),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataAtTimeZoneNonLegacy = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_at_timezone_nonlegacy"),
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(TIMESTAMP).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataAtTimeZoneNonLegacy, viewDataAtTimeZoneNonLegacy, false));
 
         // view referencing table in different schema from itself and session
         String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(

@@ -195,15 +195,16 @@ public class AddExchanges
     }
 
     @Override
-    public boolean isEnabled(Session session)
+    public boolean isEnabled(Session session, boolean forceEnableOptimizer)
     {
         return !isSingleNodeExecutionEnabled(session);
     }
 
     @Override
-    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
+    public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
+                                        PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
-        if (isEnabled(session)) {
+        if (isEnabled(session, forceEnableOptimizer)) {
             PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, session, partitioningProviderManager, nativeExecution).accept(plan, PreferredProperties.any());
             boolean optimizerTriggered = PlanNodeSearcher.searchFrom(result.getNode()).where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote()).findFirst().isPresent();
             return PlanOptimizerResult.optimizerResult(result.getNode(), optimizerTriggered);

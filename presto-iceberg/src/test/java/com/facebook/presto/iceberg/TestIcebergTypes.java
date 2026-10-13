@@ -382,4 +382,27 @@ public class TestIcebergTypes
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
+
+    @Test
+    public void testArrayAndMapOfStructWithHyphenatedFieldNames()
+    {
+        String tableName = "test_array_map_hyphenated";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (" +
+                    "id INT, " +
+                    "items ARRAY(ROW(\"item-id\" INT, \"item-name\" VARCHAR)), " +
+                    "mapping MAP(VARCHAR, ROW(\"entry-val\" VARCHAR))" +
+                    ")");
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES " +
+                    "(1, ARRAY[ROW(10, 'widget')], MAP(ARRAY['k1'], ARRAY[ROW('val1')]))", 1);
+
+            assertQuery(
+                    "SELECT id, items[1].\"item-id\", items[1].\"item-name\", mapping['k1'].\"entry-val\" FROM " + tableName,
+                    "VALUES (1, 10, 'widget', 'val1')");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
 }

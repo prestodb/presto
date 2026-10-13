@@ -62,6 +62,7 @@ public class HiveCommonSessionProperties
     private static final String PARQUET_MAX_READ_BLOCK_SIZE = "parquet_max_read_block_size";
     private static final String PARQUET_USE_COLUMN_NAMES = "parquet_use_column_names";
     public static final String READ_MASKED_VALUE_ENABLED = "read_null_masked_parquet_encrypted_value_enabled";
+    public static final String READ_NULL_FOR_OUT_OF_BOUNDS_TIMESTAMP = "read_null_for_out_of_bounds_timestamp";
     public static final String AFFINITY_SCHEDULING_FILE_SECTION_SIZE = "affinity_scheduling_file_section_size";
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -185,6 +186,11 @@ public class HiveCommonSessionProperties
                         "Return null when access is denied for an encrypted parquet column",
                         hiveCommonClientConfig.getReadNullMaskedParquetEncryptedValue(),
                         false),
+                booleanProperty(
+                        READ_NULL_FOR_OUT_OF_BOUNDS_TIMESTAMP,
+                        "Return null instead of failing the read when a timestamp value is outside the supported range",
+                        hiveCommonClientConfig.getReadNullForOutOfBoundsTimestamp(),
+                        false),
                 dataSizeSessionProperty(
                         AFFINITY_SCHEDULING_FILE_SECTION_SIZE,
                         "Size of file section for affinity scheduling",
@@ -302,6 +308,11 @@ public class HiveCommonSessionProperties
     public static boolean getReadNullMaskedParquetEncryptedValue(ConnectorSession session)
     {
         return session.getProperty(READ_MASKED_VALUE_ENABLED, Boolean.class);
+    }
+
+    public static boolean isReadNullForOutOfBoundsTimestamp(ConnectorSession session)
+    {
+        return session.getProperty(READ_NULL_FOR_OUT_OF_BOUNDS_TIMESTAMP, Boolean.class);
     }
 
     public static PropertyMetadata<DataSize> dataSizeSessionProperty(String name, String description, DataSize defaultValue, boolean hidden)
