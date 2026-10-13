@@ -16,7 +16,9 @@ package com.facebook.presto.flightshim;
 import com.facebook.presto.Session;
 import com.facebook.presto.cassandra.CassandraPlugin;
 import com.facebook.presto.cassandra.CassandraServer;
+import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.testing.MaterializedResult;
+import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,27 +27,48 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Optional;
 import org.testng.annotations.Test;
 
+import java.nio.ByteBuffer;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPES;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.createKeyspace;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.createTableAllTypes;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createJavaQueryRunner;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createNativeQueryRunner;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
+import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static com.google.common.primitives.Ints.toByteArray;
+import static java.util.stream.Collectors.toList;
 
 public class TestArrowFederationNativeQueriesCassandra
         extends AbstractTestArrowFederationNativeQueries
 {
     private static final String CONNECTOR_ID = "cassandra";
     private static final String PLUGIN_BUNDLES = "../presto-cassandra/pom.xml";
+    private static final Date DATE_TIME_LOCAL = Date.from(
+            ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneOffset.UTC).toInstant());
+    private static final ZonedDateTime TIMESTAMP_VALUE =
+            ZonedDateTime.of(1970, 1, 1, 3, 4, 5, 0, ZoneId.of("UTC"));
 
     private final CassandraServer cassandraServer;
 
@@ -90,6 +113,15 @@ public class TestArrowFederationNativeQueriesCassandra
             queryRunner.installPlugin(new CassandraPlugin());
             queryRunner.createCatalog(CONNECTOR_ID, CONNECTOR_ID, getConnectorProperties());
             createTpchTables(getSession(), cassandraServer, queryRunner);
+
+            // Add test data for testDataTypesTable
+            createTableAllTypes(
+                    cassandraServer.getSession(),
+                    cassandraServer.getMetadata(),
+                    new SchemaTableName("tpch", TABLE_ALL_TYPES),
+                    DATE_TIME_LOCAL,
+                    9);
+
             queryRunner.close();
         }
         catch (Exception e) {
@@ -140,6 +172,82 @@ public class TestArrowFederationNativeQueriesCassandra
     protected boolean supportsNotNullColumns()
     {
         return false;
+    }
+
+    @Test
+    public void testDataTypesTable()
+    {
+        String sql = "SELECT "
+                + " key, "
+                + " typeinteger, "
+                + " typelong, "
+                + " typebytes, "
+                + " typetimestamp, "
+                + " typeboolean, "
+                + " typedecimal, "
+                + " typedouble, "
+                + " typefloat, "
+                + " typevarchar, "
+                + " typelist, "
+                + " typemap, "
+                + " typeset "
+                + " FROM " + TABLE_ALL_TYPES;
+
+        MaterializedResult result = getQueryRunner().execute(sql);
+
+        int rowCount = result.getRowCount();
+        assertEquals(rowCount, 9);
+        assertEquals(
+                result.getTypes(),
+                ImmutableList.of(
+                        createUnboundedVarcharType(),
+                        INTEGER,
+                        BIGINT,
+                        VARBINARY,
+                        TIMESTAMP_WITH_TIME_ZONE,
+                        BOOLEAN,
+                        DOUBLE,
+                        DOUBLE,
+                        REAL,
+                        createUnboundedVarcharType(),
+                        createUnboundedVarcharType(),
+                        createUnboundedVarcharType(),
+                        createUnboundedVarcharType()));
+
+        List<MaterializedRow> sortedRows =
+                result.getMaterializedRows()
+                        .stream()
+                        .sorted(
+                                (o1, o2)
+                                        -> o1.getField(0).toString().compareTo(
+                                        o2.getField(0).toString()))
+                        .collect(toList());
+
+        for (int rowNumber = 1; rowNumber <= rowCount; rowNumber++) {
+            assertEquals(
+                    sortedRows.get(rowNumber - 1),
+                    new MaterializedRow(
+                            DEFAULT_PRECISION,
+                            "key " + rowNumber,
+                            rowNumber,
+                            rowNumber + 1000L,
+                            ByteBuffer.wrap(toByteArray(rowNumber)),
+                            TIMESTAMP_VALUE,
+                            rowNumber % 2 == 0,
+                            Math.pow(2, rowNumber),
+                            Math.pow(4, rowNumber),
+                            (float) Math.pow(8, rowNumber),
+                            "varchar " + rowNumber,
+                            String.format(
+                                    "[\"list-value-1%1$d\",\"list-value-2%1$d\"]", rowNumber),
+                            String.format(
+                                    "{%d:%d,%d:%d}",
+                                    rowNumber,
+                                    rowNumber + 1L,
+                                    rowNumber + 2,
+                                    rowNumber + 3L),
+                            "[false,true]"));
+        }
     }
 
     public void testJoinWithLessThanOnDatesInJoinClause()
