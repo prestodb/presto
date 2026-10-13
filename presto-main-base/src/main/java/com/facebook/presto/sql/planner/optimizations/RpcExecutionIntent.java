@@ -20,8 +20,8 @@ import com.facebook.presto.sql.planner.plan.RPCNode;
 import static java.util.Objects.requireNonNull;
 
 /**
- * The planning intent for a single RPC function call: the requested streaming mode plus the
- * context a policy may use to resolve it.
+ * The planning intent for a single RPC function call: the requested execution mode (a mechanism
+ * or an objective) plus the context a policy may use to resolve it.
  *
  * This is the input to {@link RpcExecutionPolicy#translateIntent}. It is built via {@link
  * #builder} and is intentionally growable — new context fields can be added here (a new builder
@@ -34,13 +34,13 @@ import static java.util.Objects.requireNonNull;
  */
 public class RpcExecutionIntent
 {
-    private final RPCNode.StreamingMode requestedMode;
+    private final RpcExecutionMode requestedMode;
     private final PlanNodeStatsEstimate inputStats;
     private final Session session;
     private final String functionName;
 
     private RpcExecutionIntent(
-            RPCNode.StreamingMode requestedMode,
+            RpcExecutionMode requestedMode,
             PlanNodeStatsEstimate inputStats,
             Session session,
             String functionName)
@@ -52,9 +52,10 @@ public class RpcExecutionIntent
     }
 
     /**
-     * The streaming mode requested for the call (PER_ROW, BATCH, or AUTOMATIC).
+     * The requested dispatch mode — an explicit mechanism (PER_ROW/BATCH) or an objective
+     * (LATENCY/THROUGHPUT/COST/AUTOMATIC) the policy resolves to a concrete streaming mode.
      */
-    public RPCNode.StreamingMode getRequestedMode()
+    public RpcExecutionMode getRequestedMode()
     {
         return requestedMode;
     }
@@ -89,12 +90,12 @@ public class RpcExecutionIntent
 
     public static class Builder
     {
-        private RPCNode.StreamingMode requestedMode;
+        private RpcExecutionMode requestedMode;
         private PlanNodeStatsEstimate inputStats = PlanNodeStatsEstimate.unknown();
         private Session session;
         private String functionName;
 
-        public Builder setRequestedMode(RPCNode.StreamingMode requestedMode)
+        public Builder setRequestedMode(RpcExecutionMode requestedMode)
         {
             this.requestedMode = requestedMode;
             return this;
