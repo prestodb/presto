@@ -240,14 +240,12 @@ public class TestNativeIcebergEqualityDeletes
         Path path = new Path(metadataDir, deleteFileName);
         PositionDeleteWriter<Record> writer = Parquet.writeDeletes(HadoopOutputFile.fromPath(path, fs))
                 .createWriterFunc(GenericParquetWriter::create)
-                .forTable(icebergTable)
                 .overwrite()
-                .rowSchema(icebergTable.schema())
                 .withSpec(PartitionSpec.unpartitioned())
                 .buildPositionWriter();
 
         PositionDelete<Record> positionDelete = PositionDelete.create();
-        PositionDelete<Record> record = positionDelete.set(dataFilePath, deletePos, GenericRecord.create(icebergTable.schema()));
+        PositionDelete<Record> record = positionDelete.set(dataFilePath, deletePos);
         try (Closeable ignored = writer) {
             writer.write(record);
         }

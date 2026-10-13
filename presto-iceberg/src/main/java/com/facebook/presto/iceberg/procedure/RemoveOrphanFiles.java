@@ -223,7 +223,7 @@ public class RemoveOrphanFiles
     {
         switch (manifest.content()) {
             case DATA:
-                return ManifestFiles.read(manifest, table.io());
+                return ManifestFiles.read(manifest, table.io(), table.specs());
             case DELETES:
                 return ManifestFiles.readDeleteManifest(manifest, table.io(), table.specs());
             default:
