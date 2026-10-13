@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
@@ -40,13 +41,13 @@ public class ClickHousePageSinkProvider
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle tableHandle, PageSinkContext pageSinkContext)
     {
         checkArgument(!pageSinkContext.isCommitRequired(), "ClickHouse connector does not support page sink commit");
-        return new ClickHousePageSink(session, (ClickHouseOutputTableHandle) tableHandle, clickHouseClient);
+        return new ClickHousePageSink(session, (JdbcOutputTableHandle) tableHandle, clickHouseClient);
     }
 
     @Override
     public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle tableHandle, PageSinkContext pageSinkContext)
     {
         checkArgument(!pageSinkContext.isCommitRequired(), "ClickHouse connector does not support page sink commit");
-        return new ClickHousePageSink(session, (ClickHouseOutputTableHandle) tableHandle, clickHouseClient);
+        return new ClickHousePageSink(session, (JdbcOutputTableHandle) tableHandle, clickHouseClient);
     }
 }

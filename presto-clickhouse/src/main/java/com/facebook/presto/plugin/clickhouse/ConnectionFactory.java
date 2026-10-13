@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.facebook.presto.plugin.jdbc.JdbcIdentity;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 
@@ -20,7 +22,7 @@ import java.sql.SQLException;
 public interface ConnectionFactory
         extends AutoCloseable
 {
-    Connection openConnection(ClickHouseIdentity identity)
+    Connection openConnection(JdbcIdentity identity)
             throws SQLException;
 
     @Override

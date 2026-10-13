@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.plugin.clickhouse;
 
+import com.clickhouse.jdbc.ClickHouseDriver;
 import com.facebook.presto.plugin.clickhouse.optimization.ClickHouseQueryGenerator;
+import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.google.inject.Binder;
@@ -22,7 +24,6 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
-import ru.yandex.clickhouse.ClickHouseDriver;
 
 import java.sql.SQLException;
 
@@ -46,6 +47,7 @@ public class ClickHouseModule
     {
         newOptionalBinder(binder, ConnectorAccessControl.class);
         newSetBinder(binder, Procedure.class);
+        binder.bind(JdbcConnectorId.class).toInstance(new JdbcConnectorId(connectorId));
         binder.bind(ClickHouseConnectorId.class).toInstance(new ClickHouseConnectorId(connectorId));
         binder.bind(ClickHouseMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(ClickHouseClient.class).in(Scopes.SINGLETON);

@@ -16,8 +16,8 @@ package com.facebook.presto.plugin.clickhouse.optimization;
 import com.facebook.presto.expressions.LogicalRowExpressions;
 import com.facebook.presto.expressions.translator.TranslatedExpression;
 import com.facebook.presto.plugin.clickhouse.ClickHouseColumnHandle;
-import com.facebook.presto.plugin.clickhouse.ClickHouseTableHandle;
 import com.facebook.presto.plugin.clickhouse.ClickHouseTableLayoutHandle;
+import com.facebook.presto.plugin.jdbc.JdbcTableHandle;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPlanOptimizer;
 import com.facebook.presto.spi.ConnectorSession;
@@ -121,13 +121,13 @@ public class ClickHouseComputePushdown
         }
     }
 
-    private static Optional<ClickHouseTableHandle> getClickHouseTableHandle(TableScanNode tableScanNode)
+    private static Optional<JdbcTableHandle> getJdbcTableHandle(TableScanNode tableScanNode)
     {
         TableHandle table = tableScanNode.getTable();
         if (table != null) {
             ConnectorTableHandle connectorHandle = table.getConnectorHandle();
-            if (connectorHandle instanceof ClickHouseTableHandle) {
-                return Optional.of((ClickHouseTableHandle) connectorHandle);
+            if (connectorHandle instanceof JdbcTableHandle) {
+                return Optional.of((JdbcTableHandle) connectorHandle);
             }
         }
         return Optional.empty();
@@ -155,7 +155,7 @@ public class ClickHouseComputePushdown
             this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.tableScanNodes = tableScanNodes;
-            tableScanNodes.forEach((key, value) -> getClickHouseTableHandle(value).get().getTableName());
+            tableScanNodes.forEach((key, value) -> getJdbcTableHandle(value).get().getTableName());
         }
 
         private Optional<PlanNode> tryCreatingNewScanNode(PlanNode plan)
@@ -171,11 +171,11 @@ public class ClickHouseComputePushdown
             }
 
             final TableScanNode tableScanNode = tableScanNodes.get(tableScanNodeId);
-            ClickHouseTableHandle clickHouseTableHandle = getClickHouseTableHandle(tableScanNode).orElseThrow(() -> new PrestoException(CLICKHOUSE_QUERY_GENERATOR_FAILURE, "Expected to find a clickhouse table handle"));
+            JdbcTableHandle clickHouseTableHandle = getJdbcTableHandle(tableScanNode).orElseThrow(() -> new PrestoException(CLICKHOUSE_QUERY_GENERATOR_FAILURE, "Expected to find a clickhouse table handle"));
             TableHandle oldTableHandle = tableScanNode.getTable();
             Map<VariableReferenceExpression, ClickHouseColumnHandle> assignments = context.getAssignments();
 
-            ClickHouseTableHandle oldConnectorTable = (ClickHouseTableHandle) oldTableHandle.getConnectorHandle();
+            JdbcTableHandle oldConnectorTable = (JdbcTableHandle) oldTableHandle.getConnectorHandle();
             ClickHouseTableLayoutHandle oldTableLayoutHandle = (ClickHouseTableLayoutHandle) oldTableHandle.getLayout().get();
             ClickHouseTableLayoutHandle newTableLayoutHandle = new ClickHouseTableLayoutHandle(
                     oldConnectorTable,
@@ -184,7 +184,7 @@ public class ClickHouseComputePushdown
 
             TableHandle newTableHandle = new TableHandle(
                     oldTableHandle.getConnectorId(),
-                    new ClickHouseTableHandle(clickHouseTableHandle.getConnectorId(),
+                    new JdbcTableHandle(clickHouseTableHandle.getConnectorId(),
                             new SchemaTableName(clickHouseTableHandle.getSchemaName(), clickHouseTableHandle.getTableName()),
                             null,
                             clickHouseTableHandle.getSchemaName(),
@@ -255,7 +255,7 @@ public class ClickHouseComputePushdown
 
             TableScanNode oldTableScanNode = (TableScanNode) node.getSource();
             TableHandle oldTableHandle = oldTableScanNode.getTable();
-            ClickHouseTableHandle oldConnectorTable = (ClickHouseTableHandle) oldTableHandle.getConnectorHandle();
+            JdbcTableHandle oldConnectorTable = (JdbcTableHandle) oldTableHandle.getConnectorHandle();
 
             RowExpression predicate = rowExpressionService.getExpressionOptimizer(session).optimize(node.getPredicate(), OPTIMIZED, session);
             predicate = logicalRowExpressions.convertToConjunctiveNormalForm(predicate);
