@@ -254,6 +254,40 @@ Presto ``json_extract`` can return `JSON that is not canonicalized <https://gith
 ``json_extract`` has been rewritten in Presto C++ to always return canonical JSON.
 
 
+Map Functions
+-------------
+
+map_top_n_keys and map_top_n_values with lambda
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+When the native sidecar is enabled, ``map_top_n_keys(map(K,V), n, function(K,V,U))`` and
+``map_top_n_values(map(K,V), n, function(K,V,U))`` accept a transform lambda instead of
+the comparator lambda ``function(K,K,int)`` or ``function(V,V,int)`` that Presto accepts.
+The lambda is applied to each ``(key, value)`` entry of the map, and entries are ranked by
+the lambda result in descending order. For the reasons transform lambdas are used instead of
+comparators, see `Sorting arrays <https://velox-lib.io/blog/array-sort/>`_.
+
+A comparator lambda is not rejected. When the key and value types are the same, it is
+evaluated as a transform over ``(key, value)`` and returns a different result than Presto.
+For example, the following query returns ``[1]`` in Presto and ``[2]`` in Presto C++:
+
+.. code-block:: sql
+
+   SELECT map_top_n_keys(MAP(ARRAY[1, 2, 3], ARRAY[0, 5, 3]), 1,
+       (x, y) -> IF(x < y, 1, IF(x > y, -1, 0)))
+
+To run in Presto C++, rewrite the comparator as a transform lambda. For example:
+
+.. code-block:: sql
+
+   -- Rank keys by the key.
+   SELECT map_top_n_keys(m, 2, (k, v) -> k)
+
+   -- Rank values by the value.
+   SELECT map_top_n_values(m, 2, (k, v) -> v)
+
+When the native sidecar is disabled, these functions accept only the comparator lambda.
+
+
 Regex Functions
 ---------------
 
