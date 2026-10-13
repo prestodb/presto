@@ -442,23 +442,7 @@ public class MySqlClient
         }
         JdbcIdentity identity = JdbcIdentity.from(session);
         try (Connection connection = connectionFactory.openConnection(identity)) {
-            DatabaseMetaData metadata = connection.getMetaData();
-            Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
-            try (ResultSet resultSet = metadata.getTables(
-                    schemaName.orElse(null),
-                    null,
-                    escapeNamePattern(Optional.empty(), escape).orElse(null),
-                    new String[] {"VIEW"})) {
-                ImmutableList.Builder<SchemaTableName> builder = ImmutableList.builder();
-                while (resultSet.next()) {
-                    String tableName = resultSet.getString("TABLE_NAME");
-                    String schema = schemaName.orElse(resultSet.getString("TABLE_CAT"));
-                    builder.add(new SchemaTableName(
-                            normalizeIdentifier(session, schema),
-                            normalizeIdentifier(session, tableName)));
-                }
-                return builder.build();
-            }
+Can we use the `listRemoteViews` method here instead?
         }
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
