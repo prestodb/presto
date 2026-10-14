@@ -763,6 +763,11 @@ public abstract class TestIcebergDistributedQueries
     @Test
     public void testMultipleConcurrentUpdatesOnTheSameRow()
     {
+        multiConcurrentUpdatesOnTheSameRow("Found new conflicting delete files that can apply to records matching .*");
+    }
+
+    protected void multiConcurrentUpdatesOnTheSameRow(String commitErrorMessage)
+    {
         Session session = getQueryRunner().getDefaultSession();
         String tableName = "multiple_concurrent_updates_on_same_row";
         assertUpdate(session, format("create table %s(a int, b varchar) with(partitioning = ARRAY['a'])", tableName));
@@ -779,8 +784,7 @@ public abstract class TestIcebergDistributedQueries
                 "values(1, '1201'), (2, '1002')");
 
         // transaction2 commission always failed with conflicting delete files
-        assertQueryFails(txnSession2, "commit",
-                "Found new conflicting delete files that can apply to records matching .*");
+        assertQueryFails(txnSession2, "commit", commitErrorMessage);
 
         assertQuery(session1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
         assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1002')");
