@@ -274,6 +274,12 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    {
+        delegate.addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+    }
+
+    @Override
     public void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue)
     {
         delegate.setColumnDefault(session, tableHandle, columnName, defaultValue);
@@ -449,9 +455,9 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns, Optional<RowExpression> updateScope)
     {
-        return delegate.beginUpdate(session, tableHandle, updatedColumns);
+        return delegate.beginUpdate(session, tableHandle, updatedColumns, updateScope);
     }
 
     @Override

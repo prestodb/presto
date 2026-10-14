@@ -448,6 +448,16 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Add a field to a nested struct column.
+     * {@code parentPath} is the dotted path to the parent struct (e.g. ["col"] or ["col", "nested"]).
+     * {@code fieldName} is the name of the new field to add inside that struct.
+     */
+    default void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding nested fields");
+    }
+
+    /**
      * Rename the specified column
      */
     default void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
@@ -733,6 +743,16 @@ public interface ConnectorMetadata
     {
         finishDelete(session, tableHandle, fragments);
         return Optional.empty();
+    }
+
+    /**
+     * Begin update query, carrying the update predicate scope: the {@code UPDATE}
+     * {@code WHERE} predicate captured at analysis time ({@code Optional.empty()} when there is no WHERE).
+     * Connectors that want to restrict the conflict detection scope should override this;
+     */
+    default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, Optional<RowExpression> updateScope)
+    {
+        return beginUpdate(session, tableHandle, updatedColumns);
     }
 
     default ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)

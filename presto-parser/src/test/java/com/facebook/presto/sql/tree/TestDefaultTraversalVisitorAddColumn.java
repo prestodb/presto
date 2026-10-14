@@ -52,7 +52,7 @@ public class TestDefaultTraversalVisitorAddColumn
 
     private static AddColumn addColumn(Optional<ColumnPosition> position)
     {
-        ColumnDefinition column = new ColumnDefinition(new Identifier("new_column"), "INTEGER", true, emptyList(), Optional.empty());
+        ColumnDefinition column = new ColumnDefinition(QualifiedName.of(ImmutableList.of(new Identifier("new_column"))), "INTEGER", true, emptyList(), Optional.empty());
         return new AddColumn(QualifiedName.of("test_table"), column, position, false, false);
     }
 

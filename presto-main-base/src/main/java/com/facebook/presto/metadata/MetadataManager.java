@@ -820,6 +820,14 @@ public class MetadataManager
     }
 
     @Override
+    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.addField(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), parentPath, fieldName, type, ignoreExisting);
+    }
+
+    @Override
     public void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
@@ -1128,11 +1136,11 @@ public class MetadataManager
     }
 
     @Override
-    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns, Optional<RowExpression> updateScope)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        ConnectorTableHandle newHandle = metadata.beginUpdate(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), updatedColumns);
+        ConnectorTableHandle newHandle = metadata.beginUpdate(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), updatedColumns, updateScope);
         return new TableHandle(tableHandle.getConnectorId(), newHandle, tableHandle.getTransaction(), tableHandle.getLayout());
     }
 

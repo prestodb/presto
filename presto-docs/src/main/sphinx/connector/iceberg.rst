@@ -743,7 +743,9 @@ Property Name                                          Description              
 
 ``iceberg.io-impl``                                    Custom FileIO implementation to use in a catalog. It must       ``org.apache.iceberg.hadoop.HadoopFileIO``
                                                        be set to enable manifest caching. This is only needed for
-                                                       Hadoop, Nessie and REST catalogs.
+                                                       Hadoop and Nessie catalogs. The REST catalog ignores this
+                                                       property and always uses Presto's PrestoRESTFileIO FileIO,
+                                                       which supports manifest caching.
 
 ``iceberg.io.manifest.cache.max-total-bytes``          Maximum size of cache size in bytes.                            ``104857600``
 
@@ -762,7 +764,7 @@ JMX query to get the metrics and verify the cache usage::
 
 .. note::
 
-    Manifest file cache statistics are only available through the JMX connector when the Iceberg connector is configured with a HIVE catalog type.
+    Manifest file cache statistics are only available through the JMX connector when the Iceberg connector is configured with a HIVE or REST catalog type.
 
 .. rubric:: Presto C++ Support
 
@@ -1848,6 +1850,10 @@ SQL Support
      - Yes
      - Yes
      -
+   * - ``ALTER TABLE ADD COLUMN`` (nested struct field)
+     - Yes
+     - Yes
+     -
    * - ``ALTER VIEW``
      - Yes
      - Yes
@@ -2181,11 +2187,10 @@ ADD COLUMN with DEFAULT (Iceberg V3)
 
 .. note::
 
-    ``ADD COLUMN DEFAULT`` read support is available in both **Presto Java** and **Presto C++** (Prestissimo).
-    Both engines execute the DDL, store the default in Iceberg metadata, and inject the ``initial-default``
-    value during reads for historical rows. In addition, **Presto Java** supports write-time handling of
-    ``write-default`` for omitted columns during ``INSERT`` into Iceberg V3 tables. **Presto C++** does not
-    support this behavior.
+    ``ADD COLUMN DEFAULT`` is supported in both **Presto Java** and **Presto C++** (Prestissimo).
+    Both engines execute the DDL, store the default in Iceberg metadata, inject the ``initial-default``
+    value during reads for historical rows, and write the ``write-default`` value for columns omitted
+    from an ``INSERT`` into Iceberg V3 tables.
 
 Iceberg Format Version 3 supports default column values for schema evolution. When a column is
 added with a ``DEFAULT`` clause, Presto sets both the ``initial-default`` and ``write-default``
@@ -2216,8 +2221,8 @@ ALTER COLUMN SET DEFAULT (Iceberg V3)
 .. note::
 
     ``ALTER COLUMN SET DEFAULT`` updates the Iceberg metadata (``write-default`` field).
-    In **Presto Java**, subsequent ``INSERT`` statements use the ``write-default`` value for omitted
-    columns. **Presto C++** does not yet support write-default materialization during ``INSERT``.
+    In both **Presto Java** and **Presto C++**, subsequent ``INSERT`` statements use the
+    ``write-default`` value for omitted columns.
 
 Iceberg Format Version 3 allows updating the ``write-default`` value for an existing column without
 modifying the ``initial-default``. This is useful for schema evolution and maintaining compatibility
@@ -2242,6 +2247,30 @@ value automatically.
 
 This feature requires Iceberg Format Version 3. Attempting to use ``ALTER COLUMN SET DEFAULT`` on
 a table with format version 2 or lower will result in an error.
+
+.. _iceberg-alter-table-schema-evolution:
+
+ALTER TABLE Schema Evolution
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note::
+
+    This operation is supported in both **Presto Java** and **Presto C++**.
+
+The Iceberg connector supports adding a field to a ``ROW`` column using a dotted path to identify
+the parent struct. This is a metadata-only change — no data files are rewritten.
+
+Example — Add a field to a struct column::
+
+     ALTER TABLE iceberg.web.orders ADD COLUMN address.zip VARCHAR;
+
+The optional ``IF NOT EXISTS`` clause suppresses the error if the field already exists::
+
+     ALTER TABLE iceberg.web.orders ADD COLUMN IF NOT EXISTS address.zip VARCHAR;
+
+The dotted path may refer to arbitrarily nested fields. The following clauses are not supported
+for nested fields and will be rejected: ``NOT NULL``, ``COMMENT``, ``DEFAULT``,
+``GENERATED``/``AS``, ``WITH`` properties, and ``FIRST``/``AFTER``.
 
 ALTER VIEW
 ^^^^^^^^^^

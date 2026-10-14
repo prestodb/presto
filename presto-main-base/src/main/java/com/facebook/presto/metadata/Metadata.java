@@ -250,6 +250,11 @@ public interface Metadata
     void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column, ColumnPosition position);
 
     /**
+     * Add a field to a nested struct column.
+     */
+    void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting);
+
+    /**
      * Set the specified type to the column.
      */
     void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type);
@@ -397,9 +402,11 @@ public interface Metadata
     void finishCallDistributedProcedure(Session session, DistributedProcedureHandle procedureHandle, QualifiedObjectName procedureName, Collection<Slice> fragments);
 
     /**
-     * Begin update query
+     * Begin update query, carrying the update predicate scope (the analysis-time WHERE predicate;
+     * {@code Optional.empty()} when there is no WHERE) so the engine/connector can restrict the
+     * conflict detection scope if needed.
      */
-    TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
+    TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns, Optional<RowExpression> updateScope);
 
     /**
      * Finish update query

@@ -274,22 +274,11 @@ std::unordered_map<std::string, std::string> toVeloxConfigs(
   return configs;
 }
 
-velox::core::QueryConfig toVeloxConfigs(
-    const protocol::SessionRepresentation& session,
-    const std::map<std::string, std::string>& extraCredentials) {
-  // Start with the session-based configuration
-  auto configs = toVeloxConfigs(session);
-
-  // If there are any extra credentials, add them all to the config
-  if (!extraCredentials.empty()) {
-    // Create new config map with all extra credentials added
-    configs.insert(extraCredentials.begin(), extraCredentials.end());
-  }
-  return velox::core::QueryConfig(configs);
-}
-
+namespace {
 std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>
-toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest) {
+toConnectorConfigs(
+    const protocol::TaskUpdateRequest& taskUpdateRequest,
+    velox::core::CredentialKeys& credentialKeys) {
   std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>
       connectorConfigs;
   for (const auto& entry : taskUpdateRequest.session.catalogProperties) {
@@ -302,9 +291,14 @@ toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest) {
       connectorConfig.emplace(veloxConfig, sessionProperty.second);
     }
     util::migrateLegacyHiveParquetSessionKeys(connectorConfig);
-    connectorConfig.insert(
-        taskUpdateRequest.extraCredentials.begin(),
-        taskUpdateRequest.extraCredentials.end());
+    for (const auto& [key, credential] : taskUpdateRequest.extraCredentials) {
+      credentialKeys.write(
+          connectorConfig,
+          entry.first,
+          key,
+          credential,
+          velox::core::CredentialKeys::OnConflict::kKeep);
+    }
     connectorConfig.insert({"user", taskUpdateRequest.session.user});
     if (taskUpdateRequest.session.source) {
       connectorConfig.insert({"source", *taskUpdateRequest.session.source});
@@ -319,6 +313,31 @@ toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest) {
   }
 
   return connectorConfigs;
+}
+} // namespace
+
+TaskConfigs toTaskConfigs(
+    const protocol::TaskUpdateRequest& taskUpdateRequest) {
+  velox::core::CredentialKeys credentialKeys;
+  auto configs = toVeloxConfigs(taskUpdateRequest.session);
+  // Credential names are client-chosen, so one can name a typed key the config
+  // does not hold. The trace then redacts that key like any credential, and a
+  // replay cannot parse it; leaking the credential would be worse.
+  for (const auto& [key, credential] : taskUpdateRequest.extraCredentials) {
+    credentialKeys.write(
+        configs,
+        /*connectorId=*/"",
+        key,
+        credential,
+        velox::core::CredentialKeys::OnConflict::kKeep);
+  }
+
+  auto connectorConfigs = toConnectorConfigs(taskUpdateRequest, credentialKeys);
+
+  return {
+      .queryConfig = velox::core::QueryConfig(std::move(configs)),
+      .connectorConfigs = std::move(connectorConfigs),
+      .credentialKeys = std::move(credentialKeys)};
 }
 
 } // namespace facebook::presto

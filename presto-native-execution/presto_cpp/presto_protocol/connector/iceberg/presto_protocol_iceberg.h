@@ -271,6 +271,7 @@ struct IcebergTableLayoutHandle : public ConnectorTableLayoutHandle {
   bool pushdownFilterEnabled = {};
   TupleDomain<std::shared_ptr<ColumnHandle>> partitionColumnPredicate = {};
   IcebergTableHandle table = {};
+  Map<String, IcebergColumnHandle> dataColumnHandles = {};
 
   IcebergTableLayoutHandle() noexcept;
 };

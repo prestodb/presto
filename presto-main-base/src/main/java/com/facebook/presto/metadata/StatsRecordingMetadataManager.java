@@ -426,11 +426,11 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
-    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns, Optional<RowExpression> updateScope)
     {
         long startTime = System.nanoTime();
         try {
-            return delegate.beginUpdate(session, tableHandle, updatedColumns);
+            return delegate.beginUpdate(session, tableHandle, updatedColumns, updateScope);
         }
         finally {
             stats.recordBeginUpdateCall(System.nanoTime() - startTime);
@@ -1153,6 +1153,18 @@ public class StatsRecordingMetadataManager
         long startTime = System.nanoTime();
         try {
             delegate.addColumn(session, tableHandle, column, position);
+        }
+        finally {
+            stats.recordAddColumnCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
+    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
         }
         finally {
             stats.recordAddColumnCall(System.nanoTime() - startTime);
