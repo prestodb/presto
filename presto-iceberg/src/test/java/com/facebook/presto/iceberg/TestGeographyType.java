@@ -360,13 +360,13 @@ public class TestGeographyType
     }
 
     /**
-     * Presto reads geography only from Parquet data files, so a query reading a geography
-     * column, directly or nested, from an ORC data file must fail. Presto never writes such a
-     * file, so the column is added through the Iceberg API to a table with ORC data. The other
-     * columns of the same file must stay readable.
+     * Presto reads geography and geometry only from Parquet data files, so a query reading
+     * either, directly or nested, from an ORC data file must fail. Presto never writes such a
+     * file, so the columns are added through the Iceberg API to a table with ORC data. The
+     * other columns of the same file must stay readable.
      */
     @Test
-    public void testOrcGeographyReadIsRejected()
+    public void testOrcGeospatialReadIsRejected()
     {
         String table = "test_geography_orc_read";
         assertUpdate(session, format("CREATE TABLE %s (id INTEGER) %s", table, V3_ORC));
@@ -375,6 +375,7 @@ public class TestGeographyType
             loadTable(table).updateSchema()
                     .addColumn("geog", Types.GeographyType.crs84())
                     .addColumn("geogs", Types.ListType.ofOptional(0, Types.GeographyType.crs84()))
+                    .addColumn("geom", Types.GeometryType.crs84())
                     .commit();
 
             assertQuery(session, format("SELECT id FROM %s", table), "VALUES 1");
@@ -386,6 +387,10 @@ public class TestGeographyType
                     session,
                     format("SELECT geogs FROM %s", table),
                     "Reading Iceberg geography column 'geogs' is only supported for the PARQUET file format, but the data file uses ORC");
+            assertQueryFails(
+                    session,
+                    format("SELECT geom FROM %s", table),
+                    "Reading Iceberg geometry column 'geom' is only supported for the PARQUET file format, but the data file uses ORC");
         }
         finally {
             assertUpdate(session, "DROP TABLE " + table);

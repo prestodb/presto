@@ -1131,6 +1131,7 @@ public class IcebergPageSourceProvider
             TupleDomain<IcebergColumnHandle> predicate,
             boolean isCacheable)
     {
+        validateGeospatialRead(dataColumns, fileFormat);
         switch (fileFormat) {
             case PARQUET:
                 return createParquetPageSource(
@@ -1146,7 +1147,6 @@ public class IcebergPageSourceProvider
                         parquetMetadataSource,
                         typeManager);
             case ORC:
-                validateGeospatialRead(dataColumns, fileFormat);
                 OrcReaderOptions readerOptions = OrcReaderOptions.builder()
                         .withMaxMergeDistance(getOrcMaxMergeDistance(session))
                         .withTinyStripeThreshold(getOrcTinyStripeThreshold(session))

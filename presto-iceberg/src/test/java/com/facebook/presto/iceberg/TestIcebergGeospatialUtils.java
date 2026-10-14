@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY_TYPE_NAME;
 import static com.facebook.presto.geospatial.type.GeometryType.GEOMETRY;
@@ -81,11 +82,11 @@ public class TestIcebergGeospatialUtils
     }
 
     @Test
-    public void testReadAcceptsGeographyFromParquet()
+    public void testReadAcceptsGeospatialFromParquet()
     {
-        validateGeospatialRead(columns(SPHERICAL_GEOGRAPHY, new ArrayType(SPHERICAL_GEOGRAPHY)), PARQUET);
-        // Only geography is rejected; geometry and other columns can be read from any format
-        validateGeospatialRead(columns(INTEGER, GEOMETRY), ORC);
+        validateGeospatialRead(columns(SPHERICAL_GEOGRAPHY, new ArrayType(SPHERICAL_GEOGRAPHY), GEOMETRY), PARQUET);
+        // Only geospatial columns are rejected; other columns can be read from any format
+        validateGeospatialRead(columns(INTEGER, VARCHAR), ORC);
     }
 
     @Test
@@ -99,6 +100,19 @@ public class TestIcebergGeospatialUtils
                 columns(RowType.from(ImmutableList.of(RowType.field("inner", SPHERICAL_GEOGRAPHY)))),
                 ORC,
                 "Reading Iceberg geography column 'col0' is only supported for the PARQUET file format, but the data file uses ORC");
+    }
+
+    @Test
+    public void testReadRejectsGeometryOutsideParquet()
+    {
+        assertReadFromFileFails(
+                columns(INTEGER, GEOMETRY),
+                ORC,
+                "Reading Iceberg geometry column 'col1' is only supported for the PARQUET file format, but the data file uses ORC");
+        assertReadFromFileFails(
+                columns(new ArrayType(GEOMETRY)),
+                ORC,
+                "Reading Iceberg geometry column 'col0' is only supported for the PARQUET file format, but the data file uses ORC");
     }
 
     @Test

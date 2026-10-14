@@ -296,10 +296,11 @@ public final class IcebergGeospatialUtils
     }
 
     /**
-     * Rejects reading geography columns from a data file in a format other than Parquet.
-     * Presto only writes geography to Parquet, and reading it from other formats is not
-     * supported, so such a read fails rather than returning values whose encoding has not
-     * been verified. Columns of other types can still be read from the same file.
+     * Rejects reading geometry or geography columns from a data file in a format other than
+     * Parquet. Presto only writes geography to Parquet, and reading either type from other
+     * formats is not supported: the ORC reader cannot produce a geospatial type from a binary
+     * stream and would fail with a misleading corruption error. Columns of other types can
+     * still be read from the same file.
      */
     public static void validateGeospatialRead(List<IcebergColumnHandle> columns, FileFormat fileFormat)
     {
@@ -307,9 +308,10 @@ public final class IcebergGeospatialUtils
             return;
         }
         for (IcebergColumnHandle column : columns) {
-            if (containsSphericalGeographyType(column.getType())) {
+            if (containsGeospatialType(column.getType())) {
                 throw new PrestoException(NOT_SUPPORTED, format(
-                        "Reading Iceberg geography column '%s' is only supported for the %s file format, but the data file uses %s",
+                        "Reading Iceberg %s column '%s' is only supported for the %s file format, but the data file uses %s",
+                        containsSphericalGeographyType(column.getType()) ? "geography" : "geometry",
                         column.getName(),
                         FileFormat.PARQUET,
                         fileFormat));

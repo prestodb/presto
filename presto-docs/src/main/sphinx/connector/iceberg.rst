@@ -3132,11 +3132,11 @@ either ``OGC:CRS84`` (the Iceberg default) or its equivalent ``EPSG:4326``; a
 ``GEOGRAPHY`` column declaring any other CRS or algorithm fails with ``NOT_SUPPORTED``.
 This applies to both reads and writes, so an existing ``EPSG:4326`` column created by
 another engine can also be written. Tables created by Presto record the column as
-``geography`` with the default CRS and algorithm. Values read from a ``GEOGRAPHY`` column, including files written by other
-engines, are validated the same way as :func:`!to_spherical_geography`: coordinates
-must be valid longitudes and latitudes, and 3D values are rejected. Writes require
-format version 3 and the ``PARQUET`` file format, which is checked when the table is
-created or written, before any data is written::
+``geography`` with the default CRS and algorithm. Values read from a ``GEOGRAPHY`` column,
+including files written by other engines, are validated the same way as
+:func:`!to_spherical_geography`: coordinates must be valid longitudes and latitudes, and
+3D values are rejected. Writes require format version 3 and the ``PARQUET`` file format,
+which is checked when the table is created::
 
     CREATE TABLE iceberg.default.places (
         name VARCHAR,
@@ -3151,6 +3151,7 @@ with ``ALTER TABLE ... ADD COLUMN``.
 * Only the ``PARQUET`` file format is supported, for both reading and writing. A query
   that reads a ``GEOGRAPHY`` column from an ``ORC`` data file fails with
   ``NOT_SUPPORTED``; other columns of the same file can still be read.
+  The same applies to ``GEOMETRY`` columns.
 * Lower and upper bounds are not recorded in the data file metrics, so predicates on a
   ``GEOGRAPHY`` column do not prune data files.
 * ``ANALYZE`` does not collect distinct value counts, histograms, or min/max values for
