@@ -1335,7 +1335,16 @@ public class PlanPrinter
         @Override
         public Void visitRPC(RPCNode node, Void context)
         {
-            addNode(node, "RPC", format("function: %s, output: %s, mode: %s", node.getFunctionName(), node.getOutputVariable(), node.getStreamingMode()));
+            addNode(
+                    node,
+                    "RPC",
+                    format(
+                            "function: %s, output: %s, mode: %s, dispatch batch size: %s, recommended tasks: %s",
+                            node.getFunctionName(),
+                            node.getOutputVariable(),
+                            node.getStreamingMode(),
+                            node.getDispatchBatchSize(),
+                            node.getRecommendedTaskCount()));
             return processChildren(node, context);
         }
 

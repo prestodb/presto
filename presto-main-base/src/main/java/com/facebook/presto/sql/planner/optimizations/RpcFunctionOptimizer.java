@@ -202,8 +202,11 @@ public class RpcFunctionOptimizer
                 // cardinality. Using rewrittenSource (rather than walking currentSource onto the
                 // prior RPCNode) keeps the estimate well-defined even if no stats rule exists for
                 // RPCNode.
-                RPCNode.StreamingMode streamingMode = resolveExecutionProperties(extracted.originalCall, rewrittenSource).getStreamingMode();
                 int dispatchBatchSize = parseDispatchBatchSize(extracted.originalCall);
+                RpcExecutionProperties executionProperties = resolveExecutionProperties(
+                        extracted.originalCall,
+                        rewrittenSource,
+                        dispatchBatchSize);
 
                 List<RowExpression> substitutedArgs = extracted.substitutedCall.getArguments();
                 ImmutableList.Builder<String> argumentColumns = ImmutableList.builder();
@@ -250,8 +253,9 @@ public class RpcFunctionOptimizer
                         extracted.originalCall.getArguments(),
                         argumentColumns.build(),
                         extracted.resultVar,
-                        streamingMode,
-                        dispatchBatchSize);
+                        executionProperties.getStreamingMode(),
+                        dispatchBatchSize,
+                        executionProperties.getRecommendedTaskCount());
 
                 currentSource = rpcNode;
             }
@@ -675,7 +679,7 @@ public class RpcFunctionOptimizer
         // policy returns the resolved RpcExecutionProperties. AUTOMATIC is resolved here so the
         // RPCNode never carries it. The default policy carries no batching heuristic
         // (AUTOMATIC -> PER_ROW, no overrides); a deployment may bind a stats-driven policy.
-        private RpcExecutionProperties resolveExecutionProperties(CallExpression rpcCall, PlanNode source)
+        private RpcExecutionProperties resolveExecutionProperties(CallExpression rpcCall, PlanNode source, int dispatchBatchSize)
         {
             RPCNode.StreamingMode requested = parseStreamingMode(rpcCall);
             PlanNodeStatsEstimate sourceStats = statsProvider == null
@@ -686,6 +690,7 @@ public class RpcFunctionOptimizer
                     .setInputStats(sourceStats)
                     .setSession(session)
                     .setFunctionName(rpcCall.getDisplayName())
+                    .setDispatchBatchSize(dispatchBatchSize)
                     .build();
             RpcExecutionProperties properties = executionPolicy.translateIntent(intent);
             // Enforce the policy contract at plan time: AUTOMATIC is coordinator-only and must
