@@ -165,6 +165,7 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirec
 import static com.facebook.presto.iceberg.IcebergSessionProperties.COMPRESSION_CODEC;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_MAX_DELETE_COLUMNS;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.MANIFEST_SUMMARY_CACHE_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -1429,6 +1430,52 @@ public abstract class IcebergDistributedTestBase
         finally {
             assertQuerySucceeds("DROP TABLE IF EXISTS test_stats_layout_predicate");
         }
+    }
+
+    public void testManifestSummaryCache()
+    {
+        // A cached summary must answer exactly as a fresh fold would, for the predicate it was folded
+        // with only, and must not outlive the snapshot it was folded from.
+        assertUpdate("CREATE TABLE test_manifest_summary_cache(i int, part varchar) WITH (partitioning = ARRAY['part'])");
+        try {
+            assertUpdate("INSERT INTO test_manifest_summary_cache VALUES (1, 'a'), (2, 'a')", 2);
+            assertUpdate("INSERT INTO test_manifest_summary_cache VALUES (3, 'b')", 1);
+            Session cached = Session.builder(getSession())
+                    .setCatalogSessionProperty(getSession().getCatalog().get(), MANIFEST_SUMMARY_CACHE_ENABLED, "true")
+                    .build();
+            Optional<List<String>> columns = Optional.of(ImmutableList.of("i"));
+            Map<String, String> partA = ImmutableMap.of("part", "a");
+
+            long initialHits = manifestSummaryCacheHitCount();
+            TableStatistics folded = getTableStats("test_manifest_summary_cache", Optional.empty(), cached, columns);
+            assertEquals(folded, getTableStats("test_manifest_summary_cache", Optional.empty(), getSession(), columns));
+            assertEquals(folded.getRowCount().getValue(), 3.0);
+            assertEquals(manifestSummaryCacheHitCount(), initialHits);
+
+            assertEquals(getTableStats("test_manifest_summary_cache", Optional.empty(), cached, columns), folded);
+            assertEquals(manifestSummaryCacheHitCount(), initialHits + 1);
+
+            // A different predicate is a different key, not a hit on the unfiltered summary.
+            TableStatistics filtered = getTableStats("test_manifest_summary_cache", Optional.empty(), cached, columns, partA);
+            assertEquals(filtered, getTableStats("test_manifest_summary_cache", Optional.empty(), getSession(), columns, partA));
+            assertEquals(filtered.getRowCount().getValue(), 2.0);
+
+            // A commit makes a new snapshot, which must be folded again rather than served the old one.
+            assertUpdate("INSERT INTO test_manifest_summary_cache VALUES (4, 'b')", 1);
+            TableStatistics afterCommit = getTableStats("test_manifest_summary_cache", Optional.empty(), cached, columns);
+            assertEquals(afterCommit.getRowCount().getValue(), 4.0);
+            assertEquals(afterCommit, getTableStats("test_manifest_summary_cache", Optional.empty(), getSession(), columns));
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS test_manifest_summary_cache");
+        }
+    }
+
+    private long manifestSummaryCacheHitCount()
+    {
+        return (long) computeActual(format("SELECT sum(\"cachestats.hitcount\") " +
+                "FROM jmx.current.\"com.facebook.presto.iceberg:name=%s,type=manifestsummarycache\"", getSession().getCatalog().get()))
+                .getOnlyValue();
     }
 
     private TableStatistics getTableStats(String name)

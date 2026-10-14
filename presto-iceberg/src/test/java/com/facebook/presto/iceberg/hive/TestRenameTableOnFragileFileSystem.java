@@ -47,6 +47,7 @@ import com.facebook.presto.iceberg.IcebergTableName;
 import com.facebook.presto.iceberg.IcebergTableProperties;
 import com.facebook.presto.iceberg.IcebergTableType;
 import com.facebook.presto.iceberg.ManifestFileCache;
+import com.facebook.presto.iceberg.ManifestSummaryCache;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.metadata.BuiltInProcedureRegistry;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -423,6 +424,7 @@ public class TestRenameTableOnFragileFileSystem
                 FILTER_STATS_CALCULATOR_SERVICE,
                 new IcebergHiveTableOperationsConfig(),
                 new StatisticsFileCache(CacheBuilder.newBuilder().build()),
+                new ManifestSummaryCache(CacheBuilder.newBuilder().build()),
                 new ManifestFileCache(CacheBuilder.newBuilder().build(), false, 0, 1024),
                 new IcebergTableProperties(new IcebergConfig()),
                 () -> false,

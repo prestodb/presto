@@ -188,6 +188,7 @@ public class IcebergHiveMetadata
             FilterStatsCalculatorService filterStatsCalculatorService,
             IcebergHiveTableOperationsConfig hiveTableOperationsConfig,
             StatisticsFileCache statisticsFileCache,
+            ManifestSummaryCache manifestSummaryCache,
             ManifestFileCache manifestFileCache,
             IcebergTableProperties tableProperties,
             ConnectorSystemConfig connectorSystemConfig,
@@ -195,7 +196,7 @@ public class IcebergHiveMetadata
             boolean autoCommitContext)
     {
         super(typeManager, procedureRegistry, functionResolution, rowExpressionService, commitTaskCodec, columnMappingsCodec, schemaTableNamesCodec,
-                nodeVersion, filterStatsCalculatorService, statisticsFileCache, tableProperties, isolationLevel, autoCommitContext);
+                nodeVersion, filterStatsCalculatorService, statisticsFileCache, manifestSummaryCache, tableProperties, isolationLevel, autoCommitContext);
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
@@ -636,7 +637,7 @@ public class IcebergHiveMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         org.apache.iceberg.Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        TableStatistics icebergStatistics = calculateBaseTableStatistics(this, typeManager, session, statisticsFileCache, (IcebergTableHandle) tableHandle, tableLayoutHandle, columnHandles, constraint);
+        TableStatistics icebergStatistics = calculateBaseTableStatistics(this, typeManager, session, statisticsFileCache, manifestSummaryCache, (IcebergTableHandle) tableHandle, tableLayoutHandle, columnHandles, constraint);
         EnumSet<ColumnStatisticType> mergeFlags = getHiveStatisticsMergeStrategy(session);
         TableStatistics mergedStatistics = Optional.of(mergeFlags)
                 .filter(set -> !set.isEmpty())

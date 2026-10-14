@@ -79,6 +79,7 @@ public final class IcebergSessionProperties
     public static final String MATERIALIZED_VIEW_DEFAULT_MAX_SNAPSHOTS_PER_REFRESH = "materialized_view_default_max_snapshots_per_refresh";
     public static final String AGGREGATE_PUSH_DOWN_ENABLED = "aggregate_push_down_enabled";
     public static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
+    public static final String MANIFEST_SUMMARY_CACHE_ENABLED = "manifest_summary_cache_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -273,6 +274,12 @@ public final class IcebergSessionProperties
                         "Controls whether to push down aggregate (MIN/MAX/COUNT) to Iceberg based on data file stats",
                         icebergConfig.isAggregatePushDownEnabled(),
                         false))
+                .add(booleanProperty(
+                        MANIFEST_SUMMARY_CACHE_ENABLED,
+                        "Reuse the folded manifest summary across queries. Entries are keyed on the snapshot, so a hit "
+                                + "is never stale; defaults to iceberg.manifest-summary-cache-enabled",
+                        icebergConfig.isManifestSummaryCacheEnabled(),
+                        false))
                 .add(new PropertyMetadata<>(
                         TARGET_MAX_FILE_SIZE,
                         "Target maximum size of written files; the actual size may be larger",
@@ -465,6 +472,11 @@ public final class IcebergSessionProperties
     public static boolean isAggregatePushDownEnabled(ConnectorSession session)
     {
         return session.getProperty(AGGREGATE_PUSH_DOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isManifestSummaryCacheEnabled(ConnectorSession session)
+    {
+        return session.getProperty(MANIFEST_SUMMARY_CACHE_ENABLED, Boolean.class);
     }
 
     public static DataSize getTargetMaxFileSize(ConnectorSession session)

@@ -47,6 +47,7 @@ import com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizerProvider;
 import com.facebook.presto.iceberg.procedure.ExpireSnapshotsProcedure;
 import com.facebook.presto.iceberg.procedure.FastForwardBranchProcedure;
 import com.facebook.presto.iceberg.procedure.ManifestFileCacheInvalidationProcedure;
+import com.facebook.presto.iceberg.procedure.ManifestSummaryCacheInvalidationProcedure;
 import com.facebook.presto.iceberg.procedure.RegisterTableProcedure;
 import com.facebook.presto.iceberg.procedure.RemoveOrphanFiles;
 import com.facebook.presto.iceberg.procedure.RewriteDataFilesProcedure;
@@ -195,6 +196,7 @@ public class IcebergCommonModule
         procedures.addBinding().toProvider(SetTablePropertyProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(StatisticsFileCacheInvalidationProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(ManifestFileCacheInvalidationProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(ManifestSummaryCacheInvalidationProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(RewriteDataFilesProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(RewriteManifestsProcedure.class).in(Scopes.SINGLETON);
         if (buildConfigObject(MetastoreClientConfig.class).isInvalidateMetastoreCacheProcedureEnabled()) {
@@ -226,6 +228,24 @@ public class IcebergCommonModule
         StatisticsFileCache statisticsFileCache = new StatisticsFileCache(delegate);
         exporter.export(generatedNameOf(StatisticsFileCache.class, connectorId), statisticsFileCache);
         return statisticsFileCache;
+    }
+
+    @Singleton
+    @Provides
+    public ManifestSummaryCache createManifestSummaryCache(IcebergConfig config, MBeanExporter exporter)
+    {
+        // Weighed rather than counted, like the statistics file cache above: an entry holds one map
+        // entry per folded column, so on a wide table a fixed entry count bounds nothing useful.
+        // The key is weighed too, because it holds the predicate. An absent summary costs only its
+        // key, so empty results cannot accumulate rent-free either.
+        Cache<ManifestSummaryCacheKey, Optional<Partition>> delegate = CacheBuilder.newBuilder()
+                .maximumWeight(config.getMaxManifestSummaryCacheSize().toBytes())
+                .<ManifestSummaryCacheKey, Optional<Partition>>weigher((key, entry) -> toIntExact(key.getEstimatedSize() + entry.map(Partition::getEstimatedSize).orElse(0L)))
+                .recordStats()
+                .build();
+        ManifestSummaryCache manifestSummaryCache = new ManifestSummaryCache(delegate);
+        exporter.export(generatedNameOf(ManifestSummaryCache.class, connectorId), manifestSummaryCache);
+        return manifestSummaryCache;
     }
 
     @Singleton

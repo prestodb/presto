@@ -20,20 +20,30 @@ import org.apache.iceberg.types.Comparators;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
+import org.openjdk.jol.info.ClassLayout;
 
 import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static java.util.Collections.unmodifiableMap;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
 public class Partition
 {
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Partition.class).instanceSize();
+    // A boxed field id, a boxed value or CharBuffer, and the map's own node. Deliberately one rough
+    // constant: the values are Long, Double or CharBuffer, and sizing each one exactly would cost
+    // more than a cache bound is worth.
+    private static final long ENTRY_SIZE = 64;
+
     private final Map<Integer, Type.PrimitiveType> idToTypeMapping;
     private final List<Types.NestedField> nonPartitionPrimitiveColumns;
     private final StructLike values;
@@ -83,6 +93,62 @@ public class Partition
             this.columnSizes = columnSizes != null ? new HashMap<>(columnSizes) : null;
             hasValidColumnMetrics = true;
         }
+    }
+
+    private Partition(Partition source)
+    {
+        this.idToTypeMapping = source.idToTypeMapping;
+        this.nonPartitionPrimitiveColumns = source.nonPartitionPrimitiveColumns;
+        this.values = source.values;
+        this.recordCount = source.recordCount;
+        this.fileCount = source.fileCount;
+        this.size = source.size;
+        this.minValues = copyUnmodifiable(source.minValues);
+        this.maxValues = copyUnmodifiable(source.maxValues);
+        this.nullCounts = copyUnmodifiable(source.nullCounts);
+        this.columnSizes = copyUnmodifiable(source.columnSizes);
+        this.corruptedStats = source.corruptedStats == null ? null : unmodifiableSet(new HashSet<>(source.corruptedStats));
+        this.hasValidColumnMetrics = source.hasValidColumnMetrics;
+    }
+
+    private static <T> Map<Integer, T> copyUnmodifiable(Map<Integer, T> values)
+    {
+        return values == null ? null : unmodifiableMap(new HashMap<>(values));
+    }
+
+    /**
+     * Returns a copy whose maps and sets reject mutation.
+     *
+     * <p>A {@code Partition} is a fold accumulator: {@link #updateStats} is called with
+     * {@link #getMinValues()} as its target, so the getters hand out live mutation handles and the
+     * object is only complete once the fold that built it has finished. Publishing one to a cache
+     * shared across queries therefore needs this copy — otherwise a caller that mutates what a
+     * getter returned would silently corrupt the statistics of every later query that hits the same
+     * entry. With the copy that same call fails loudly instead.
+     */
+    public Partition immutableCopy()
+    {
+        return new Partition(this);
+    }
+
+    /**
+     * Rough retained size, for weighing cache entries. Grows with the table's column count, which is
+     * the whole reason a cache of these cannot be bounded by entry count alone.
+     */
+    public long getEstimatedSize()
+    {
+        return INSTANCE_SIZE +
+                (idToTypeMapping.size() + nonPartitionPrimitiveColumns.size()) * ENTRY_SIZE +
+                estimatedSizeOf(minValues) +
+                estimatedSizeOf(maxValues) +
+                estimatedSizeOf(nullCounts) +
+                estimatedSizeOf(columnSizes) +
+                (corruptedStats == null ? 0 : corruptedStats.size() * ENTRY_SIZE);
+    }
+
+    private static long estimatedSizeOf(Map<Integer, ?> values)
+    {
+        return values == null ? 0 : values.size() * ENTRY_SIZE;
     }
 
     public Map<Integer, Type.PrimitiveType> getIdToTypeMapping()
