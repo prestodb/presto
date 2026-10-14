@@ -257,9 +257,10 @@ public final class SystemSessionProperties
     public static final String RPC_FUNCTION_OPTIMIZER_ENABLED = "rpc_function_optimizer_enabled";
     public static final String RPC_STREAMING_MODE = "rpc_streaming_mode";
     public static final String RPC_DISPATCH_BATCH_SIZE = "rpc_dispatch_batch_size";
-    // Coordinator-only: consumed at plan time by RpcExecutionPolicy; the resolved PER_ROW/BATCH
-    // mode is what ships to workers, so this needs no native SessionProperties.cpp mapping.
+    // Coordinator-only: consumed at plan time by RpcExecutionPolicy. Only the resolved mode and
+    // task topology ship to workers, so these need no native SessionProperties.cpp mapping.
     public static final String RPC_BATCH_MIN_ROWS = "rpc_batch_min_rows";
+    public static final String RPC_BATCH_MAX_AUTO_TASK_COUNT = "rpc_batch_max_auto_task_count";
     public static final String CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY = "check_access_control_on_utilized_columns_only";
     public static final String CHECK_ACCESS_CONTROL_WITH_SUBFIELDS = "check_access_control_with_subfields";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
@@ -1494,6 +1495,17 @@ public final class SystemSessionProperties
                         false,
                         value -> validateIntegerValue(value, RPC_BATCH_MIN_ROWS, 1, false),
                         value -> value),
+                new PropertyMetadata<>(
+                        RPC_BATCH_MAX_AUTO_TASK_COUNT,
+                        "When rpc_function_parallelism=0, maximum automatic task-count recommendation for BATCH RPC execution. "
+                                + "1 disables automatic repartitioning. Honored only by a deployment-specific RpcExecutionPolicy; "
+                                + "the OSS DefaultRpcExecutionPolicy ignores it. Must be greater than 0.",
+                        INTEGER,
+                        Integer.class,
+                        1,
+                        false,
+                        value -> validateIntegerValue(value, RPC_BATCH_MAX_AUTO_TASK_COUNT, 1, false),
+                        value -> value),
                 booleanProperty(
                         CHECK_ACCESS_CONTROL_ON_UTILIZED_COLUMNS_ONLY,
                         "Apply access control rules on only those columns that are required to produce the query output",
@@ -2448,7 +2460,7 @@ public final class SystemSessionProperties
                         false),
                 new PropertyMetadata<>(
                         RPC_FUNCTION_PARALLELISM,
-                        "Number of tasks for distributed RPC execution. 0 means use default planning (no forced parallelism, task count determined by query structure). Values > 1 distribute across N tasks via ROUND_ROBIN exchange.",
+                        "Number of tasks for distributed RPC execution. 0 delegates to the execution policy, which may increase task count without reducing existing parallelism. 1 preserves existing planning. Values > 1 force exactly N tasks via ROUND_ROBIN exchange.",
                         INTEGER,
                         Integer.class,
                         0,
@@ -3482,6 +3494,13 @@ public final class SystemSessionProperties
     public static int getRpcBatchMinRows(Session session)
     {
         return session.getSystemProperty(RPC_BATCH_MIN_ROWS, Integer.class);
+    }
+
+    // Coordinator-only: read by a deployment-specific RpcExecutionPolicy to cap the automatic
+    // BATCH task-count recommendation. The OSS DefaultRpcExecutionPolicy ignores it.
+    public static int getRpcBatchMaxAutoTaskCount(Session session)
+    {
+        return session.getSystemProperty(RPC_BATCH_MAX_AUTO_TASK_COUNT, Integer.class);
     }
 
     public static boolean isCheckAccessControlOnUtilizedColumnsOnly(Session session)

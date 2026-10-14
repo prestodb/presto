@@ -69,6 +69,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.AggregationPartitioningMergingStrategy;
 import com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
+import com.facebook.presto.sql.planner.SystemPartitioningHandle;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.optimizations.PreferredProperties.PartitioningProperties;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
@@ -186,12 +187,18 @@ public class AddExchanges
     private final Metadata metadata;
     private final PartitioningProviderManager partitioningProviderManager;
     private final boolean nativeExecution;
+    private final boolean prestoSparkExecutionEnvironment;
 
-    public AddExchanges(Metadata metadata, PartitioningProviderManager partitioningProviderManager, boolean nativeExecution)
+    public AddExchanges(
+            Metadata metadata,
+            PartitioningProviderManager partitioningProviderManager,
+            boolean nativeExecution,
+            boolean prestoSparkExecutionEnvironment)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
         this.nativeExecution = nativeExecution;
+        this.prestoSparkExecutionEnvironment = prestoSparkExecutionEnvironment;
     }
 
     @Override
@@ -205,7 +212,13 @@ public class AddExchanges
                                         PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
         if (isEnabled(session, forceEnableOptimizer)) {
-            PlanWithProperties result = new Rewriter(idAllocator, variableAllocator, session, partitioningProviderManager, nativeExecution).accept(plan, PreferredProperties.any());
+            PlanWithProperties result = new Rewriter(
+                    idAllocator,
+                    variableAllocator,
+                    session,
+                    partitioningProviderManager,
+                    nativeExecution,
+                    prestoSparkExecutionEnvironment).accept(plan, PreferredProperties.any());
             boolean optimizerTriggered = PlanNodeSearcher.searchFrom(result.getNode()).where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote()).findFirst().isPresent();
             return PlanOptimizerResult.optimizerResult(result.getNode(), optimizerTriggered);
         }
@@ -230,6 +243,7 @@ public class AddExchanges
         private final ExchangeMaterializationStrategy exchangeMaterializationStrategy;
         private final PartitioningProviderManager partitioningProviderManager;
         private final boolean nativeExecution;
+        private final boolean prestoSparkExecutionEnvironment;
         private boolean isDeleteOrUpdateQuery;
 
         public Rewriter(
@@ -237,7 +251,8 @@ public class AddExchanges
                 VariableAllocator variableAllocator,
                 Session session,
                 PartitioningProviderManager partitioningProviderManager,
-                boolean nativeExecution)
+                boolean nativeExecution,
+                boolean prestoSparkExecutionEnvironment)
         {
             this.idAllocator = idAllocator;
             this.variableAllocator = variableAllocator;
@@ -254,6 +269,7 @@ public class AddExchanges
             this.exchangeMaterializationStrategy = getExchangeMaterializationStrategy(session);
             this.partitioningProviderManager = requireNonNull(partitioningProviderManager, "partitioningProviderManager is null");
             this.nativeExecution = nativeExecution;
+            this.prestoSparkExecutionEnvironment = prestoSparkExecutionEnvironment;
         }
 
         @Override
@@ -873,9 +889,19 @@ public class AddExchanges
         {
             PlanWithProperties source = accept(node.getSource(), preferredProperties);
 
-            int taskCount = getRpcFunctionParallelism(session);
-            if (taskCount > 1) {
-                PlanNode newNode = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, source.getNode(), taskCount);
+            int configuredTaskCount = getRpcFunctionParallelism(session);
+            if (configuredTaskCount > 1) {
+                PlanNode newNode = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, source.getNode(), configuredTaskCount);
+                newNode = ChildReplacer.replaceChildren(node, ImmutableList.of(newNode));
+                return new PlanWithProperties(newNode, derivePropertiesRecursively(newNode));
+            }
+
+            int recommendedTaskCount = node.getRecommendedTaskCount();
+            if (!prestoSparkExecutionEnvironment &&
+                    configuredTaskCount == 0 &&
+                    node.getStreamingMode() == RPCNode.StreamingMode.BATCH &&
+                    shouldIncreaseTaskCount(source.getProperties(), recommendedTaskCount)) {
+                PlanNode newNode = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, source.getNode(), recommendedTaskCount);
                 newNode = ChildReplacer.replaceChildren(node, ImmutableList.of(newNode));
                 return new PlanWithProperties(newNode, derivePropertiesRecursively(newNode));
             }
@@ -1857,6 +1883,30 @@ public class AddExchanges
             }
         }
         return outputToInput;
+    }
+
+    private static boolean shouldIncreaseTaskCount(ActualProperties properties, int recommendedTaskCount)
+    {
+        if (recommendedTaskCount <= 1) {
+            return false;
+        }
+        return knownTaskCount(properties)
+                .map(currentTaskCount -> currentTaskCount < recommendedTaskCount)
+                .orElse(false);
+    }
+
+    private static Optional<Integer> knownTaskCount(ActualProperties properties)
+    {
+        if (properties.isSingleNode()) {
+            return Optional.of(1);
+        }
+
+        return properties.getNodePartitioning()
+                .map(Partitioning::getHandle)
+                .map(PartitioningHandle::getConnectorHandle)
+                .filter(SystemPartitioningHandle.class::isInstance)
+                .map(SystemPartitioningHandle.class::cast)
+                .flatMap(SystemPartitioningHandle::getPartitionCount);
     }
 
     @VisibleForTesting
