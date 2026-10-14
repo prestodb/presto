@@ -18,6 +18,7 @@ import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestDistributedQueries;
 import com.google.common.collect.ImmutableMap;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -760,6 +761,34 @@ public abstract class TestIcebergDistributedQueries
     }
 
     @Test
+    public void testMultipleConcurrentUpdatesOnTheSameRow()
+    {
+        Session session = getQueryRunner().getDefaultSession();
+        String tableName = "multiple_concurrent_updates_on_same_row";
+        assertUpdate(session, format("create table %s(a int, b varchar) with(partitioning = ARRAY['a'])", tableName));
+        assertUpdate(session, format("insert into %s values(1, '1001'), (2, '1002')", tableName), 2);
+
+        Session txnSession1 = assertStartTransaction(session, "START TRANSACTION");
+        Session txnSession2 = assertStartTransaction(session, "START TRANSACTION");
+
+        assertUpdate(txnSession1, format("update %s set b = '1101' where a = 1", tableName), 1);
+        assertUpdate(txnSession2, format("update %s set b = '1201' where a = 1", tableName), 1);
+        Session session1 = validateTxnIsolationAndCommitTheFirstTxn(txnSession1, txnSession2, tableName,
+                "values(1, '1001'), (2, '1002')",
+                "values(1, '1101'), (2, '1002')",
+                "values(1, '1201'), (2, '1002')");
+
+        // transaction2 commission always failed with conflicting delete files
+        assertQueryFails(txnSession2, "commit",
+                "Found new conflicting delete files that can apply to records matching .*");
+
+        assertQuery(session1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+        assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+
+        assertUpdate("drop table " + tableName);
+    }
+
+    @Test
     public void testMultipleConcurrentUpdatesWithNoConflicts()
     {
         Session session = getQueryRunner().getDefaultSession();
@@ -772,21 +801,10 @@ public abstract class TestIcebergDistributedQueries
 
         assertUpdate(txnSession1, format("update %s set b = '1101' where a = 1", tableName), 1);
         assertUpdate(txnSession2, format("update %s set b = '1102' where a = 2", tableName), 1);
-
-        // transaction1 can just read its own writes
-        assertQuery(txnSession1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
-        // transaction2 can just read its own writes
-        assertQuery(txnSession2, "select * from " + tableName, "values(1, '1001'), (2, '1102')");
-        // Cannot read any change outside transaction1 and transaction2
-        assertQuery(getSession(), "select * from " + tableName, "values(1, '1001'), (2, '1002')");
-
-        // transaction1 commit successfully
-        Session session1 = assertEndTransaction(txnSession1, "commit");
-        // Can read the writes of transaction1 from outside
-        assertQuery(session1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
-        assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1002')");
-        // transaction2 can just read its own writes, unaware of outside change
-        assertQuery(txnSession2, "select * from " + tableName, "values(1, '1001'), (2, '1102')");
+        Session session1 = validateTxnIsolationAndCommitTheFirstTxn(txnSession1, txnSession2, tableName,
+                "values(1, '1001'), (2, '1002')",
+                "values(1, '1101'), (2, '1002')",
+                "values(1, '1001'), (2, '1102')");
 
         // transaction2 commit successfully
         Session session2 = assertEndTransaction(txnSession2, "commit");
@@ -810,21 +828,10 @@ public abstract class TestIcebergDistributedQueries
 
         assertUpdate(txnSession1, format("update %s set b = '1101' where a = 1", tableName), 1);
         assertUpdate(txnSession2, format("update %s set b = '1102' where a = 2", tableName), 1);
-
-        // transaction1 can just read its own writes
-        assertQuery(txnSession1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
-        // transaction2 can just read its own writes
-        assertQuery(txnSession2, "select * from " + tableName, "values(1, '1001'), (2, '1102')");
-        // Cannot read any change outside transaction1 and transaction2
-        assertQuery(getSession(), "select * from " + tableName, "values(1, '1001'), (2, '1002')");
-
-        // transaction1 commit successfully
-        Session session1 = assertEndTransaction(txnSession1, "commit");
-        // Can read the writes of transaction1 from outside
-        assertQuery(session1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
-        assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1002')");
-        // transaction2 can just read its own writes, unaware of outside change
-        assertQuery(txnSession2, "select * from " + tableName, "values(1, '1001'), (2, '1102')");
+        validateTxnIsolationAndCommitTheFirstTxn(txnSession1, txnSession2, tableName,
+                "values(1, '1001'), (2, '1002')",
+                "values(1, '1101'), (2, '1002')",
+                "values(1, '1001'), (2, '1102')");
 
         // transaction2 commission failed with conflicting delete files
         assertQueryFails(txnSession2, "commit",
@@ -848,21 +855,10 @@ public abstract class TestIcebergDistributedQueries
 
         assertUpdate(txnSession1, format("update %s set b = '1101' where b = '1001'", tableName), 1);
         assertUpdate(txnSession2, format("update %s set b = '1102' where b = '1002'", tableName), 1);
-
-        // transaction1 can just read its own writes
-        assertQuery(txnSession1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
-        // transaction2 can just read its own writes
-        assertQuery(txnSession2, "select * from " + tableName, "values(1, '1001'), (2, '1102')");
-        // Cannot read any change outside transaction1 and transaction2
-        assertQuery(getSession(), "select * from " + tableName, "values(1, '1001'), (2, '1002')");
-
-        // transaction1 commit successfully
-        Session session1 = assertEndTransaction(txnSession1, "commit");
-        // Can read the writes of transaction1 from outside
-        assertQuery(session1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
-        assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1002')");
-        // transaction2 can just read its own writes, unaware of outside change
-        assertQuery(txnSession2, "select * from " + tableName, "values(1, '1001'), (2, '1102')");
+        validateTxnIsolationAndCommitTheFirstTxn(txnSession1, txnSession2, tableName,
+                "values(1, '1001'), (2, '1002')",
+                "values(1, '1101'), (2, '1002')",
+                "values(1, '1001'), (2, '1102')");
 
         // transaction2 commission failed with conflicting delete files
         assertQueryFails(txnSession2, "commit",
@@ -871,5 +867,28 @@ public abstract class TestIcebergDistributedQueries
         assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1002')");
 
         assertUpdate("drop table " + tableName);
+    }
+
+    protected Session validateTxnIsolationAndCommitTheFirstTxn(
+            Session txnSession1, Session txnSession2, String tableName,
+            @Language("SQL") String initialExpectedValues, @Language("SQL") String txn1ExpectedValues,
+            @Language("SQL") String txn2ExpectedValues)
+    {
+        // transaction1 can just read its own writes
+        assertQuery(txnSession1, "select * from " + tableName, txn1ExpectedValues);
+        // transaction2 can just read its own writes
+        assertQuery(txnSession2, "select * from " + tableName, txn2ExpectedValues);
+        // Cannot read any change outside transaction1 and transaction2
+        assertQuery(getSession(), "select * from " + tableName, initialExpectedValues);
+
+        // transaction1 commit successfully
+        Session session1 = assertEndTransaction(txnSession1, "commit");
+        // Can read the writes of transaction1 from outside
+        assertQuery(session1, "select * from " + tableName, txn1ExpectedValues);
+        assertQuery(getSession(), "select * from " + tableName, txn1ExpectedValues);
+        // transaction2 can just read its own writes, unaware of outside change
+        assertQuery(txnSession2, "select * from " + tableName, txn2ExpectedValues);
+
+        return session1;
     }
 }

@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg.nessie;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.iceberg.container.IcebergMinIODataLake;
 import com.facebook.presto.testing.QueryRunner;
@@ -103,6 +104,34 @@ public class TestIcebergNessieRestCatalogDistributedQueries
                 .setCatalogType(REST)
                 .setExtraConnectorProperties(icebergProperties)
                 .build().getQueryRunner();
+    }
+
+    @Override
+    public void testMultipleConcurrentUpdatesOnTheSameRow()
+    {
+        Session session = getQueryRunner().getDefaultSession();
+        String tableName = "multiple_concurrent_updates_on_same_row";
+        assertUpdate(session, format("create table %s(a int, b varchar) with(partitioning = ARRAY['a'])", tableName));
+        assertUpdate(session, format("insert into %s values(1, '1001'), (2, '1002')", tableName), 2);
+
+        Session txnSession1 = assertStartTransaction(session, "START TRANSACTION");
+        Session txnSession2 = assertStartTransaction(session, "START TRANSACTION");
+
+        assertUpdate(txnSession1, format("update %s set b = '1101' where a = 1", tableName), 1);
+        assertUpdate(txnSession2, format("update %s set b = '1201' where a = 1", tableName), 1);
+        Session session1 = validateTxnIsolationAndCommitTheFirstTxn(txnSession1, txnSession2, tableName,
+                "values(1, '1001'), (2, '1002')",
+                "values(1, '1101'), (2, '1002')",
+                "values(1, '1201'), (2, '1002')");
+
+        // transaction2 commission always failed with conflicting delete files
+        assertQueryFails(txnSession2, "commit",
+                ".* is not an ancestor of .*");
+
+        assertQuery(session1, "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+        assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1002')");
+
+        assertUpdate("drop table " + tableName);
     }
 
     @Override
