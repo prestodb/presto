@@ -229,7 +229,7 @@ public class TestExpireSnapshotProcedure
     public void testInvalidExpireSnapshotsCases()
     {
         assertQueryFails("CALL system.expire_snapshots('n', table_name => 't')", ".*Named and positional arguments cannot be mixed");
-        assertQueryFails("CALL custom.expire_snapshots('n', 't')", "Procedure not registered: custom.expire_snapshots");
+        assertQueryFails("CALL custom.expire_snapshots('n', 't')", "Procedure not registered: iceberg.custom.expire_snapshots");
         assertQueryFails("CALL system.expire_snapshots()", ".*Required procedure argument 'schema' is missing");
         assertQueryFails("CALL system.expire_snapshots('s', 'n', 2.2)", ".*Cannot cast type decimal\\(2,1\\) to timestamp");
         assertQueryFails("CALL system.expire_snapshots('', '')", "schemaName is empty");

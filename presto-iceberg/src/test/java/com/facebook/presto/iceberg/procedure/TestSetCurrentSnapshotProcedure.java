@@ -132,7 +132,7 @@ public class TestSetCurrentSnapshotProcedure
                         TEST_SCHEMA, "tableName", 1),
                 "line 1:1: Named and positional arguments cannot be mixed");
         assertQueryFails("CALL custom.set_current_snapshot('test_schema', 'test_table', 1)",
-                "Procedure not registered: custom.set_current_snapshot");
+                "Procedure not registered: iceberg.custom.set_current_snapshot");
         assertQueryFails("CALL system.set_current_snapshot('', 'test_table', 1)",
                 "schemaName is empty");
         assertQueryFails("CALL system.set_current_snapshot('test_schema', '', 1)",
