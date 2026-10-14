@@ -9956,6 +9956,13 @@ void to_json(json& j, const RPCNode& p) {
       "RPCNode",
       "Integer",
       "dispatchBatchSize");
+  to_json_key(
+      j,
+      "riftTier",
+      p.riftTier,
+      "RPCNode",
+      "String",
+      "riftTier");
 }
 
 void from_json(const json& j, RPCNode& p) {
@@ -9999,6 +10006,13 @@ void from_json(const json& j, RPCNode& p) {
       "RPCNode",
       "Integer",
       "dispatchBatchSize");
+  from_json_key(
+      j,
+      "riftTier",
+      p.riftTier,
+      "RPCNode",
+      "String",
+      "riftTier");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
