@@ -460,10 +460,16 @@ public class MySqlClient
         JdbcIdentity identity = JdbcIdentity.from(session);
 
         ViewDefinition viewDefinition = viewCodec.fromJson(viewData);
+        MySqlViewQuery viewQuery = MySqlViewQuery.rewrite(viewDefinition.getOriginalSql(), connectorId, viewDefinition.getCatalog(), viewDefinition.getSchema());
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             String schema = toRemoteSchemaName(session, identity, connection, viewName.getSchemaName());
             String view = toRemoteTableName(session, identity, connection, schema, viewName.getTableName());
+            // MySQL resolves a table named without a schema against the default database, and
+            // stores the resolved name in the view, so this has to be the schema Presto used
+            if (viewQuery.getDefaultSchema().isPresent()) {
+                connection.setCatalog(toRemoteSchemaName(session, identity, connection, viewQuery.getDefaultSchema().get()));
+            }
 
             // Without an explicit DEFINER, MySQL records the connection user, so the Presto user who
             // created the view would be lost. Naming another account requires the connection user
@@ -476,7 +482,7 @@ public class MySqlClient
                     definer,
                     viewDefinition.isRunAsInvoker() ? "INVOKER" : "DEFINER",
                     quotedRemoteName(schema, view),
-                    viewDefinition.getOriginalSql());
+                    viewQuery.getSql());
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -485,13 +491,12 @@ public class MySqlClient
             if (SQL_STATE_ER_TABLE_EXISTS_ERROR.equals(e.getSQLState())) {
                 throw new PrestoException(ALREADY_EXISTS, e);
             }
-            // The view query is Presto SQL and goes to MySQL unchanged. Rewriting it would take the
-            // Presto parser, so a query MySQL cannot resolve is rejected with what it has to look like.
+            // Apart from the table names, the view query is Presto SQL and goes to MySQL unchanged,
+            // so a query MySQL cannot parse is rejected with what it has to look like.
             if (e.getErrorCode() == ER_PARSE_ERROR || e.getErrorCode() == ER_NO_DB_ERROR) {
                 throw new PrestoException(NOT_SUPPORTED, format(
-                        "The query of a view in a MySQL catalog is sent to MySQL unchanged and must be valid MySQL SQL, " +
-                                "for example with each table named as schema.table, without the catalog name, " +
-                                "and no identifiers quoted with double quotes. MySQL reported: %s",
+                        "The query of a view in a MySQL catalog is sent to MySQL with only the catalog removed from table names, " +
+                                "so it must be valid MySQL SQL, for example with no identifiers quoted with double quotes. MySQL reported: %s",
                         e.getMessage()), e);
             }
             throw new PrestoException(JDBC_ERROR, e);

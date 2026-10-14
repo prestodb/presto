@@ -287,6 +287,9 @@ public class TestMySqlViews
                     "VALUES ('" + definerView + "', 'alice'), ('" + invokerView + "', NULL), ('" + emailOwnerView + "', 'carol@example.com')");
             assertTrue(showCreateView(definerView).contains("SECURITY DEFINER"), showCreateView(definerView));
             assertTrue(showCreateView(invokerView).contains("SECURITY INVOKER"), showCreateView(invokerView));
+            // a user other than the owner can query both, with the DEFINER view analyzed as alice
+            assertQuery(sessionFor("dave"), "SELECT count(*) FROM " + definerView, "SELECT count(*) FROM orders");
+            assertQuery(sessionFor("dave"), "SELECT count(*) FROM " + invokerView, "SELECT count(*) FROM orders");
 
             // replacing a view as another user moves ownership and security mode to the new definition
             assertUpdate(sessionFor("bob"), "CREATE OR REPLACE VIEW " + definerView + " SECURITY INVOKER AS SELECT orderkey FROM tpch.orders");
@@ -409,16 +412,89 @@ public class TestMySqlViews
         dropViewIfExists(viewName);
 
         try {
-            // the view query goes to MySQL unchanged, so only a schema qualified name without quotes works
-            for (String query : new String[] {
-                    "SELECT orderkey FROM " + MYSQL_CATALOG + ".tpch.orders",
-                    "SELECT orderkey FROM tpch.\"orders\"",
-                    "SELECT orderkey FROM orders"}) {
-                assertQueryFails(
-                        "CREATE VIEW tpch." + viewName + " AS " + query,
-                        "(?s)The query of a view in a MySQL catalog is sent to MySQL unchanged and must be valid MySQL SQL, .*MySQL reported: .*");
-                assertFalse(viewExistsInMySQL(viewName), "No view should be created for: " + query);
-            }
+            // apart from the catalog in table names, the view query goes to MySQL unchanged, which
+            // reads a double quoted identifier as a string
+            assertQueryFails(
+                    "CREATE VIEW tpch." + viewName + " AS SELECT orderkey FROM tpch.\"orders\"",
+                    "(?s)The query of a view in a MySQL catalog is sent to MySQL with only the catalog removed from table names, .*MySQL reported: .*");
+            assertFalse(viewExistsInMySQL(viewName), "No view should be created");
+        }
+        finally {
+            dropViewIfExists(viewName);
+        }
+    }
+
+    @Test
+    public void testCreateViewWithoutSessionCatalog()
+            throws SQLException
+    {
+        // with no session catalog, the view and its tables have to be named with their catalog,
+        // which MySQL does not know and so has to be removed from the query it receives
+        String viewName = "test_create_view_no_session_catalog";
+        Session noCatalog = Session.builder(getSession())
+                .setCatalog(null)
+                .setSchema(null)
+                .build();
+        dropViewIfExists(viewName);
+
+        try {
+            assertUpdate(noCatalog, "CREATE VIEW " + MYSQL_CATALOG + ".tpch." + viewName + " AS " +
+                    "SELECT o.orderkey FROM " + MYSQL_CATALOG + ".tpch.orders o " +
+                    "WHERE o.orderkey IN (SELECT orderkey FROM \"" + MYSQL_CATALOG + "\".tpch.orders WHERE orderkey < 100)");
+            assertTrue(viewExistsInMySQL(viewName), "View should exist in MySQL");
+            assertQuery(
+                    noCatalog,
+                    "SELECT orderkey FROM " + MYSQL_CATALOG + ".tpch." + viewName,
+                    "SELECT orderkey FROM orders WHERE orderkey < 100");
+        }
+        finally {
+            dropViewIfExists(viewName);
+        }
+    }
+
+    @Test
+    public void testCreateViewWithUnqualifiedTable()
+            throws SQLException
+    {
+        // the analyzer resolves orders against the session schema, and MySQL has to resolve it the
+        // same way, though the connection has no default database of its own
+        String viewName = "test_create_view_unqualified_table";
+        dropViewIfExists(viewName);
+        executeOnMySql("DROP TABLE IF EXISTS test_database.orders");
+
+        try {
+            // a table of the same name in another database must not be the one the view reads
+            executeOnMySql("CREATE TABLE test_database.orders (orderkey BIGINT)");
+            assertUpdate("CREATE VIEW " + viewName + " AS SELECT orderkey FROM orders WHERE orderkey < 100");
+            assertTrue(viewExistsInMySQL(viewName), "View should exist in MySQL");
+            assertQuery(
+                    "SELECT orderkey FROM " + viewName,
+                    "SELECT orderkey FROM orders WHERE orderkey < 100");
+        }
+        finally {
+            dropViewIfExists(viewName);
+            executeOnMySql("DROP TABLE IF EXISTS test_database.orders");
+        }
+    }
+
+    @Test
+    public void testCreateViewReadingAnotherCatalog()
+            throws SQLException
+    {
+        String viewName = "test_create_view_other_catalog";
+        dropViewIfExists(viewName);
+
+        try {
+            // a MySQL view can only read MySQL tables, whether the other catalog is named or comes
+            // from the session
+            assertQueryFails(
+                    "CREATE VIEW " + viewName + " AS SELECT orderkey FROM tpch.tiny.orders",
+                    "A view in MySQL catalog 'mysql' can only read tables in that catalog, but its query reads 'tpch.tiny.orders' from catalog 'tpch'");
+            assertQueryFails(
+                    Session.builder(getSession()).setCatalog("tpch").setSchema("tiny").build(),
+                    "CREATE VIEW " + MYSQL_CATALOG + ".tpch." + viewName + " AS SELECT orderkey FROM orders",
+                    "A view in MySQL catalog 'mysql' can only read tables in that catalog, but its query reads 'orders' from catalog 'tpch'");
+            assertFalse(viewExistsInMySQL(viewName), "No view should be created");
         }
         finally {
             dropViewIfExists(viewName);
