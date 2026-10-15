@@ -29,6 +29,9 @@
 #include "velox/exec/ExchangeTransportRegistry.h"
 #include "velox/exec/OutputTransportRegistry.h"
 #include "velox/type/Type.h"
+#ifdef PRESTO_ENABLE_CUDF
+#include "velox/experimental/cudf/exec/ToCudf.h"
+#endif
 
 using namespace facebook::velox;
 
@@ -38,6 +41,14 @@ SessionProperties* SessionProperties::instance() {
   static std::unique_ptr<SessionProperties> instance =
       std::make_unique<SessionProperties>();
   return instance.get();
+}
+
+bool SessionProperties::isCudfAvailable() {
+#ifdef PRESTO_ENABLE_CUDF
+  return velox::cudf_velox::cudfIsRegistered();
+#else
+  return false;
+#endif
 }
 
 bool SessionProperties::isCudfExchangeAvailable(
@@ -61,6 +72,22 @@ SessionProperties::SessionProperties() {
   using velox::core::QueryConfig;
   // Use empty instance to get default property values.
   QueryConfig c{{}};
+
+  // The default follows this worker: on where cuDF is registered, off where it
+  // is not. Like the exchange property below, this runs when the singleton is
+  // first used, which is after registerCudf().
+  addSessionProperty(
+      kCudfEnabled,
+      "Native Execution only. Whether this query may run on the GPU. Defaults "
+      "to true on a worker that has cuDF registered, which is a worker with "
+      "'cudf.enabled' set in its system config in a build with cuDF, and to "
+      "false on every other worker. Setting it false keeps the whole query on "
+      "CPU operators and the in-memory exchange; setting it true on a worker "
+      "without cuDF fails the query instead of silently running it on the CPU.",
+      BOOLEAN(),
+      false,
+      kCudfEnabledConfig,
+      util::boolToLowerCaseString(isCudfAvailable()));
 
   // The default follows this worker: on where the cuDF UCX transport is
   // registered, off where it is not. This runs when the singleton is first used
