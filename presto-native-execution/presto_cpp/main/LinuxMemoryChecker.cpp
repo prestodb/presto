@@ -83,32 +83,38 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
   }
 
   void start() override {
-    // Check system-memory-gb < system-mem-limit-gb < available machine memory
-    // of deployment.
     auto* systemConfig = SystemConfig::instance();
     int64_t systemMemoryInBytes =
         static_cast<int64_t>(systemConfig->systemMemoryGb()) << 30;
     PRESTO_STARTUP_LOG(INFO)
         << fmt::format("System memory in bytes: {}", systemMemoryInBytes);
 
-    PRESTO_STARTUP_LOG(INFO) << fmt::format(
-        "System memory limit in bytes: {}", config_.systemMemLimitBytes);
-
     auto availableMemoryOfDeployment = getAvailableMemoryOfDeployment();
     PRESTO_STARTUP_LOG(INFO) << fmt::format(
         "Available machine memory of deployment in bytes: {}",
         availableMemoryOfDeployment);
 
-    VELOX_CHECK_LE(
-        config_.systemMemLimitBytes,
-        availableMemoryOfDeployment,
-        "system memory limit = {} bytes is higher than the available machine memory of deployment = {} bytes.",
-        config_.systemMemLimitBytes,
-        availableMemoryOfDeployment);
+    // The limit-related validation only applies when memory pushback is
+    // enabled: `system-mem-limit-gb` and `system-mem-shrink-gb` have no
+    // effect on sampling. When pushback is off we leave `systemMemLimitBytes`
+    // at its 0 default and skip the checks to avoid a spurious warning like
+    // "system-mem-limit-gb is smaller than system-memory-gb" against a limit
+    // that was never configured.
+    if (config_.systemMemPushbackEnabled) {
+      PRESTO_STARTUP_LOG(INFO) << fmt::format(
+          "System memory limit in bytes: {}", config_.systemMemLimitBytes);
 
-    if (config_.systemMemLimitBytes < systemMemoryInBytes) {
-      LOG(WARNING) << "system-mem-limit-gb is smaller than system-memory-gb. "
-                   << "Expected: system-mem-limit-gb >= system-memory-gb.";
+      VELOX_CHECK_LE(
+          config_.systemMemLimitBytes,
+          availableMemoryOfDeployment,
+          "system memory limit = {} bytes is higher than the available machine memory of deployment = {} bytes.",
+          config_.systemMemLimitBytes,
+          availableMemoryOfDeployment);
+
+      if (config_.systemMemLimitBytes < systemMemoryInBytes) {
+        LOG(WARNING) << "system-mem-limit-gb is smaller than system-memory-gb. "
+                     << "Expected: system-mem-limit-gb >= system-memory-gb.";
+      }
     }
 
     PeriodicMemoryChecker::start();
@@ -279,17 +285,23 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
 };
 
 std::unique_ptr<PeriodicMemoryChecker> createMemoryChecker() {
+  // Always create the checker on Linux so the sampling path (and the
+  // systemMemoryBytes field / linux_memory_checker_used_bytes counter that
+  // read it) run by default. The pushback scheduler, which actually shrinks
+  // memory under pressure, is still gated inside
+  // PeriodicMemoryChecker::start() by Config::systemMemPushbackEnabled —
+  // enabling sampling here does not activate pushback. The overload sensor
+  // in checkOverload() is independently gated on
+  // worker-overloaded-threshold-mem-gb and will only arm when that threshold
+  // is > 0.
   auto* systemConfig = SystemConfig::instance();
-  if (systemConfig->systemMemPushbackEnabled()) {
-    PeriodicMemoryChecker::Config config;
-    config.systemMemPushbackEnabled = systemConfig->systemMemPushbackEnabled();
-    config.systemMemLimitBytes =
-        static_cast<uint64_t>(systemConfig->systemMemLimitGb()) << 30;
-    config.systemMemShrinkBytes =
-        static_cast<uint64_t>(systemConfig->systemMemShrinkGb()) << 30;
-    return std::make_unique<LinuxMemoryChecker>(config);
-  }
-  return nullptr;
+  PeriodicMemoryChecker::Config config;
+  config.systemMemPushbackEnabled = systemConfig->systemMemPushbackEnabled();
+  config.systemMemLimitBytes =
+      static_cast<uint64_t>(systemConfig->systemMemLimitGb()) << 30;
+  config.systemMemShrinkBytes =
+      static_cast<uint64_t>(systemConfig->systemMemShrinkGb()) << 30;
+  return std::make_unique<LinuxMemoryChecker>(config);
 }
 
 } // namespace facebook::presto

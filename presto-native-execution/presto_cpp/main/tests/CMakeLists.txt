@@ -15,6 +15,7 @@ add_executable(
   ConnectorTest.cpp
   CoordinatorDiscovererTest.cpp
   HttpServerWrapper.cpp
+  MemorySamplingTest.cpp
   PeriodicMemoryCheckerTest.cpp
   PrestoExchangeSourceTest.cpp
   PrestoTaskTest.cpp

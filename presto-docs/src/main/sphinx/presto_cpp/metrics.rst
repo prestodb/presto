@@ -180,6 +180,26 @@ These metrics track query execution contexts and memory usage.
 * **Unit:** bytes
 * **Description:** Total bytes currently used by the memory manager across all queries' memory pools.
 
+``presto_cpp.memory_checker_used_bytes``
+----------------------------------------
+
+* **Type:** gauge
+* **Unit:** bytes
+* **Description:** Total process-level memory used by the worker as sampled by
+  the installed memory checker. On Linux this is
+  ``inactive_anon + active_anon`` from the worker's cgroup, with
+  ``MemTotal - MemAvailable`` from ``/proc/meminfo`` as a fallback when the
+  cgroup files are not readable. This is a superset of
+  ``memory_manager_total_bytes``: it includes the ``presto_server`` binary,
+  shared libraries, mmap'd files, and other process overhead that the
+  query-memory and ``AsyncDataCache`` counters do not reflect. The same value
+  is also surfaced on ``/v1/status`` and ``/v1/memory`` as
+  ``MemoryInfo.systemMemoryBytes`` and aggregated per worker through
+  ``/v1/cluster/workerMemory``.
+* **Requires:** A memory checker is installed. On Linux this means building
+  with ``-DPRESTO_MEMORY_CHECKER_TYPE=LINUX_MEMORY_CHECKER``; on other builds
+  the metric is not recorded, so the time series is absent (not zero).
+
 Task Metrics
 ============
 
