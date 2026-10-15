@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.DeleteNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
@@ -27,24 +29,82 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.BROADCAST_SEMI_JOIN_FOR_DELETE;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.metadata.AbstractMockMetadata.dummyMetadata;
 import static com.facebook.presto.spi.plan.SemiJoinNode.DistributionType.PARTITIONED;
 import static com.facebook.presto.spi.plan.SemiJoinNode.DistributionType.REPLICATED;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestReplicateSemiJoinInDelete
 {
+    private static final Session DELETE_BROADCAST_DISABLED = Session.builder(TEST_SESSION)
+            .setSystemProperty(BROADCAST_SEMI_JOIN_FOR_DELETE, "false")
+            .build();
+
     @Test
     public void testUpdateReplicatesPartitionedSemiJoin()
     {
+        assertUpdateReplicatesPartitionedSemiJoin(TEST_SESSION);
+    }
+
+    // broadcast_semi_join_for_delete only controls DELETE; an UPDATE fails to apply its
+    // write over a partitioned semi-join, so it is replicated regardless.
+    @Test
+    public void testUpdateReplicatesPartitionedSemiJoinWhenDeleteBroadcastDisabled()
+    {
+        assertUpdateReplicatesPartitionedSemiJoin(DELETE_BROADCAST_DISABLED);
+    }
+
+    @Test
+    public void testDeleteReplicatesPartitionedSemiJoin()
+    {
+        PlanOptimizerResult result = optimizeDelete(TEST_SESSION);
+
+        assertTrue(result.isOptimizerTriggered());
+        DeleteNode rewritten = (DeleteNode) result.getPlanNode();
+        assertEquals(((SemiJoinNode) rewritten.getSource()).getDistributionType(), Optional.of(REPLICATED));
+    }
+
+    @Test
+    public void testDeleteKeepsPartitionedSemiJoinWhenDisabled()
+    {
+        PlanOptimizerResult result = optimizeDelete(DELETE_BROADCAST_DISABLED);
+
+        assertFalse(result.isOptimizerTriggered());
+        DeleteNode rewritten = (DeleteNode) result.getPlanNode();
+        assertEquals(((SemiJoinNode) rewritten.getSource()).getDistributionType(), Optional.of(PARTITIONED));
+    }
+
+    private static PlanOptimizerResult optimizeDelete(Session session)
+    {
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        PlanBuilder planBuilder = new PlanBuilder(TEST_SESSION, idAllocator, dummyMetadata());
-        VariableReferenceExpression sourceKey = planBuilder.variable("source_key");
-        VariableReferenceExpression filterKey = planBuilder.variable("filter_key");
+        PlanBuilder planBuilder = new PlanBuilder(session, idAllocator, dummyMetadata());
         VariableReferenceExpression rowId = planBuilder.variable("row_id");
-        SemiJoinNode semiJoin = planBuilder.semiJoin(
+        VariableReferenceExpression filterKey = planBuilder.variable("filter_key");
+        DeleteNode delete = new DeleteNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                partitionedSemiJoin(planBuilder, rowId, filterKey),
+                Optional.of(rowId),
+                ImmutableList.of(planBuilder.variable("rows")),
+                Optional.empty());
+
+        return new ReplicateSemiJoinInDelete().optimize(
+                delete,
+                session,
+                TypeProvider.empty(),
+                new VariableAllocator(),
+                new PlanNodeIdAllocator(),
+                WarningCollector.NOOP,
+                false);
+    }
+
+    private static SemiJoinNode partitionedSemiJoin(PlanBuilder planBuilder, VariableReferenceExpression sourceKey, VariableReferenceExpression filterKey)
+    {
+        return planBuilder.semiJoin(
                 planBuilder.values(sourceKey),
                 planBuilder.values(filterKey),
                 sourceKey,
@@ -53,6 +113,16 @@ public class TestReplicateSemiJoinInDelete
                 Optional.empty(),
                 Optional.empty(),
                 Optional.of(PARTITIONED));
+    }
+
+    private static void assertUpdateReplicatesPartitionedSemiJoin(Session session)
+    {
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        PlanBuilder planBuilder = new PlanBuilder(session, idAllocator, dummyMetadata());
+        VariableReferenceExpression sourceKey = planBuilder.variable("source_key");
+        VariableReferenceExpression filterKey = planBuilder.variable("filter_key");
+        VariableReferenceExpression rowId = planBuilder.variable("row_id");
+        SemiJoinNode semiJoin = partitionedSemiJoin(planBuilder, sourceKey, filterKey);
         UpdateNode update = new UpdateNode(
                 Optional.empty(),
                 idAllocator.getNextId(),
@@ -63,7 +133,7 @@ public class TestReplicateSemiJoinInDelete
 
         PlanOptimizerResult result = new ReplicateSemiJoinInDelete().optimize(
                 update,
-                TEST_SESSION,
+                session,
                 TypeProvider.empty(),
                 new VariableAllocator(),
                 new PlanNodeIdAllocator(),

@@ -37,20 +37,25 @@ public class ReplicateSemiJoinInDelete
     public PlanOptimizerResult optimize(PlanNode plan, Session session, TypeProvider types, VariableAllocator variableAllocator,
                                         PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
-        if (isBroadcastSemiJoinForDeleteEnabled(session)) {
-            requireNonNull(plan, "plan is null");
-            Rewriter rewriter = new Rewriter();
-            PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan);
-            return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
-        }
-        return PlanOptimizerResult.optimizerResult(plan, false);
+        requireNonNull(plan, "plan is null");
+        // broadcast_semi_join_for_delete only controls DELETE. UPDATE always needs the
+        // replicated semi-join, because applying the write fails without it.
+        Rewriter rewriter = new Rewriter(isBroadcastSemiJoinForDeleteEnabled(session));
+        PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan);
+        return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
+        private final boolean replicateForDelete;
         private boolean isDeleteOrUpdateQuery;
         private boolean planChanged;
+
+        private Rewriter(boolean replicateForDelete)
+        {
+            this.replicateForDelete = replicateForDelete;
+        }
 
         public boolean isPlanChanged()
         {
@@ -87,6 +92,9 @@ public class ReplicateSemiJoinInDelete
         @Override
         public PlanNode visitDelete(DeleteNode node, RewriteContext<Void> context)
         {
+            if (!replicateForDelete) {
+                return context.defaultRewrite(node, context.get());
+            }
             return rewriteMutation(node, context);
         }
 
