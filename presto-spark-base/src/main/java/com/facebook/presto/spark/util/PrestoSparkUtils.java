@@ -50,6 +50,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.IntStream;
 import java.util.zip.DeflaterInputStream;
 import java.util.zip.InflaterOutputStream;
 
@@ -66,6 +67,12 @@ public class PrestoSparkUtils
 
     private PrestoSparkUtils()
     {
+    }
+
+    public static int getPartitionCountFromBucketToPartition(int[] bucketToPartition)
+    {
+        checkArgument(bucketToPartition.length > 0, "bucketToPartition is expected to be non empty");
+        return IntStream.of(bucketToPartition).max().getAsInt() + 1;
     }
 
     public static PrestoSparkSerializedPage toPrestoSparkSerializedPage(SerializedPage serializedPage)
