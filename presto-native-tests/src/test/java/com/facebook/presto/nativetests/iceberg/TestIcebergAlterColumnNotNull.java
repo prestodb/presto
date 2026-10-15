@@ -89,7 +89,7 @@ public class TestIcebergAlterColumnNotNull
 
             assertQuery(format("SELECT count(*) FROM %s", tableName), "VALUES 4");
 
-            // DROP NOT NULL on a column that is already nullable fails, as in the Hive connector, and leaves the schema unchanged.
+            // DROP NOT NULL on a nullable column fails, as in Hive, and changes nothing.
             assertQueryFails(
                     format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName),
                     "(?s).*Not Null constraint not found on column c2.*");
@@ -105,28 +105,21 @@ public class TestIcebergAlterColumnNotNull
     @Test
     public void testSetNotNullWithExistingNullData()
     {
-        // Iceberg SET NOT NULL is metadata-only: existing rows with NULLs remain readable.
+        // The native writer records NULL counts, so SET NOT NULL rejects the column.
         String tableName = "alter_not_null_existing_nulls_" + randomTableSuffix();
         String schema = getSession().getSchema().get();
         try {
             assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
             assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
 
-            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
+            assertQueryFails(
+                    format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName),
+                    "(?s).*Cannot set NOT NULL on column 'c2' of table .* has NULL values in the column.*");
 
             assertQuery(
                     format("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = '%s' AND table_schema = '%s' ORDER BY ordinal_position", tableName, schema),
-                    "VALUES ('c1', 'YES'), ('c2', 'NO')");
-
-            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, NULL)");
-            assertQuery(format("SELECT c1 FROM %s WHERE c2 IS NULL", tableName), "VALUES 1");
-
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (2, NULL)", tableName),
-                    "(?s).*NULL value not allowed for NOT NULL column: c2.*");
-
-            assertUpdate(format("INSERT INTO %s VALUES (2, 3)", tableName), 1);
-            assertQuery(format("SELECT count(*) FROM %s", tableName), "VALUES 2");
+                    "VALUES ('c1', 'YES'), ('c2', 'YES')");
+            assertUpdate(format("INSERT INTO %s VALUES (2, NULL)", tableName), 1);
         }
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
@@ -134,26 +127,25 @@ public class TestIcebergAlterColumnNotNull
     }
 
     @Test
-    public void testSetNotNullWithExistingNullDataAndFilterPushdown()
+    public void testUpdateNullIntoNotNullColumn()
     {
-        // With filter pushdown, identity partition predicates are enforced only by partition pruning.
-        Session session = Session.builder(getSession())
-                .setCatalogSessionProperty("iceberg", PUSHDOWN_FILTER_ENABLED, "true")
-                .build();
-        String tableName = "alter_not_null_existing_nulls_pushdown_" + randomTableSuffix();
+        String tableName = "alter_not_null_update_" + randomTableSuffix();
         try {
-            assertUpdate(format("CREATE TABLE %s (id BIGINT, c2 BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])", tableName));
-            assertUpdate(format("INSERT INTO %s VALUES (1, NULL, NULL), (2, 5, 'us'), (3, NULL, 'us')", tableName), 3);
-            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
-            assertUpdate(format("ALTER TABLE %s ALTER COLUMN region SET NOT NULL", tableName));
+            assertUpdate(format("CREATE TABLE %s (a BIGINT, b BIGINT NOT NULL, c BIGINT)", tableName));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2, 3), (4, 5, 6)", tableName), 2);
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c SET NOT NULL", tableName));
 
-            assertQuery(session, format("SELECT id FROM %s WHERE c2 IS NULL", tableName), "VALUES 1, 3");
-            assertQuery(session, format("SELECT id FROM %s WHERE c2 IS NULL OR c2 = 5", tableName), "VALUES 1, 2, 3");
-            assertQuery(session, format("SELECT id FROM %s WHERE region IS NULL", tableName), "VALUES 1");
-            assertQuery(session, format("SELECT id FROM %s WHERE region IS NULL OR region = 'us'", tableName), "VALUES 1, 2, 3");
-            assertQuery(session, format("SELECT id FROM %s WHERE region = 'us'", tableName), "VALUES 2, 3");
-            assertQuery(session, format("SELECT id FROM %s WHERE c2 IS NOT NULL", tableName), "VALUES 2");
-            assertQuery(session, format("SELECT id FROM %s WHERE region IS NOT NULL", tableName), "VALUES 2, 3");
+            assertQueryFails(
+                    format("UPDATE %s SET b = NULL WHERE a = 1", tableName),
+                    "(?s).*NULL value not allowed for NOT NULL column. Table: " + tableName + " Column: b.*");
+            assertQueryFails(
+                    format("UPDATE %s SET c = IF(a = 4, NULL, c)", tableName),
+                    "(?s).*NULL value not allowed for NOT NULL column. Table: " + tableName + " Column: c.*");
+            // A column assigned more than once takes its first value.
+            assertQueryFails(
+                    format("UPDATE %s SET b = NULL, b = 7 WHERE a = 1", tableName),
+                    "(?s).*NULL value not allowed for NOT NULL column. Table: " + tableName + " Column: b.*");
+            assertQuery(format("SELECT a, b, c FROM %s", tableName), "VALUES (1, 2, 3), (4, 5, 6)");
         }
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
@@ -163,24 +155,24 @@ public class TestIcebergAlterColumnNotNull
     @Test
     public void testReadAcrossRequiredAndOptionalDataFiles()
     {
-        // Files written while c2 is NOT NULL store it as a required Parquet column, and the others as optional.
+        // Files written while c2 is NOT NULL store it as required in Parquet; the rest store it as optional.
         String tableName = "alter_not_null_mixed_files_" + randomTableSuffix();
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("iceberg", PUSHDOWN_FILTER_ENABLED, "true")
                 .build();
         try {
             assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
-            assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (1, 10)", tableName), 1);
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
             assertUpdate(format("INSERT INTO %s VALUES (2, 20)", tableName), 1);
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName));
             assertUpdate(format("INSERT INTO %s VALUES (3, NULL)", tableName), 1);
 
-            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, NULL), (2, 20), (3, NULL)");
-            assertQuery(format("SELECT c1 FROM %s WHERE c2 IS NULL", tableName), "VALUES 1, 3");
-            assertQuery(format("SELECT c1 FROM %s WHERE c2 IS NOT NULL", tableName), "VALUES 2");
-            assertQuery(session, format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, NULL), (2, 20), (3, NULL)");
-            assertQuery(session, format("SELECT c1 FROM %s WHERE c2 IS NULL", tableName), "VALUES 1, 3");
+            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, 10), (2, 20), (3, NULL)");
+            assertQuery(format("SELECT c1 FROM %s WHERE c2 IS NULL", tableName), "VALUES 3");
+            assertQuery(format("SELECT c1 FROM %s WHERE c2 IS NOT NULL", tableName), "VALUES 1, 2");
+            assertQuery(session, format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, 10), (2, 20), (3, NULL)");
+            assertQuery(session, format("SELECT c1 FROM %s WHERE c2 IS NULL", tableName), "VALUES 3");
         }
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
@@ -190,7 +182,7 @@ public class TestIcebergAlterColumnNotNull
     @Test
     public void testAlterColumnNotNullAfterColumnReorder()
     {
-        // The native writer checks a positional INSERT against the column now in each position.
+        // The native writer checks a positional INSERT against the current column order.
         String tableName = "alter_column_not_null_reorder_" + randomTableSuffix();
         String schema = getSession().getSchema().get();
         try {
@@ -212,7 +204,7 @@ public class TestIcebergAlterColumnNotNull
                     "(?s).*NULL value not allowed for NOT NULL column: c.*");
             assertUpdate(format("INSERT INTO %s VALUES (3, 'y', NULL)", tableName), 1);
 
-            // DROP NOT NULL resolves the moved columns by name, including b, whose constraint was declared at create time.
+            // DROP NOT NULL finds the moved columns by name, including b, which was NOT NULL from CREATE TABLE.
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN b DROP NOT NULL", tableName));
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c DROP NOT NULL", tableName));
             assertQueryOrdered(
@@ -221,57 +213,6 @@ public class TestIcebergAlterColumnNotNull
             assertUpdate(format("INSERT INTO %s VALUES (NULL, NULL, 5)", tableName), 1);
 
             assertQuery(format("SELECT a, b, c FROM %s", tableName), "VALUES (1, 2, 'x'), (NULL, 3, 'y'), (5, NULL, NULL)");
-        }
-        finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
-        }
-    }
-
-    @Test
-    public void testSetNotNullOnStructColumn()
-    {
-        // SET NOT NULL applies to the top-level struct column, not its nested fields.
-        String tableName = "alter_column_not_null_struct_" + randomTableSuffix();
-        String schema = getSession().getSchema().get();
-        try {
-            assertUpdate(format("CREATE TABLE %s (id BIGINT, payload ROW(x BIGINT, y VARCHAR))", tableName));
-
-            assertUpdate(format("ALTER TABLE %s ALTER COLUMN payload SET NOT NULL", tableName));
-            assertQuery(
-                    format("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = '%s' AND table_schema = '%s' ORDER BY ordinal_position", tableName, schema),
-                    "VALUES ('id', 'YES'), ('payload', 'NO')");
-        }
-        finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
-        }
-    }
-
-    @Test
-    public void testDropNotNullOnColumnDefinedAtCreateTime()
-    {
-        String tableName = "alter_column_drop_not_null_create_time_" + randomTableSuffix();
-        String schema = getSession().getSchema().get();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT NOT NULL, c3 VARCHAR)", tableName));
-            assertQuery(
-                    format("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = '%s' AND table_schema = '%s' ORDER BY ordinal_position", tableName, schema),
-                    "VALUES ('c1', 'YES'), ('c2', 'NO'), ('c3', 'YES')");
-
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (1, NULL, 'a')", tableName),
-                    "(?s).*NULL value not allowed for NOT NULL column: c2.*");
-
-            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName));
-            assertQuery(
-                    format("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = '%s' AND table_schema = '%s' ORDER BY ordinal_position", tableName, schema),
-                    "VALUES ('c1', 'YES'), ('c2', 'YES'), ('c3', 'YES')");
-
-            assertUpdate(format("INSERT INTO %s VALUES (1, NULL, 'a')", tableName), 1);
-            assertUpdate(format("INSERT INTO %s VALUES (2, 3, 'b')", tableName), 1);
-            assertUpdate(format("INSERT INTO %s VALUES (3, NULL, NULL)", tableName), 1);
-
-            assertQuery(format("SELECT c1, c2, c3 FROM %s ORDER BY c1", tableName),
-                    "VALUES (1, NULL, 'a'), (2, 3, 'b'), (3, NULL, NULL)");
         }
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));

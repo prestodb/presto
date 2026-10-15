@@ -406,57 +406,6 @@ public abstract class AbstractTestRewriteDataFilesProcedure
     }
 
     @Test
-    public void testRewriteDataFilesWithNullPartitionFilterOnRequiredColumnAndPushdownEnabled()
-    {
-        // Partition pruning cannot enforce a filter that admits or excludes only NULL on the NOT NULL column c2:
-        // every data file would be selected for rewrite while Velox applies the filter as a row filter, so rows
-        // outside the filter would be dropped.
-        String tableName = "example_required_partition_pushdown_table";
-        String schemaName = getSession().getSchema().get();
-        Session sessionWithFilterPushdown = pushdownFilterEnabled();
-        try {
-            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar) with (partitioning = ARRAY['c2'])");
-            assertUpdate("INSERT INTO " + tableName + " values(1, 'bar'), (2, 'foo')", 2);
-            assertUpdate("INSERT INTO " + tableName + " values(3, 'bar'), (4, 'foo')", 2);
-            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
-
-            for (String filter : ImmutableList.of("c2 = ''foo'' OR c2 IS NULL", "c2 IS NOT NULL")) {
-                assertQueryFails(sessionWithFilterPushdown,
-                        format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => '%s', options => map(array['rewrite-all'], array['true']))", tableName, schemaName, filter),
-                        "rewrite_data_files does not support IS NULL or IS NOT NULL filters on NOT NULL partition column c2 when pushdown_filter_enabled=true");
-            }
-
-            validateDataFilesAndDeleteFiles(tableName, 4L, 0L);
-            assertQuery("select * from " + tableName,
-                    "values(1, 'bar'), (2, 'foo'), (3, 'bar'), (4, 'foo')");
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
-    public void testRewriteDataFilesWithNullsInNotNullColumn()
-    {
-        String tableName = "example_not_null_with_nulls_table";
-        String schemaName = getSession().getSchema().get();
-        try {
-            assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 integer)");
-            assertUpdate("INSERT INTO " + tableName + " values(1, NULL)", 1);
-            assertUpdate("INSERT INTO " + tableName + " values(2, 5)", 1);
-            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
-
-            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['rewrite-all'], array['true']))", tableName, schemaName),
-                    "(?s).*NULL value not allowed for NOT NULL column: c2.*");
-            validateDataFilesAndDeleteFiles(tableName, 2L, 0L);
-            assertQuery("select * from " + tableName, "values(1, NULL), (2, 5)");
-        }
-        finally {
-            dropTable(tableName);
-        }
-    }
-
-    @Test
     public void testRewriteDataFilesWithDateBasedPartitionFilterAndPushdownEnabled()
     {
         // year(event_date) is a non-identity transform. getPartitionKeyColumnHandles() only

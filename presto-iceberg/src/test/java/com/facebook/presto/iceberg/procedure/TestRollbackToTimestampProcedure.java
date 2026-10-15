@@ -20,6 +20,7 @@ import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.CatalogUtil;
@@ -221,6 +222,36 @@ public class TestRollbackToTimestampProcedure
         assertQueryFails(
                 format("CALL system.rollback_to_timestamp('s', '', %s)", timestamp),
                 "tableName is empty");
+    }
+
+    @Test
+    public void testRollbackToTimestampWithNullsInNotNullColumn()
+    {
+        String tableName = "test_rollback_to_timestamp_not_null_table";
+        String qualifiedTableName = ICEBERG_CATALOG + "." + TEST_SCHEMA + "." + tableName;
+        Session session = sessionForTimezone("UTC", false);
+        try {
+            assertUpdate(session, "CREATE TABLE " + qualifiedTableName + " (id integer, value varchar) WITH (partitioning = ARRAY['value'])");
+            assertUpdate(session, "INSERT INTO " + qualifiedTableName + " VALUES (1, NULL), (2, 'a')", 2);
+            Snapshot withNulls = loadTable(tableName).currentSnapshot();
+            waitUntilAfter(withNulls.timestampMillis());
+            assertUpdate(session, "DELETE FROM " + qualifiedTableName + " WHERE value IS NULL", 1);
+            Snapshot withoutNulls = loadTable(tableName).currentSnapshot();
+            assertUpdate(session, "ALTER TABLE " + qualifiedTableName + " ALTER COLUMN value SET NOT NULL");
+
+            // Both timestamps resolve to withNulls: rollback_to_timestamp picks the newest snapshot strictly older.
+            for (long timestampMillis : ImmutableList.of(withNulls.timestampMillis() + 1, withoutNulls.timestampMillis())) {
+                assertQueryFails(
+                        session,
+                        format("CALL %s.system.rollback_to_timestamp('%s', '%s', TIMESTAMP '%s')", ICEBERG_CATALOG, TEST_SCHEMA, tableName, getTimestampString(timestampMillis, "UTC")),
+                        ".*Cannot move branch 'main' of table '.*' to snapshot [0-9]+: data file '.*' of that snapshot can hold NULL values in NOT NULL column 'value'\\. " +
+                                "Drop the NOT NULL constraint first");
+            }
+            assertQuery(session, "SELECT id, value FROM " + qualifiedTableName, "VALUES (2, 'a')");
+        }
+        finally {
+            dropTable(tableName);
+        }
     }
 
     private void dropTable(String tableName)

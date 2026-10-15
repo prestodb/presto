@@ -421,6 +421,7 @@ public class QueryPlanner
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columns = ImmutableMap.builder();
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
+        ImmutableList.Builder<String> orderedColumnNamesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Expression> orderedColumnValuesBuilder = ImmutableList.builder();
         for (Field field : descriptor.getAllFields()) {
             String name = field.getName().get();
@@ -430,9 +431,11 @@ public class QueryPlanner
             fields.add(field);
             int index = targetColumnNames.indexOf(name);
             if (index >= 0) {
+                orderedColumnNamesBuilder.add(name);
                 orderedColumnValuesBuilder.add(node.getAssignments().get(index).getValue());
             }
         }
+        List<String> orderedColumnNames = orderedColumnNamesBuilder.build();
         List<Expression> orderedColumnValues = orderedColumnValuesBuilder.build();
 
         // add rowId column
@@ -486,7 +489,12 @@ public class QueryPlanner
 
         builder = builder.appendProjections(orderedColumnValues, variableAllocator, idAllocator, session, metadata, sqlParser, analysis, sqlPlannerContext);
 
-        PlanAndMappings planAndMappings = coerce(builder, orderedColumnValues, analysis, idAllocator, variableAllocator, metadata);
+        PlanAndMappings planAndMappings = checkNotNullColumns(
+                node,
+                coerce(builder, orderedColumnValues, analysis, idAllocator, variableAllocator, metadata),
+                orderedColumnNames,
+                orderedColumnValues,
+                updatedColumnMetadata);
         builder = planAndMappings.getSubPlan();
 
         ImmutableList.Builder<VariableReferenceExpression> updatedColumnValuesBuilder = ImmutableList.builder();
@@ -535,7 +543,7 @@ public class QueryPlanner
                     finalBuilder,
                     outputVariables,
                     rowId,
-                    targetColumnNames,
+                    orderedColumnNames,
                     orderedColumnValues,
                     planAndMappings,
                     outputs);
@@ -579,7 +587,7 @@ public class QueryPlanner
             PlanBuilder finalBuilder,
             List<VariableReferenceExpression> outputVariables,
             Optional<VariableReferenceExpression> rowId,
-            List<String> targetColumnNames,
+            List<String> orderedColumnNames,
             List<Expression> orderedColumnValues,
             PlanAndMappings planAndMappings,
             List<VariableReferenceExpression> outputs)
@@ -627,7 +635,7 @@ public class QueryPlanner
             mergeColumnVariablesBuilder.add(originalColumnVariable);
 
             String columnName = column.getName();
-            int setIndex = targetColumnNames.indexOf(columnName);
+            int setIndex = orderedColumnNames.indexOf(columnName);
             if (setIndex >= 0) {
                 Expression setExpression = orderedColumnValues.get(setIndex);
                 VariableReferenceExpression projectedVariable = planAndMappings.get(setExpression);
@@ -1030,16 +1038,55 @@ public class QueryPlanner
 
         ColumnMetadata columnMetadata = mergeAnalysis.getTargetColumnsMetadata().get(fieldNumber);
 
-        // Build a coalesce expression that returns an error when the original expression value is NULL.
+        return failIfNull(expression, mergeAnalysis.getTargetTable().getName(), columnMetadata);
+    }
+
+    /**
+     * Wraps the SET value of each NOT NULL column in {@link #failIfNull}.
+     */
+    private PlanAndMappings checkNotNullColumns(Update node, PlanAndMappings planAndMappings, List<String> columnNames, List<Expression> columnValues, List<ColumnMetadata> updatedColumns)
+    {
+        Map<String, ColumnMetadata> notNullColumns = updatedColumns.stream()
+                .filter(column -> !column.isNullable())
+                .collect(toImmutableMap(ColumnMetadata::getName, Function.identity()));
+        if (notNullColumns.isEmpty()) {
+            return planAndMappings;
+        }
+
+        PlanBuilder subPlan = planAndMappings.getSubPlan();
+        Assignments.Builder assignments = Assignments.builder();
+        assignments.putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())));
+        ImmutableMap.Builder<NodeRef<Expression>, VariableReferenceExpression> mappings = ImmutableMap.builder();
+        for (int i = 0; i < columnValues.size(); i++) {
+            Expression columnValue = columnValues.get(i);
+            VariableReferenceExpression variable = planAndMappings.get(columnValue);
+            ColumnMetadata column = notNullColumns.get(columnNames.get(i));
+            if (column != null) {
+                VariableReferenceExpression checkedVariable = variableAllocator.newVariable(variable);
+                assignments.put(checkedVariable, rowExpression(failIfNull(createSymbolReference(variable), node.getTable().getName(), column), sqlPlannerContext));
+                variable = checkedVariable;
+            }
+            mappings.put(NodeRef.of(columnValue), variable);
+        }
+        return new PlanAndMappings(
+                subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build())),
+                mappings.build());
+    }
+
+    /**
+     * Returns a CoalesceExpression that raises an error when {@code expression} is NULL.
+     */
+    private static Expression failIfNull(Expression expression, QualifiedName tableName, ColumnMetadata column)
+    {
         return new CoalesceExpression(expression,
                 new Cast(
                         new FunctionCall(
                                 QualifiedName.of("presto", "default", "fail"),
                                 ImmutableList.of(new Cast(new StringLiteral(
-                                        "NULL value not allowed for NOT NULL column. Table: " + mergeAnalysis.getTargetTable().getName() +
-                                                " Column: " + columnMetadata.getName()),
+                                        "NULL value not allowed for NOT NULL column. Table: " + tableName +
+                                                " Column: " + column.getName()),
                                         VARCHAR.getTypeSignature().toString()))),
-                        columnMetadata.getType().getTypeSignature().toString()));
+                        column.getType().getTypeSignature().toString()));
     }
 
     private static int getMergeCaseOperationNumber(MergeCase mergeCase)

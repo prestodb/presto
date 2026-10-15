@@ -15,7 +15,6 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
@@ -765,54 +764,125 @@ public class TestIcebergV3
         }
     }
 
+    /**
+     * Files written before a column was added have no NULL count for it but read its initial default.
+     */
     @Test
-    public void testAlterColumnNotNullDoesNotTamperWithRowLineage()
+    public void testSetNotNullOnColumnAddedWithDefault()
     {
-        String tableName = "test_not_null_row_lineage";
+        String tableName = "test_set_not_null_on_column_added_with_default";
         try {
-            assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar) WITH (\"format-version\" = '3')");
-            assertUpdate(format("INSERT INTO %s VALUES (1, 'a'), (2, 'b')", tableName), 2);
-            assertEquals(((BaseTable) loadTable(tableName)).operations().current().formatVersion(), 3);
+            assertUpdate("CREATE TABLE " + tableName + " (c1 BIGINT) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c2 BIGINT DEFAULT 5");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 7)", 1);
 
-            // Assert lineage is actually populated, so the before/after comparison below is not
-            // vacuously comparing two all-null results.
-            assertQuery(format("SELECT count(*) FROM %s WHERE \"_row_id\" IS NOT NULL", tableName), "VALUES 2");
-
-            String rowLineageBefore = rowLineage(tableName);
-            String schemaBefore = loadTable(tableName).schema().toString();
-
-            for (String column : ImmutableList.of("_row_id", "_last_updated_sequence_number")) {
-                assertQueryFails(
-                        format("ALTER TABLE %s ALTER COLUMN \"%s\" SET NOT NULL", tableName, column),
-                        format(".*Cannot set NOT NULL on metadata column '%s'.*", column));
-                assertQueryFails(
-                        format("ALTER TABLE %s ALTER COLUMN \"%s\" DROP NOT NULL", tableName, column),
-                        format(".*Cannot drop NOT NULL on metadata column '%s'.*", column));
-            }
-
-            // The Iceberg schema is unchanged and row lineage still reads back the same values.
-            assertEquals(loadTable(tableName).schema().toString(), schemaBefore);
-            assertEquals(rowLineage(tableName), rowLineageBefore);
-
-            // Altering a real column still works on a row-lineage table, and leaves lineage intact.
-            assertUpdate(format("ALTER TABLE %s ALTER COLUMN value SET NOT NULL", tableName));
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (3, NULL)", tableName),
-                    "NULL value not allowed for NOT NULL column: value");
-            assertEquals(rowLineage(tableName), rowLineageBefore);
-            assertUpdate(format("INSERT INTO %s VALUES (3, 'c')", tableName), 1);
-            assertQuery(format("SELECT id, value FROM %s", tableName), "VALUES (1, 'a'), (2, 'b'), (3, 'c')");
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
+            assertQuery("SELECT is_nullable FROM information_schema.columns WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + tableName + "' AND column_name = 'c2'",
+                    "VALUES 'NO'");
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5), (2, 7)");
         }
         finally {
             dropTable(tableName);
         }
     }
 
-    private String rowLineage(String tableName)
+    /**
+     * Once the snapshot from before the column was added expires, older files are not known to read its initial
+     * default. A rewrite writes the default out with a NULL count.
+     */
+    @Test
+    public void testSetNotNullOnColumnAddedWithDefaultAfterOlderSnapshotsExpire()
     {
-        return computeActual(format("SELECT id, \"_row_id\", \"_last_updated_sequence_number\" FROM %s ORDER BY id", tableName))
-                .getMaterializedRows()
-                .toString();
+        String tableName = "test_set_not_null_default_after_older_snapshots_expire";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 BIGINT) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            long beforeColumnAdded = loadTable(tableName).currentSnapshot().snapshotId();
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c2 BIGINT DEFAULT 5");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 7)", 1);
+            assertUpdate(format("CALL system.expire_snapshots(schema => '%s', table_name => '%s', snapshot_ids => ARRAY[%d])", TEST_SCHEMA, tableName, beforeColumnAdded));
+
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", ".*has no NULL count for the column.*");
+            assertQuerySucceeds(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['rewrite-all'], array['true']))", TEST_SCHEMA, tableName));
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5), (2, 7)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    /**
+     * Every row of a snapshot from before a column was added reads the column's initial default.
+     */
+    @Test
+    public void testRollbackToSnapshotBeforeRequiredColumnWithDefaultWasAdded()
+    {
+        String tableName = "test_rollback_before_required_column_with_default";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 BIGINT) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            long beforeColumnAdded = loadTable(tableName).currentSnapshot().snapshotId();
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c2 BIGINT DEFAULT 5");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 7)", 1);
+            // Made required via the Iceberg API, so only the rollback's check runs
+            loadTable(tableName).updateSchema().allowIncompatibleChanges().requireColumn("c2").commit();
+
+            assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %d)", TEST_SCHEMA, tableName, beforeColumnAdded));
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testSetNotNullOnColumnWithDefaultAndNullValues()
+    {
+        assertSetNotNullFails("test_set_not_null_default_with_null", "",
+                "has NULL values in the column",
+                "ALTER TABLE %s ADD COLUMN c2 BIGINT DEFAULT 5",
+                "INSERT INTO %s VALUES (2, NULL)");
+    }
+
+    /**
+     * Only files written before the column was added read its initial default; for later files, the NULL count decides.
+     */
+    @Test
+    public void testSetNotNullOnColumnWithDefaultWithoutNullCount()
+    {
+        assertSetNotNullFails("test_set_not_null_default_without_null_count", ", \"write.metadata.metrics.max-inferred-column-defaults\" = 1",
+                "has no NULL count for the column",
+                "ALTER TABLE %s ADD COLUMN c2 BIGINT DEFAULT 5",
+                "INSERT INTO %s VALUES (2, NULL)");
+    }
+
+    /**
+     * A write default applies only to new writes, so files written before the column was added read NULL.
+     */
+    @Test
+    public void testSetNotNullOnColumnWithWriteDefaultOnly()
+    {
+        assertSetNotNullFails("test_set_not_null_write_default_only", "",
+                "has no NULL count for the column",
+                "ALTER TABLE %s ADD COLUMN c2 BIGINT",
+                "ALTER TABLE %s ALTER COLUMN c2 SET DEFAULT 5");
+    }
+
+    private void assertSetNotNullFails(String tableName, String tableProperties, String expectedError, String... statements)
+    {
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 BIGINT) WITH (\"format-version\" = '3'" + tableProperties + ")");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            for (String statement : statements) {
+                assertQuerySucceeds(format(statement, tableName));
+            }
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", ".*" + expectedError + ".*");
+        }
+        finally {
+            dropTable(tableName);
+        }
     }
 
     private Table loadTable(String tableName)

@@ -127,6 +127,7 @@ import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StructLike;
@@ -180,7 +181,6 @@ import static com.facebook.presto.hive.MetadataUtils.getDiscretePredicates;
 import static com.facebook.presto.hive.MetadataUtils.getPredicate;
 import static com.facebook.presto.hive.MetadataUtils.getSubfieldPredicate;
 import static com.facebook.presto.hive.MetadataUtils.isEntireColumn;
-import static com.facebook.presto.iceberg.ExpressionConverter.isNullSensitiveOnRequiredField;
 import static com.facebook.presto.iceberg.ExpressionConverter.toIcebergExpression;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.DATA_SEQUENCE_NUMBER_COLUMN_METADATA;
@@ -238,6 +238,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.checkInvalidDerivedColumnS
 import static com.facebook.presto.iceberg.IcebergUtil.checkNotSupported;
 import static com.facebook.presto.iceberg.IcebergUtil.convertToIcebergLiteral;
 import static com.facebook.presto.iceberg.IcebergUtil.createDomainFromIcebergPartitionValue;
+import static com.facebook.presto.iceberg.IcebergUtil.findDataFileWithNullValues;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.IcebergUtil.getDeleteMode;
@@ -262,6 +263,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.validateMinimumFormatVersi
 import static com.facebook.presto.iceberg.IcebergUtil.validateNoBranchInBaseTables;
 import static com.facebook.presto.iceberg.IcebergUtil.validateNoBranchSpecified;
 import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
+import static com.facebook.presto.iceberg.IcebergUtil.verifyNoNullValuesInRequiredColumns;
 import static com.facebook.presto.iceberg.IcebergWarningCode.BOUNDED_REFRESH_IGNORED;
 import static com.facebook.presto.iceberg.IcebergWarningCode.SORT_COLUMN_TRANSFORM_NOT_SUPPORTED_WARNING;
 import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_TABLE_PROPERTY;
@@ -287,6 +289,7 @@ import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewSta
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.COLUMN_NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -316,6 +319,7 @@ import static org.apache.iceberg.DataOperations.REPLACE;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.MetadataColumns.SPEC_ID;
 import static org.apache.iceberg.RowLevelOperationMode.MERGE_ON_READ;
+import static org.apache.iceberg.SnapshotRef.MAIN_BRANCH;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
@@ -1248,10 +1252,14 @@ public abstract class IcebergAbstractMetadata
                 .or(() -> Optional.ofNullable(icebergTable.currentSnapshot()).map(Snapshot::snapshotId));
         ManageSnapshots manageSnapshots = icebergTable.manageSnapshots();
         if (replace && branchExists) {
-            targetSnapshotId.ifPresent(snapshotId -> manageSnapshots.replaceBranch(branchName, snapshotId));
+            targetSnapshotId.ifPresent(snapshotId -> {
+                verifyNoNullValuesInRequiredColumns(icebergTable, icebergTableHandle.getSchemaTableName(), branchName, snapshotId);
+                manageSnapshots.replaceBranch(branchName, snapshotId);
+            });
         }
         else if (!branchExists) {
             if (targetSnapshotId.isPresent()) {
+                verifyNoNullValuesInRequiredColumns(icebergTable, icebergTableHandle.getSchemaTableName(), branchName, targetSnapshotId.get());
                 manageSnapshots.createBranch(branchName, targetSnapshotId.get());
             }
             else {
@@ -1448,15 +1456,12 @@ public abstract class IcebergAbstractMetadata
 
     private static Optional<NestedField> findTopLevelColumnIfPresent(Schema schema, String columnName)
     {
-        Optional<NestedField> exactMatch = schema.columns().stream()
-                .filter(field -> field.name().equals(columnName))
-                .findFirst();
-        if (exactMatch.isPresent()) {
-            return exactMatch;
-        }
         return schema.columns().stream()
-                .filter(field -> field.name().equalsIgnoreCase(columnName))
-                .findFirst();
+                .filter(field -> field.name().equals(columnName))
+                .findFirst()
+                .or(() -> schema.columns().stream()
+                        .filter(field -> field.name().equalsIgnoreCase(columnName))
+                        .findFirst());
     }
 
     @Override
@@ -2013,11 +2018,7 @@ public abstract class IcebergAbstractMetadata
         if (branchName.isPresent()) {
             deleteFiles = deleteFiles.toBranch(branchName.get());
         }
-        Collection<Schema> schemas = icebergTable.schemas().values();
-        // toIcebergExpression leaves out null-sensitive domains, which would widen the set of deleted files.
-        predicate.getDomains().ifPresent(domains -> domains.forEach((column, domain) ->
-                verify(!isNullSensitiveOnRequiredField(schemas, column.getName(), domain), "metadata delete predicate on column %s cannot be evaluated by Iceberg", column.getName())));
-        deleteFiles.deleteFromRowFilter(toIcebergExpression(predicate, schemas));
+        deleteFiles.deleteFromRowFilter(toIcebergExpression(predicate));
         deleteFiles.commit();
 
         Map<String, String> summary = deleteFiles.apply().summary();
@@ -3116,9 +3117,8 @@ public abstract class IcebergAbstractMetadata
     }
 
     /**
-     * Only top-level columns of the table's own schema can be altered. Iceberg's metadata columns are
-     * not part of the schema but {@code _row_id} and {@code _last_updated_sequence_number} are exposed
-     * as regular column handles, so they reach the connector and are rejected here.
+     * Only top-level schema columns can be altered. {@code _row_id} and {@code _last_updated_sequence_number}
+     * reach here as regular column handles, but they are metadata columns, not part of the schema.
      */
     private void updateColumnNullability(ConnectorSession session, IcebergTableHandle handle, String columnName, boolean required)
     {
@@ -3138,16 +3138,56 @@ public abstract class IcebergAbstractMetadata
         if (!required && icebergTable.schema().identifierFieldIds().contains(field.get().fieldId())) {
             throw new PrestoException(NOT_SUPPORTED, format("Cannot drop NOT NULL on column '%s': it is an identifier field of table '%s'", columnName, tableName));
         }
+        if (required && !field.get().type().isPrimitiveType()) {
+            throw new PrestoException(NOT_SUPPORTED, format("Cannot set NOT NULL on column '%s': only columns of primitive types are supported", columnName));
+        }
+        if (required && field.get().isRequired()) {
+            return;
+        }
         String fieldName = field.get().name();
+        // Open the update first so the NULL check reads the metadata this change commits on.
         UpdateSchema updateSchema = icebergTable.updateSchema();
         if (required) {
-            // allowIncompatibleChanges is required: optional -> required is an incompatible change.
+            verifyNoNullValues(icebergTable, field.get(), columnName, tableName);
+            // Iceberg treats optional -> required as an incompatible change.
             updateSchema.allowIncompatibleChanges().requireColumn(fieldName);
         }
         else {
             updateSchema.makeColumnOptional(fieldName);
         }
         updateSchema.commit();
+    }
+
+    /**
+     * Checks every branch head, since branches are read with the current schema.
+     * NULL counts are recorded at write time and ignore delete files.
+     */
+    private static void verifyNoNullValues(Table icebergTable, NestedField field, String columnName, SchemaTableName tableName)
+    {
+        Set<Long> checkedSnapshotIds = new HashSet<>();
+        for (Map.Entry<String, SnapshotRef> ref : icebergTable.refs().entrySet()) {
+            if (!ref.getValue().isBranch() || !checkedSnapshotIds.add(ref.getValue().snapshotId())) {
+                continue;
+            }
+            String branchName = ref.getKey();
+            Optional<DataFile> file = findDataFileWithNullValues(icebergTable.newScan().useRef(branchName).filter(Expressions.isNull(field.name())), field);
+            if (!file.isPresent()) {
+                continue;
+            }
+            Map<Integer, Long> nullCounts = file.get().nullValueCounts();
+            if (nullCounts == null || !nullCounts.containsKey(field.fieldId())) {
+                throw new PrestoException(NOT_SUPPORTED, format(
+                        "Cannot set NOT NULL on column '%s' of table '%s': data file '%s' on branch '%s' has no NULL count for the column",
+                        columnName, tableName, file.get().location(), branchName));
+            }
+            // rewrite_data_files rewrites only the main branch.
+            String remedy = MAIN_BRANCH.equals(branchName)
+                    ? "Update or delete those rows, then run rewrite_data_files with the rewrite-all option"
+                    : "Drop or replace the branch";
+            throw new PrestoException(CONSTRAINT_VIOLATION, format(
+                    "Cannot set NOT NULL on column '%s' of table '%s': data file '%s' on branch '%s' has NULL values in the column. %s",
+                    columnName, tableName, file.get().location(), branchName, remedy));
+        }
     }
 
     protected void openCreateTableTransaction(SchemaTableName tableName, Transaction transaction)

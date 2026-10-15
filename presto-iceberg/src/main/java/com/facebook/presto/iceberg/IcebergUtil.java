@@ -90,6 +90,7 @@ import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.catalog.ViewCatalog;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.InclusiveMetricsEvaluator;
 import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.hive.HiveSchemaUtil;
@@ -125,6 +126,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -179,6 +181,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.getWriteDataLoc
 import static com.facebook.presto.iceberg.IcebergTableProperties.isHiveLocksEnabled;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
+import static com.facebook.presto.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_DERIVED_COLUMN_SPEC;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -622,7 +625,7 @@ public final class IcebergUtil
 
     public static TableScan getTableScan(TupleDomain<IcebergColumnHandle> predicates, Optional<Long> snapshotId, Table icebergTable, RuntimeStats runtimeStats)
     {
-        Expression expression = ExpressionConverter.toIcebergExpression(predicates, icebergTable.schemas().values());
+        Expression expression = ExpressionConverter.toIcebergExpression(predicates);
         TableScan tableScan = icebergTable
                 .newScan()
                 .metricsReporter(new RuntimeStatsMetricsReporter(runtimeStats))
@@ -636,6 +639,77 @@ public final class IcebergUtil
     {
         return stream(icebergTable.snapshots())
                 .anyMatch(snapshot -> snapshot.snapshotId() == id);
+    }
+
+    /**
+     * A branch moved to {@code snapshotId} is read with the current schema, so columns made required since that
+     * snapshot must hold no NULLs in it.
+     */
+    public static void verifyNoNullValuesInRequiredColumns(Table icebergTable, SchemaTableName tableName, String branchName, long snapshotId)
+    {
+        if (icebergTable.snapshot(snapshotId) == null) {
+            return;
+        }
+        Schema snapshotSchema = SnapshotUtil.schemaFor(icebergTable, snapshotId);
+        for (NestedField field : icebergTable.schema().columns()) {
+            NestedField snapshotField = snapshotSchema.findField(field.fieldId());
+            if (field.isOptional() || (snapshotField != null && snapshotField.isRequired())) {
+                continue;
+            }
+            TableScan scan = icebergTable.newScan().useSnapshot(snapshotId);
+            // A snapshot from before the field was added has no column to filter on: every row reads the initial default, or NULL.
+            // Iceberg binds the filter to the current schema for the current snapshot and to the snapshot's schema otherwise,
+            // so a renamed field skips the filter and is checked by field ID.
+            if (snapshotField != null && snapshotField.name().equals(field.name())) {
+                scan = scan.filter(Expressions.isNull(field.name()));
+            }
+            Optional<DataFile> file = findDataFileWithNullValues(scan, field);
+            if (file.isPresent()) {
+                throw new PrestoException(CONSTRAINT_VIOLATION, format(
+                        "Cannot move branch '%s' of table '%s' to snapshot %d: data file '%s' of that snapshot can hold NULL values in NOT NULL column '%s'. " +
+                                "Drop the NOT NULL constraint first",
+                        branchName, tableName, snapshotId, file.get().location(), field.name()));
+            }
+        }
+    }
+
+    /**
+     * Returns a data file that may hold NULLs in {@code field}: one with a positive NULL count, or one with no count
+     * that is not known to read the field's initial default.
+     */
+    public static Optional<DataFile> findDataFileWithNullValues(TableScan scan, NestedField field)
+    {
+        // Data files written without the field read its initial default in every row.
+        OptionalLong lastSequenceNumberWithoutField = field.initialDefault() == null ? OptionalLong.empty() : lastSequenceNumberWithoutField(scan.table(), field.fieldId());
+        try (CloseableIterable<FileScanTask> tasks = scan.includeColumnStats().planFiles()) {
+            for (FileScanTask task : tasks) {
+                DataFile file = task.file();
+                Map<Integer, Long> nullCounts = file.nullValueCounts();
+                Long nullCount = nullCounts == null ? null : nullCounts.get(field.fieldId());
+                boolean writtenWithoutField = lastSequenceNumberWithoutField.isPresent()
+                        && file.fileSequenceNumber() != null
+                        && file.fileSequenceNumber() <= lastSequenceNumberWithoutField.getAsLong();
+                if (nullCount == null ? !writtenWithoutField : nullCount > 0) {
+                    return Optional.of(file);
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Once a field of the current schema is added, every later snapshot's schema has it, so every data file up to the
+     * returned sequence number was written without it.
+     */
+    private static OptionalLong lastSequenceNumberWithoutField(Table icebergTable, int fieldId)
+    {
+        return stream(icebergTable.snapshots())
+                .filter(snapshot -> SnapshotUtil.schemaFor(icebergTable, snapshot.snapshotId()).findField(fieldId) == null)
+                .mapToLong(Snapshot::sequenceNumber)
+                .max();
     }
 
     /**
@@ -883,7 +957,7 @@ public final class IcebergUtil
             return MATCH_ALL_LINEAGE_EVALUATOR;
         }
         Expression expression = toIcebergExpression(TupleDomain.withColumnDomains(
-                ImmutableMap.of(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE, domain)), ImmutableList.of(LINEAGE_ONLY_SCHEMA));
+                ImmutableMap.of(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE, domain)));
         return new InclusiveMetricsEvaluator(LINEAGE_ONLY_SCHEMA, expression);
     }
 
@@ -1239,7 +1313,7 @@ public final class IcebergUtil
             Optional<Set<Integer>> requestedSchema,
             RuntimeStats runtimeStats)
     {
-        Expression filterExpression = toIcebergExpression(filter, table.schemas().values());
+        Expression filterExpression = toIcebergExpression(filter);
         CloseableIterable<FileScanTask> fileTasks = table
                 .newScan()
                 .metricsReporter(new RuntimeStatsMetricsReporter(runtimeStats))

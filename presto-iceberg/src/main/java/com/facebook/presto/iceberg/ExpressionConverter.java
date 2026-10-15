@@ -38,12 +38,10 @@ import com.facebook.presto.common.type.VarcharType;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Expression;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -78,12 +76,7 @@ public final class ExpressionConverter
 {
     private ExpressionConverter() {}
 
-    /**
-     * The result can match more rows than {@code tupleDomain}, because domains for which
-     * {@link #isNullSensitiveOnRequiredField} holds are left out. It is safe for selecting files to scan,
-     * but a caller that needs exactly the matching rows, such as a metadata delete, must reject those domains first.
-     */
-    public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain, Collection<Schema> schemas)
+    public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain)
     {
         if (tupleDomain.isAll()) {
             return alwaysTrue();
@@ -102,29 +95,9 @@ public final class ExpressionConverter
                 Subfield pushedDownSubfield = getPushedDownSubfield(columnHandle);
                 columnName = pushdownColumnNameForSubfield(pushedDownSubfield);
             }
-            if (isNullSensitiveOnRequiredField(schemas, columnName, domain)) {
-                continue;
-            }
             expression = and(expression, toIcebergExpression(columnName, columnHandle.getType(), domain));
         }
         return expression;
-    }
-
-    /**
-     * Iceberg evaluates IS NULL on a required field as false and IS NOT NULL as true without reading any data.
-     * NOT NULL constrains only writes made after it is set, so a required field can hold NULLs in any file.
-     * A domain that admits NULL, or that excludes only NULL, can be neither pushed into Iceberg nor enforced
-     * by it when the field is required in any of {@code schemas}: a scan of a snapshot other than the current
-     * one binds against that snapshot's schema.
-     */
-    public static boolean isNullSensitiveOnRequiredField(Collection<Schema> schemas, String columnName, Domain domain)
-    {
-        if (!domain.isNullAllowed() && !domain.getValues().isAll()) {
-            return false;
-        }
-        return schemas.stream()
-                .map(schema -> schema.findField(columnName))
-                .anyMatch(field -> field != null && field.isRequired());
     }
 
     public static String pushdownColumnNameForSubfield(Subfield subfield)
