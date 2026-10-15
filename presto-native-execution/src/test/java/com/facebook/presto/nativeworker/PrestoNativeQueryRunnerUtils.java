@@ -32,7 +32,9 @@ import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.github.dockerjava.api.model.DeviceRequest;
 import com.github.dockerjava.api.model.HostConfig;
+import com.github.dockerjava.api.model.Ulimit;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -76,6 +78,7 @@ import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeW
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerSystemProperties;
 import static com.facebook.presto.nativeworker.NativeQueryRunnerUtils.getNativeWorkerTpcdsProperties;
 import static com.facebook.presto.nativeworker.SymlinkManifestGeneratorUtils.createSymlinkManifest;
+import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
@@ -100,6 +103,17 @@ public class PrestoNativeQueryRunnerUtils
 
     private static final Logger log = Logger.get(PrestoNativeQueryRunnerUtils.class);
     private static final String DEFAULT_STORAGE_FORMAT = "DWRF";
+
+    // System properties that re-parameterize the Hive query runners without code changes, so
+    // the same test classes can be run against a differently configured native worker
+    // (e.g. -DstorageFormat=PARQUET -DenableCudf=true). A builder setter always takes
+    // precedence over the property; absent properties leave the defaults untouched. The
+    // Iceberg and Delta runners keep their own defaults and do not read these.
+    private static final String STORAGE_FORMAT_PROPERTY = "storageFormat";
+    private static final String ENABLE_CUDF_PROPERTY = "enableCudf";
+    // Written to the worker's config.properties as cudf.allow_cpu_fallback / cudf.allowed_cpu_operators.
+    private static final String CUDF_ALLOW_CPU_FALLBACK_PROPERTY = "cudfAllowCpuFallback";
+    private static final String CUDF_ALLOWED_CPU_OPERATORS_PROPERTY = "cudfAllowedCpuOperators";
     private static final String SYMLINK_FOLDER = "symlink_tables_manifests";
     private static final PrincipalPrivileges PRINCIPAL_PRIVILEGES = new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of());
     private static final ErrorCode CREATE_ERROR_CODE = new ErrorCode(123, "CREATE_ERROR_CODE", INTERNAL_ERROR);
@@ -128,7 +142,7 @@ public class PrestoNativeQueryRunnerUtils
         private String serverBinary = nativeQueryRunnerParameters.serverBinary.toString();
         private Integer workerCount = nativeQueryRunnerParameters.workerCount.orElse(4);
         private Integer cacheMaxSize = 0;
-        private String storageFormat = DEFAULT_STORAGE_FORMAT;
+        private String storageFormat = getProperty(STORAGE_FORMAT_PROPERTY).orElse(DEFAULT_STORAGE_FORMAT);
         private Optional<String> remoteFunctionServerUds = Optional.empty();
         private Map<String, String> extraProperties = new HashMap<>();
         private Map<String, String> extraCoordinatorProperties = new HashMap<>();
@@ -176,6 +190,11 @@ public class PrestoNativeQueryRunnerUtils
                 // Run native workers in containers when a `workerImage` property is set;
                 // otherwise launch the presto_server binary directly on the host.
                 this.workerImage = getProperty("workerImage");
+                // Point an unmodified native test class at a cuDF worker with -DenableCudf=true.
+                // Goes through the setter so the single-worker constraint is applied too.
+                if (parseBoolean(getProperty(ENABLE_CUDF_PROPERTY).orElse("false"))) {
+                    setEnableCudf(true);
+                }
             }
             else {
                 this.extraProperties.putAll(ImmutableMap.of(
@@ -256,7 +275,6 @@ public class PrestoNativeQueryRunnerUtils
         public HiveQueryRunnerBuilder setEnableCudf(boolean enableCudf)
         {
             this.enableCudf = enableCudf;
-            this.workerCount = 1;
             return this;
         }
 
@@ -319,6 +337,14 @@ public class PrestoNativeQueryRunnerUtils
             Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
             if (this.useExternalWorkerLauncher) {
                 Path effectiveDataDirectory = Paths.get(addStorageFormatToPath ? dataDirectory.toString() + "/" + storageFormat : dataDirectory.toString());
+                if (workerImage.isPresent()) {
+                    // A containerized worker sees only the bind-mounted paths. Hive's default staging
+                    // directory (/tmp/presto-${USER}) is not one of them: the worker would write INSERT/
+                    // CTAS/ANALYZE output inside the container and the coordinator's final "move data
+                    // files" step would find nothing on the host. Stage under the data directory, which
+                    // is mounted at the same path on both sides.
+                    hiveProperties.putIfAbsent("hive.temporary-staging-directory-path", effectiveDataDirectory.resolve("staging").toString());
+                }
                 externalWorkerLauncher = getExternalWorkerLauncher("hive", "hive", serverBinary, cacheMaxSize, remoteFunctionServerUds,
                         pluginDirectory, failOnNestedLoopJoin, coordinatorSidecarEnabled, builtInWorkerFunctionsEnabled,
                         enableRuntimeMetricsCollection, enableSsdCache, implicitCastCharNToVarchar, enableCudf, workerImage,
@@ -331,7 +357,8 @@ public class PrestoNativeQueryRunnerUtils
                     extraCoordinatorProperties,
                     security,
                     hiveProperties,
-                    Optional.ofNullable(workerCount),
+                    // GPU clusters currently support a single worker node only.
+                    Optional.ofNullable(enableCudf ? 1 : workerCount),
                     Optional.of(Paths.get(addStorageFormatToPath ? dataDirectory.toString() + "/" + storageFormat : dataDirectory.toString())),
                     externalWorkerLauncher,
                     tpcdsProperties);
@@ -763,6 +790,10 @@ public class PrestoNativeQueryRunnerUtils
         private boolean enableSsdCache;
         private boolean implicitCastCharNToVarchar;
         private boolean enableCudf;
+        // Only written when enableCudf is set. Defaulted from system properties so every
+        // connector's query runner picks them up without threading new parameters through.
+        private Optional<Boolean> cudfAllowCpuFallback = getProperty(CUDF_ALLOW_CPU_FALLBACK_PROPERTY).map(Boolean::parseBoolean);
+        private Optional<String> cudfAllowedCpuOperators = getProperty(CUDF_ALLOWED_CPU_OPERATORS_PROPERTY);
         private Optional<String> workerImage = Optional.empty();
         private Path dataDirectory;
 
@@ -843,6 +874,28 @@ public class PrestoNativeQueryRunnerUtils
         public ExternalWorkerLauncherBuilder setEnableCudf(boolean enableCudf)
         {
             this.enableCudf = enableCudf;
+            return this;
+        }
+
+        /**
+         * Whether the cuDF worker may run an operator on the CPU when it has no GPU implementation.
+         * {@code false} is "strict mode": such an operator fails the query instead, except for the
+         * operators named by {@link #setCudfAllowedCpuOperators}.
+         */
+        public ExternalWorkerLauncherBuilder setCudfAllowCpuFallback(boolean cudfAllowCpuFallback)
+        {
+            this.cudfAllowCpuFallback = Optional.of(cudfAllowCpuFallback);
+            return this;
+        }
+
+        /**
+         * Comma-separated Velox operator types (e.g. {@code Exchange,MergeExchange}) the deployment
+         * intentionally runs on the CPU. Exempt from strict mode and reported by the worker as
+         * {@code cudfCpuAllowlisted} rather than {@code cudfCpuFallback}.
+         */
+        public ExternalWorkerLauncherBuilder setCudfAllowedCpuOperators(String cudfAllowedCpuOperators)
+        {
+            this.cudfAllowedCpuOperators = Optional.of(cudfAllowedCpuOperators);
             return this;
         }
 
@@ -946,6 +999,12 @@ public class PrestoNativeQueryRunnerUtils
                         configProperties = format("%s%n" +
                                 "cudf.enabled=true%n" +
                                 "cudf.debug_enabled=true", configProperties);
+                        if (cudfAllowCpuFallback.isPresent()) {
+                            configProperties = format("%s%ncudf.allow_cpu_fallback=%s", configProperties, cudfAllowCpuFallback.get());
+                        }
+                        if (cudfAllowedCpuOperators.isPresent()) {
+                            configProperties = format("%s%ncudf.allowed_cpu_operators=%s", configProperties, cudfAllowedCpuOperators.get());
+                        }
                     }
 
                     Files.write(tempDirectoryPath.resolve("config.properties"), configProperties.getBytes());
@@ -1001,6 +1060,23 @@ public class PrestoNativeQueryRunnerUtils
         }
 
         /**
+         * The "uid:gid" of the user running this JVM, read from a file it owns, or empty where
+         * the platform does not expose POSIX ownership (the container then runs as root).
+         */
+        private static Optional<String> hostUser(Path ownedPath)
+        {
+            try {
+                Object uid = Files.getAttribute(ownedPath, "unix:uid");
+                Object gid = Files.getAttribute(ownedPath, "unix:gid");
+                return Optional.of(uid + ":" + gid);
+            }
+            catch (UnsupportedOperationException | IllegalArgumentException | IOException e) {
+                log.warn("Cannot determine host uid/gid (%s); worker container will run as root", e.getMessage());
+                return Optional.empty();
+            }
+        }
+
+        /**
          * Launches the native worker inside a container using Testcontainers.
          * <p>
          * The container is configured with bind mounts at the same paths as the host so that
@@ -1035,7 +1111,23 @@ public class PrestoNativeQueryRunnerUtils
             // Override the image entrypoint and run with host networking so the worker binds
             // directly to workerPort on the host, reachable at 127.0.0.1:<workerPort>.
             container.withCreateContainerCmdModifier(cmd -> {
-                cmd.withEntrypoint("presto_server");
+                // Run the worker as the host user. It writes staging files and table data through
+                // the bind mounts, and the coordinator (a normal user on the host) must later read,
+                // move and delete them; the writer creates files 0600, so root-owned output is
+                // unreadable to the coordinator and write-path tests fail with "Permission denied".
+                hostUser(tempDirectoryPath).ifPresent(cmd::withUser);
+
+                // Native worker images ship their shared libraries under a path registered in
+                // /etc/ld.so.conf.d (e.g. /usr/lib64/presto-native-libs) and rely on their default
+                // CMD to run ldconfig at startup. Overriding the entrypoint skips that, and a
+                // non-root user cannot run ldconfig, so put the same directories on
+                // LD_LIBRARY_PATH instead. Reading them from the image keeps this image-agnostic.
+                cmd.withEntrypoint(
+                        "sh",
+                        "-c",
+                        "export LD_LIBRARY_PATH=\"$(grep -hv '^#' /etc/ld.so.conf.d/*.conf 2>/dev/null | tr '\\n' ':')${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\"; "
+                                + "exec presto_server \"$@\"",
+                        "presto_server");
                 HostConfig hostConfig = cmd.getHostConfig();
                 if (hostConfig == null) {
                     hostConfig = new HostConfig();
@@ -1049,7 +1141,41 @@ public class PrestoNativeQueryRunnerUtils
                 // worker also reads fixture files written by the host-side Java runner, so we
                 // disable labelling for the container entirely. No-op on hosts without SELinux.
                 hostConfig.withSecurityOpts(ImmutableList.of("label=disable"));
+                // Containers inherit the Docker daemon's default soft limit of 1024 open files,
+                // far below what a native worker needs (data files, spill, cache, sockets).
+                // Under the upstream suites it runs out mid-suite with "Too many open files",
+                // failing tests at random. A bare-metal worker would inherit the host's limit
+                // (typically 1M); match that.
+                hostConfig.withUlimits(ImmutableList.of(new Ulimit("nofile", 1048576L, 1048576L)));
+                if (enableCudf) {
+                    // A cuDF worker needs the GPUs exposed to the container. The Docker daemon's
+                    // default runtime is typically "runc", which grants no device access, so a
+                    // containerized cuDF worker would start without a GPU and fail at cuDF
+                    // initialization. This is the API equivalent of `docker run --gpus all`.
+                    hostConfig.withDeviceRequests(ImmutableList.of(
+                            new DeviceRequest()
+                                    .withDriver("nvidia")
+                                    .withCount(-1)
+                                    .withCapabilities(ImmutableList.of(ImmutableList.of("gpu")))));
+                }
             });
+
+            // The host user has no home directory inside the image, and the image's own JIT
+            // kernel cache is root-owned. Give libcudf a writable cache on the host, shared by
+            // every worker this JVM launches so kernels compile once, not once per suite.
+            Path cudfKernelCache = tempDirectoryPath.getParent().resolve("libcudf-kernel-cache");
+            try {
+                Files.createDirectories(cudfKernelCache);
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            container.withFileSystemBind(cudfKernelCache.toString(), cudfKernelCache.toString(), BindMode.READ_WRITE);
+            container.withEnv("HOME", "/tmp");
+            container.withEnv("LIBCUDF_KERNEL_CACHE_PATH", cudfKernelCache.toString());
+            // NVRTC writes its precompiled header (kernel.pch) to the working directory; the
+            // image's default is "/", which a non-root user cannot write.
+            container.withWorkingDirectory(cudfKernelCache.toString());
 
             container.withCommand(
                     "--etc_dir=" + tempDirectoryPath.toString(),
