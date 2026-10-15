@@ -38,6 +38,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+import static com.facebook.presto.SystemSessionProperties.PARTIAL_AGGREGATION_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static com.facebook.presto.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY;
@@ -645,6 +646,7 @@ public class TestMemoryManager
                 .setSchema("sf1000")
                 .setSystemProperty(QUERY_MAX_MEMORY, "1kB")
                 .setSystemProperty(QUERY_MAX_TOTAL_MEMORY, "1GB")
+                .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "NEVER")
                 .build();
         queryRunner2.execute(session, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
     }
@@ -656,6 +658,7 @@ public class TestMemoryManager
                 .setCatalog("tpch")
                 .setSchema("sf1000")
                 .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "1kB")
+                .setSystemProperty(PARTIAL_AGGREGATION_STRATEGY, "NEVER")
                 .build();
         queryRunner2.execute(session, "SELECT COUNT(*), repeat(orderstatus, 1000) FROM orders GROUP BY 2");
     }
