@@ -50,5 +50,22 @@ TEST_F(CoordinatorDiscovererTest, basic) {
   EXPECT_EQ(cachedAddress.getPort(), 8888);
 }
 
+// Verify that getHostname() returns the coordinator's hostname:port string
+// derived from discovery.uri. This value is used to set the HTTP Host header
+// on sidecar announcements so that http-server.https.sni-host-check passes.
+TEST_F(CoordinatorDiscovererTest, hostnameStoredFromDiscoveryUri) {
+  auto systemConfig = SystemConfig::instance();
+  auto coordinatorDiscoverer = std::make_unique<CoordinatorDiscoverer>();
+
+  // Before any update, hostname is empty.
+  EXPECT_TRUE(coordinatorDiscoverer->getHostname().empty());
+
+  systemConfig->setValue(
+      std::string(SystemConfig::kDiscoveryUri), "http://88.88.88.88:8888");
+
+  coordinatorDiscoverer->updateAddress();
+  EXPECT_EQ(coordinatorDiscoverer->getHostname(), "88.88.88.88:8888");
+}
+
 } // namespace
 } // namespace facebook::presto
