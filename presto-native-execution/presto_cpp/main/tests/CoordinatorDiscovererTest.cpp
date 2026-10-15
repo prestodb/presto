@@ -67,5 +67,18 @@ TEST_F(CoordinatorDiscovererTest, hostnameStoredFromDiscoveryUri) {
   EXPECT_EQ(coordinatorDiscoverer->getHostname(), "88.88.88.88:8888");
 }
 
+// Verify that IPv6 literal hostnames are bracketed in the Host header value
+// (RFC 7230 §5.4) so that "::1:8580" is not produced.
+TEST_F(CoordinatorDiscovererTest, ipv6HostnameBracketed) {
+  auto systemConfig = SystemConfig::instance();
+  auto coordinatorDiscoverer = std::make_unique<CoordinatorDiscoverer>();
+
+  systemConfig->setValue(
+      std::string(SystemConfig::kDiscoveryUri), "http://[::1]:8580");
+
+  coordinatorDiscoverer->updateAddress();
+  EXPECT_EQ(coordinatorDiscoverer->getHostname(), "[::1]:8580");
+}
+
 } // namespace
 } // namespace facebook::presto

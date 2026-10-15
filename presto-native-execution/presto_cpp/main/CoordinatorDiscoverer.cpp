@@ -30,8 +30,13 @@ folly::SocketAddress CoordinatorDiscoverer::updateAddress() {
 
   auto uri = folly::Uri(discoveryUri.value());
   updateAddressSafe(folly::SocketAddress(uri.hostname(), uri.port(), true));
+  // Format host:port for use as the HTTP Host header. IPv6 literals must be
+  // bracketed (RFC 7230 §5.4): "[::1]:8080" not "::1:8080".
+  const auto& host = uri.hostname();
+  const bool isIpv6 = host.find(':') != std::string::npos;
   updateHostnameSafe(
-      fmt::format("{}:{}", uri.hostname(), uri.port()));
+      isIpv6 ? fmt::format("[{}]:{}", host, uri.port())
+             : fmt::format("{}:{}", host, uri.port()));
   return coordinatorAddress_;
 }
 
