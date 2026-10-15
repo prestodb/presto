@@ -140,6 +140,12 @@ int64_t PeriodicMemoryChecker::refreshSystemMemoryUsage() {
   return cachedSystemUsedMemoryBytes_.load(std::memory_order_relaxed);
 }
 
+std::shared_ptr<int64_t> PeriodicMemoryChecker::sampleAndRecord() {
+  const int64_t bytes = systemUsedMemoryBytes();
+  RECORD_METRIC_VALUE(kCounterMemoryCheckerUsedBytes, bytes);
+  return std::make_shared<int64_t>(bytes);
+}
+
 std::string PeriodicMemoryChecker::createHeapDumpFilePath() const {
   const size_t now = velox::EpochTime::now<std::chrono::milliseconds>() / 1000;
   // Format as follow:

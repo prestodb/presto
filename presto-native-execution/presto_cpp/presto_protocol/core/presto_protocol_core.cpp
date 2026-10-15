@@ -7529,6 +7529,13 @@ void to_json(json& j, const MemoryInfo& p) {
       "totalNodeMemory");
   to_json_key(
       j,
+      "systemMemoryBytes",
+      p.systemMemoryBytes,
+      "MemoryInfo",
+      "Long",
+      "systemMemoryBytes");
+  to_json_key(
+      j,
       "pools",
       p.pools,
       "MemoryInfo",
@@ -7544,6 +7551,13 @@ void from_json(const json& j, MemoryInfo& p) {
       "MemoryInfo",
       "DataSize",
       "totalNodeMemory");
+  from_json_key(
+      j,
+      "systemMemoryBytes",
+      p.systemMemoryBytes,
+      "MemoryInfo",
+      "Long",
+      "systemMemoryBytes");
   from_json_key(
       j,
       "pools",
