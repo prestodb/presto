@@ -15,11 +15,14 @@
 #include <gtest/gtest.h>
 
 #include <string>
+#include <vector>
 
 #include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
+#include "velox/common/base/tests/GTestUtils.h"
+#include "velox/connectors/ConnectorRegistry.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/functions/prestosql/PrestoQueryConfig.h"
 
@@ -27,6 +30,60 @@ using namespace facebook::presto;
 using namespace facebook::presto::protocol;
 using namespace facebook::velox;
 using namespace facebook::velox::core;
+
+namespace {
+// Stands in for a catalog's connector: the cuDF propagation only reads the
+// registered catalog ids, never the connectors themselves.
+class TestConnector : public facebook::velox::connector::Connector {
+ public:
+  explicit TestConnector(const std::string& id)
+      : facebook::velox::connector::Connector(id) {}
+
+  std::unique_ptr<facebook::velox::connector::DataSource> createDataSource(
+      const RowTypePtr& /*outputType*/,
+      const facebook::velox::connector::
+          ConnectorTableHandlePtr& /*tableHandle*/,
+      const facebook::velox::connector::ColumnHandleMap& /*columnHandles*/,
+      facebook::velox::connector::ConnectorQueryCtx* /*connectorQueryCtx*/)
+      override {
+    VELOX_NYI();
+  }
+
+  std::unique_ptr<facebook::velox::connector::DataSink> createDataSink(
+      RowTypePtr /*inputType*/,
+      facebook::velox::connector::ConnectorInsertTableHandlePtr
+      /*connectorInsertTableHandle*/,
+      facebook::velox::connector::ConnectorQueryCtx* /*connectorQueryCtx*/,
+      facebook::velox::connector::CommitStrategy /*commitStrategy*/) override {
+    VELOX_NYI();
+  }
+};
+
+// Registers a catalog for as long as it is in scope. The registry is global and
+// shared with the rest of this test binary, so what a test adds it removes.
+class ScopedCatalogs {
+ public:
+  explicit ScopedCatalogs(std::vector<std::string> catalogIds)
+      : catalogIds_{std::move(catalogIds)} {
+    for (const auto& catalogId : catalogIds_) {
+      facebook::velox::connector::ConnectorRegistry::global().insert(
+          catalogId,
+          std::make_shared<TestConnector>(catalogId),
+          /*overwrite=*/true);
+    }
+  }
+
+  ~ScopedCatalogs() {
+    for (const auto& catalogId : catalogIds_) {
+      facebook::velox::connector::ConnectorRegistry::global().erase(catalogId);
+    }
+  }
+
+ private:
+  const std::vector<std::string> catalogIds_;
+};
+} // namespace
+
 class PrestoToVeloxQueryConfigTest : public testing::Test {
  protected:
   void SetUp() override {}
@@ -632,6 +689,72 @@ TEST_F(PrestoToVeloxQueryConfigTest, connectorConfigConversion) {
       credentialKeys.isConnectorCredential("iceberg", "test_credential"));
   EXPECT_FALSE(credentialKeys.isConnectorCredential("hive", "user"));
   EXPECT_FALSE(credentialKeys.isConnectorCredential("iceberg", "user"));
+}
+
+// A connector reads only its own catalog's session properties, so the cuDF
+// switch has to reach every registered catalog, not just the ones the
+// coordinator sent properties for.
+TEST_F(PrestoToVeloxQueryConfigTest, cudfEnabledReachesEveryCatalog) {
+  const ScopedCatalogs catalogs{{"hive", "tpch"}};
+
+  auto request = createBasicTaskUpdateRequest();
+  request.session.systemProperties[SessionProperties::kCudfEnabled] = "false";
+  request.session.catalogProperties["hive"] = {
+      {"native_hive.max_partitions_per_scan", "1000"}};
+
+  const auto configs = toTaskConfigs(request);
+
+  EXPECT_FALSE(configs.queryConfig.get<bool>(
+      SessionProperties::kCudfEnabledConfig, true));
+
+  // The catalog the query overrode something on keeps what it sent.
+  const auto& connectorConfigs = configs.connectorConfigs;
+  const auto hiveConfig = connectorConfigs.find("hive");
+  ASSERT_NE(hiveConfig, connectorConfigs.end());
+  EXPECT_EQ(
+      "1000",
+      hiveConfig->second->get<std::string>("hive.max_partitions_per_scan"));
+  EXPECT_FALSE(hiveConfig->second->get<bool>(
+      SessionProperties::kCudfEnabledConfig, true));
+
+  // The catalog it sent nothing for gets an entry just for this.
+  const auto tpchConfig = connectorConfigs.find("tpch");
+  ASSERT_NE(tpchConfig, connectorConfigs.end());
+  EXPECT_FALSE(tpchConfig->second->get<bool>(
+      SessionProperties::kCudfEnabledConfig, true));
+}
+
+// Nothing set means "whatever this worker decided", which every connector
+// already reads from its own default. Writing the worker's answer into the
+// session would turn that default into a per-query decision made on whichever
+// worker converted the task.
+TEST_F(PrestoToVeloxQueryConfigTest, cudfEnabledUnsetAddsNoCatalogs) {
+  const ScopedCatalogs catalogs{{"hive", "tpch"}};
+
+  auto request = createBasicTaskUpdateRequest();
+  request.session.catalogProperties["hive"] = {
+      {"native_hive.max_partitions_per_scan", "1000"}};
+
+  const auto configs = toTaskConfigs(request);
+
+  EXPECT_THAT(
+      configs.connectorConfigs, testing::Contains(testing::Key("hive")));
+  EXPECT_THAT(
+      configs.connectorConfigs,
+      testing::Not(testing::Contains(testing::Key("tpch"))));
+  EXPECT_FALSE(configs.connectorConfigs.at("hive")
+                   ->get<bool>(SessionProperties::kCudfEnabledConfig)
+                   .has_value());
+}
+
+// Asking for the GPU on a worker that has no cuDF fails the query. Running it
+// on the CPU instead would hand back CPU performance without saying so.
+TEST_F(PrestoToVeloxQueryConfigTest, cudfEnabledTrueWithoutCudfFails) {
+  auto session = createBasicSession();
+  session.systemProperties[SessionProperties::kCudfEnabled] = "true";
+
+  VELOX_ASSERT_USER_THROW(
+      toVeloxConfigs(session), "cuDF is not registered on this worker");
 }
 
 TEST_F(PrestoToVeloxQueryConfigTest, specialHardCodedPrestoConfigurations) {

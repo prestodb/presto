@@ -2826,6 +2826,24 @@ std::string VeloxQueryPlanConverterBase::toVeloxTransportType(
       : std::optional<bool>{};
   const std::string kUcx{core::TransportKind::kUcx};
 
+  // A query that turned cuDF off has no GPU operators to feed a UCX exchange,
+  // so the whole query stays on the in-memory transport. Asking for both at
+  // once is contradictory rather than a precedence question: say so instead of
+  // silently honoring one of the two.
+  const auto cudfEnabled = queryCtx_ != nullptr
+      ? queryCtx_->queryConfig().get<bool>(
+            SessionProperties::kCudfEnabledConfig)
+      : std::optional<bool>{};
+  if (cudfEnabled.has_value() && !cudfEnabled.value()) {
+    VELOX_USER_CHECK(
+        !enabled.value_or(false),
+        "{}=true conflicts with {}=false: the cuDF UCX exchange needs cuDF. "
+        "Unset one of the two.",
+        SessionProperties::kCudfExchangeEnabled,
+        SessionProperties::kCudfEnabled);
+    return kInMemory;
+  }
+
   if (!enabled.has_value()) {
     // The property is only sent when the query sets it, so an absent value
     // means nobody asked for either transport. This is where the documented

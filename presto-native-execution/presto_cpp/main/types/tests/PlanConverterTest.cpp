@@ -413,6 +413,48 @@ TEST_F(PlanConverterTest, transportTypeAnyEnabledWithUcxRegistered) {
   ASSERT_EQ(exchange->transportKind(), core::TransportKind::kUcx);
 }
 
+// A query that turned cuDF off has no GPU operators to feed a UCX exchange,
+// so it stays on the in-memory transport even where UCX is registered and the
+// coordinator allows it.
+TEST_F(PlanConverterTest, transportTypeAnyDisabledByCudfDisabled) {
+  ScopedUcxTransports ucxTransports;
+
+  auto fragmentJson = parseFragmentJson("FinalAgg.json");
+  fragmentJson["outputTransportType"] = "ANY";
+  annotateRemoteSources(fragmentJson["root"], "ANY");
+
+  const auto fragment = toVeloxFragment(
+      fragmentJson, {{SessionProperties::kCudfEnabledConfig, "false"}});
+
+  const auto* partitionedOutput =
+      dynamic_cast<const core::PartitionedOutputNode*>(fragment.planNode.get());
+  ASSERT_NE(partitionedOutput, nullptr);
+  ASSERT_EQ(partitionedOutput->transportKind(), core::TransportKind::kInMemory);
+
+  const auto* exchange = findExchangeNode(fragment.planNode);
+  ASSERT_NE(exchange, nullptr);
+  ASSERT_EQ(exchange->transportKind(), core::TransportKind::kInMemory);
+}
+
+// Asking for the cuDF exchange while turning cuDF off is contradictory, not a
+// question of which one wins, so say so rather than honoring one of the two.
+TEST_F(
+    PlanConverterTest,
+    transportTypeAnyCudfDisabledWithExchangeEnabledFails) {
+  ScopedUcxTransports ucxTransports;
+
+  auto fragmentJson = parseFragmentJson("FinalAgg.json");
+  fragmentJson["outputTransportType"] = "ANY";
+  annotateRemoteSources(fragmentJson["root"], "ANY");
+
+  VELOX_ASSERT_USER_THROW(
+      toVeloxFragment(
+          fragmentJson,
+          {{SessionProperties::kCudfEnabledConfig, "false"},
+           {SessionProperties::kCudfExchangeEnabledConfig, "true"}}),
+      "conflicts with");
+}
+
 // A sorted remote source becomes a MergeExchangeNode, which carries the
 // transport just like a plain ExchangeNode. The fragment's own output goes to
 // the coordinator, which speaks only HTTP, so that edge stays in-memory even

@@ -26,6 +26,29 @@ namespace facebook::presto {
 /// session properties. Also maps the native session properties to velox.
 class SessionProperties : public SessionPropertiesProvider {
  public:
+  /// Whether this query may run on the GPU. Unset means the worker decides,
+  /// which is what isCudfAvailable() answers; false keeps the whole query on
+  /// CPU operators and the in-memory exchange; true on a worker that has no
+  /// cuDF registered fails the query rather than silently running it on the
+  /// CPU.
+  static constexpr const char* kCudfEnabled = "native_cudf_enabled";
+
+  /// Velox query-config key kCudfEnabled maps to. This is cuDF's own
+  /// 'cudf.enabled': that key is both the worker-level switch, read once at
+  /// registerCudf() to decide whether cuDF is registered at all, and a
+  /// per-query override that the cuDF driver adapter and the cuDF connectors
+  /// honor. Spelled out rather than taken from CudfConfig::kCudfEnabled
+  /// because that header needs the cuDF toolkit, which a CPU-only build of
+  /// this file does not have.
+  static constexpr const char* kCudfEnabledConfig = "cudf.enabled";
+
+  /// True when this worker can run a query on the GPU, that is when
+  /// registerCudf() has registered the cuDF operators, functions and memory
+  /// resources. That happens at startup on a worker with 'cudf.enabled' set in
+  /// its system config in a build with cuDF, and nothing registers them later,
+  /// so this one question covers both configuration and build.
+  static bool isCudfAvailable();
+
   /// Whether this query's worker-to-worker exchanges may use the cuDF UCX
   /// transport. Unset means the worker decides, which is what
   /// isCudfExchangeAvailable() answers; false always uses the in-memory
