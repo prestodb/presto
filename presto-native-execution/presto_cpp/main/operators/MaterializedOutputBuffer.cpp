@@ -172,6 +172,21 @@ int64_t MaterializedOutputBuffer::PartitionBuffer::noMoreData() {
   return drainAndFlush();
 }
 
+int64_t MaterializedOutputBuffer::PartitionBuffer::discard() {
+  // Never wait for an in-flight flush: abort() can run on the memory
+  // arbitration thread that flush is waiting on. Destruction frees the rest.
+  if (!tryAcquireFlushing()) {
+    return 0;
+  }
+  SCOPE_EXIT {
+    releaseFlushing();
+  };
+  std::deque<std::unique_ptr<folly::IOBuf>> rowGroups;
+  const int64_t discardedBytes = drainAvailable(rowGroups);
+  bufferedBytes_ -= discardedBytes;
+  return discardedBytes;
+}
+
 int64_t MaterializedOutputBuffer::PartitionBuffer::enqueue(
     int32_t partition,
     std::unique_ptr<folly::IOBuf> rowGroup) {
@@ -404,7 +419,9 @@ void MaterializedOutputBuffer::ensureDrainMemoryHeadroom() {
 }
 
 void MaterializedOutputBuffer::maybeWakeBlockedDrivers() {
-  if (bufferedBytes_ >= lowWatermarkBytes_) {
+  // Once aborted, also wake a producer that registers concurrently with
+  // abort(): its own registration call lands here.
+  if (state_ != State::kAborted && bufferedBytes_ >= lowWatermarkBytes_) {
     return;
   }
   std::vector<velox::ContinuePromise> toFulfill;
@@ -588,6 +605,12 @@ void MaterializedOutputBuffer::abort() {
     return;
   }
   auto releaseGuard = folly::makeGuard([this]() { pool_->release(); });
+
+  int64_t discardedBytes{0};
+  for (auto& partitionBuffer : partitionBuffers_) {
+    discardedBytes += partitionBuffer->discard();
+  }
+  bufferedBytes_ -= discardedBytes;
 
   // Unpark any producers blocked on backpressure so they observe kAborted.
   maybeWakeBlockedDrivers();
