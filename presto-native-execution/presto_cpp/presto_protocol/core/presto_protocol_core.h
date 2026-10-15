@@ -1860,6 +1860,10 @@ void from_json(const json& j, MemoryPoolInfo& p);
 namespace facebook::presto::protocol {
 struct MemoryInfo {
   DataSize totalNodeMemory = {};
+  // Total process-level memory on native workers (cgroup inactive_anon +
+  // active_anon, sampled by LinuxMemoryChecker). 0 on JVM workers and on
+  // native workers where the memory checker is disabled.
+  int64_t systemMemoryBytes = {};
   Map<MemoryPoolId, MemoryPoolInfo> pools = {};
 };
 void to_json(json& j, const MemoryInfo& p);

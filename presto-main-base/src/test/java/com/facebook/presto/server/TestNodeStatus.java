@@ -30,7 +30,7 @@ public class TestNodeStatus
 {
     private static final JsonCodec<NodeStatus> CODEC = jsonCodec(NodeStatus.class);
 
-    private static NodeStatus nodeStatus(long nonHeapUsed, long asyncDataCacheBytes, long queryMemoryBytes)
+    private static NodeStatus nodeStatus(long nonHeapUsed, long asyncDataCacheBytes, long queryMemoryBytes, long systemMemoryBytes)
     {
         return new NodeStatus(
                 "test-node",
@@ -40,7 +40,7 @@ public class TestNodeStatus
                 new Duration(1, SECONDS),
                 "http://externalAddress",
                 "http://internalAddress",
-                new MemoryInfo(new DataSize(1, MEGABYTE), ImmutableMap.of()),
+                new MemoryInfo(new DataSize(1, MEGABYTE), systemMemoryBytes, ImmutableMap.of()),
                 8,
                 0.25,
                 0.5,
@@ -54,16 +54,16 @@ public class TestNodeStatus
     @Test
     public void testJsonRoundTrip()
     {
-        // Distinct values for the three long fields, including a negative one,
-        // so the round-trip would catch a swapped, dropped, or sign-mangled
-        // field.
-        NodeStatus expected = nodeStatus(-1L, 111L, 222L);
+        // Distinct values for every long field, including a negative one, so a
+        // swapped, dropped, or sign-mangled field is caught on round-trip.
+        NodeStatus expected = nodeStatus(-1L, 111L, 222L, 333L);
 
         NodeStatus actual = CODEC.fromJson(CODEC.toJson(expected));
 
         assertEquals(actual.getNonHeapUsed(), -1L);
         assertEquals(actual.getAsyncDataCacheBytes(), 111L);
         assertEquals(actual.getQueryMemoryBytes(), 222L);
+        assertEquals(actual.getMemoryInfo().getSystemMemoryBytes(), 333L);
         assertEquals(actual.getHeapUsed(), expected.getHeapUsed());
         assertEquals(actual.getHeapAvailable(), expected.getHeapAvailable());
         assertEquals(actual.getNodeId(), expected.getNodeId());
@@ -96,5 +96,8 @@ public class TestNodeStatus
         assertEquals(actual.getNonHeapUsed(), 42L);
         assertEquals(actual.getAsyncDataCacheBytes(), 0L);
         assertEquals(actual.getQueryMemoryBytes(), 0L);
+        // The nested MemoryInfo also omits systemMemoryBytes in the legacy
+        // payload above; it must default to 0, not fail deserialization.
+        assertEquals(actual.getMemoryInfo().getSystemMemoryBytes(), 0L);
     }
 }
