@@ -441,6 +441,12 @@ public class TestArrowFederationNativeQueriesMixedConnectors
                     ObjectNode objectNode = (ObjectNode) tree;
                     if (objectNode.has("@type")) {
                         objectNode.put("@type", connectorName);
+                        for (JsonNode columnDomain : objectNode.path("tupleDomain").path("columnDomains")) {
+                            JsonNode column = columnDomain.path("column");
+                            if (column.isObject() && column.has("@type")) {
+                                ((ObjectNode) column).put("@type", connectorName);
+                            }
+                        }
                         if (objectNode.has("table")) {
                             ObjectNode tableNode = (ObjectNode) objectNode.get("table");
                             if (tableNode.has("@type")) {
