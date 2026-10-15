@@ -182,6 +182,8 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     const protocol::TableHandle& tableHandle,
     const std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>&
         columnHandles,
+    const std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>&
+        lineageColumnHandles,
     const std::unordered_map<std::string, int32_t>& fieldIdsByName,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser,
@@ -235,10 +237,9 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     // exist physically in the written files (e.g. after MERGE/UPDATE). Add any
     // requested lineage columns to finalDataColumns so the reader can match
     // them with the Parquet schema.
-    for (const auto& handle : columnHandles) {
-      if (kRowLineageColumnNames.count(handle->name()) &&
-          std::find(names.begin(), names.end(), handle->name()) ==
-              names.end()) {
+    for (const auto& handle : lineageColumnHandles) {
+      if (std::find(names.begin(), names.end(), handle->name()) ==
+          names.end()) {
         names.emplace_back(handle->name());
         types.push_back(handle->dataType());
       }
@@ -252,22 +253,15 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
         continue;
       }
 
-      const auto handleIt = kRowLineageColumnNames.count(name)
-          ? std::find_if(
-                columnHandles.begin(),
-                columnHandles.end(),
-                [&name](const auto& handle) { return handle->name() == name; })
-          : columnHandles.end();
-      const auto* icebergHandle = handleIt != columnHandles.end()
-          ? dynamic_cast<
-                const velox::connector::hive::iceberg::IcebergColumnHandle*>(
-                handleIt->get())
-          : nullptr;
-      if (icebergHandle == nullptr) {
+      const auto handleIt = std::find_if(
+          lineageColumnHandles.begin(),
+          lineageColumnHandles.end(),
+          [&name](const auto& handle) { return handle->name() == name; });
+      if (handleIt == lineageColumnHandles.end()) {
         dataColumnFieldIds.clear();
         break;
       }
-      dataColumnFieldIds.push_back(icebergHandle->field().fieldId);
+      dataColumnFieldIds.push_back((*handleIt)->field().fieldId);
     }
 
     finalDataColumns = ROW(std::move(names), std::move(types));
@@ -707,6 +701,23 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) const {
+  return toVeloxTableHandle(
+      tableHandle,
+      protocol::Map<
+          protocol::VariableReferenceExpression,
+          std::shared_ptr<protocol::ColumnHandle>>{},
+      exprConverter,
+      typeParser);
+}
+
+std::unique_ptr<velox::connector::ConnectorTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxTableHandle(
+    const protocol::TableHandle& tableHandle,
+    const protocol::Map<
+        protocol::VariableReferenceExpression,
+        std::shared_ptr<protocol::ColumnHandle>>& assignments,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser) const {
   VELOX_CHECK_NOT_NULL(
       tableHandle.connectorTableLayout, "Missing table layout");
   auto icebergLayout = std::dynamic_pointer_cast<
@@ -717,25 +728,48 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
       "Unexpected layout type {}",
       tableHandle.connectorTableLayout->_type);
 
+  const auto toIcebergColumnHandle =
+      [&](const protocol::iceberg::IcebergColumnHandle& column) {
+        return std::dynamic_pointer_cast<
+            const velox::connector::hive::iceberg::IcebergColumnHandle>(
+            std::shared_ptr(toVeloxColumnHandle(&column, typeParser)));
+      };
+
   std::unordered_set<std::string> columnNames;
   std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
       columnHandles;
   for (const auto& entry : icebergLayout->partitionColumns) {
     if (columnNames.emplace(entry.columnIdentity.name).second) {
-      columnHandles.emplace_back(
-          std::dynamic_pointer_cast<
-              const velox::connector::hive::iceberg::IcebergColumnHandle>(
-              std::shared_ptr(toVeloxColumnHandle(&entry, typeParser))));
+      columnHandles.emplace_back(toIcebergColumnHandle(entry));
     }
   }
 
   // Add synthesized columns to the TableScanNode columnHandles as well.
   for (const auto& entry : icebergLayout->predicateColumns) {
     if (columnNames.emplace(entry.second.columnIdentity.name).second) {
-      columnHandles.emplace_back(
-          std::dynamic_pointer_cast<
-              const velox::connector::hive::iceberg::IcebergColumnHandle>(
-              std::shared_ptr(toVeloxColumnHandle(&entry.second, typeParser))));
+      columnHandles.emplace_back(toIcebergColumnHandle(entry.second));
+    }
+  }
+
+  // Row lineage columns the scan filters on or projects, so the reader finds
+  // their field IDs in finalDataColumns and returns stored values. Projected
+  // ones are not filter columns and stay out of columnHandles.
+  std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
+      lineageColumnHandles;
+  for (const auto& handle : columnHandles) {
+    if (kRowLineageColumnNames.count(handle->name())) {
+      lineageColumnHandles.push_back(handle);
+    }
+  }
+  for (const auto& [_, column] : assignments) {
+    auto icebergColumn =
+        dynamic_cast<const protocol::iceberg::IcebergColumnHandle*>(
+            column.get());
+    VELOX_CHECK_NOT_NULL(
+        icebergColumn, "Unexpected column handle type {}", column->_type);
+    if (kRowLineageColumnNames.count(icebergColumn->columnIdentity.name) &&
+        columnNames.emplace(icebergColumn->columnIdentity.name).second) {
+      lineageColumnHandles.emplace_back(toIcebergColumnHandle(*icebergColumn));
     }
   }
 
@@ -785,6 +819,7 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
       icebergLayout->dataColumns,
       tableHandle,
       columnHandles,
+      lineageColumnHandles,
       parseTopLevelFieldIds(icebergTableHandle->tableSchemaJson),
       exprConverter,
       typeParser,

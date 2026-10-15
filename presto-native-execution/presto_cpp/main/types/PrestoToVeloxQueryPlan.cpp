@@ -129,11 +129,15 @@ std::shared_ptr<connector::ColumnHandle> toColumnHandle(
 
 std::shared_ptr<connector::ConnectorTableHandle> toConnectorTableHandle(
     const protocol::TableHandle& tableHandle,
+    const protocol::Map<
+        protocol::VariableReferenceExpression,
+        std::shared_ptr<protocol::ColumnHandle>>& assignments,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) {
   const auto& connector =
       getPrestoToVeloxConnector(tableHandle.connectorHandle->_type);
-  return connector.toVeloxTableHandle(tableHandle, exprConverter, typeParser);
+  return connector.toVeloxTableHandle(
+      tableHandle, assignments, exprConverter, typeParser);
 }
 
 std::shared_ptr<connector::ConnectorTableHandle>
@@ -1062,8 +1066,8 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     assignments.emplace(
         variable.name, toColumnHandle(columnHandle.get(), typeParser_));
   }
-  auto connectorTableHandle =
-      toConnectorTableHandle(node->table, exprConverter_, typeParser_);
+  auto connectorTableHandle = toConnectorTableHandle(
+      node->table, node->assignments, exprConverter_, typeParser_);
   return std::make_shared<core::TableScanNode>(
       node->id, rowType, connectorTableHandle, assignments);
 }

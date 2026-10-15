@@ -90,6 +90,9 @@ namespace {
 
 constexpr auto kColumnName1 = "MixedCaseCol1";
 constexpr auto kColumnName2 = "UPPERCASECOL2";
+// Gives kColumnName1 and kColumnName2 field IDs 11 and 29.
+constexpr auto kTableSchemaJson =
+    R"({"schema-id":7,"fields":[{"id":11,"name":"MixedCaseCol1","required":false,"type":"int"},{"id":29,"name":"UPPERCASECOL2","required":false,"type":"string"}]})";
 
 protocol::List<protocol::Column> createTestDataColumns() {
   protocol::List<protocol::Column> dataColumns;
@@ -173,8 +176,8 @@ TEST_F(PrestoToVeloxConnectorTest, icebergTableSchemaFieldIds) {
       std::make_shared<protocol::iceberg::IcebergTableHandle>();
   icebergHandle->schemaName = "test_schema";
   icebergHandle->icebergTableName.tableName = "test_table";
-  icebergHandle->tableSchemaJson = std::make_shared<std::string>(
-      R"({"schema-id":7,"fields":[{"id":11,"name":"MixedCaseCol1","required":false,"type":"int"},{"id":29,"name":"UPPERCASECOL2","required":false,"type":"string"}]})");
+  icebergHandle->tableSchemaJson =
+      std::make_shared<std::string>(kTableSchemaJson);
 
   protocol::TableHandle tableHandle;
   tableHandle.connectorId = "iceberg";
@@ -321,7 +324,148 @@ protocol::Domain createSingleRangeDomain(
   return domain;
 }
 
+protocol::TableHandle createIcebergTableHandle(
+    const std::shared_ptr<protocol::iceberg::IcebergTableLayoutHandle>&
+        layout) {
+  auto icebergHandle =
+      std::make_shared<protocol::iceberg::IcebergTableHandle>();
+  icebergHandle->schemaName = "test_schema";
+  icebergHandle->icebergTableName.tableName = "test_table";
+  icebergHandle->tableSchemaJson =
+      std::make_shared<std::string>(kTableSchemaJson);
+
+  protocol::TableHandle tableHandle;
+  tableHandle.connectorId = "iceberg";
+  tableHandle.connectorHandle = icebergHandle;
+  tableHandle.connectorTableLayout = layout;
+  return tableHandle;
+}
+
+// Assigns each column to a variable with the column's name and type.
+protocol::Map<
+    protocol::VariableReferenceExpression,
+    std::shared_ptr<protocol::ColumnHandle>>
+createAssignments(
+    const std::vector<protocol::iceberg::IcebergColumnHandle>& columns) {
+  protocol::Map<
+      protocol::VariableReferenceExpression,
+      std::shared_ptr<protocol::ColumnHandle>>
+      assignments;
+  for (const auto& column : columns) {
+    protocol::VariableReferenceExpression variable;
+    variable.name = column.columnIdentity.name;
+    variable.type = column.type;
+    assignments.emplace(
+        variable,
+        std::make_shared<protocol::iceberg::IcebergColumnHandle>(column));
+  }
+  return assignments;
+}
+
 } // namespace
+
+TEST_F(PrestoToVeloxConnectorTest, icebergProjectedRowLineageColumns) {
+  // Row lineage columns only in the scan's assignments, not in a predicate,
+  // must still reach the data columns with their field IDs, without becoming
+  // filter columns.
+  using connector::hive::iceberg::IcebergMetadataColumn;
+  auto layout = std::make_shared<protocol::iceberg::IcebergTableLayoutHandle>();
+  setCommonLayoutProperties(
+      layout, createTestDataColumns(), createTrueConstant());
+  const auto assignments = createAssignments(
+      {createIcebergColumnHandle(
+           IcebergMetadataColumn::kRowIdColumnName,
+           IcebergMetadataColumn::kRowId,
+           "bigint"),
+       createIcebergColumnHandle(
+           IcebergMetadataColumn::kLastUpdatedSequenceNumberColumnName,
+           IcebergMetadataColumn::kLastUpdatedSequenceNumber,
+           "bigint")});
+
+  const IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  const PrestoToVeloxConnector& prestoToVeloxConnector = icebergConnector;
+  auto result = prestoToVeloxConnector.toVeloxTableHandle(
+      createIcebergTableHandle(layout),
+      assignments,
+      *exprConverter_,
+      *typeParser_);
+  auto* handle = dynamic_cast<connector::hive::HiveTableHandle*>(result.get());
+  ASSERT_NE(handle, nullptr);
+  EXPECT_TRUE(handle->hiveFilterColumnHandles().empty());
+  ASSERT_NE(handle->dataColumns(), nullptr);
+  EXPECT_EQ(
+      handle->dataColumns()->names(),
+      (std::vector<std::string>{
+          kColumnName1,
+          kColumnName2,
+          IcebergMetadataColumn::kLastUpdatedSequenceNumberColumnName,
+          IcebergMetadataColumn::kRowIdColumnName}));
+  EXPECT_EQ(
+      handle->dataColumnFieldIds(),
+      (std::vector<int32_t>{
+          11,
+          29,
+          IcebergMetadataColumn::kLastUpdatedSequenceNumber,
+          IcebergMetadataColumn::kRowId}));
+}
+
+TEST_F(
+    PrestoToVeloxConnectorTest,
+    icebergFilteredAndProjectedRowLineageColumn) {
+  // A row lineage column in both a predicate and the scan's assignments is
+  // added to the scan once.
+  using connector::hive::iceberg::IcebergMetadataColumn;
+  const auto rowIdColumn = createIcebergColumnHandle(
+      IcebergMetadataColumn::kRowIdColumnName,
+      IcebergMetadataColumn::kRowId,
+      "bigint");
+
+  auto layout = std::make_shared<protocol::iceberg::IcebergTableLayoutHandle>();
+  setCommonLayoutProperties(
+      layout, createTestDataColumns(), createTrueConstant());
+  auto valueBlock = serializeToBlock(
+      BaseVector::createConstant(BIGINT(), variant(int64_t{5}), 1, pool_.get()),
+      pool_.get());
+  layout->domainPredicate.domains->emplace(
+      IcebergMetadataColumn::kRowIdColumnName,
+      createSingleRangeDomain(
+          "bigint",
+          valueBlock,
+          protocol::Bound::EXACTLY,
+          valueBlock,
+          protocol::Bound::EXACTLY,
+          false));
+  layout->predicateColumns.emplace(
+      IcebergMetadataColumn::kRowIdColumnName, rowIdColumn);
+
+  const IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  const PrestoToVeloxConnector& prestoToVeloxConnector = icebergConnector;
+  auto result = prestoToVeloxConnector.toVeloxTableHandle(
+      createIcebergTableHandle(layout),
+      createAssignments({rowIdColumn}),
+      *exprConverter_,
+      *typeParser_);
+  auto* handle = dynamic_cast<connector::hive::HiveTableHandle*>(result.get());
+  ASSERT_NE(handle, nullptr);
+  EXPECT_EQ(
+      handle->subfieldFilters().count(
+          common::Subfield(IcebergMetadataColumn::kRowIdColumnName)),
+      1);
+  ASSERT_EQ(handle->hiveFilterColumnHandles().size(), 1);
+  EXPECT_EQ(
+      handle->hiveFilterColumnHandles()[0]->name(),
+      IcebergMetadataColumn::kRowIdColumnName);
+  ASSERT_NE(handle->dataColumns(), nullptr);
+  EXPECT_EQ(
+      handle->dataColumns()->names(),
+      (std::vector<std::string>{
+          kColumnName1,
+          kColumnName2,
+          IcebergMetadataColumn::kRowIdColumnName}));
+  EXPECT_EQ(
+      handle->dataColumnFieldIds(),
+      (std::vector<int32_t>{11, 29, IcebergMetadataColumn::kRowId}));
+}
 
 TEST_F(PrestoToVeloxConnectorTest, icebergColumnHandleSimple) {
   auto icebergColumn = createIcebergColumnHandle("col1", 1, "integer");

@@ -20,7 +20,9 @@ import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
+import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.RealType;
@@ -69,6 +71,7 @@ import org.apache.iceberg.BaseTransaction;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.ContentScanTask;
 import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataOperations;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
@@ -797,12 +800,13 @@ public final class IcebergUtil
     }
 
     // Row-lineage columns are stripped because Iceberg's Binder rejects field ids absent from
-    // the table schema; they are evaluated at the split level instead.
+    // the table schema. Splits are pruned on _last_updated_sequence_number only (see
+    // metadataColumnsMatchPredicates); _row_id is filtered per row.
     public static <U> TupleDomain<IcebergColumnHandle> getNonMetadataColumnConstraints(TupleDomain<U> allConstraints)
     {
         return allConstraints.transform(c -> {
             IcebergColumnHandle handle = (IcebergColumnHandle) c;
-            if (isMetadataColumnId(handle.getId()) || handle.isRowIdColumn() || handle.isLastUpdatedSequenceNumberColumn()) {
+            if (isMetadataColumnId(handle.getId()) || handle.isRowLineageColumn()) {
                 return null;
             }
             return handle;
@@ -825,7 +829,8 @@ public final class IcebergUtil
             String path,
             long dataSequenceNumber,
             ContentFile<?> file,
-            InclusiveMetricsEvaluator lineageEvaluator)
+            InclusiveMetricsEvaluator lineageEvaluator,
+            Supplier<Set<Long>> appendSequenceNumbers)
     {
         if (constraints.isAll()) {
             return true;
@@ -843,7 +848,7 @@ public final class IcebergUtil
                     matches &= domain.includesNullableValue(dataSequenceNumber);
                 }
                 else if (handle.isLastUpdatedSequenceNumberColumn()) {
-                    matches &= lastUpdatedSequenceNumberMatches(domain, dataSequenceNumber, file, lineageEvaluator);
+                    matches &= lastUpdatedSequenceNumberMatches(domain, dataSequenceNumber, file, lineageEvaluator, appendSequenceNumbers);
                 }
             }
         }
@@ -851,26 +856,54 @@ public final class IcebergUtil
         return matches;
     }
 
-    // The fallback branches handle cases where InclusiveMetricsEvaluator would over-include:
-    // V2/no-row-lineage files (column always null) and V3 pre-compaction (effective value =
-    // dataSequenceNumber per Iceberg's LastUpdatedSeqReader).
+    // A row's value is its stored value, or dataSequenceNumber when that is null, so a file matches if
+    // either can match. Stored values are known only through bounds. No value exceeds the file
+    // sequence number, since the spec has writers store only values copied from rows of earlier
+    // commits. A file with no metrics for the column is assumed to store none only if a retained
+    // APPEND snapshot added it. Iceberg reports APPEND only when a commit adds data files without
+    // removing data files or adding delete files, and writers are assumed, not guaranteed by the
+    // spec, to store lineage values only when they rewrite rows.
     private static boolean lastUpdatedSequenceNumberMatches(
             Domain domain,
             long dataSequenceNumber,
             ContentFile<?> file,
-            InclusiveMetricsEvaluator evaluator)
+            InclusiveMetricsEvaluator evaluator,
+            Supplier<Set<Long>> appendSequenceNumbers)
     {
-        int fieldId = LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
-        Map<Integer, ByteBuffer> lowerBounds = file.lowerBounds();
-        Map<Integer, ByteBuffer> upperBounds = file.upperBounds();
-        if (lowerBounds != null && lowerBounds.containsKey(fieldId)
-                && upperBounds != null && upperBounds.containsKey(fieldId)) {
-            return evaluator.eval(file);
-        }
         if (file instanceof DataFile && ((DataFile) file).firstRowId() == null) {
             return domain.isNullAllowed();
         }
+        int fieldId = LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
+        Long valueCount = getColumnMetric(file.valueCounts(), fieldId);
+        Long nullCount = getColumnMetric(file.nullValueCounts(), fieldId);
+        boolean mayHaveInheritedValues = nullCount == null || nullCount > 0;
+        if (getColumnMetric(file.lowerBounds(), fieldId) != null && getColumnMetric(file.upperBounds(), fieldId) != null) {
+            return evaluator.eval(file) || (mayHaveInheritedValues && domain.includesNullableValue(dataSequenceNumber));
+        }
+        Long fileSequenceNumber = file.fileSequenceNumber();
+        if (fileSequenceNumber != null && !domain.getValues().overlaps(ValueSet.ofRanges(Range.lessThanOrEqual(domain.getType(), fileSequenceNumber)))) {
+            return false;
+        }
+        if (valueCount != null && (nullCount == null || nullCount < valueCount)) {
+            return true;
+        }
+        if (valueCount == null && !appendSequenceNumbers.get().contains(fileSequenceNumber)) {
+            return true;
+        }
         return domain.includesNullableValue(dataSequenceNumber);
+    }
+
+    public static Set<Long> getAppendSequenceNumbers(Table table)
+    {
+        return stream(table.snapshots())
+                .filter(snapshot -> DataOperations.APPEND.equals(snapshot.operation()))
+                .map(Snapshot::sequenceNumber)
+                .collect(toImmutableSet());
+    }
+
+    private static <T> T getColumnMetric(Map<Integer, T> metrics, int fieldId)
+    {
+        return metrics == null ? null : metrics.get(fieldId);
     }
 
     public static InclusiveMetricsEvaluator buildLastUpdatedSequenceNumberEvaluator(TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
