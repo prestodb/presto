@@ -110,11 +110,12 @@ public class ParquetQuickStatsBuilder
         this.footerFetchExecutorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
     }
 
-    private static void processColumnMetadata(ParquetMetadata parquetMetadata, Map<ColumnPath, ColumnQuickStats<?>> rolledUpColStats)
+    private static long processColumnMetadata(ParquetMetadata parquetMetadata, Map<ColumnPath, ColumnQuickStats<?>> rolledUpColStats)
     {
+        long totalRowCount = 0L;
         List<BlockMetaData> rowGroups = parquetMetadata.getBlocks();
         for (BlockMetaData rowGroup : rowGroups) {
-            long rowCount = rowGroup.getRowCount();
+            totalRowCount += rowGroup.getRowCount();
 
             for (ColumnChunkMetaData columnChunkMetaData : rowGroup.getColumns()) {
                 ColumnPath columnKey = columnChunkMetaData.getPath();
@@ -187,7 +188,6 @@ public class ParquetQuickStatsBuilder
                         toMerge.setMinValue(asIntegerStats.getMin());
                         toMerge.setMaxValue(asIntegerStats.getMax());
                         toMerge.addToNullsCount(nullsCount);
-                        toMerge.addToRowCount(rowCount);
                         rolledUpColStats.put(columnKey, toMerge);
                         break;
                     }
@@ -197,7 +197,6 @@ public class ParquetQuickStatsBuilder
                         toMerge.setMinValue(asLongStats.getMin());
                         toMerge.setMaxValue(asLongStats.getMax());
                         toMerge.addToNullsCount(nullsCount);
-                        toMerge.addToRowCount(rowCount);
                         rolledUpColStats.put(columnKey, toMerge);
                         break;
                     }
@@ -208,7 +207,6 @@ public class ParquetQuickStatsBuilder
                         toMerge.setMinValue(asDoubleStats.getMin());
                         toMerge.setMaxValue(asDoubleStats.getMax());
                         toMerge.addToNullsCount(nullsCount);
-                        toMerge.addToRowCount(rowCount);
                         rolledUpColStats.put(columnKey, toMerge);
                         break;
                     }
@@ -218,14 +216,12 @@ public class ParquetQuickStatsBuilder
                         toMerge.setMinValue(asFloatStats.getMin());
                         toMerge.setMaxValue(asFloatStats.getMax());
                         toMerge.addToNullsCount(nullsCount);
-                        toMerge.addToRowCount(rowCount);
                         rolledUpColStats.put(columnKey, toMerge);
                         break;
                     }
                     case BOOLEAN: {
                         ColumnQuickStats<Boolean> toMerge = (ColumnQuickStats<Boolean>) rolledUpColStats.getOrDefault(columnKey, new ColumnQuickStats<>(columnName, Boolean.class));
                         toMerge.addToNullsCount(nullsCount);
-                        toMerge.addToRowCount(rowCount);
                         // TODO : Boolean stats store trueCount and falseCount
                         rolledUpColStats.put(columnKey, toMerge);
                         break;
@@ -237,7 +233,6 @@ public class ParquetQuickStatsBuilder
                         toMerge.setMinValue(LocalDate.ofEpochDay(asIntStats.getMin()));
                         toMerge.setMaxValue(LocalDate.ofEpochDay(asIntStats.getMax()));
                         toMerge.addToNullsCount(nullsCount);
-                        toMerge.addToRowCount(rowCount);
                         rolledUpColStats.put(columnKey, toMerge);
                         break;
                     }
@@ -245,13 +240,13 @@ public class ParquetQuickStatsBuilder
                     case SLICE: {
                         ColumnQuickStats<Slice> toMerge = (ColumnQuickStats<Slice>) rolledUpColStats.getOrDefault(columnKey, new ColumnQuickStats<>(columnName, Slice.class));
                         toMerge.addToNullsCount(nullsCount);
-                        toMerge.addToRowCount(rowCount);
                         rolledUpColStats.put(columnKey, toMerge);
                         break;
                     }
                 }
             }
         }
+        return totalRowCount;
     }
 
     @Managed
@@ -366,6 +361,7 @@ public class ParquetQuickStatsBuilder
         fileCountPerPartition.add(filesCount);
 
         HashMap<ColumnPath, ColumnQuickStats<?>> rolledUpColStats = new HashMap<>();
+        long partitionRowCount = 0L;
         try {
             // Wait for footer reads to finish
             CompletableFuture<Void> overallCompletableFuture = CompletableFuture.allOf(footerFetchCompletableFutures.toArray(new CompletableFuture[0]));
@@ -373,7 +369,7 @@ public class ParquetQuickStatsBuilder
 
             for (CompletableFuture<ParquetMetadata> future : footerFetchCompletableFutures) {
                 ParquetMetadata parquetMetadata = future.get();
-                processColumnMetadata(parquetMetadata, rolledUpColStats);
+                partitionRowCount += processColumnMetadata(parquetMetadata, rolledUpColStats);
             }
         }
         catch (InterruptedException | ExecutionException | TimeoutException e) {
@@ -384,7 +380,7 @@ public class ParquetQuickStatsBuilder
         if (rolledUpColStats.isEmpty()) {
             return PartitionQuickStats.EMPTY;
         }
-        return new PartitionQuickStats(partitionId, rolledUpColStats.values(), filesCount);
+        return new PartitionQuickStats(partitionId, rolledUpColStats.values(), filesCount, partitionRowCount);
     }
 
     enum ColumnType

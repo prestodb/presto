@@ -112,10 +112,9 @@ public class TestParquetQuickStatsBuilder
         testParquetQuickStatsBuilder.benchmarkS3Reads(10, false, s3BucketUri, s3Directory);
     }
 
-    private static ColumnQuickStats<ChronoLocalDate> createDateStats(String columnName, long rowCount, long nullsCount, LocalDate minDate, LocalDate maxDate)
+    private static ColumnQuickStats<ChronoLocalDate> createDateStats(String columnName, long nullsCount, LocalDate minDate, LocalDate maxDate)
     {
         ColumnQuickStats<ChronoLocalDate> result = new ColumnQuickStats<>(columnName, ChronoLocalDate.class);
-        result.addToRowCount(rowCount);
         result.addToNullsCount(nullsCount);
         result.setMinValue(minDate);
         result.setMaxValue(maxDate);
@@ -123,10 +122,9 @@ public class TestParquetQuickStatsBuilder
         return result;
     }
 
-    private static ColumnQuickStats<Long> createLongStats(String columnName, long rowCount, long nullsCount, long min, long max)
+    private static ColumnQuickStats<Long> createLongStats(String columnName, long nullsCount, long min, long max)
     {
         ColumnQuickStats<Long> result = new ColumnQuickStats<>(columnName, Long.class);
-        result.addToRowCount(rowCount);
         result.addToNullsCount(nullsCount);
         result.setMinValue(min);
         result.setMaxValue(max);
@@ -134,10 +132,9 @@ public class TestParquetQuickStatsBuilder
         return result;
     }
 
-    private static ColumnQuickStats<Integer> createIntegerStats(String columnName, long rowCount, long nullsCount, int min, int max)
+    private static ColumnQuickStats<Integer> createIntegerStats(String columnName, long nullsCount, int min, int max)
     {
         ColumnQuickStats<Integer> result = new ColumnQuickStats<>(columnName, Integer.class);
-        result.addToRowCount(rowCount);
         result.addToNullsCount(nullsCount);
         result.setMinValue(min);
         result.setMaxValue(max);
@@ -145,19 +142,17 @@ public class TestParquetQuickStatsBuilder
         return result;
     }
 
-    private static ColumnQuickStats<Slice> createBinaryStats(String columnName, long rowCount, long nullsCount)
+    private static ColumnQuickStats<Slice> createBinaryStats(String columnName, long nullsCount)
     {
         ColumnQuickStats<Slice> result = new ColumnQuickStats<>(columnName, Slice.class);
-        result.addToRowCount(rowCount);
         result.addToNullsCount(nullsCount);
 
         return result;
     }
 
-    private static ColumnQuickStats<Double> createDoubleStats(String columnName, long rowCount, long nullsCount, double min, double max)
+    private static ColumnQuickStats<Double> createDoubleStats(String columnName, long nullsCount, double min, double max)
     {
         ColumnQuickStats<Double> result = new ColumnQuickStats<>(columnName, Double.class);
-        result.addToRowCount(rowCount);
         result.addToNullsCount(nullsCount);
         result.setMinValue(min);
         result.setMaxValue(max);
@@ -276,26 +271,28 @@ public class TestParquetQuickStatsBuilder
         PartitionQuickStats partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastore, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
                 metastoreContext, UNPARTITIONED_ID.getPartitionName(), hiveFileInfos.iterator());
 
-        assertEquals(8, partitionQuickStats.getFileCount());
+        assertEquals(partitionQuickStats.getFileCount(), 8);
+        assertEquals(partitionQuickStats.getRowCount(), 120527L);
         // We check a few of the columns
         Map<String, ? extends ColumnQuickStats<?>> columnQuickStatsMap = partitionQuickStats.getStats().stream().collect(toMap(ColumnQuickStats::getColumnName, v -> v));
-        assertEquals(columnQuickStatsMap.get("ss_promo_sk"), createLongStats("ss_promo_sk", 120527L, 5303L, 1L, 3L));
-        assertEquals(columnQuickStatsMap.get("ss_sold_date_sk"), createLongStats("ss_sold_date_sk", 120527L, 5335L, 2450816L, 2452642L));
-        assertEquals(columnQuickStatsMap.get("ss_quantity"), createIntegerStats("ss_quantity", 120527L, 5450L, 1, 100));
+        assertEquals(columnQuickStatsMap.get("ss_promo_sk"), createLongStats("ss_promo_sk", 5303L, 1L, 3L));
+        assertEquals(columnQuickStatsMap.get("ss_sold_date_sk"), createLongStats("ss_sold_date_sk", 5335L, 2450816L, 2452642L));
+        assertEquals(columnQuickStatsMap.get("ss_quantity"), createIntegerStats("ss_quantity", 5450L, 1, 100));
         // DECIMAL columns are stored as binary arrays in parquet
-        assertEquals(columnQuickStatsMap.get("ss_wholesale_cost"), createBinaryStats("ss_wholesale_cost", 120527L, 5369L));
+        assertEquals(columnQuickStatsMap.get("ss_wholesale_cost"), createBinaryStats("ss_wholesale_cost", 5369L));
 
         // Table : TPCH orders table; 100 rows
         hiveFileInfos = buildHiveFileInfos(resourceDir, "tpch_orders_100_rows", 1);
         partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastore, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
                 metastoreContext, UNPARTITIONED_ID.getPartitionName(), hiveFileInfos.iterator());
 
-        assertEquals(1, partitionQuickStats.getFileCount());
+        assertEquals(partitionQuickStats.getFileCount(), 1);
+        assertEquals(partitionQuickStats.getRowCount(), 100L);
         columnQuickStatsMap = partitionQuickStats.getStats().stream().collect(toMap(ColumnQuickStats::getColumnName, v -> v));
         // VARCHAR columns are stored as binary arrays in parquet
-        assertEquals(columnQuickStatsMap.get("comment"), createBinaryStats("comment", 100L, 0L));
-        assertEquals(columnQuickStatsMap.get("orderdate"), createDateStats("orderdate", 100L, 0L, parse("1992-01-29"), parse("1998-07-24")));
-        assertEquals(columnQuickStatsMap.get("totalprice"), createDoubleStats("totalprice", 100L, 0L, 1373.4, 352797.28));
+        assertEquals(columnQuickStatsMap.get("comment"), createBinaryStats("comment", 0L));
+        assertEquals(columnQuickStatsMap.get("orderdate"), createDateStats("orderdate", 0L, parse("1992-01-29"), parse("1998-07-24")));
+        assertEquals(columnQuickStatsMap.get("totalprice"), createDoubleStats("totalprice", 0L, 1373.4, 352797.28));
     }
 
     @Test
@@ -315,8 +312,9 @@ public class TestParquetQuickStatsBuilder
                 metastoreContext, UNPARTITIONED_ID.getPartitionName(), hiveFileInfos.iterator());
 
         assertEquals(partitionQuickStats.getStats().size(), 1, "Expected stats for only non-nested column : 'id'");
+        assertEquals(partitionQuickStats.getRowCount(), 3L);
         ColumnQuickStats<?> idColumnQuickStats = partitionQuickStats.getStats().get(0);
-        assertEquals(idColumnQuickStats, createLongStats("id", 3L, 0L, 1L, 3L));
+        assertEquals(idColumnQuickStats, createLongStats("id", 0L, 1L, 3L));
     }
 
     public static class DelayingHdfsEnvironment

@@ -147,6 +147,7 @@ public class TestQuickStatsProvider
                     false,
                     false));
     public static final ConnectorSession SESSION = new TestingConnectorSession(quickStatsProperties);
+    private static final long PER_FILE_ROW_COUNT = 4242L;
     private final HiveClientConfig hiveClientConfig = new HiveClientConfig().setRecursiveDirWalkerEnabled(true);
     private HdfsEnvironment hdfsEnvironment;
     private DirectoryLister directoryListerMock;
@@ -225,8 +226,8 @@ public class TestQuickStatsProvider
         mockIntegerColumnStats = new ColumnQuickStats<>("column", Integer.class);
         mockIntegerColumnStats.setMinValue(Integer.MIN_VALUE);
         mockIntegerColumnStats.setMaxValue(Integer.MAX_VALUE);
-        mockIntegerColumnStats.addToRowCount(4242L);
-        mockPartitionQuickStats = new PartitionQuickStats("partitionId", ImmutableList.of(mockIntegerColumnStats), 42);
+        mockIntegerColumnStats.addToRowCount(PER_FILE_ROW_COUNT);
+        mockPartitionQuickStats = new PartitionQuickStats("partitionId", ImmutableList.of(mockIntegerColumnStats), 42, 42 * PER_FILE_ROW_COUNT);
         expectedPartitionStats = convertToPartitionStatistics(mockPartitionQuickStats);
     }
 
@@ -498,7 +499,7 @@ public class TestQuickStatsProvider
             for (HiveFileInfo hiveFileInfo : fileInfoList) {
                 assertTrue(hiveFileInfo.getPath().equals("file:" + targetFilePath1) || hiveFileInfo.getPath().equals("file:" + targetFilePath2));
             }
-            return new PartitionQuickStats(UNPARTITIONED_ID.getPartitionName(), ImmutableList.of(mockIntegerColumnStats), fileInfoList.size());
+            return new PartitionQuickStats(UNPARTITIONED_ID.getPartitionName(), ImmutableList.of(mockIntegerColumnStats), fileInfoList.size(), 2 * PER_FILE_ROW_COUNT);
         };
 
         QuickStatsProvider quickStatsProvider = new QuickStatsProvider(metastoreMock, hdfsEnvironment, directoryLister, hiveClientConfig, new NamenodeStats(),

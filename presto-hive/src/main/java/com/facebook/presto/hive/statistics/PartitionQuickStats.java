@@ -39,16 +39,18 @@ import static java.util.Collections.emptyList;
 
 public class PartitionQuickStats
 {
-    public static final PartitionQuickStats EMPTY = new PartitionQuickStats("emptyPartition", emptyList(), 0);
+    public static final PartitionQuickStats EMPTY = new PartitionQuickStats("emptyPartition", emptyList(), 0, 0);
     private final String partitionId;
     private final List<ColumnQuickStats<?>> stats;
     private final int fileCount;
+    private final long rowCount;
 
-    public PartitionQuickStats(String partitionId, Collection<ColumnQuickStats<?>> stats, int fileCount)
+    public PartitionQuickStats(String partitionId, Collection<ColumnQuickStats<?>> stats, int fileCount, long rowCount)
     {
         this.partitionId = partitionId;
         this.stats = ImmutableList.copyOf(stats);
         this.fileCount = fileCount;
+        this.rowCount = rowCount;
     }
 
     public static PartitionStatistics convertToPartitionStatistics(PartitionQuickStats partitionQuickStats)
@@ -101,14 +103,18 @@ public class PartitionQuickStats
             hiveColumnStatisticsBuilder.put(columnQuickStats.getColumnName(), hiveColumnStatistics);
         });
 
-        long rowCount = partitionQuickStats.getStats().get(0).getRowCount();
         HiveBasicStatistics hiveBasicStatistics = new HiveBasicStatistics(
                 OptionalLong.of(partitionQuickStats.getFileCount()),
-                OptionalLong.of(rowCount),
+                OptionalLong.of(partitionQuickStats.getRowCount()),
                 OptionalLong.empty(),
                 OptionalLong.empty());
 
         return new PartitionStatistics(hiveBasicStatistics, hiveColumnStatisticsBuilder.build());
+    }
+
+    public long getRowCount()
+    {
+        return rowCount;
     }
 
     public List<ColumnQuickStats<?>> getStats()

@@ -68,11 +68,6 @@ public class ColumnQuickStats<T extends Comparable<T>>
         this.maxValue = this.maxValue == null ? maxValue : this.maxValue.compareTo(maxValue) > 0 ? this.maxValue : maxValue;
     }
 
-    public long getRowCount()
-    {
-        return rowCount;
-    }
-
     public void addToRowCount(long rowCount)
     {
         this.rowCount = this.rowCount + rowCount;
