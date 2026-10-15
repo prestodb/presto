@@ -91,6 +91,15 @@ class PeriodicMemoryChecker {
   /// 'Config::systemMemLimitBytes'.
   int64_t systemUsedMemoryBytes(bool fetchFresh = false);
 
+  /// Reads the current cached system-memory sample, records it to the
+  /// 'presto_cpp.memory_checker_used_bytes' metric, and returns it in a
+  /// shared_ptr. Used by PrestoServer::populateMemAndCPUInfo() to publish
+  /// the sample on 'MemoryInfo.systemMemoryBytes' and the metric endpoint in
+  /// one call; callers skip this (and leave the field as an empty
+  /// shared_ptr) when no checker is installed, so scrapers see the metric
+  /// time series as absent (not zero) in that case.
+  std::shared_ptr<int64_t> sampleAndRecord();
+
  protected:
   /// Fetches current system memory usage in bytes and publishes it to the
   /// cache. Callers must hold 'memoryUsageRefreshMutex_'; overrides must

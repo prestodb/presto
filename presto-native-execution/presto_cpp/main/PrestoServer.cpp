@@ -396,10 +396,17 @@ void PrestoServer::run() {
       velox::connector::ConnectorRegistry::findAll<
           velox::connector::hive::HiveConnector>(),
       this);
+  // Initialize memoryChecker_ before any periodic callback that reads it is
+  // registered. PeriodicTaskManager::addTask() hands the callback to
+  // folly::ThreadedRepeatingFunctionRunner::add(), which spawns the thread
+  // right away with initialSleep=0, so by the time addServerPeriodicTasks()
+  // returns the callback can already be running; periodicTaskManager_->
+  // start() does not gate it. Creating the checker here publishes the
+  // final pointer before any task that reads it can fire.
+  createPeriodicMemoryChecker();
   addServerPeriodicTasks();
   addAdditionalPeriodicTasks();
   periodicTaskManager_->start();
-  createPeriodicMemoryChecker();
   if (memoryChecker_ != nullptr) {
     memoryChecker_->start();
   }
@@ -1751,6 +1758,12 @@ void PrestoServer::populateMemAndCPUInfo() {
   RECORD_METRIC_VALUE(
       kCounterMemoryManagerTotalBytes,
       velox::memory::memoryManager()->getTotalBytes());
+
+  // Empty when no checker is installed, so the metric time series stays
+  // absent (not zero) in that case; see PeriodicMemoryChecker::sampleAndRecord.
+  memoryInfo.systemMemoryBytes =
+      memoryChecker_ ? memoryChecker_->sampleAndRecord() : nullptr;
+
   cpuMon_.update();
   checkOverload();
   **memoryInfo_.wlock() = std::move(memoryInfo);
@@ -2088,7 +2101,7 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
   const int64_t nonHeapUsed = 0;
 
   // In-memory AsyncDataCache footprint (evictable/reclaimable), sampled off the
-  // serving path by populateMemAndCPUInfo() — read the cached value here so the
+  // serving path by populateMemAndCPUInfo(); read the cached value here so the
   // refreshStats() cache-shard walk never runs on the /v1/status poll path.
   const int64_t asyncDataCacheBytes =
       asyncDataCacheBytes_.load(std::memory_order_relaxed);

@@ -1860,6 +1860,7 @@ void from_json(const json& j, MemoryPoolInfo& p);
 namespace facebook::presto::protocol {
 struct MemoryInfo {
   DataSize totalNodeMemory = {};
+  std::shared_ptr<int64_t> systemMemoryBytes = {};
   Map<MemoryPoolId, MemoryPoolInfo> pools = {};
 };
 void to_json(json& j, const MemoryInfo& p);
