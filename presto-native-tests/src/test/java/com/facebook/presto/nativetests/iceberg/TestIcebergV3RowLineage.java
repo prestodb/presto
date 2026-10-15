@@ -15,6 +15,7 @@ package com.facebook.presto.nativetests.iceberg;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.iceberg.CatalogType;
+import com.facebook.presto.iceberg.FileFormat;
 import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.iceberg.TestIcebergRowLineageBase;
@@ -66,6 +67,30 @@ public class TestIcebergV3RowLineage
         return new Object[][] {
                 {true},
                 {false}
+        };
+    }
+
+    @Override
+    @DataProvider(name = "pushdownFilterEnabledAndFileFormat")
+    public Object[][] pushdownFilterEnabledAndFileFormatProvider()
+    {
+        return new Object[][] {
+                {true, FileFormat.PARQUET},
+                {false, FileFormat.PARQUET},
+                {true, FileFormat.ORC},
+                {false, FileFormat.ORC}
+        };
+    }
+
+    @Override
+    @DataProvider(name = "pushdownFilterEnabledAndBoundlessLineageMetricsMode")
+    public Object[][] pushdownFilterEnabledAndBoundlessLineageMetricsModeProvider()
+    {
+        return new Object[][] {
+                {true, "counts"},
+                {false, "counts"},
+                {true, "none"},
+                {false, "none"}
         };
     }
 

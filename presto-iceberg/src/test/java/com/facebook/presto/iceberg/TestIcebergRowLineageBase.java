@@ -14,17 +14,27 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.facebook.presto.tests.DistributedQueryRunner;
+import com.facebook.presto.tests.ResultWithQueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.ql.exec.vector.BytesColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.ColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.iceberg.CatalogUtil;
 import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.MetricsConfig;
+import org.apache.iceberg.OverwriteFiles;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.Catalog;
@@ -32,12 +42,17 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
+import org.apache.iceberg.deletes.EqualityDeleteWriter;
 import org.apache.iceberg.hadoop.HadoopCatalog;
+import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.DataWriter;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Types;
+import org.apache.orc.OrcFile;
+import org.apache.orc.TypeDescription;
+import org.apache.orc.Writer;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -45,12 +60,23 @@ import java.io.Closeable;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Locale.ENGLISH;
+import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
+import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
+import static org.apache.iceberg.TableProperties.DEFAULT_WRITE_METRICS_MODE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -264,6 +290,210 @@ public abstract class TestIcebergRowLineageBase
     }
 
     @Test(dataProvider = "pushdownFilterEnabled")
+    public void testPredicatePushdownPreCompaction(boolean pushdownFilterEnabled)
+            throws Exception
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String tableName = "test_lineage_pushdown_pre";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "3");
+
+            appendOneRow(table, 1, "one");
+            appendOneRow(table, 2, "two");
+            appendOneRow(table, 3, "three");
+
+            List<long[]> idAndSequenceNumber = readIdAndSequenceNumber(session, tableName);
+            assertEquals(idAndSequenceNumber.size(), 3);
+            long sequenceNumber1 = valueForId(idAndSequenceNumber, 1);
+            long sequenceNumber2 = valueForId(idAndSequenceNumber, 2);
+            long sequenceNumber3 = valueForId(idAndSequenceNumber, 3);
+            assertTrue(sequenceNumber1 < sequenceNumber2 && sequenceNumber2 < sequenceNumber3, "sequence numbers must increase per commit");
+
+            assertIdsForPredicate(session, tableName, "<= " + sequenceNumber1, ImmutableList.of(1));
+            assertIdsForPredicate(session, tableName, "<= " + sequenceNumber2, ImmutableList.of(1, 2));
+            assertIdsForPredicate(session, tableName, "<= " + sequenceNumber3, ImmutableList.of(1, 2, 3));
+            assertIdsForPredicate(session, tableName, "< " + sequenceNumber1, ImmutableList.of());
+            assertIdsForPredicate(session, tableName, "BETWEEN " + sequenceNumber2 + " AND " + sequenceNumber3, ImmutableList.of(2, 3));
+        }
+        finally {
+            dropTableQuietly(catalog, tableId);
+        }
+    }
+
+    /**
+     * Compaction rewrites two single-row files into one file that explicitly carries each row's
+     * original {@code _row_id} / {@code _last_updated_sequence_number}, which is how lineage
+     * survives a rewrite. The reader must report those physical values rather than the compacted
+     * file's own firstRowId+position and dataSequenceNumber, and the lineage column statistics must
+     * still allow the file to be pruned by a predicate.
+     */
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testPredicatePushdownPostCompaction(boolean pushdownFilterEnabled)
+            throws Exception
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String tableName = "test_lineage_pushdown_post";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "3");
+
+            appendOneRow(table, 1, "one");
+            appendOneRow(table, 2, "two");
+            table.refresh();
+            List<long[]> preCompactionIdAndSequenceNumber = readIdAndSequenceNumber(session, tableName);
+            long preCompactionSequenceNumber1 = valueForId(preCompactionIdAndSequenceNumber, 1);
+            long preCompactionSequenceNumber2 = valueForId(preCompactionIdAndSequenceNumber, 2);
+            assertTrue(preCompactionSequenceNumber1 < preCompactionSequenceNumber2);
+
+            Set<DataFile> preCompactionFiles = new HashSet<>(dataFiles(table));
+            assertEquals(preCompactionFiles.size(), 2);
+
+            Schema lineageAugmentedSchema = MetadataColumns.schemaWithRowLineage(table.schema());
+            Record row1 = GenericRecord.create(lineageAugmentedSchema);
+            row1.setField("id", 1);
+            row1.setField("value", "one");
+            row1.setField(MetadataColumns.ROW_ID.name(), 0L);
+            row1.setField(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), preCompactionSequenceNumber1);
+            Record row2 = GenericRecord.create(lineageAugmentedSchema);
+            row2.setField("id", 2);
+            row2.setField("value", "two");
+            row2.setField(MetadataColumns.ROW_ID.name(), 1L);
+            row2.setField(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), preCompactionSequenceNumber2);
+            DataFile compactedFile = writeFile(table, lineageAugmentedSchema, row1, row2);
+
+            table.newRewrite()
+                    .rewriteFiles(preCompactionFiles, ImmutableSet.of(compactedFile))
+                    .commit();
+            table.refresh();
+
+            List<long[]> postCompactionIdAndSequenceNumber = readIdAndSequenceNumber(session, tableName);
+            assertEquals(postCompactionIdAndSequenceNumber.size(), 2);
+            assertEquals(valueForId(postCompactionIdAndSequenceNumber, 1), preCompactionSequenceNumber1);
+            assertEquals(valueForId(postCompactionIdAndSequenceNumber, 2), preCompactionSequenceNumber2);
+
+            int lineageFieldId = MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
+            DataFile committedFile = getOnlyElement(dataFiles(table));
+            assertTrue(committedFile.lowerBounds() != null && committedFile.lowerBounds().containsKey(lineageFieldId),
+                    "compaction file is missing lineage column lower bound stats");
+
+            assertIdsForPredicate(session, tableName, "<= " + preCompactionSequenceNumber1, ImmutableList.of(1));
+            assertIdsForPredicate(session, tableName, "<= " + preCompactionSequenceNumber2, ImmutableList.of(1, 2));
+            assertIdsForPredicate(session, tableName, "< " + preCompactionSequenceNumber1, ImmutableList.of());
+            assertIdsForPredicate(session, tableName, "> " + preCompactionSequenceNumber2, ImmutableList.of());
+
+            // A scan whose files are all pruned still runs one empty split, so add a file the
+            // predicate keeps.
+            appendOneRow(table, 3, "three");
+            String selective = "SELECT id FROM " + tableName + " WHERE \"_last_updated_sequence_number\" > " + preCompactionSequenceNumber2;
+            assertIdsForQuery(session, selective, ImmutableList.of(3));
+            int splitsAll = completedSplitsFor(session, "SELECT id FROM " + tableName);
+            int splitsSelective = completedSplitsFor(session, selective);
+            assertTrue(splitsAll > splitsSelective,
+                    "expected the compacted file to be pruned but unrestricted=" + splitsAll + " selective=" + splitsSelective);
+        }
+        finally {
+            dropTableQuietly(catalog, tableId);
+        }
+    }
+
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testV2TableLineagePredicates(boolean pushdownFilterEnabled)
+            throws Exception
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String tableName = "test_lineage_pushdown_v2";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "2");
+            appendOneRow(table, 1, "one");
+            appendOneRow(table, 2, "two");
+
+            assertIdsForPredicate(session, tableName, "<= 100", ImmutableList.of());
+            assertIdsForPredicate(session, tableName, "> 0", ImmutableList.of());
+            assertIdsForPredicate(session, tableName, "IS NOT NULL", ImmutableList.of());
+            assertIdsForPredicate(session, tableName, "IS NULL", ImmutableList.of(1, 2));
+        }
+        finally {
+            dropTableQuietly(catalog, tableId);
+        }
+    }
+
+    /**
+     * Split counts are not compared with the expected engine: split generation and metadata-based
+     * pruning run on the Java coordinator for both, so the comparison would check identical code
+     * against itself. The assertion stays relative so it is insensitive to worker count.
+     */
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testPredicateActuallyPrunesSplits(boolean pushdownFilterEnabled)
+            throws Exception
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String tableName = "test_lineage_pushdown_split_count";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "3");
+
+            appendOneRow(table, 1, "one");
+            appendOneRow(table, 2, "two");
+            appendOneRow(table, 3, "three");
+
+            long minimumSequenceNumber = valueForId(readIdAndSequenceNumber(session, tableName), 1);
+
+            int splitsAll = completedSplitsFor(session, "SELECT id FROM " + tableName);
+            int splitsPruned = completedSplitsFor(session,
+                    "SELECT id FROM " + tableName + " WHERE \"_last_updated_sequence_number\" < " + minimumSequenceNumber);
+
+            assertTrue(splitsAll > splitsPruned,
+                    "expected predicate to prune splits but unrestricted=" + splitsAll + " pruned=" + splitsPruned);
+        }
+        finally {
+            dropTableQuietly(catalog, tableId);
+        }
+    }
+
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testDisjointOrRangesPruneMiddleFile(boolean pushdownFilterEnabled)
+            throws Exception
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String tableName = "test_lineage_disjoint_or";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "3");
+
+            appendOneRow(table, 1, "one");
+            appendOneRow(table, 2, "two");
+            appendOneRow(table, 3, "three");
+
+            List<long[]> idAndSequenceNumber = readIdAndSequenceNumber(session, tableName);
+            long sequenceNumber1 = valueForId(idAndSequenceNumber, 1);
+            long sequenceNumber2 = valueForId(idAndSequenceNumber, 2);
+            long sequenceNumber3 = valueForId(idAndSequenceNumber, 3);
+            assertTrue(sequenceNumber1 < sequenceNumber2 && sequenceNumber2 < sequenceNumber3, "sequence numbers must increase per commit");
+
+            String disjointSql = "SELECT id FROM " + tableName
+                    + " WHERE \"_last_updated_sequence_number\" <= " + sequenceNumber1
+                    + " OR \"_last_updated_sequence_number\" >= " + sequenceNumber3;
+
+            int splitsAll = completedSplitsFor(session, "SELECT id FROM " + tableName);
+            int splitsDisjoint = completedSplitsFor(session, disjointSql);
+            assertTrue(splitsAll > splitsDisjoint,
+                    "expected disjoint OR to prune middle file but unrestricted=" + splitsAll + " disjoint=" + splitsDisjoint);
+
+            assertIdsForQuery(session, disjointSql, ImmutableList.of(1, 3));
+        }
+        finally {
+            dropTableQuietly(catalog, tableId);
+        }
+    }
+
+    @Test(dataProvider = "pushdownFilterEnabled")
     public void testRowIdPredicatesOnInheritedValues(boolean pushdownFilterEnabled)
             throws Exception
     {
@@ -332,6 +562,153 @@ public abstract class TestIcebergRowLineageBase
         }
     }
 
+    @DataProvider(name = "pushdownFilterEnabledAndFileFormat")
+    public Object[][] pushdownFilterEnabledAndFileFormatProvider()
+    {
+        return new Object[][] {
+                {false, FileFormat.PARQUET},
+                {false, FileFormat.ORC}
+        };
+    }
+
+    @Test(dataProvider = "pushdownFilterEnabledAndFileFormat")
+    public void testPredicatesOnMixedStoredAndInheritedFile(boolean pushdownFilterEnabled, FileFormat fileFormat)
+            throws Exception
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String tableName = "test_lineage_mixed_file";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            MixedLineageTable mixed = createMixedLineageTable(session, catalog, tableId, tableName, fileFormat);
+
+            assertIdsForPredicate(session, tableName, "_row_id", "= " + mixed.inheritedRowId, ImmutableList.of(2));
+            assertIdsForPredicate(session, tableName, "_row_id", "= " + mixed.storedRowId, ImmutableList.of(1));
+            assertIdsForPredicate(session, tableName, "_row_id", ">= " + mixed.inheritedRowId, ImmutableList.of(2));
+            assertIdsForPredicate(session, tableName, "_last_updated_sequence_number", "= " + mixed.inheritedSequenceNumber, ImmutableList.of(2));
+            assertIdsForPredicate(session, tableName, "_last_updated_sequence_number", ">= " + mixed.inheritedSequenceNumber, ImmutableList.of(2));
+            assertIdsForPredicate(session, tableName, "_last_updated_sequence_number", "= " + mixed.storedSequenceNumber, ImmutableList.of(1));
+        }
+        finally {
+            dropTableQuietly(catalog, tableId);
+        }
+    }
+
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testIsNullOnV3Table(boolean pushdownFilterEnabled)
+            throws Exception
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String inheritedTableName = "test_lineage_is_null_inherited";
+        String mixedTableName = "test_lineage_is_null_mixed";
+        Catalog catalog = loadCatalog();
+        TableIdentifier inheritedTableId = TableIdentifier.of(TEST_SCHEMA, inheritedTableName);
+        TableIdentifier mixedTableId = TableIdentifier.of(TEST_SCHEMA, mixedTableName);
+        try {
+            Table inherited = createTestTable(catalog, inheritedTableId, "3");
+            appendOneRow(inherited, 1, "one");
+            appendOneRow(inherited, 2, "two");
+            createMixedLineageTable(session, catalog, mixedTableId, mixedTableName, FileFormat.PARQUET);
+
+            for (String tableName : ImmutableList.of(inheritedTableName, mixedTableName)) {
+                for (String column : ImmutableList.of("_row_id", "_last_updated_sequence_number")) {
+                    assertIdsForPredicate(session, tableName, column, "IS NULL", ImmutableList.of());
+                    assertIdsForPredicate(session, tableName, column, "IS NOT NULL", ImmutableList.of(1, 2));
+                }
+            }
+        }
+        finally {
+            dropTableQuietly(catalog, inheritedTableId);
+            dropTableQuietly(catalog, mixedTableId);
+        }
+    }
+
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testLineagePredicateWithDeletedRow(boolean pushdownFilterEnabled)
+            throws Exception
+    {
+        // AUTOMATIC join distribution computes stats for the equality delete scan, which plans its
+        // delete files with the data scan's predicate, lineage domains included.
+        Session session = Session.builder(sessionWithPushdown(pushdownFilterEnabled))
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "AUTOMATIC")
+                .setSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, "false")
+                .build();
+        String tableName = "test_lineage_deleted_row";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "3");
+            Schema schema = table.schema();
+            writeRecords(table,
+                    GenericRecord.create(schema).copy("id", 1, "value", "one"),
+                    GenericRecord.create(schema).copy("id", 2, "value", "two"),
+                    GenericRecord.create(schema).copy("id", 3, "value", "three"));
+            table.refresh();
+            DataFile file = getOnlyElement(dataFiles(table));
+            long firstRowId = file.firstRowId();
+            writeEqualityDeleteOnId(table, 2);
+
+            List<long[]> idAndRowId = readIdAndRowId(session, tableName);
+            assertEquals(idAndRowId.size(), 2);
+            assertEquals(valueForId(idAndRowId, 1), firstRowId);
+            assertEquals(valueForId(idAndRowId, 3), firstRowId + 2);
+
+            assertIdsForPredicate(session, tableName, "_row_id", "= " + (firstRowId + 2), ImmutableList.of(3));
+            assertIdsForPredicate(session, tableName, "_row_id", "= " + (firstRowId + 1), ImmutableList.of());
+            assertIdsForPredicate(session, tableName, "_last_updated_sequence_number", "= " + file.dataSequenceNumber(), ImmutableList.of(1, 3));
+        }
+        finally {
+            dropTableQuietly(catalog, tableId);
+        }
+    }
+
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testTableStatisticsWithLineagePredicate(boolean pushdownFilterEnabled)
+            throws Exception
+    {
+        // Statistics for the data scan and for the equality delete scan are computed with the
+        // layout's predicate, lineage domains included, and Iceberg cannot bind lineage columns
+        // when it plans either scan. AUTOMATIC join distribution makes the planner compute them.
+        // SHOW STATS cannot cover this: a lineage predicate is also filtered per row, and SHOW
+        // STATS rejects predicates the connector does not enforce.
+        Session session = Session.builder(sessionWithPushdown(pushdownFilterEnabled))
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "AUTOMATIC")
+                .setSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, "false")
+                .build();
+        String tableName = "test_table_statistics_lineage_predicate";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "3");
+            Schema schema = table.schema();
+            writeRecords(table,
+                    GenericRecord.create(schema).copy("id", 1, "value", "one"),
+                    GenericRecord.create(schema).copy("id", 2, "value", "two"));
+            table.refresh();
+            DataFile file = getOnlyElement(dataFiles(table));
+            List<String> predicates = ImmutableList.of(
+                    "\"_row_id\" = " + file.firstRowId(),
+                    "\"_last_updated_sequence_number\" = " + file.dataSequenceNumber(),
+                    "\"_row_id\" = " + file.firstRowId() + " AND \"_last_updated_sequence_number\" = " + file.dataSequenceNumber());
+
+            assertExplainWithPredicates(session, tableName, predicates);
+
+            // The equality delete makes the plan join the data scan with an equality delete scan.
+            writeEqualityDeleteOnId(table, 2);
+            assertExplainWithPredicates(session, tableName, predicates);
+        }
+        finally {
+            dropTableQuietly(catalog, tableId);
+        }
+    }
+
+    private void assertExplainWithPredicates(Session session, String tableName, List<String> predicates)
+    {
+        for (String predicate : predicates) {
+            assertQuerySucceeds(session, "EXPLAIN SELECT * FROM " + tableName + " WHERE " + predicate);
+        }
+    }
+
     @Test(dataProvider = "pushdownFilterEnabled")
     public void testLineagePredicateCombinedWithRegularColumn(boolean pushdownFilterEnabled)
             throws Exception
@@ -363,6 +740,169 @@ public abstract class TestIcebergRowLineageBase
                     ImmutableList.of(1, 3));
             assertIdsForQuery(session, "SELECT id FROM " + tableName + " WHERE \"_row_id\" % 2 = 0",
                     evenRowIds.build());
+        }
+        finally {
+            dropTableQuietly(catalog, tableId);
+        }
+    }
+
+    @DataProvider(name = "pushdownFilterEnabledAndBoundlessLineageMetricsMode")
+    public Object[][] pushdownFilterEnabledAndBoundlessLineageMetricsModeProvider()
+    {
+        return new Object[][] {
+                {false, "counts"},
+                {false, "none"}
+        };
+    }
+
+    /**
+     * A compacted file whose lineage columns have no bounds, only counts or no metrics at all,
+     * stores values the coordinator cannot see, so it must not be pruned by its own, newer data
+     * sequence number.
+     */
+    @Test(dataProvider = "pushdownFilterEnabledAndBoundlessLineageMetricsMode")
+    public void testCompactedFileWithoutLineageBoundsIsNotMisPruned(boolean pushdownFilterEnabled, String lineageMetricsMode)
+            throws Exception
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String tableName = "test_lineage_metrics_" + lineageMetricsMode;
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "3");
+            appendOneRow(table, 1, "one");
+            appendOneRow(table, 2, "two");
+            List<long[]> idAndRowId = readIdAndRowId(session, tableName);
+            List<long[]> idAndSequenceNumber = readIdAndSequenceNumber(session, tableName);
+            long preCompactionSequenceNumber1 = valueForId(idAndSequenceNumber, 1);
+            long preCompactionSequenceNumber2 = valueForId(idAndSequenceNumber, 2);
+            List<DataFile> preCompactionFiles = dataFiles(table);
+
+            Schema lineageSchema = MetadataColumns.schemaWithRowLineage(table.schema());
+            Record row1 = GenericRecord.create(lineageSchema);
+            row1.setField("id", 1);
+            row1.setField("value", "one");
+            row1.setField(MetadataColumns.ROW_ID.name(), valueForId(idAndRowId, 1));
+            row1.setField(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), preCompactionSequenceNumber1);
+            Record row2 = GenericRecord.create(lineageSchema);
+            row2.setField("id", 2);
+            row2.setField("value", "two");
+            row2.setField(MetadataColumns.ROW_ID.name(), valueForId(idAndRowId, 2));
+            row2.setField(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), preCompactionSequenceNumber2);
+            MetricsConfig boundlessLineage = MetricsConfig.fromProperties(ImmutableMap.of(
+                    "write.metadata.metrics.column." + MetadataColumns.ROW_ID.name(), lineageMetricsMode,
+                    "write.metadata.metrics.column." + MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), lineageMetricsMode));
+            DataFile compacted = writeFile(table, lineageSchema, boundlessLineage, row1, row2);
+            table.newRewrite()
+                    .rewriteFiles(ImmutableSet.copyOf(preCompactionFiles), ImmutableSet.of(compacted))
+                    .commit();
+            table.refresh();
+
+            int lineageFieldId = MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
+            DataFile committed = getOnlyElement(dataFiles(table));
+            assertEquals(committed.valueCounts() != null && committed.valueCounts().containsKey(lineageFieldId), lineageMetricsMode.equals("counts"),
+                    "compacted file should carry lineage value counts only in metrics mode counts");
+            assertTrue(committed.lowerBounds() == null || !committed.lowerBounds().containsKey(lineageFieldId),
+                    "compacted file should carry no lineage bounds");
+            assertTrue(committed.dataSequenceNumber() > preCompactionSequenceNumber2, "the rewrite must commit at a newer sequence number");
+
+            assertIdsForPredicate(session, tableName, "= " + preCompactionSequenceNumber1, ImmutableList.of(1));
+            assertIdsForPredicate(session, tableName, "= " + preCompactionSequenceNumber2, ImmutableList.of(2));
+            assertIdsForPredicate(session, tableName, "<= " + preCompactionSequenceNumber2, ImmutableList.of(1, 2));
+            assertIdsForPredicate(session, tableName, "= " + committed.dataSequenceNumber(), ImmutableList.of());
+        }
+        finally {
+            dropTableQuietly(catalog, tableId);
+        }
+    }
+
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testMixedFileStillPrunedWhenNothingMatches(boolean pushdownFilterEnabled)
+            throws Exception
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String tableName = "test_lineage_mixed_file_pruned";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            MixedLineageTable mixed = createMixedLineageTable(session, catalog, tableId, tableName, FileFormat.PARQUET);
+            Table table = catalog.loadTable(tableId);
+            appendOneRow(table, 3, "three");
+            long sequenceNumber3 = valueForId(readIdAndSequenceNumber(session, tableName), 3);
+            assertTrue(sequenceNumber3 > mixed.inheritedSequenceNumber);
+
+            String selective = "SELECT id FROM " + tableName + " WHERE \"_last_updated_sequence_number\" = " + sequenceNumber3;
+            assertIdsForQuery(session, selective, ImmutableList.of(3));
+            int splitsAll = completedSplitsFor(session, "SELECT id FROM " + tableName);
+            int splitsSelective = completedSplitsFor(session, selective);
+            assertTrue(splitsAll > splitsSelective,
+                    "expected the mixed file to be pruned but unrestricted=" + splitsAll + " selective=" + splitsSelective);
+        }
+        finally {
+            dropTableQuietly(catalog, tableId);
+        }
+    }
+
+    /**
+     * A file without column metrics that an APPEND snapshot added is pruned by its data sequence
+     * number, since an append stores no lineage values. The predicate admits values below the second
+     * file's sequence number, so only the APPEND snapshot lets that file be pruned.
+     */
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testAppendedFileWithoutMetricsIsPruned(boolean pushdownFilterEnabled)
+            throws Exception
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String tableName = "test_lineage_append_without_metrics";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "3", ImmutableMap.of(DEFAULT_WRITE_METRICS_MODE, "none"));
+            appendOneRow(table, 1, "one");
+            appendOneRow(table, 2, "two");
+            assertNoColumnMetrics(table);
+            long sequenceNumber1 = valueForId(readIdAndSequenceNumber(session, tableName), 1);
+
+            String selective = "SELECT id FROM " + tableName + " WHERE \"_last_updated_sequence_number\" = " + sequenceNumber1;
+            assertIdsForQuery(session, selective, ImmutableList.of(1));
+            int splitsAll = completedSplitsFor(session, "SELECT id FROM " + tableName);
+            int splitsSelective = completedSplitsFor(session, selective);
+            assertTrue(splitsAll > splitsSelective,
+                    "expected the second appended file to be pruned but unrestricted=" + splitsAll + " selective=" + splitsSelective);
+        }
+        finally {
+            dropTableQuietly(catalog, tableId);
+        }
+    }
+
+    /**
+     * No row's value exceeds its file's sequence number, so a predicate above it prunes a file without
+     * lineage metrics even after the APPEND snapshot that added the file is expired.
+     */
+    @Test(dataProvider = "pushdownFilterEnabled")
+    public void testFileFromExpiredAppendIsPrunedAboveItsSequenceNumber(boolean pushdownFilterEnabled)
+            throws Exception
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String tableName = "test_lineage_expired_append_pruned";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = createTestTable(catalog, tableId, "3", ImmutableMap.of(DEFAULT_WRITE_METRICS_MODE, "none"));
+            appendOneRow(table, 1, "one");
+            long firstAppendSnapshotId = table.currentSnapshot().snapshotId();
+            appendOneRow(table, 2, "two");
+            assertNoColumnMetrics(table);
+            long sequenceNumber1 = valueForId(readIdAndSequenceNumber(session, tableName), 1);
+            table.expireSnapshots().expireSnapshotId(firstAppendSnapshotId).commit();
+            table.refresh();
+
+            String selective = "SELECT id FROM " + tableName + " WHERE \"_last_updated_sequence_number\" > " + sequenceNumber1;
+            assertIdsForQuery(session, selective, ImmutableList.of(2));
+            int splitsAll = completedSplitsFor(session, "SELECT id FROM " + tableName);
+            int splitsSelective = completedSplitsFor(session, selective);
+            assertTrue(splitsAll > splitsSelective,
+                    "expected the file from the expired append to be pruned but unrestricted=" + splitsAll + " selective=" + splitsSelective);
         }
         finally {
             dropTableQuietly(catalog, tableId);
@@ -429,6 +969,11 @@ public abstract class TestIcebergRowLineageBase
 
     protected static Table createTestTable(Catalog catalog, TableIdentifier tableId, String formatVersion)
     {
+        return createTestTable(catalog, tableId, formatVersion, ImmutableMap.of());
+    }
+
+    private static Table createTestTable(Catalog catalog, TableIdentifier tableId, String formatVersion, Map<String, String> properties)
+    {
         Schema schema = new Schema(
                 Types.NestedField.required(1, "id", Types.IntegerType.get()),
                 Types.NestedField.optional(2, "value", Types.StringType.get()));
@@ -436,7 +981,10 @@ public abstract class TestIcebergRowLineageBase
                 tableId,
                 schema,
                 org.apache.iceberg.PartitionSpec.unpartitioned(),
-                ImmutableMap.of("format-version", formatVersion));
+                ImmutableMap.<String, String>builder()
+                        .put("format-version", formatVersion)
+                        .putAll(properties)
+                        .build());
     }
 
     /**
@@ -468,6 +1016,11 @@ public abstract class TestIcebergRowLineageBase
     private Map<String, String> getProperties()
     {
         return ImmutableMap.of("warehouse", getCatalogDirectory().toURI().toString());
+    }
+
+    private void assertIdsForPredicate(Session session, String tableName, String predicate, List<Integer> expectedIds)
+    {
+        assertIdsForPredicate(session, tableName, "_last_updated_sequence_number", predicate, expectedIds);
     }
 
     /**
@@ -508,6 +1061,55 @@ public abstract class TestIcebergRowLineageBase
             rows.add(new long[] {(Integer) row.getField(0), (Long) row.getField(1)});
         }
         return rows;
+    }
+
+    private int completedSplitsFor(Session session, String sql)
+    {
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(session, sql);
+        QueryStats stats = runner.getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(result.getQueryId())
+                .getQueryStats();
+        return stats.getCompletedSplits();
+    }
+
+    /**
+     * Commits ids 1 and 2 in separate appends, then rewrites both into one file in which id 1
+     * stores its original lineage and id 2 stores none, so id 2 inherits the new file's
+     * {@code firstRowId + 1} and data sequence number. All files are written in {@code fileFormat}.
+     */
+    private MixedLineageTable createMixedLineageTable(Session session, Catalog catalog, TableIdentifier tableId, String tableName, FileFormat fileFormat)
+            throws Exception
+    {
+        Table table = createTestTable(catalog, tableId, "3", ImmutableMap.of(DEFAULT_FILE_FORMAT, fileFormat.name().toLowerCase(ENGLISH)));
+        appendOneRow(table, 1, "one");
+        appendOneRow(table, 2, "two");
+        long storedRowId = valueForId(readIdAndRowId(session, tableName), 1);
+        long storedSequenceNumber = valueForId(readIdAndSequenceNumber(session, tableName), 1);
+
+        Schema lineageSchema = MetadataColumns.schemaWithRowLineage(table.schema());
+        Record stored = GenericRecord.create(lineageSchema);
+        stored.setField("id", 1);
+        stored.setField("value", "one");
+        stored.setField(MetadataColumns.ROW_ID.name(), storedRowId);
+        stored.setField(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), storedSequenceNumber);
+        Record inherited = GenericRecord.create(lineageSchema);
+        inherited.setField("id", 2);
+        inherited.setField("value", "two-updated");
+        writeMixedLineageFile(table, lineageSchema, stored, inherited);
+
+        DataFile file = getOnlyElement(dataFiles(table));
+        MixedLineageTable mixed = new MixedLineageTable(storedRowId, storedSequenceNumber, file.firstRowId() + 1, file.dataSequenceNumber());
+        assertTrue(mixed.inheritedSequenceNumber > mixed.storedSequenceNumber, "the rewrite must commit at a newer sequence number");
+
+        List<long[]> idAndRowId = readIdAndRowId(session, tableName);
+        assertEquals(valueForId(idAndRowId, 1), mixed.storedRowId);
+        assertEquals(valueForId(idAndRowId, 2), mixed.inheritedRowId);
+        List<long[]> idAndSequenceNumber = readIdAndSequenceNumber(session, tableName);
+        assertEquals(valueForId(idAndSequenceNumber, 1), mixed.storedSequenceNumber);
+        assertEquals(valueForId(idAndSequenceNumber, 2), mixed.inheritedSequenceNumber);
+        return mixed;
     }
 
     private static List<Integer> sortedIdsOf(MaterializedResult result)
@@ -581,6 +1183,53 @@ public abstract class TestIcebergRowLineageBase
                 .commit();
     }
 
+    /**
+     * Replaces every data file in the table with one file holding {@code rows}, as a copy-on-write
+     * UPDATE does. Rows that leave {@code _row_id} / {@code _last_updated_sequence_number} null
+     * inherit them from the new file, so the file mixes stored and inherited lineage.
+     */
+    private static void writeMixedLineageFile(Table table, Schema lineageSchema, Record... rows)
+            throws Exception
+    {
+        OverwriteFiles overwrite = table.newOverwrite();
+        for (DataFile file : dataFiles(table)) {
+            overwrite.deleteFile(file);
+        }
+        overwrite.addFile(writeFile(table, lineageSchema, rows)).commit();
+        table.refresh();
+    }
+
+    /**
+     * V3 requires deletion vectors for position deletes, which the Java worker does not read, so
+     * equality deletes are the delete form both engines can read.
+     */
+    private static void writeEqualityDeleteOnId(Table table, int id)
+            throws Exception
+    {
+        Schema deleteSchema = table.schema().select("id");
+        org.apache.hadoop.fs.Path path = new org.apache.hadoop.fs.Path(table.location(), "data/delete-" + UUID.randomUUID() + ".parquet");
+        EqualityDeleteWriter<Record> writer = Parquet.writeDeletes(HadoopOutputFile.fromPath(path, new Configuration()))
+                .createWriterFunc(GenericParquetWriter::create)
+                .overwrite()
+                .rowSchema(deleteSchema)
+                .withSpec(table.spec())
+                .equalityFieldIds(deleteSchema.findField("id").fieldId())
+                .buildEqualityWriter();
+        try (Closeable ignored = writer) {
+            writer.write(GenericRecord.create(deleteSchema).copy("id", id));
+        }
+        table.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
+        table.refresh();
+    }
+
+    private static void assertNoColumnMetrics(Table table)
+            throws Exception
+    {
+        for (DataFile file : dataFiles(table)) {
+            assertTrue(file.valueCounts() == null || file.valueCounts().isEmpty(), "file should carry no column metrics: " + file.location());
+        }
+    }
+
     private static List<DataFile> dataFiles(Table table)
             throws Exception
     {
@@ -596,12 +1245,27 @@ public abstract class TestIcebergRowLineageBase
     private static DataFile writeFile(Table table, Schema writeSchema, Record... records)
             throws Exception
     {
-        org.apache.hadoop.fs.Path filePath = new org.apache.hadoop.fs.Path(table.location(), "data/data-" + UUID.randomUUID() + ".parquet");
+        return writeFile(table, writeSchema, MetricsConfig.forTable(table), records);
+    }
+
+    /**
+     * Writes {@code records} in the table's {@code write.format.default} file format. {@code metricsConfig}
+     * applies to Parquet only.
+     */
+    private static DataFile writeFile(Table table, Schema writeSchema, MetricsConfig metricsConfig, Record... records)
+            throws Exception
+    {
+        FileFormat fileFormat = FileFormat.fromIcebergFileFormat(org.apache.iceberg.FileFormat.fromString(
+                table.properties().getOrDefault(DEFAULT_FILE_FORMAT, DEFAULT_FILE_FORMAT_DEFAULT)));
+        org.apache.hadoop.fs.Path filePath = new org.apache.hadoop.fs.Path(table.location(), "data/" + fileFormat.addExtension("data-" + UUID.randomUUID()));
+        if (fileFormat == FileFormat.ORC) {
+            return writeOrcFile(table, writeSchema, filePath, records);
+        }
         DataWriter<Record> writer = Parquet.writeData(HadoopOutputFile.fromPath(filePath, new Configuration()))
                 .schema(writeSchema)
                 .withSpec(table.spec())
                 .createWriterFunc(GenericParquetWriter::create)
-                .metricsConfig(MetricsConfig.forTable(table))
+                .metricsConfig(metricsConfig)
                 .overwrite()
                 .build();
         try (Closeable ignored = writer) {
@@ -610,5 +1274,76 @@ public abstract class TestIcebergRowLineageBase
             }
         }
         return writer.toDataFile();
+    }
+
+    /**
+     * Writes {@code records} with the Apache ORC writer bundled in hive-apache, since iceberg-orc
+     * needs a different build of the same ORC classes. Each column carries its Iceberg field id,
+     * as Iceberg's ORC writer does. The data file has no column metrics.
+     */
+    private static DataFile writeOrcFile(Table table, Schema writeSchema, org.apache.hadoop.fs.Path filePath, Record... records)
+            throws Exception
+    {
+        TypeDescription orcSchema = TypeDescription.createStruct();
+        for (Types.NestedField field : writeSchema.columns()) {
+            TypeDescription type;
+            switch (field.type().typeId()) {
+                case INTEGER:
+                    type = TypeDescription.createInt();
+                    break;
+                case LONG:
+                    type = TypeDescription.createLong();
+                    break;
+                case STRING:
+                    type = TypeDescription.createString();
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported type: " + field.type());
+            }
+            orcSchema.addField(field.name(), type.setAttribute(ORC_ICEBERG_ID_KEY, String.valueOf(field.fieldId())));
+        }
+        Configuration configuration = new Configuration();
+        VectorizedRowBatch batch = orcSchema.createRowBatch();
+        for (Record record : records) {
+            int row = batch.size++;
+            for (int column = 0; column < batch.cols.length; column++) {
+                ColumnVector vector = batch.cols[column];
+                Object value = record.get(column);
+                if (value == null) {
+                    vector.noNulls = false;
+                    vector.isNull[row] = true;
+                }
+                else if (vector instanceof BytesColumnVector) {
+                    ((BytesColumnVector) vector).setVal(row, ((String) value).getBytes(UTF_8));
+                }
+                else {
+                    ((LongColumnVector) vector).vector[row] = ((Number) value).longValue();
+                }
+            }
+        }
+        try (Writer writer = OrcFile.createWriter(filePath, OrcFile.writerOptions(configuration).setSchema(orcSchema))) {
+            writer.addRowBatch(batch);
+        }
+        return DataFiles.builder(table.spec())
+                .withInputFile(HadoopInputFile.fromPath(filePath, configuration))
+                .withFormat(org.apache.iceberg.FileFormat.ORC)
+                .withRecordCount(records.length)
+                .build();
+    }
+
+    private static class MixedLineageTable
+    {
+        private final long storedRowId;
+        private final long storedSequenceNumber;
+        private final long inheritedRowId;
+        private final long inheritedSequenceNumber;
+
+        private MixedLineageTable(long storedRowId, long storedSequenceNumber, long inheritedRowId, long inheritedSequenceNumber)
+        {
+            this.storedRowId = storedRowId;
+            this.storedSequenceNumber = storedSequenceNumber;
+            this.inheritedRowId = inheritedRowId;
+            this.inheritedSequenceNumber = inheritedSequenceNumber;
+        }
     }
 }
