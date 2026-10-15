@@ -815,10 +815,15 @@ public class LogicalPlanner
         String catalogName = tableHandle.getConnectorId().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
+        // The connector writes the default into an omitted column after the writer's NOT NULL check, so the check skips that column.
+        List<ColumnMetadata> notNullCheckedColumns = visibleTableColumns.stream()
+                .filter(column -> columnHandles.contains(columns.get(column.getName())) || !column.getDefaultValue().isPresent())
+                .collect(toImmutableList());
+
         return new InsertPlanComponents(
                 projectedPlan,
                 visibleTableColumnNames,
-                visibleTableColumns,
+                notNullCheckedColumns,
                 newTableLayout,
                 statisticsMetadata);
     }

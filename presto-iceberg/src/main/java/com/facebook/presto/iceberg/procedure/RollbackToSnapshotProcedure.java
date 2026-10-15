@@ -22,6 +22,8 @@ import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
+import org.apache.iceberg.ManageSnapshots;
+import org.apache.iceberg.Table;
 
 import javax.inject.Provider;
 
@@ -31,7 +33,9 @@ import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.verifyNoNullValuesInRequiredColumns;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.SnapshotRef.MAIN_BRANCH;
 
 public class RollbackToSnapshotProcedure
         implements Provider<Procedure>
@@ -70,8 +74,11 @@ public class RollbackToSnapshotProcedure
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             SchemaTableName schemaTableName = new SchemaTableName(schema, table);
             IcebergTransactionMetadata metadata = metadataFactory.create();
-            getIcebergTable(metadata, clientSession, schemaTableName)
-                    .manageSnapshots().rollbackTo(snapshotId).commit();
+            Table icebergTable = getIcebergTable(metadata, clientSession, schemaTableName);
+            // Open the transaction first so the NULL check reads the metadata this move commits on.
+            ManageSnapshots manageSnapshots = icebergTable.manageSnapshots();
+            verifyNoNullValuesInRequiredColumns(icebergTable, schemaTableName, MAIN_BRANCH, snapshotId);
+            manageSnapshots.rollbackTo(snapshotId).commit();
             metadata.commit();
         }
     }

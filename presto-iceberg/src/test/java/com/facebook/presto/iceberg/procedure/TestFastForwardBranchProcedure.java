@@ -17,6 +17,7 @@ import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.CatalogUtil;
@@ -254,6 +255,37 @@ public class TestFastForwardBranchProcedure
 
             // New branch non_existing_branch1 would be created and it should have 2 entries same as testBranch1 branch
             assertQuery("SELECT * FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'non_existing_branch1' ORDER BY id", " VALUES (1, 'a'), (2, 'b')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    /**
+     * SET NOT NULL skips tags, which keep their snapshot's schema, but a branch fast-forwarded onto one
+     * uses the current schema.
+     */
+    @Test
+    public void testFastForwardToTagWithNullsInNotNullColumnFails()
+    {
+        String tableName = "fast_forward_table_not_null_test";
+        createTable(tableName);
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+            long withoutNulls = loadTable(tableName).currentSnapshot().snapshotId();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, NULL)", 1);
+            assertUpdate("ALTER TABLE " + tableName + " CREATE TAG 'with_nulls'");
+            assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %d)", TEST_SCHEMA, tableName, withoutNulls));
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN value SET NOT NULL");
+
+            for (String branch : ImmutableList.of("main", "new_branch")) {
+                assertQueryFails(
+                        format("CALL system.fast_forward('%s', '%s', '%s', 'with_nulls')", TEST_SCHEMA, tableName, branch),
+                        format(".*Cannot move branch '%s' of table '.*' to snapshot [0-9]+: data file '.*' of that snapshot can hold NULL values in NOT NULL column 'value'\\. " +
+                                "Drop the NOT NULL constraint first", branch));
+            }
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'a')");
+            assertQuery(format("SELECT name FROM \"%s$refs\"", tableName), "VALUES 'main', 'with_nulls'");
         }
         finally {
             dropTable(tableName);

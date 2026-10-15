@@ -22,6 +22,8 @@ import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
+import org.apache.iceberg.ManageSnapshots;
+import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.Table;
 
 import javax.inject.Provider;
@@ -31,6 +33,7 @@ import java.lang.invoke.MethodHandle;
 import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.verifyNoNullValuesInRequiredColumns;
 import static java.util.Objects.requireNonNull;
 
 public class FastForwardBranchProcedure
@@ -73,7 +76,14 @@ public class FastForwardBranchProcedure
             SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
             IcebergTransactionMetadata metadata = metadataFactory.create();
             Table icebergTable = getIcebergTable(metadata, clientSession, schemaTableName);
-            icebergTable.manageSnapshots().fastForwardBranch(fromBranch, targetBranch).commit();
+            // Open the transaction first so the NULL check reads the metadata this move commits on.
+            ManageSnapshots manageSnapshots = icebergTable.manageSnapshots();
+            // The target can be a tag, which SET NOT NULL does not check.
+            SnapshotRef targetRef = icebergTable.refs().get(targetBranch);
+            if (targetRef != null) {
+                verifyNoNullValuesInRequiredColumns(icebergTable, schemaTableName, fromBranch, targetRef.snapshotId());
+            }
+            manageSnapshots.fastForwardBranch(fromBranch, targetBranch).commit();
             metadata.commit();
         }
     }
