@@ -15,6 +15,7 @@
 
 #include <folly/SocketAddress.h>
 #include <mutex>
+#include <string>
 
 namespace facebook::presto {
 
@@ -33,14 +34,23 @@ class CoordinatorDiscoverer {
   /// Returns the cached coordinator address.
   folly::SocketAddress getAddress();
 
+  /// Returns the cached coordinator hostname as "host:port", derived from
+  /// discovery.uri. Used to set the HTTP Host header on announcements so
+  /// that http-server.https.sni-host-check on the coordinator passes.
+  std::string getHostname();
+
  protected:
   /// Updates the cached coordinator address with the new one.
   void updateAddressSafe(const folly::SocketAddress& address);
 
+  /// Updates the cached coordinator hostname string.
+  void updateHostnameSafe(const std::string& hostname);
+
  private:
-  /// Mutex to protect 'coordinatorAddress_'.
+  /// Mutex to protect 'coordinatorAddress_' and 'coordinatorHostname_'.
   std::mutex mutex_;
   folly::SocketAddress coordinatorAddress_;
+  std::string coordinatorHostname_;
 };
 
 } // namespace facebook::presto

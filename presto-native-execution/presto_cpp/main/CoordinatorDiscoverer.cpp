@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
+#include <fmt/core.h>
 #include <folly/Uri.h>
 #include "presto_cpp/main/common/Configs.h"
 
@@ -29,12 +30,19 @@ folly::SocketAddress CoordinatorDiscoverer::updateAddress() {
 
   auto uri = folly::Uri(discoveryUri.value());
   updateAddressSafe(folly::SocketAddress(uri.hostname(), uri.port(), true));
+  updateHostnameSafe(
+      fmt::format("{}:{}", uri.hostname(), uri.port()));
   return coordinatorAddress_;
 }
 
 folly::SocketAddress CoordinatorDiscoverer::getAddress() {
   std::lock_guard<std::mutex> l(mutex_);
   return coordinatorAddress_;
+}
+
+std::string CoordinatorDiscoverer::getHostname() {
+  std::lock_guard<std::mutex> l(mutex_);
+  return coordinatorHostname_;
 }
 
 void CoordinatorDiscoverer::updateAddressSafe(
@@ -44,6 +52,11 @@ void CoordinatorDiscoverer::updateAddressSafe(
     LOG(INFO) << "Coordinator address changed to " << address;
   }
   coordinatorAddress_ = address;
+}
+
+void CoordinatorDiscoverer::updateHostnameSafe(const std::string& hostname) {
+  std::lock_guard<std::mutex> l(mutex_);
+  coordinatorHostname_ = hostname;
 }
 
 } // namespace facebook::presto
