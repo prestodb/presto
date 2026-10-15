@@ -1356,7 +1356,7 @@ Create Empty Partition
   Pass ``NULL`` for a partition value to create a partition whose key is SQL
   ``NULL``. Hive stores this value as ``__HIVE_DEFAULT_PARTITION__``, which the
   Hive connector reads as SQL ``NULL``. For example, this creates a partition
-  with a NULL ``ds`` value and ``country`` set to ``US``::
+  with a ``NULL`` ``ds`` value and ``country`` set to ``US``::
 
       CALL web.system.create_empty_partition(
           schema_name => 'web',
