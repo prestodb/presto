@@ -1019,7 +1019,7 @@ public final class IcebergUtil
     {
         return allConstraints.transform(c -> {
             IcebergColumnHandle handle = (IcebergColumnHandle) c;
-            if (isMetadataColumnId(handle.getId()) || handle.isRowIdColumn() || handle.isLastUpdatedSequenceNumberColumn()) {
+            if (isMetadataColumnId(handle.getId()) || handle.isRowLineageColumn()) {
                 return null;
             }
             return handle;
