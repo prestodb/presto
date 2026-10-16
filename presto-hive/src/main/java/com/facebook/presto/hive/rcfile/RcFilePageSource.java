@@ -56,6 +56,7 @@ public class RcFilePageSource
 
     private int pageId;
     private long completedPositions;
+    private long decompressedPositions;
 
     private boolean closed;
 
@@ -191,6 +192,18 @@ public class RcFilePageSource
     public long getSystemMemoryUsage()
     {
         return GUESSED_MEMORY_USAGE;
+    }
+
+    @Override
+    public long getDecompressedBytes()
+    {
+        return rcFileReader.getBytesRead();
+    }
+
+    @Override
+    public long getDecompressedPositions()
+    {
+        return decompressedPositions;
     }
 
     private void closeWithSuppression(Throwable throwable)
