@@ -69,6 +69,8 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_MAX_OUTPUT_BATCH_ROWS = "max_output_batch_rows";
     public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
     public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
+    public static final String NATIVE_ABANDON_PARTIAL_AGGREGATION_MIN_ROWS = "native_abandon_partial_aggregation_min_rows";
+    public static final String NATIVE_ABANDON_PARTIAL_AGGREGATION_MIN_PCT = "native_abandon_partial_aggregation_min_pct";
     public static final String NATIVE_MAX_SPILL_BYTES = "native_max_spill_bytes";
     public static final String NATIVE_MAX_PAGE_PARTITIONING_BUFFER_SIZE = "native_max_page_partitioning_buffer_size";
     public static final String NATIVE_PARTITIONED_OUTPUT_EAGER_FLUSH = "native_partitioned_output_eager_flush";
@@ -335,6 +337,18 @@ public class NativeWorkerSessionPropertyProvider
                         NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY,
                         "The max partial aggregation memory when data reduction is optimal.",
                         1L << 26,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_ABANDON_PARTIAL_AGGREGATION_MIN_ROWS,
+                        "Native Execution only. Number of input rows to receive before starting to check " +
+                                "whether to abandon partial aggregation.",
+                        100000,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_ABANDON_PARTIAL_AGGREGATION_MIN_PCT,
+                        "Native Execution only. Abandons partial aggregation if number of groups equals or " +
+                                "exceeds this percentage of the number of input rows.",
+                        80,
                         !nativeExecution),
                 longProperty(
                         NATIVE_MAX_SPILL_BYTES,
