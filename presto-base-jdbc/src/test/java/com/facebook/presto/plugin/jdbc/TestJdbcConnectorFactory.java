@@ -13,19 +13,51 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.presto.spi.ConnectorSystemConfig;
+import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.testing.TestingConnectorContext;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import static org.testng.Assert.assertEquals;
 
 public class TestJdbcConnectorFactory
 {
-    @Test
-    public void test()
+    @DataProvider
+    public Object[][] nativeExecution()
+    {
+        return new Object[][] {{false}, {true}};
+    }
+
+    @Test(dataProvider = "nativeExecution")
+    public void test(boolean nativeExecution)
     {
         JdbcConnectorFactory connectorFactory = new JdbcConnectorFactory(
                 "test",
                 new TestingH2JdbcModule(),
                 getClass().getClassLoader());
 
-        connectorFactory.create("test", TestingH2JdbcModule.createProperties(), new TestingConnectorContext());
+        Connector connector = connectorFactory.create("test", TestingH2JdbcModule.createProperties(), new TestingConnectorContext()
+        {
+            @Override
+            public ConnectorSystemConfig getConnectorSystemConfig()
+            {
+                return () -> nativeExecution;
+            }
+        });
+        try {
+            ConnectorCodecProvider provider = connector.getConnectorCodecProvider();
+            assertEquals(provider.getConnectorSplitCodec().isPresent(), true);
+            assertEquals(provider.getConnectorTransactionHandleCodec().isPresent(), true);
+            assertEquals(provider.getConnectorTableHandleCodec().isPresent(), true);
+            assertEquals(provider.getConnectorTableLayoutHandleCodec().isPresent(), true);
+            assertEquals(provider.getColumnHandleCodec().isPresent(), true);
+            assertEquals(provider.getConnectorInsertTableHandleCodec().isPresent(), true);
+            assertEquals(provider.getConnectorOutputTableHandleCodec().isPresent(), true);
+        }
+        finally {
+            connector.shutdown();
+        }
     }
 }

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.plugin.jdbc;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -23,6 +26,7 @@ import java.util.UUID;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
+@ThriftStruct
 public class JdbcTransactionHandle
         implements ConnectorTransactionHandle
 {
@@ -34,12 +38,14 @@ public class JdbcTransactionHandle
     }
 
     @JsonCreator
+    @ThriftConstructor
     public JdbcTransactionHandle(@JsonProperty("uuid") UUID uuid)
     {
         this.uuid = requireNonNull(uuid, "uuid is null");
     }
 
     @JsonProperty
+    @ThriftField(1)
     public UUID getUuid()
     {
         return uuid;
