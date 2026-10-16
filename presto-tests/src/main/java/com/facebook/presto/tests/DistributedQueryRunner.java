@@ -65,6 +65,7 @@ import org.intellij.lang.annotations.Language;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
@@ -1161,6 +1162,14 @@ public class DistributedQueryRunner
         for (TestingPrestoServer server : servers) {
             server.registerWorkerFunctions();
         }
+    }
+
+    /**
+     * Registers a {@link Closeable} resource to be closed when this runner is closed.
+     */
+    public void addCloseAction(Closeable closeable)
+    {
+        closer.register(closeable);
     }
 
     private static void closeUnchecked(AutoCloseable closeable)
