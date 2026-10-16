@@ -101,6 +101,13 @@ public interface JdbcClient
     PreparedStatement getPreparedStatement(ConnectorSession session, Connection connection, String sql)
             throws SQLException;
 
+    /**
+     * Returns table statistics for the specified set of columns.
+     *
+     * When {@code columnHandles} is empty, statistics for all columns in the table
+     * should be returned. This allows callers, including statistics cache implementations,
+     * to retrieve a complete set of table statistics in a single operation.
+     */
     TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, List<JdbcColumnHandle> columnHandles, TupleDomain<ColumnHandle> tupleDomain);
 
     String normalizeIdentifier(ConnectorSession session, String identifier);
