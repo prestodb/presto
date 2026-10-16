@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.server;
 
+import com.facebook.airlift.http.client.Request;
+import com.facebook.airlift.http.client.thrift.ThriftRequestUtils;
+import com.facebook.airlift.http.client.thrift.ThriftResponseHandler;
 import com.facebook.drift.codec.ThriftCodec;
 import com.facebook.drift.codec.ThriftCodecManager;
 import com.facebook.drift.codec.internal.compiler.CompilerThriftCodecFactory;
@@ -26,6 +29,7 @@ import com.facebook.drift.protocol.TFacebookCompactProtocol;
 import com.facebook.drift.protocol.TMemoryBuffer;
 import com.facebook.drift.protocol.TProtocol;
 import com.facebook.drift.protocol.TTransport;
+import com.facebook.drift.transport.netty.codec.Protocol;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -35,6 +39,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
+import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static com.facebook.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.client.PrestoHeaders.PRESTO_USER;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
