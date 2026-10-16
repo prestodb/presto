@@ -35,6 +35,12 @@ public @interface AggregationFunction
      */
     boolean isOrderSensitive() default false;
 
+    /**
+     * Indicates whether the result of the function depends on the uniqueness of the input data,
+     * which allows the engine to optimize away DISTINCT in aggregation calls
+     */
+    boolean isDistinctSensitive() default true;
+
     SqlFunctionVisibility visibility() default PUBLIC;
 
     String[] alias() default {};

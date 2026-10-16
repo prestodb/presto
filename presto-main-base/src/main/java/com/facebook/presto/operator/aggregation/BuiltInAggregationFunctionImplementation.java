@@ -37,6 +37,7 @@ public final class BuiltInAggregationFunctionImplementation
     private final List<Class> lambdaInterfaces;
     private final boolean decomposable;
     private final boolean orderSensitive;
+    private final boolean distinctSensitive;
 
     private final AggregationMetadata aggregationMetadata;
 
@@ -62,6 +63,32 @@ public final class BuiltInAggregationFunctionImplementation
                 finalType,
                 decomposable,
                 orderSensitive,
+                true,
+                aggregationMetadata,
+                accumulatorClass,
+                groupedAccumulatorClass);
+    }
+
+    public BuiltInAggregationFunctionImplementation(
+            String name,
+            List<Type> parameterTypes,
+            List<Type> intermediateType,
+            Type finalType,
+            boolean decomposable,
+            boolean orderSensitive,
+            boolean distinctSensitive,
+            AggregationMetadata aggregationMetadata,
+            Class<? extends Accumulator> accumulatorClass,
+            Class<? extends GroupedAccumulator> groupedAccumulatorClass)
+    {
+        this(
+                name,
+                parameterTypes,
+                intermediateType,
+                finalType,
+                decomposable,
+                orderSensitive,
+                distinctSensitive,
                 aggregationMetadata,
                 accumulatorClass,
                 groupedAccumulatorClass,
@@ -75,6 +102,7 @@ public final class BuiltInAggregationFunctionImplementation
             Type finalType,
             boolean decomposable,
             boolean orderSensitive,
+            boolean distinctSensitive,
             AggregationMetadata aggregationMetadata,
             Class<? extends Accumulator> accumulatorClass,
             Class<? extends GroupedAccumulator> groupedAccumulatorClass,
@@ -87,6 +115,7 @@ public final class BuiltInAggregationFunctionImplementation
         this.finalType = requireNonNull(finalType, "finalType is null");
         this.decomposable = decomposable;
         this.orderSensitive = orderSensitive;
+        this.distinctSensitive = distinctSensitive;
         this.aggregationMetadata = aggregationMetadata;
         this.accumulatorClass = accumulatorClass;
         this.groupedAccumulatorClass = groupedAccumulatorClass;
@@ -137,6 +166,11 @@ public final class BuiltInAggregationFunctionImplementation
     public boolean isOrderSensitive()
     {
         return orderSensitive;
+    }
+
+    public boolean isDistinctSensitive()
+    {
+        return distinctSensitive;
     }
 
     public AggregationMetadata getAggregationMetadata()

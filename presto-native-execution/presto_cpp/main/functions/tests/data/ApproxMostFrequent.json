@@ -3,7 +3,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "row(bigint,bigint,array(boolean),array(bigint))",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": true
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
@@ -27,7 +28,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "row(bigint,bigint,array(tinyint),array(bigint))",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": true
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
@@ -51,7 +53,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "row(bigint,bigint,array(smallint),array(bigint))",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": true
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
@@ -75,7 +78,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "row(bigint,bigint,array(integer),array(bigint))",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": true
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
@@ -99,7 +103,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "row(bigint,bigint,array(bigint),array(bigint))",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": true
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
@@ -123,7 +128,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "row(bigint,bigint,array(varchar),array(bigint))",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": true
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
@@ -147,7 +153,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "row(bigint,bigint,array(json),array(bigint))",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": true
       },
       "docString": "presto.default.approx_most_frequent",
       "functionKind": "AGGREGATE",
