@@ -22,11 +22,29 @@ public interface TempStorage
     TempDataSink create(TempDataOperationContext context)
             throws IOException;
 
+    default TempDataSink create(TempDataOperationContext context, TempStorageHandle handle, boolean createFile)
+            throws IOException
+    {
+        throw new UnsupportedOperationException();
+    }
+
     InputStream open(TempDataOperationContext context, TempStorageHandle handle)
             throws IOException;
 
     void remove(TempDataOperationContext context, TempStorageHandle handle)
             throws IOException;
+
+    default boolean exists(TempDataOperationContext context, TempStorageHandle handle)
+            throws IOException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default boolean createIfNotExists(TempDataOperationContext context, TempStorageHandle handle, byte[] data)
+            throws IOException
+    {
+        throw new UnsupportedOperationException();
+    }
 
     TempStorageHandle getRootDirectoryHandle();
 
