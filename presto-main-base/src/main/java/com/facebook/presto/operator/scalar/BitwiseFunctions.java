@@ -137,6 +137,10 @@ public final class BitwiseFunctions
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Specified shift must be positive");
         }
 
+        if (shift >= MAX_BITS) {
+            return number >= 0 ? 0L : -1L;
+        }
+
         return number >> shift;
     }
 
