@@ -1339,6 +1339,71 @@ enough splits into one partition for its serialized task update request to excee
 
 The corresponding configuration property is :ref:`admin/properties:\`\`spark.max-splits-count-per-partition\`\``.
 
+``spark_table_writer_partition_count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``null`` (writes use their default number of writer tasks)
+
+Number of tasks, ``N``, that write a partitioned or bucketed table. When set, the rows are shuffled
+on the table partitioning before the write, and the buckets of the table partitioning are spread over
+the writer tasks, each task owning whole buckets. The effective number of writer tasks is
+``min(N, 1009)`` for a partitioned table that is not bucketed, which Hive partitions into 1009
+virtual buckets on the partition columns, and ``min(N, B)`` for a table with ``B`` buckets.
+
+For a partitioned table that is not bucketed, every table partition is written by one task, so
+each task writes about ``P / N`` table partitions, where ``P`` is the number of partitions written.
+A write that produces few partitions runs with at most that many busy writer tasks. If the input is
+a ``UNION ALL`` whose ``K`` branches write the same partitions, each branch gets its own writers, so
+a task can open up to ``K * P / N`` writers and each partition gets up to ``K`` files, unless
+``shuffle_partitioned_columns_for_table_write`` is enabled, which keeps one writer, and so one
+file, per partition in each task. For a
+bucketed table, partitioned or not, each task writes about ``B / N`` buckets of every table
+partition it receives. Without this property such a write uses
+``ceil(B / task_partitioned_writer_count)`` tasks, and a value below that increases the number of
+open writers per task.
+
+The property has no effect on:
+
+* tables that are neither partitioned nor bucketed;
+* writes whose input is already partitioned like the table, for example a bucketed table written
+  from a table with the same bucketing;
+* connectors that do not declare a write partitioning;
+* writes to partitioned tables that are not bucketed, if any of the following holds and
+  ``shuffle_partitioned_columns_for_table_write`` is not enabled. With that property enabled, these
+  writes are already shuffled on the partition columns, and this property only sets their number of
+  writer tasks.
+
+  * a partition column has a type that Hive bucketing cannot hash, such as ``DECIMAL``, ``CHAR`` or
+    ``VARBINARY``;
+  * the values of a partition column are not known to be deterministic. Only table columns and
+    deterministic projections of them, passed through joins, unions, ``UNNEST`` and grouping keys,
+    count as deterministic; values computed by aggregate or window functions or taken from
+    ``VALUES`` do not;
+  * the query calls a non-deterministic function, such as ``rand()`` or ``uuid()``, or uses
+    ``TABLESAMPLE``. A SQL function counts as non-deterministic if its body, or the body of a SQL
+    function that it calls, calls a non-deterministic function, whether or not it is declared
+    ``DETERMINISTIC``;
+  * the input selects rows by their order, for example with ``LIMIT``, or uses a window function
+    or a table function;
+  * the input copies the result of an aggregate function to several rows, or matches rows by it,
+    through a join, a semi join (``IN`` or ``EXISTS``), ``UNNEST`` or grouping sets, unless the
+    function is a built-in one that is known to be deterministic and independent of the order of
+    rows: ``count``, ``count_if``, ``min``, ``max``, ``sum``, ``avg``, ``bool_and``, ``bool_or``,
+    ``every``, ``checksum``, ``approx_distinct``, ``bitwise_and_agg``, ``bitwise_or_agg`` and
+    ``bitwise_xor_agg``. ``sum`` and ``avg`` count only when neither their input nor their result
+    is ``REAL`` or ``DOUBLE``, because floating point sums can differ in the last bits between
+    attempts of a task, which add the values in another order. For example, ``avg`` of a
+    ``BIGINT`` column, which returns ``DOUBLE``, does not count.
+
+When the property is set and the query writes a table, but no write is shuffled on its table
+partitioning, the query gets a performance warning saying that the property has no effect and
+naming the likely causes from the list above.
+Retries after out-of-memory errors keep the number of writer tasks unless the property is set in
+``out_of_memory_retry_presto_session_properties``. ``EXPLAIN`` does not show the effect of the
+property.
+
 Geometry Properties
 -------------------
 
