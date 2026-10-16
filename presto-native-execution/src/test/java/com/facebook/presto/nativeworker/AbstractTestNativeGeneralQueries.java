@@ -1015,6 +1015,12 @@ public abstract class AbstractTestNativeGeneralQueries
 
         assertQuery("SELECT trim(comment, ' ns'), ltrim(comment, 'a b c'), rtrim(comment, 'l y') FROM orders");
 
+        // ANSI trim syntax: TRIM([BOTH | LEADING | TRAILING] [characters] FROM source)
+        assertQuery("SELECT trim(BOTH FROM comment), trim(LEADING FROM comment), trim(TRAILING FROM comment) FROM orders");
+        assertQuery("SELECT trim(BOTH ' ns' FROM comment), trim(LEADING 'a b c' FROM comment), trim(TRAILING 'l y' FROM comment) FROM orders");
+        assertQuery("SELECT trim(' ns' FROM comment) FROM orders");
+        assertQuery("SELECT trim(BOTH FROM c0), trim(LEADING 'a' FROM c0), trim(TRAILING 'a' FROM c0) FROM (VALUES ('  aba  '), (CAST(NULL AS VARCHAR)), ('')) AS t (c0)");
+
         // Split
         assertQueryOrdered("SELECT shipmode, comment, split(comment, 'ly') FROM lineitem order by 1,2");
         assertQueryOrdered("SELECT shipmode, comment, split(comment, 'i', 3) FROM lineitem order by 1,2");

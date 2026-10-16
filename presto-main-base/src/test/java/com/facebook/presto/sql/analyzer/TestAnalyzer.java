@@ -207,6 +207,12 @@ public class TestAnalyzer
 
         assertNoWarning(analyzeWithWarnings("SELECT map_filter(user_features, (k, v) -> k > 2) FROM (VALUES (map(ARRAY[1,2,3], ARRAY[10,20,30]))) AS t(user_features)"));
 
+        // trim on the value argument references the value, so this is not a key-only filter
+        assertNoWarning(analyzeWithWarnings("SELECT map_filter(user_features, (k, v) -> trim(v) = 'x') FROM (VALUES (map(ARRAY[1,2], ARRAY['x ', ' y']))) AS t(user_features)"));
+        assertNoWarning(analyzeWithWarnings("SELECT map_filter(user_features, (k, v) -> TRIM(BOTH FROM v) = 'x') FROM (VALUES (map(ARRAY[1,2], ARRAY['x ', ' y']))) AS t(user_features)"));
+        assertNoWarning(analyzeWithWarnings("SELECT map_filter(user_features, (k, v) -> TRIM(LEADING v FROM 'xy') = 'y') FROM (VALUES (map(ARRAY[1,2], ARRAY['x', 'y']))) AS t(user_features)"));
+        assertNoWarning(analyzeWithWarnings("SELECT map_filter(user_features, (k, v) -> trim(v, ' ') IN ('x', 'y')) FROM (VALUES (map(ARRAY[1,2], ARRAY['x ', ' y']))) AS t(user_features)"));
+
         assertNoWarning(analyzeWithWarnings("SELECT transform_values(user_features, (k, v) -> v * 2) FROM (VALUES (map(ARRAY[1,2], ARRAY[2,3]))) AS t(user_features)"));
 
         assertNoWarning(analyzeWithWarnings("SELECT map_filter(x, (k, v) -> k = 2) FROM (VALUES (map(ARRAY[1,2,3], ARRAY[10,20,30]))) AS t(x)"));
@@ -2148,6 +2154,14 @@ public class TestAnalyzer
     {
         assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION sum() RETURNS INT RETURN 1");
         assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION dev.test.foo() RETURNS INT RETURN 1");
+    }
+
+    @Test
+    public void testTrimWithInvalidArgumentsReportsLocation()
+    {
+        assertFails(FUNCTION_NOT_FOUND, 1, 8, "SELECT TRIM(BOTH FROM 1)");
+        assertFails(FUNCTION_NOT_FOUND, 1, 8, "SELECT TRIM(LEADING 'x' FROM 1)");
+        assertFails(FUNCTION_NOT_FOUND, 1, 11, "SELECT 1, TRIM(TRAILING FROM 1)");
     }
 
     @Test
