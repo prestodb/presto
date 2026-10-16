@@ -130,6 +130,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
@@ -478,8 +479,9 @@ public class IcebergPageSourceProvider
         ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
         effectivePredicate.getDomains().get().forEach((columnHandle, domain) -> {
             String baseType = columnHandle.getType().getTypeSignature().getBase();
-            // skip looking up predicates for complex types as Parquet only stores stats for primitives
-            if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)) {
+            // skip complex types (no Parquet stats) and unknown columns (always null, no physical data)
+            if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)
+                    && !columnHandle.getType().equals(UNKNOWN)) {
                 RichColumnDescriptor descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
                 if (descriptor != null) {
                     predicate.put(descriptor, domain);
@@ -1228,7 +1230,10 @@ public class IcebergPageSourceProvider
         if (!column.hasDefaultValue()) {
             return Optional.empty();
         }
-        return Optional.of(IcebergUtil.deserializeIcebergValue(
+        if (column.getType().equals(UNKNOWN)) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(IcebergUtil.deserializeIcebergValue(
                 column.getType(),
                 column.getDefaultValue().get(),
                 column.getName()));
