@@ -97,6 +97,9 @@ public class HudiBackgroundSplitLoader
                 future.get();
             }
             catch (InterruptedException | ExecutionException e) {
+                if (e instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
                 throw new PrestoException(HUDI_CANNOT_GENERATE_SPLIT, "Error generating Hudi split", e);
             }
         }
