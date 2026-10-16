@@ -230,7 +230,8 @@ class HostHeaderCapturingDiscoverer : public CoordinatorDiscoverer {
   bool useHttps_;
   bool captured_{false};
   folly::Promise<std::string> hostHeaderPromise_;
-  folly::Future<std::string> hostHeaderFuture_;
+  folly::SemiFuture<std::string> hostHeaderFuture_{
+      folly::SemiFuture<std::string>::makeEmpty()};
 };
 
 TEST_P(AnnouncerTestSuite, basic) {
