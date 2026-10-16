@@ -736,6 +736,64 @@ TEST_F(PrestoToVeloxConnectorTest, dateOverflowHighBelowMin) {
   EXPECT_FALSE(filter->testNull());
 }
 
+TEST_F(PrestoToVeloxConnectorTest, nanRangeNullSemantics) {
+  const auto testType = [&](const TypePtr& type,
+                            const std::string& typeName,
+                            const variant& nan) {
+    auto nanBlock = serializeToBlock(
+        BaseVector::createConstant(type, nan, 1, pool_.get()), pool_.get());
+    const auto testValues = [&](const common::Filter& filter, bool expected) {
+      if (type->kind() == TypeKind::REAL) {
+        EXPECT_EQ(filter.testFloat(0), expected);
+        EXPECT_EQ(
+            filter.testFloat(std::numeric_limits<float>::quiet_NaN()),
+            expected);
+      } else {
+        EXPECT_EQ(filter.testDouble(0), expected);
+        EXPECT_EQ(
+            filter.testDouble(std::numeric_limits<double>::quiet_NaN()),
+            expected);
+      }
+    };
+
+    for (bool nullAllowed : {false, true}) {
+      auto emptyDomain = createSingleRangeDomain(
+          typeName,
+          nanBlock,
+          protocol::Bound::ABOVE,
+          nullptr,
+          protocol::Bound::BELOW,
+          nullAllowed);
+      auto emptyFilter = toFilter(emptyDomain, *exprConverter_, *typeParser_);
+      EXPECT_EQ(
+          emptyFilter->kind(),
+          nullAllowed ? common::FilterKind::kIsNull
+                      : common::FilterKind::kAlwaysFalse);
+      testValues(*emptyFilter, false);
+      EXPECT_EQ(emptyFilter->testNull(), nullAllowed);
+
+      auto fullDomain = createSingleRangeDomain(
+          typeName,
+          nullptr,
+          protocol::Bound::ABOVE,
+          nanBlock,
+          protocol::Bound::EXACTLY,
+          nullAllowed);
+      auto fullFilter = toFilter(fullDomain, *exprConverter_, *typeParser_);
+      EXPECT_EQ(
+          fullFilter->kind(),
+          nullAllowed ? common::FilterKind::kAlwaysTrue
+                      : common::FilterKind::kIsNotNull);
+      testValues(*fullFilter, true);
+      EXPECT_EQ(fullFilter->testNull(), nullAllowed);
+    }
+  };
+
+  testType(
+      DOUBLE(), "double", variant(std::numeric_limits<double>::quiet_NaN()));
+  testType(REAL(), "real", variant(std::numeric_limits<float>::quiet_NaN()));
+}
+
 namespace {
 
 // Builds a minimal protocol::iceberg::IcebergDeleteTableHandle wrapped in a

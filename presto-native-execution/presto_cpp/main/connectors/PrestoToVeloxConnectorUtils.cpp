@@ -289,7 +289,10 @@ std::unique_ptr<common::Filter> floatingPointRangeToFilter(
   if (!lowUnbounded && std::isnan(low)) {
     if (lowExclusive) {
       // x > NaN is always false as NaN is considered the largest value.
-      return std::make_unique<common::AlwaysFalse>();
+      return nullAllowed
+          ? std::unique_ptr<common::Filter>(std::make_unique<common::IsNull>())
+          : std::unique_ptr<common::Filter>(
+                std::make_unique<common::AlwaysFalse>());
     }
     // Equivalent to x > infinity as only NaN is greater than infinity
     // Presto currently converts x >= NaN into the filter with domain
@@ -307,7 +310,10 @@ std::unique_ptr<common::Filter> floatingPointRangeToFilter(
     } else {
       if (lowUnbounded) {
         // Anything <= NaN is true as NaN is the largest possible value.
-        return std::make_unique<common::AlwaysTrue>();
+        return nullAllowed ? std::unique_ptr<common::Filter>(
+                                 std::make_unique<common::AlwaysTrue>())
+                           : std::unique_ptr<common::Filter>(
+                                 std::make_unique<common::IsNotNull>());
       }
       // Equivalent to x > low or x >=low
       highUnbounded = true;
