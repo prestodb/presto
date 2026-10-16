@@ -44,7 +44,7 @@ public class InternalCommunicationConfig
     private boolean taskUpdateRequestThriftSerdeEnabled;
     private boolean taskInfoResponseThriftSerdeEnabled;
     private Protocol thriftProtocol = Protocol.BINARY;
-    private DataSize maxTaskUpdateSize = new DataSize(16, MEGABYTE);
+    private DataSize maxTaskUpdateSize = new DataSize(32, MEGABYTE);
     private CommunicationProtocol taskCommunicationProtocol = CommunicationProtocol.HTTP;
     private CommunicationProtocol serverInfoCommunicationProtocol = CommunicationProtocol.HTTP;
     private CommunicationProtocol resourceManagerCommunicationProtocol = CommunicationProtocol.THRIFT;
