@@ -37,6 +37,18 @@ public class DynamicSplitPlacementPolicy
     }
 
     @Override
+    public boolean requiresFullSplitSet()
+    {
+        return nodeSelector.requiresFullSplitSet();
+    }
+
+    @Override
+    public void prepareForSplits(Set<Split> splits)
+    {
+        nodeSelector.prepareForSplits(splits);
+    }
+
+    @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits)
     {
         return nodeSelector.computeAssignments(splits, remoteTasks.get());
