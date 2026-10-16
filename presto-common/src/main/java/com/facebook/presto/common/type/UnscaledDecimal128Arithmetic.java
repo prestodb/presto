@@ -48,7 +48,10 @@ public final class UnscaledDecimal128Arithmetic
 
     public static final int UNSCALED_DECIMAL_128_SLICE_LENGTH = NUMBER_OF_LONGS * SIZE_OF_LONG;
 
-    private static final Slice[] POWERS_OF_TEN = new Slice[MAX_PRECISION];
+    /**
+     * 1..10^38 (largest value < int128 max).
+     */
+    private static final Slice[] POWERS_OF_TEN = new Slice[MAX_PRECISION + 1];
     private static final Slice[] POWERS_OF_FIVE = new Slice[MAX_PRECISION];
 
     private static final int SIGN_LONG_INDEX = 1;
@@ -104,9 +107,13 @@ public final class UnscaledDecimal128Arithmetic
         for (int i = 0; i < POWERS_OF_FIVE.length; ++i) {
             POWERS_OF_FIVE[i] = unscaledDecimal(BigInteger.valueOf(5).pow(i));
         }
-        for (int i = 0; i < POWERS_OF_TEN.length; ++i) {
+        for (int i = 0; i < MAX_PRECISION; ++i) {
             POWERS_OF_TEN[i] = unscaledDecimal(BigInteger.TEN.pow(i));
         }
+        // 10^38 exceeds the 38-digit decimal value range checked by unscaledDecimal(BigInteger), but fits
+        // comfortably in int128, so generate the last entry with multiply(), which only checks the int128
+        // range. It is used as a scale multiplier / rescale factor for scale 38, not as a data value.
+        POWERS_OF_TEN[MAX_PRECISION] = multiply(POWERS_OF_TEN[MAX_PRECISION - 1], unscaledDecimal(10L));
 
         POWERS_OF_FIVES_INT[0] = 1;
         for (int i = 1; i < POWERS_OF_FIVES_INT.length; ++i) {
@@ -178,6 +185,11 @@ public final class UnscaledDecimal128Arithmetic
             longs[0] = unscaledValue;
         }
         return Slices.wrappedLongArray(longs);
+    }
+
+    public static Slice powerOfTen(int exponent)
+    {
+        return POWERS_OF_TEN[exponent];
     }
 
     public static BigInteger unscaledDecimalToBigInteger(Slice decimal)

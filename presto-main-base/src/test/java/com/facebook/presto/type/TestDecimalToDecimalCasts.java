@@ -51,6 +51,8 @@ public class TestDecimalToDecimalCasts
     {
         assertDecimalFunction("CAST(DECIMAL '1.2345' AS DECIMAL(21, 20))", decimal("1.23450000000000000000"));
         assertDecimalFunction("CAST(DECIMAL '-1.2345' AS DECIMAL(21, 20))", decimal("-1.23450000000000000000"));
+        assertDecimalFunction("CAST(DECIMAL '0' AS DECIMAL(38, 38))", decimal(".00000000000000000000000000000000000000"));
+        assertInvalidCast("CAST(DECIMAL '1' AS DECIMAL(38, 38))", "Cannot cast DECIMAL '1' to DECIMAL(38, 38)");
     }
 
     @Test
@@ -80,6 +82,7 @@ public class TestDecimalToDecimalCasts
         assertDecimalFunction("CAST(DECIMAL '1.000000000000000000005' AS DECIMAL(21, 20))", decimal("1.00000000000000000001"));
         assertDecimalFunction("CAST(DECIMAL '-1.000000000000000000004' AS DECIMAL(21, 20))", decimal("-1.00000000000000000000"));
         assertDecimalFunction("CAST(DECIMAL '-1.000000000000000000005' AS DECIMAL(21, 20))", decimal("-1.00000000000000000001"));
+        assertDecimalFunction("CAST(DECIMAL '00000000000000000000' AS DECIMAL(38, 38))", decimal(".00000000000000000000000000000000000000"));
 
         assertInvalidCast("CAST(DECIMAL '1234500000000000000000000.6' AS DECIMAL(20,0))", "Cannot cast DECIMAL '1234500000000000000000000.6' to DECIMAL(20, 0)");
         assertInvalidCast("CAST(DECIMAL '-1234500000000000000000000.6' AS DECIMAL(20,0))", "Cannot cast DECIMAL '-1234500000000000000000000.6' to DECIMAL(20, 0)");

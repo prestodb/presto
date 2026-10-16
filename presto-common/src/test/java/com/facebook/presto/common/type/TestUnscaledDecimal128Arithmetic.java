@@ -130,7 +130,9 @@ public class TestUnscaledDecimal128Arithmetic
     @Test
     public void testRescaleOverflows()
     {
-        assertRescaleOverflows(unscaledDecimal(1), 38);
+        assertRescaleOverflows(unscaledDecimal(1), 39);
+        // 2 * 10^38 overflows int128, so rescaling by 38 (the max decimal scale) still fails for large values
+        assertRescaleOverflows(unscaledDecimal(2), 38);
     }
 
     @Test
