@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
 
 public interface ConnectorSplit
@@ -65,5 +66,10 @@ public interface ConnectorSplit
     default SplitWeight getSplitWeight()
     {
         return SplitWeight.standard();
+    }
+
+    default Optional<Boolean> isCacheable()
+    {
+        return Optional.empty();
     }
 }
