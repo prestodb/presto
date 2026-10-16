@@ -116,7 +116,8 @@ makeDiscoveryServerCapturingHost(
         onAnnouncement(host);
         proxygen::ResponseBuilder(downstream)
             .status(http::kHttpAccepted, "Accepted")
-            .header(proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeTextPlain)
+            .header(
+                proxygen::HTTP_HEADER_CONTENT_TYPE, http::kMimeTypeTextPlain)
             .sendWithEOM();
       });
   return std::make_unique<facebook::presto::test::HttpServerWrapper>(
@@ -158,8 +159,9 @@ class TestCoordinatorDiscoverer : public CoordinatorDiscoverer {
   folly::SocketAddress updateAddress() override {
     auto prevCnt = addressLookupCnt++;
     if (prevCnt < 3) {
-      updateHostnameSafe(fmt::format(
-          "{}:{}", serverAddress.getAddressStr(), serverAddress.getPort()));
+      updateHostnameSafe(
+          fmt::format(
+              "{}:{}", serverAddress.getAddressStr(), serverAddress.getPort()));
       return serverAddress;
     }
     if (prevCnt == 3) {
@@ -174,8 +176,9 @@ class TestCoordinatorDiscoverer : public CoordinatorDiscoverer {
     if (prevCnt == 6) {
       discoveryServer = makeDiscoveryServer(onAnnouncement, useHttps);
       serverAddress = discoveryServer->start().get();
-      updateHostnameSafe(fmt::format(
-          "{}:{}", serverAddress.getAddressStr(), serverAddress.getPort()));
+      updateHostnameSafe(
+          fmt::format(
+              "{}:{}", serverAddress.getAddressStr(), serverAddress.getPort()));
     }
     return serverAddress;
   }
@@ -207,8 +210,9 @@ class HostHeaderCapturingDiscoverer : public CoordinatorDiscoverer {
         useHttps_);
     serverAddress_ = discoveryServer_->start().get();
     // Pre-populate hostname so sendRequest() sets Host on the very first call.
-    updateHostnameSafe(fmt::format(
-        "{}:{}", serverAddress_.getAddressStr(), serverAddress_.getPort()));
+    updateHostnameSafe(
+        fmt::format(
+            "{}:{}", serverAddress_.getAddressStr(), serverAddress_.getPort()));
   }
 
   folly::SocketAddress updateAddress() override {
