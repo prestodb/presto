@@ -79,6 +79,9 @@ import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_T
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.METADATA_FOLDER_NAME;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.getFileSystem;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.resolveLatestMetadataLocation;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -3296,6 +3299,61 @@ public abstract class IcebergDistributedSmokeTestBase
             resultWithAggregatePushDown = getQueryRunner().execute(aggregatePushDownEnabled, queryWithFilter);
             resultWithoutAggregatePushDown = getQueryRunner().execute(aggregatePushDownDisabled, queryWithFilter);
             Assert.assertEquals(resultWithAggregatePushDown, resultWithoutAggregatePushDown);
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    /**
+     * An unfiltered COUNT(*) on its own is answered from the snapshot summary's total-records, without
+     * reading a manifest, but only while the summary records no delete files. Each step compares the
+     * pushed down count to the scanned one and pins whether the scan survived, because the two results
+     * match whether or not the aggregate was folded.
+     */
+    @Test
+    public void testAggregatePushDownForCountStarFromSnapshotSummary()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        Session aggregatePushDownEnabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "aggregate_push_down_enabled", "true")
+                .build();
+        Session aggregatePushDownDisabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "aggregate_push_down_enabled", "false")
+                .build();
+
+        String tableName = "test_lineitem_count_star_from_summary";
+        try {
+            queryRunner.execute("CREATE TABLE " + tableName +
+                    " with (partitioning = ARRAY['suppkey'])" +
+                    " as select * from tpch.tiny.lineitem");
+            @Language("SQL") String query = "select count(*) from " + tableName;
+
+            assertEquals(queryRunner.execute(aggregatePushDownEnabled, query), queryRunner.execute(aggregatePushDownDisabled, query));
+            assertPlan(aggregatePushDownEnabled, query, anyTree(values(1)));
+
+            // A row level delete writes a delete file, which total-records does not account for, so
+            // the count must come from scanning the table instead.
+            assertUpdate("DELETE FROM " + tableName + " WHERE orderkey = 1", 6);
+            assertEquals(queryRunner.execute(aggregatePushDownEnabled, query), queryRunner.execute(aggregatePushDownDisabled, query));
+            assertPlan(aggregatePushDownEnabled, query, anyTree(tableScan(tableName)));
+        }
+        finally {
+            queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+
+        try {
+            queryRunner.execute("CREATE TABLE " + tableName +
+                    " with (partitioning = ARRAY['suppkey'])" +
+                    " as select * from tpch.tiny.lineitem");
+            @Language("SQL") String query = "select count(*) from " + tableName;
+
+            // Deleting whole partitions drops their data files without writing a delete file, so the
+            // summary is still exact and still used.
+            queryRunner.execute("DELETE FROM " + tableName + " WHERE suppkey <= 10");
+            assertQuery(query, "select count(*) from lineitem where suppkey > 10");
+            assertEquals(queryRunner.execute(aggregatePushDownEnabled, query), queryRunner.execute(aggregatePushDownDisabled, query));
+            assertPlan(aggregatePushDownEnabled, query, anyTree(values(1)));
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
