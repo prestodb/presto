@@ -46,4 +46,18 @@ public class DeltaColumnMetadataUtil
     {
         return (String) metadata.get(COLUMN_MAPPING_PHYSICAL_NAME);
     }
+
+    /**
+     * Obtains the column type from the ColumnMetadata
+     */
+    public static DeltaColumnHandle.ColumnType getColumnTypeFromDeltaColumn(DeltaColumn column)
+    {
+        if (column.isPartition()) {
+            return DeltaColumnHandle.ColumnType.PARTITION;
+        }
+        if (column.isClusterColumn()) {
+            return DeltaColumnHandle.ColumnType.CLUSTER;
+        }
+        return DeltaColumnHandle.ColumnType.REGULAR;
+    }
 }

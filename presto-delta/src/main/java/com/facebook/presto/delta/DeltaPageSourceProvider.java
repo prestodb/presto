@@ -75,6 +75,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.CLUSTER;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.SUBFIELD;
@@ -161,6 +162,9 @@ public class DeltaPageSourceProvider
                 .filter(columnHandle -> columnHandle.getColumnType() != PARTITION)
                 .collect(Collectors.toList());
 
+        // Note: CLUSTER columns are included in regularColumnHandles because they need to be read from data files,
+        // unlike PARTITION columns which come from metadata
+
         ConnectorPageSource dataPageSource = createParquetPageSource(
                 hdfsEnvironment,
                 session,
@@ -246,7 +250,7 @@ public class DeltaPageSourceProvider
             MessageType fileSchema = fileMetaData.getSchema();
 
             Optional<MessageType> message = columns.stream()
-                    .filter(column -> column.getColumnType() == REGULAR || isPushedDownSubfield(column))
+                    .filter(column -> column.getColumnType() == REGULAR || isPushedDownSubfield(column) || column.getColumnType() == CLUSTER)
                     .map(column -> getColumnType(typeManager.getType(column.getDataType()), fileSchema, column, tableName, path))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
@@ -302,8 +306,8 @@ public class DeltaPageSourceProvider
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
             ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
             for (DeltaColumnHandle column : columns) {
-                checkArgument(column.getColumnType() == REGULAR || column.getColumnType() == SUBFIELD,
-                        "column type must be regular or subfield column");
+                checkArgument(column.getColumnType() == REGULAR || column.getColumnType() == SUBFIELD || column.getColumnType() == CLUSTER,
+                        "column type must be regular or subfield column, or be clustered");
 
                 String name = column.getSourceName();
                 Type type = typeManager.getType(column.getDataType());

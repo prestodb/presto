@@ -20,9 +20,12 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static java.util.Locale.ENGLISH;
@@ -31,6 +34,8 @@ public class DeltaTableProperties
 {
     public static final String EXTERNAL_LOCATION_PROPERTY = "external_location";
     public static final String STORAGE_FORMAT_PROPERTY = "format";
+    public static final String PARTITIONED_BY_PROPERTY = "partitioned_by";
+    public static final String CLUSTERED_BY_PROPERTY = "clustered_by";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -51,7 +56,29 @@ public class DeltaTableProperties
                         config.getHiveStorageFormat(),
                         false,
                         value -> HiveStorageFormat.valueOf(((String) value).toUpperCase(ENGLISH)),
-                        HiveStorageFormat::toString));
+                        HiveStorageFormat::toString),
+                new PropertyMetadata<>(
+                        PARTITIONED_BY_PROPERTY,
+                        "Partition columns",
+                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .collect(Collectors.toList())),
+                        value -> value),
+                new PropertyMetadata<>(
+                        CLUSTERED_BY_PROPERTY,
+                        "Cluster columns",
+                        typeManager.getType(parseTypeSignature("array(varchar)")),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .collect(Collectors.toList())),
+                        value -> value));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -68,4 +95,7 @@ public class DeltaTableProperties
     {
         return (HiveStorageFormat) tableProperties.get(STORAGE_FORMAT_PROPERTY);
     }
+
+    // No getters for "partitioned_by" and "clustered_by" table properties as they are not exposed to the user
+    // Only computed after the table snapshots, can be obtained through the "SHOW CREATE TABLE" command
 }

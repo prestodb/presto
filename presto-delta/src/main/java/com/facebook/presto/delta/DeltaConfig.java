@@ -21,6 +21,7 @@ public class DeltaConfig
     private int maxSplitsBatchSize = 200;
     private boolean parquetDereferencePushdownEnabled = true;
     private boolean caseSensitivePartitionsEnabled = true;
+    private boolean kernelPredicatePushdownEnabled = true;
 
     @NotNull
     public boolean isParquetDereferencePushdownEnabled()
@@ -56,6 +57,18 @@ public class DeltaConfig
     public DeltaConfig setCaseSensitivePartitionsEnabled(boolean caseSensitivePartitionsEnabled)
     {
         this.caseSensitivePartitionsEnabled = caseSensitivePartitionsEnabled;
+        return this;
+    }
+
+    public boolean isKernelPredicatePushdownEnabled()
+    {
+        return this.kernelPredicatePushdownEnabled;
+    }
+
+    @Config("delta.kernel-predicate-pushdown-enabled")
+    public DeltaConfig setKernelPredicatePushdownEnabled(boolean kernelPredicatePushdownEnabled)
+    {
+        this.kernelPredicatePushdownEnabled = kernelPredicatePushdownEnabled;
         return this;
     }
 }

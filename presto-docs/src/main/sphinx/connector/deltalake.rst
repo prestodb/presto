@@ -52,6 +52,11 @@ Property Name                                   Description                     
                                                 ``true``.
 ``delta.case-sensitive-partitions-enabled``     Allows matching the names of partitioned columns in a     ``true``
                                                 case-sensitive manner.
+``delta.kernel-predicate-pushdown-enabled``     Enables predicate pushdown of ``WHERE`` conditions to     ``true``
+                                                improve performance due to file skipping. It is specially
+                                                relevant when querying tables optimized with
+                                                Liquid Clustering or Z-Ordering, but most datasets should
+                                                benefit.
 =============================================== ========================================================= ============
 
 Delta Lake connector reuses many of the modules existing in Hive connector.
@@ -179,3 +184,15 @@ Map of Delta Lake types to the relevant PrestoDB types:
     - ``ROW``
   * - ``VARIANT``
     - ``JSON``
+
+
+Delta predicate pushdown
+------------------------
+
+Delta predicate pushdown feature can be disabled both by setting the configuration
+property ``delta.kernel-predicate-pushdown-enabled`` to ``false`` at the connector level, or
+setting the ``delta_kernel_predicate_pushdown_enabled`` to ``false`` at the session level.
+
+When enabled, this feature will pushdown predicates from columns from the following
+data types: ``BOOLEAN``, ``TINYINT``, ``SMALLINT``, ``INT``, ``BIGINT``, ``REAL``,
+``DOUBLE``, ``DECIMAL``, ``VARCHAR``, ``VARBINARY``, ``DATE``.
