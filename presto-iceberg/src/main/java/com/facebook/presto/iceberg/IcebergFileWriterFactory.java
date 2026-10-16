@@ -77,6 +77,7 @@ import static com.facebook.presto.iceberg.TypeConverter.toOrcType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.UnknownFields.fileSchema;
 import static com.facebook.presto.iceberg.UnknownFields.isUnknownType;
+import static com.facebook.presto.iceberg.UnknownFields.pagePruner;
 import static com.facebook.presto.iceberg.UnknownFields.validateWritable;
 import static com.facebook.presto.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
@@ -181,6 +182,7 @@ public class IcebergFileWriterFactory
                     makeTypeMap(fileColumnTypes, fileColumnNames),
                     parquetWriterOptions,
                     fileInputColumnIndexes(icebergSchema),
+                    pagePruner(icebergSchema, typeManager),
                     getCompressionCodec(session).getParquetCompressionCodec(),
                     outputPath,
                     hdfsEnvironment,
@@ -259,6 +261,7 @@ public class IcebergFileWriterFactory
                             .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session))
                             .build(),
                     fileInputColumnIndexes(icebergSchema),
+                    pagePruner(icebergSchema, typeManager),
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())
                             .put(PRESTO_QUERY_ID_NAME, session.getQueryId())

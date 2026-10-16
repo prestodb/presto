@@ -100,6 +100,7 @@ import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.io.LocationProvider;
+import org.apache.iceberg.parquet.ParquetSchemaUtil;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
@@ -130,7 +131,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
@@ -165,6 +165,9 @@ import static com.facebook.presto.iceberg.IcebergUtil.getLocationProvider;
 import static com.facebook.presto.iceberg.IcebergUtil.getShallowWrappedIcebergTable;
 import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static com.facebook.presto.iceberg.TypeConverter.toHiveType;
+import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.UnknownFieldTypes.hasUnknownType;
+import static com.facebook.presto.iceberg.UnknownFieldTypes.readType;
 import static com.facebook.presto.iceberg.delete.EqualityDeleteFilter.readEqualityDeletes;
 import static com.facebook.presto.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
 import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -389,7 +392,7 @@ public class IcebergPageSourceProvider
                             .collect(Collectors.toList());
                     Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName())), nestedColumnPath);
                     if (columnIO.isPresent()) {
-                        internalFields.add(constructField(prestoType, columnIO.get()));
+                        internalFields.add(constructField(prestoType, columnIO.get(), hasUnknownType(prestoType)));
                     }
                     else {
                         internalFields.add(Optional.empty());
@@ -405,17 +408,35 @@ public class IcebergPageSourceProvider
                                 .ifPresent(value -> defaultValues.put(column.getId(), value));
                     }
                     else {
-                        // Use a Parquet-compatible version of the column type so that constructField()
-                        // can resolve ROW sub-field names against the hex-encoded Parquet column names
-                        // (e.g. "field-two" in the Presto type must match "field_x2dtwo" in the file).
-                        // We do NOT derive the type from the Parquet schema here because doing so
-                        // would produce the old file schema for schema-evolved tables and cause a
-                        // "field N has unexpected position count" error when new fields were added.
-                        Type parquetCompatibleType = parquetField.get().isPrimitive()
-                                ? column.getType()
-                                : encodeFieldNamesForParquet(column.getType());
-                        ColumnIO fieldColumnIO = lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()));
-                        internalFields.add(constructField(parquetCompatibleType, fieldColumnIO));
+                        Type type = column.getType();
+                        if (!parquetField.get().isPrimitive()) {
+                            if (hasUnknownType(type)) {
+                                // For unknown-type columns, use readType to inject the unknown fields into the
+                                // parquet-derived type. Pass the Iceberg file type only when the Parquet file
+                                // has embedded field IDs; otherwise ID-based matching would use IDs from the
+                                // table metadata instead of the file, misidentifying renamed fields.
+                                MessageType parquetMessageType = new MessageType("", parquetField.get());
+                                Schema icebergSchema = ParquetSchemaUtil.convert(parquetMessageType);
+                                if (icebergSchema.columns().isEmpty()) {
+                                    throw new PrestoException(ICEBERG_BAD_DATA,
+                                            format("ParquetSchemaUtil.convert produced an empty schema for Parquet field '%s' (column id=%d). " +
+                                                    "The Parquet file at this split may be corrupt or use an unsupported encoding.",
+                                                    parquetField.get().getName(), column.getId()));
+                                }
+                                org.apache.iceberg.types.Type icebergFileType = icebergSchema.columns().get(0).type();
+                                Type parquetDerivedType = toPrestoType(icebergFileType, typeManager);
+                                org.apache.iceberg.types.Type icebergFileTypeForMerge =
+                                        ParquetSchemaUtil.hasIds(parquetMessageType) ? icebergFileType : null;
+                                type = readType(type, parquetDerivedType, typeManager, column.getColumnIdentity(), icebergFileTypeForMerge);
+                            }
+                            else {
+                                // For all other columns, encode field names for Parquet so that constructField
+                                // can resolve hyphenated sub-field names correctly without falling back to the
+                                // old file schema (which would cause schema-evolution errors).
+                                type = encodeFieldNamesForParquet(column.getType());
+                            }
+                        }
+                        internalFields.add(constructField(type, lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName())), hasUnknownType(column.getType())));
                     }
                 }
                 if (column.isRowPositionColumn()) {
@@ -490,7 +511,7 @@ public class IcebergPageSourceProvider
             String baseType = columnHandle.getType().getTypeSignature().getBase();
             // skip complex types (no Parquet stats) and unknown columns (always null, no physical data)
             if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)
-                    && !columnHandle.getType().equals(UNKNOWN)) {
+                    && !hasUnknownType(columnHandle.getType())) {
                 RichColumnDescriptor descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
                 if (descriptor != null) {
                     predicate.put(descriptor, domain);

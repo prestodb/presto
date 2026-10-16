@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableList;
@@ -25,6 +26,7 @@ import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
 import org.apache.iceberg.FileScanTask;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
@@ -42,11 +44,13 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.OptionalInt;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_METADATA_TABLES;
 import static java.lang.String.format;
@@ -813,6 +817,61 @@ public class TestIcebergV3
         }
     }
 
+    @Test(dataProvider = "fileFormats")
+    public void testReadUnknownColumnInsideStruct(String fileFormat)
+    {
+        String tableName = "test_read_unknown_nested_" + fileFormat.toLowerCase(ENGLISH);
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3', format = '" + fileFormat + "')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            addUnknownColumn(tableName, "nested", Types.StructType.of(
+                    Types.NestedField.optional(1, "value", Types.IntegerType.get()),
+                    Types.NestedField.optional(2, "unknown_field", Types.UnknownType.get())));
+
+            assertQuery("SELECT id FROM " + tableName, "VALUES 1");
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nested IS NULL", "VALUES 1");
+            assertQuery("SELECT nested.unknown_field FROM " + tableName, "VALUES NULL");
+            assertEquals(
+                    getQueryRunner().execute("SELECT nested FROM " + tableName).getTypes(),
+                    ImmutableList.of(RowType.from(ImmutableList.of(
+                            RowType.field("value", INTEGER),
+                            RowType.field("unknown_field", UNKNOWN)))));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    /**
+     * A file written before an unknown field was added to a row does not have the field, just like a
+     * file written after it was added, so both read back with the field filled in with nulls.
+     */
+    @Test(dataProvider = "fileFormats")
+    public void testReadUnknownFieldAddedToExistingStruct(String fileFormat)
+    {
+        String tableName = "test_read_unknown_field_added_" + fileFormat.toLowerCase(ENGLISH);
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, nested ROW(value INTEGER)) WITH (\"format-version\" = '3', format = '" + fileFormat + "')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(10))", 1);
+            loadTable(tableName).updateSchema()
+                    .addColumn("nested", "unknown_field", Types.UnknownType.get())
+                    .commit();
+
+            assertQuery("SELECT id, nested.value, nested.unknown_field FROM " + tableName, "VALUES (1, 10, NULL)");
+            assertEquals(
+                    getQueryRunner().execute("SELECT nested FROM " + tableName).getTypes(),
+                    ImmutableList.of(RowType.from(ImmutableList.of(
+                            RowType.field("value", INTEGER),
+                            RowType.field("unknown_field", UNKNOWN)))));
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, ROW(20, NULL))", 1);
+            assertQuery("SELECT id, nested.value, nested.unknown_field FROM " + tableName, "VALUES (1, 10, NULL), (2, 20, NULL)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     /**
      * Filter pushdown is only executed by the native worker, so this only checks that a table with
      * an unknown column still plans with pushdown enabled. Planning converts the whole table schema
@@ -1046,6 +1105,88 @@ public class TestIcebergV3
     }
 
     /**
+     * An unknown field of a row is left out of the data file, like an unknown column, so the rest of
+     * the row is written and read back as usual.
+     */
+    @Test(dataProvider = "fileFormats")
+    public void testWriteUnknownColumnInsideStruct(String fileFormat)
+    {
+        String tableName = "test_write_unknown_nested_" + fileFormat.toLowerCase(ENGLISH);
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, nested ROW(value INTEGER, unknown_field UNKNOWN)) WITH (\"format-version\" = '3', format = '" + fileFormat + "')");
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(10, NULL)), (2, NULL)", 2);
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES 3", 1);
+
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nested.unknown_field IS NULL", "VALUES 3");
+            assertQuery("SELECT id FROM " + tableName + " WHERE nested IS NULL", "VALUES 2, 3");
+            assertQuery(withoutParquetDereferencePushdown(), "SELECT id, nested.value FROM " + tableName, "VALUES (1, 10), (2, NULL), (3, NULL)");
+            assertEquals(
+                    getQueryRunner().execute("SELECT nested FROM " + tableName).getTypes(),
+                    ImmutableList.of(RowType.from(ImmutableList.of(
+                            RowType.field("value", INTEGER),
+                            RowType.field("unknown_field", UNKNOWN)))));
+
+            // The unknown field has no metrics of its own, while the field stored beside it does
+            Schema schema = loadTable(tableName).schema();
+            int unknownFieldId = schema.findField("nested.unknown_field").fieldId();
+            int storedFieldId = schema.findField("nested.value").fieldId();
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE element_at(value_counts, " + unknownFieldId + ") IS NOT NULL", "VALUES 0");
+            assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE element_at(value_counts, " + storedFieldId + ") IS NULL", "VALUES 0");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    /**
+     * Deeper nesting works the same way, as long as something is left of the value to store.
+     */
+    @Test(dataProvider = "fileFormats")
+    public void testWriteUnknownColumnInsideNestedTypes(String fileFormat)
+    {
+        String tableName = "test_write_unknown_deeply_nested_" + fileFormat.toLowerCase(ENGLISH);
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (" +
+                    "id INTEGER, " +
+                    "nested ROW(value INTEGER, inner_row ROW(unknown_field UNKNOWN, other INTEGER)), " +
+                    "rows ARRAY(ROW(value INTEGER, unknown_field UNKNOWN)), " +
+                    "row_by_name MAP(VARCHAR, ROW(value INTEGER, unknown_field UNKNOWN))) " +
+                    "WITH (\"format-version\" = '3', format = '" + fileFormat + "')");
+
+            assertUpdate("INSERT INTO " + tableName + " VALUES (" +
+                    "1, " +
+                    "ROW(10, ROW(NULL, 20)), " +
+                    "ARRAY[ROW(30, NULL), NULL], " +
+                    "MAP(ARRAY['a'], ARRAY[ROW(40, NULL)]))", 1);
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES 2", 1);
+
+            assertQuery(
+                    withoutParquetDereferencePushdown(),
+                    "SELECT id, nested.value, nested.inner_row.other, rows[1].value, row_by_name['a'].value FROM " + tableName + " WHERE id = 1",
+                    "VALUES (1, 10, 20, 30, 40)");
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE nested.inner_row.unknown_field IS NULL", "VALUES 2");
+            assertQuery("SELECT cardinality(rows) FROM " + tableName, "VALUES 2, NULL");
+            assertQuery("SELECT id FROM " + tableName + " WHERE nested IS NULL", "VALUES 2");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    /**
+     * Parquet dereference pushdown does not read a field of a row whose value is null, for a row with
+     * an unknown field and for a row without one alike, so the reads that go through a null row are
+     * left to the reader that reads the whole row.
+     */
+    private Session withoutParquetDereferencePushdown()
+    {
+        return Session.builder(getSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, "false")
+                .build();
+    }
+
+    /**
      * A data file needs something to store for every value, so an unknown type that is the whole of an
      * array element, map key, map value or row is not supported. Iceberg's own writers fail on these
      * as well.
@@ -1053,18 +1194,51 @@ public class TestIcebergV3
     @Test(dataProvider = "fileFormats")
     public void testWriteUnknownTypeAsWholeNestedValueUnsupported(String fileFormat)
     {
-        // Nested UNKNOWN (ARRAY, MAP, ROW containing an unknown field) is not yet supported in
-        // the read path, so CREATE TABLE rejects these column shapes immediately.
         String suffix = "_" + fileFormat.toLowerCase(ENGLISH);
-        assertQueryFails(
-                "CREATE TABLE test_write_unknown_array" + suffix + " (id INTEGER, unknowns ARRAY(UNKNOWN)) WITH (\"format-version\" = '3', format = '" + fileFormat + "')",
-                ".*not yet supported.*");
-        assertQueryFails(
-                "CREATE TABLE test_write_unknown_map" + suffix + " (id INTEGER, unknown_by_name MAP(VARCHAR, UNKNOWN)) WITH (\"format-version\" = '3', format = '" + fileFormat + "')",
-                ".*not yet supported.*");
-        assertQueryFails(
-                "CREATE TABLE test_write_unknown_row" + suffix + " (id INTEGER, nested ROW(unknown_field UNKNOWN)) WITH (\"format-version\" = '3', format = '" + fileFormat + "')",
-                ".*not yet supported.*");
+        String arrayTable = "test_write_unknown_array" + suffix;
+        String mapTable = "test_write_unknown_map" + suffix;
+        String mapKeyTable = "test_write_unknown_map_key" + suffix;
+        String rowTable = "test_write_unknown_row" + suffix;
+        try {
+            assertUpdate("CREATE TABLE " + arrayTable + " (id INTEGER, unknowns ARRAY(UNKNOWN)) WITH (\"format-version\" = '3', format = '" + fileFormat + "')");
+            assertQueryFails(
+                    "INSERT INTO " + arrayTable + " (id) VALUES 1",
+                    ".*Writing to an Iceberg table with an array of type unknown is not supported: unknowns.*");
+
+            assertUpdate("CREATE TABLE " + mapTable + " (id INTEGER, unknown_by_name MAP(VARCHAR, UNKNOWN)) WITH (\"format-version\" = '3', format = '" + fileFormat + "')");
+            assertQueryFails(
+                    "INSERT INTO " + mapTable + " (id) VALUES 1",
+                    ".*Writing to an Iceberg table with a map whose value type is unknown is not supported: unknown_by_name.*");
+
+            // MAP(UNKNOWN, VARCHAR) cannot be expressed in SQL; add the column via the Iceberg schema API.
+            // Iceberg 1.11+ rejects MAP(UNKNOWN, V) at schema creation time (map keys are required;
+            // UNKNOWN is always null), so we catch that case and verify the rejection message.
+            assertUpdate("CREATE TABLE " + mapKeyTable + " (id INTEGER) WITH (\"format-version\" = '3', format = '" + fileFormat + "')");
+            try {
+                loadTable(mapKeyTable).updateSchema()
+                        .addColumn("unknown_key_map", Types.MapType.ofOptional(1, 2, Types.UnknownType.get(), Types.StringType.get()))
+                        .commit();
+                // Older Iceberg: schema accepted; Presto must reject at INSERT time
+                assertQueryFails(
+                        "INSERT INTO " + mapKeyTable + " (id) VALUES 1",
+                        ".*Writing to an Iceberg table with a map whose key type is unknown is not supported: unknown_key_map.*");
+            }
+            catch (IllegalArgumentException e) {
+                // Iceberg 1.11+: library rejects MAP(UNKNOWN, V) before the table is modified
+                assertTrue(e.getMessage().contains("unknown type"), "Expected 'unknown type' in: " + e.getMessage());
+            }
+
+            assertUpdate("CREATE TABLE " + rowTable + " (id INTEGER, nested ROW(unknown_field UNKNOWN)) WITH (\"format-version\" = '3', format = '" + fileFormat + "')");
+            assertQueryFails(
+                    "INSERT INTO " + rowTable + " (id) VALUES 1",
+                    ".*Writing to an Iceberg table with a row whose fields are all of type unknown is not supported: nested.*");
+        }
+        finally {
+            dropTable(arrayTable);
+            dropTable(mapTable);
+            dropTable(mapKeyTable);
+            dropTable(rowTable);
+        }
     }
 
     /**

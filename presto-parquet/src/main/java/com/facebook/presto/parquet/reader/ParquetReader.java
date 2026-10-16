@@ -313,24 +313,65 @@ public class ParquetReader
     {
         List<TypeSignatureParameter> fields = field.getType().getTypeSignature().getParameters();
         Block[] blocks = new Block[fields.size()];
-        ColumnChunk columnChunk = null;
+        // levelSource tracks the ColumnChunk whose definition/repetition levels we'll use to
+        // determine which struct positions are null.  Children that are themselves all-absent
+        // (nested all-UNKNOWN structs, or all fields added after the file was written) return
+        // an empty-level ColumnChunk (new int[0]).  We must not let one of those overwrite a
+        // previous child that carries real level data, or calculateStructOffsets would receive
+        // an empty array and produce a zero-row result.
+        ColumnChunk levelSource = null;
         List<Optional<Field>> parameters = field.getChildren();
         for (int i = 0; i < fields.size(); i++) {
             Optional<Field> parameter = parameters.get(i);
             if (parameter.isPresent()) {
-                columnChunk = readColumnChunk(parameter.get());
-                blocks[i] = columnChunk.getBlock();
+                ColumnChunk current = readColumnChunk(parameter.get());
+                blocks[i] = current.getBlock();
+                if (levelSource == null || current.getDefinitionLevels().length > 0) {
+                    levelSource = current;
+                }
             }
+        }
+        List<Type> fieldTypes = field.getType().getTypeParameters();
+        if (levelSource == null || levelSource.getDefinitionLevels().length == 0) {
+            // No projected child carries level data.  Try reading an existing (but not
+            // projected) physical leaf column to get the real definition and repetition
+            // levels.  This correctly handles null structs and, when the struct is nested
+            // inside a collection, gives the right element count instead of batchSize.
+            if (field.getLevelSourceField().isPresent()) {
+                ColumnChunk shadowChunk = readPrimitive(field.getLevelSourceField().get());
+                BooleanList structIsNull = StructColumnReader.calculateStructOffsets(
+                        field, shadowChunk.getDefinitionLevels(), shadowChunk.getRepetitionLevels());
+                boolean[] structIsNullVector = structIsNull.toBooleanArray();
+                int numPositions = structIsNullVector.length;
+                Block[] nullBlocks = new Block[fields.size()];
+                for (int i = 0; i < fields.size(); i++) {
+                    nullBlocks[i] = (blocks[i] != null)
+                            ? blocks[i]
+                            : RunLengthEncodedBlock.create(fieldTypes.get(i), null, numPositions);
+                }
+                Block rowBlock = RowBlock.fromFieldBlocks(numPositions, Optional.of(structIsNullVector), nullBlocks);
+                return new ColumnChunk(rowBlock, shadowChunk.getDefinitionLevels(), shadowChunk.getRepetitionLevels());
+            }
+            // No physical leaf exists under the struct in this file.  Produce a non-null
+            // block of batchSize positions: there are no levels to derive nullability from.
+            Block[] nullBlocks = new Block[fields.size()];
+            for (int i = 0; i < fields.size(); i++) {
+                nullBlocks[i] = (blocks[i] != null)
+                        ? blocks[i]
+                        : RunLengthEncodedBlock.create(fieldTypes.get(i), null, batchSize);
+            }
+            Block rowBlock = RowBlock.fromFieldBlocks(batchSize, Optional.empty(), nullBlocks);
+            return new ColumnChunk(rowBlock, new int[0], new int[0]);
         }
         for (int i = 0; i < fields.size(); i++) {
             if (blocks[i] == null) {
-                blocks[i] = RunLengthEncodedBlock.create(field.getType(), null, columnChunk.getBlock().getPositionCount());
+                blocks[i] = RunLengthEncodedBlock.create(fieldTypes.get(i), null, levelSource.getBlock().getPositionCount());
             }
         }
-        BooleanList structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
+        BooleanList structIsNull = StructColumnReader.calculateStructOffsets(field, levelSource.getDefinitionLevels(), levelSource.getRepetitionLevels());
         boolean[] structIsNullVector = structIsNull.toBooleanArray();
         Block rowBlock = RowBlock.fromFieldBlocks(structIsNullVector.length, Optional.of(structIsNullVector), blocks);
-        return new ColumnChunk(rowBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
+        return new ColumnChunk(rowBlock, levelSource.getDefinitionLevels(), levelSource.getRepetitionLevels());
     }
 
     private ColumnChunk readPrimitive(PrimitiveField field)

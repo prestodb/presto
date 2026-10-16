@@ -13,21 +13,41 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.ArrayBlock;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.ColumnarArray;
+import com.facebook.presto.common.block.ColumnarMap;
+import com.facebook.presto.common.block.ColumnarRow;
+import com.facebook.presto.common.block.RowBlock;
+import com.facebook.presto.common.type.MapType;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.PrestoException;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.UnaryOperator;
 
+import static com.facebook.presto.common.block.ColumnarArray.toColumnarArray;
+import static com.facebook.presto.common.block.ColumnarMap.toColumnarMap;
+import static com.facebook.presto.common.block.ColumnarRow.toColumnarRow;
+import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 
 /**
  * A field of type {@code unknown} is never stored in a data file: it always reads back as null.
  * Iceberg leaves such a field out of the Parquet and ORC schemas it writes, so Presto has to leave
  * it out of both the schema it writes and the values it writes.
+ *
+ * @see UnknownFieldTypes for the types such a file is read with
  */
 public final class UnknownFields
 {
@@ -48,17 +68,58 @@ public final class UnknownFields
     }
 
     /**
-     * The schema of the data file, which is the table schema without its top-level {@code unknown} columns.
+     * The schema of the data file, which is the table schema without its {@code unknown} fields.
      */
     static Schema fileSchema(Schema tableSchema)
     {
-        if (tableSchema.columns().stream().noneMatch(col -> isUnknownType(col.type()))) {
+        if (!containsUnknownType(tableSchema.asStruct())) {
             return tableSchema;
         }
-        List<Types.NestedField> columns = tableSchema.columns().stream()
-                .filter(col -> !isUnknownType(col.type()))
-                .collect(toImmutableList());
-        return new Schema(columns);
+        return new Schema(prunedFields(tableSchema.columns()));
+    }
+
+    /**
+     * Transforms a page of the table schema into a page of the file schema, by dropping the
+     * {@code unknown} fields of the row, array and map values it holds. Empty when the schema has no
+     * such field, in which case a page can be written as is.
+     *
+     * <p>Columns that are themselves of type {@code unknown} are left alone: those are dropped a
+     * whole channel at a time, by the input column indexes the writers are given.
+     */
+    static Optional<UnaryOperator<Page>> pagePruner(Schema tableSchema, TypeManager typeManager)
+    {
+        requireNonNull(typeManager, "typeManager is null");
+        List<Types.NestedField> columns = tableSchema.columns();
+        List<UnaryOperator<Block>> columnPruners = new ArrayList<>(columns.size());
+        boolean anyColumnPruned = false;
+        for (Types.NestedField column : columns) {
+            UnaryOperator<Block> columnPruner = null;
+            if (!isUnknownType(column.type()) && containsUnknownType(column.type())) {
+                columnPruner = blockPruner(column.type(), typeManager);
+                anyColumnPruned = true;
+            }
+            columnPruners.add(columnPruner);
+        }
+
+        if (!anyColumnPruned) {
+            return Optional.empty();
+        }
+
+        // pagePruner is called before fileInputColumnIndexes filtering, so the page has one channel
+        // per table column (including unknown ones that will be dropped later).
+        return Optional.of(page -> {
+            // Extra trailing channels (e.g. a Z-order sort key appended by rewrite_data_files) are
+            // passed through unchanged; only the table-column channels are pruned.
+            verify(page.getChannelCount() >= columnPruners.size(),
+                    "Page has %s channels but table schema has %s columns", page.getChannelCount(), columnPruners.size());
+            Block[] blocks = new Block[page.getChannelCount()];
+            for (int channel = 0; channel < blocks.length; channel++) {
+                Block block = page.getBlock(channel);
+                UnaryOperator<Block> columnPruner = channel < columnPruners.size() ? columnPruners.get(channel) : null;
+                blocks[channel] = columnPruner == null ? block : columnPruner.apply(block);
+            }
+            return new Page(page.getPositionCount(), blocks);
+        });
     }
 
     /**
@@ -69,11 +130,193 @@ public final class UnknownFields
     public static void validateWritable(Schema tableSchema)
     {
         for (Types.NestedField column : tableSchema.columns()) {
-            if (!isUnknownType(column.type()) && containsUnknownType(column.type())) {
-                throw new PrestoException(NOT_SUPPORTED, format(
-                        "Writing to an Iceberg table with unknown type nested inside a row, array, or map is not supported: %s",
-                        column.name()));
+            validateWritable(column.type(), column.name());
+        }
+    }
+
+    private static void validateWritable(Type type, String path)
+    {
+        if (!containsUnknownType(type)) {
+            return;
+        }
+
+        switch (type.typeId()) {
+            case STRUCT:
+                List<Types.NestedField> fields = type.asStructType().fields();
+                if (prunedFields(fields).isEmpty()) {
+                    throw new PrestoException(NOT_SUPPORTED, format("Writing to an Iceberg table with a row whose fields are all of type unknown is not supported: %s", path));
+                }
+                for (Types.NestedField field : fields) {
+                    validateWritable(field.type(), path + "." + field.name());
+                }
+                return;
+            case LIST:
+                Types.ListType list = type.asListType();
+                if (isUnknownType(list.elementType())) {
+                    throw new PrestoException(NOT_SUPPORTED, format("Writing to an Iceberg table with an array of type unknown is not supported: %s", path));
+                }
+                validateWritable(list.elementType(), path + ".element");
+                return;
+            case MAP:
+                Types.MapType map = type.asMapType();
+                if (isUnknownType(map.keyType())) {
+                    throw new PrestoException(NOT_SUPPORTED, format("Writing to an Iceberg table with a map whose key type is unknown is not supported: %s", path));
+                }
+                if (isUnknownType(map.valueType())) {
+                    throw new PrestoException(NOT_SUPPORTED, format("Writing to an Iceberg table with a map whose value type is unknown is not supported: %s", path));
+                }
+                validateWritable(map.keyType(), path + ".key");
+                validateWritable(map.valueType(), path + ".value");
+                return;
+            default:
+                // a column of type unknown is dropped a whole channel at a time
+        }
+    }
+
+    private static List<Types.NestedField> prunedFields(List<Types.NestedField> fields)
+    {
+        return fields.stream()
+                .filter(field -> !isUnknownType(field.type()))
+                .map(UnknownFields::prunedField)
+                .collect(toImmutableList());
+    }
+
+    private static Types.NestedField prunedField(Types.NestedField field)
+    {
+        if (!containsUnknownType(field.type())) {
+            return field;
+        }
+        return Types.NestedField.from(field)
+                .ofType(prunedType(field.type()))
+                .build();
+    }
+
+    private static Type prunedType(Type type)
+    {
+        switch (type.typeId()) {
+            case STRUCT:
+                return Types.StructType.of(prunedFields(type.asStructType().fields()));
+            case LIST:
+                Types.ListType list = type.asListType();
+                Type elementType = prunedType(list.elementType());
+                return list.isElementOptional() ?
+                        Types.ListType.ofOptional(list.elementId(), elementType) :
+                        Types.ListType.ofRequired(list.elementId(), elementType);
+            case MAP:
+                Types.MapType map = type.asMapType();
+                Type keyType = prunedType(map.keyType());
+                Type valueType = prunedType(map.valueType());
+                return map.isValueOptional() ?
+                        Types.MapType.ofOptional(map.keyId(), map.valueId(), keyType, valueType) :
+                        Types.MapType.ofRequired(map.keyId(), map.valueId(), keyType, valueType);
+            default:
+                return type;
+        }
+    }
+
+    private static UnaryOperator<Block> blockPruner(Type type, TypeManager typeManager)
+    {
+        switch (type.typeId()) {
+            case STRUCT:
+                return rowBlockPruner(type.asStructType(), typeManager);
+            case LIST:
+                return arrayBlockPruner(type.asListType(), typeManager);
+            case MAP:
+                return mapBlockPruner(type.asMapType(), typeManager);
+            default:
+                throw new PrestoException(NOT_SUPPORTED, "Type has no unknown field to prune: " + type);
+        }
+    }
+
+    private static UnaryOperator<Block> rowBlockPruner(Types.StructType struct, TypeManager typeManager)
+    {
+        List<Types.NestedField> fields = struct.fields();
+        List<Integer> storedFieldList = new ArrayList<>(fields.size());
+        List<UnaryOperator<Block>> fieldPruners = new ArrayList<>(fields.size());
+        for (int field = 0; field < fields.size(); field++) {
+            Type fieldType = fields.get(field).type();
+            if (isUnknownType(fieldType)) {
+                continue;
+            }
+            storedFieldList.add(field);
+            fieldPruners.add(containsUnknownType(fieldType) ? blockPruner(fieldType, typeManager) : null);
+        }
+        int[] storedFields = storedFieldList.stream().mapToInt(Integer::intValue).toArray();
+
+        return block -> {
+            ColumnarRow row = toColumnarRow(block);
+            Block[] fieldBlocks = new Block[storedFields.length];
+            for (int field = 0; field < fieldBlocks.length; field++) {
+                Block fieldBlock = row.getField(storedFields[field]);
+                UnaryOperator<Block> fieldPruner = fieldPruners.get(field);
+                fieldBlocks[field] = fieldPruner == null ? fieldBlock : fieldPruner.apply(fieldBlock);
+            }
+            return RowBlock.fromFieldBlocks(block.getPositionCount(), nullPositions(row.getNullCheckBlock()), fieldBlocks);
+        };
+    }
+
+    private static UnaryOperator<Block> arrayBlockPruner(Types.ListType list, TypeManager typeManager)
+    {
+        UnaryOperator<Block> elementPruner = blockPruner(list.elementType(), typeManager);
+
+        return block -> {
+            ColumnarArray array = toColumnarArray(block);
+            int positionCount = array.getPositionCount();
+            int[] offsets = new int[positionCount + 1];
+            for (int position = 0; position <= positionCount; position++) {
+                offsets[position] = array.getOffset(position);
+            }
+            return ArrayBlock.fromElementBlock(
+                    positionCount,
+                    nullPositions(array.getNullCheckBlock()),
+                    offsets,
+                    elementPruner.apply(array.getElementsBlock()));
+        };
+    }
+
+    private static UnaryOperator<Block> mapBlockPruner(Types.MapType map, TypeManager typeManager)
+    {
+        MapType prunedMapType = (MapType) toPrestoType(prunedType(map), typeManager);
+        UnaryOperator<Block> keyPruner = containsUnknownType(map.keyType()) ? blockPruner(map.keyType(), typeManager) : null;
+        UnaryOperator<Block> valuePruner = containsUnknownType(map.valueType()) ? blockPruner(map.valueType(), typeManager) : null;
+
+        return block -> {
+            ColumnarMap columnarMap = toColumnarMap(block);
+            int positionCount = columnarMap.getPositionCount();
+            int[] offsets = new int[positionCount + 1];
+            for (int position = 0; position <= positionCount; position++) {
+                offsets[position] = columnarMap.getOffset(position);
+            }
+            Block keyBlock = columnarMap.getKeysBlock();
+            Block valueBlock = columnarMap.getValuesBlock();
+            return prunedMapType.createBlockFromKeyValue(
+                    positionCount,
+                    nullPositions(columnarMap.getNullCheckBlock()),
+                    offsets,
+                    keyPruner == null ? keyBlock : keyPruner.apply(keyBlock),
+                    valuePruner == null ? valueBlock : valuePruner.apply(valueBlock));
+        };
+    }
+
+    /**
+     * The null mask the block factory methods take, which is left out when nothing is null.
+     */
+    private static Optional<boolean[]> nullPositions(Block nullCheckBlock)
+    {
+        if (!nullCheckBlock.mayHaveNull()) {
+            return Optional.empty();
+        }
+        int positionCount = nullCheckBlock.getPositionCount();
+        for (int position = 0; position < positionCount; position++) {
+            if (nullCheckBlock.isNull(position)) {
+                boolean[] isNull = new boolean[positionCount];
+                isNull[position] = true;
+                for (int remaining = position + 1; remaining < positionCount; remaining++) {
+                    isNull[remaining] = nullCheckBlock.isNull(remaining);
+                }
+                return Optional.of(isNull);
             }
         }
+        return Optional.empty();
     }
 }

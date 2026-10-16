@@ -13,8 +13,14 @@
  */
 package org.apache.parquet.io;
 
+import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
 import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.NamedTypeSignature;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignatureParameter;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -25,6 +31,7 @@ import com.facebook.presto.parquet.RichColumnDescriptor;
 import com.facebook.presto.parquet.VariantField;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import org.apache.parquet.schema.PrimitiveType;
 
 import java.util.List;
 import java.util.Locale;
@@ -50,7 +57,32 @@ public class ColumnIOConverter
     {
     }
 
+    /**
+     * Builds a {@link Field} tree for the requested {@code type} from the Parquet {@code columnIO}.
+     * Returns {@link Optional#empty()} when the column is absent from the file.
+     *
+     * <p>For ROW types, if none of the requested children are present in the file this returns
+     * {@link Optional#empty()}, preserving the original behaviour for connectors such as Hive
+     * where an absent struct means the whole column is null.  Use
+     * {@link #constructField(Type, ColumnIO, boolean)} with {@code allowEmptyStruct = true} for
+     * Iceberg, where an all-absent struct must still produce a non-null struct block with null fields.
+     */
     public static Optional<Field> constructField(Type type, ColumnIO columnIO)
+    {
+        return constructField(type, columnIO, false);
+    }
+
+    /**
+     * Like {@link #constructField(Type, ColumnIO)} but, when {@code allowEmptyStruct} is
+     * {@code true}, a ROW type whose children are all absent from the file is returned as a
+     * {@link GroupField} rather than {@link Optional#empty()}.
+     *
+     * <p>Pass {@code true} only for columns whose type contains unknown fields (i.e. when
+     * {@code hasUnknownType(type)} is true): those structs need to produce a non-null struct
+     * block with null fields rather than a null position.  For all other columns, pass
+     * {@code false} so that an all-absent struct is correctly treated as a null position.
+     */
+    public static Optional<Field> constructField(Type type, ColumnIO columnIO, boolean allowEmptyStruct)
     {
         if (columnIO == null) {
             return Optional.empty();
@@ -68,14 +100,21 @@ public class ColumnIOConverter
                 for (int i = 0; i < fields.size(); i++) {
                     NamedTypeSignature namedTypeSignature = fields.get(i).getNamedTypeSignature();
                     String name = namedTypeSignature.getName().get().toLowerCase(Locale.ENGLISH);
-                    Optional<Field> field = constructField(parameters.get(i), lookupColumnByName(groupColumnIO, name));
+                    Optional<Field> field = constructField(parameters.get(i), lookupColumnByName(groupColumnIO, name), allowEmptyStruct);
                     structHasParameters |= field.isPresent();
                     fieldsBuilder.add(field);
                 }
-                if (structHasParameters) {
-                    return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, fieldsBuilder.build()));
+                if (!allowEmptyStruct && !structHasParameters) {
+                    return Optional.empty();
                 }
-                return Optional.empty();
+                // When no projected child is present in the file, attach the first physical leaf
+                // under the struct so that readStruct can read its definition/repetition levels.
+                // Those levels reveal which struct positions are null and, for structs nested in
+                // collections, how many elements the collection contains.
+                Optional<PrimitiveField> levelSource = structHasParameters
+                        ? Optional.empty()
+                        : findFirstLeafField(groupColumnIO);
+                return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, fieldsBuilder.build(), levelSource));
             }
             else if (MAP.equals(type.getTypeSignature().getBase())) {
                 GroupColumnIO groupColumnIO = (GroupColumnIO) columnIO;
@@ -84,8 +123,8 @@ public class ColumnIOConverter
                 if (keyValueColumnIO.getChildrenCount() != 2) {
                     return Optional.empty();
                 }
-                Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0));
-                Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1));
+                Optional<Field> keyField = constructField(mapType.getKeyType(), keyValueColumnIO.getChild(0), allowEmptyStruct);
+                Optional<Field> valueField = constructField(mapType.getValueType(), keyValueColumnIO.getChild(1), allowEmptyStruct);
                 return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(keyField, valueField)));
             }
             else if (ARRAY.equals(type.getTypeSignature().getBase())) {
@@ -94,7 +133,7 @@ public class ColumnIOConverter
                 if (groupColumnIO.getChildrenCount() != 1) {
                     return Optional.empty();
                 }
-                Optional<Field> field = constructField(types.get(0), getArrayElementColumn(groupColumnIO.getChild(0)));
+                Optional<Field> field = constructField(types.get(0), getArrayElementColumn(groupColumnIO.getChild(0)), allowEmptyStruct);
                 return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
             }
             else if (JSON.equals(type.getTypeSignature().getBase())) {
@@ -119,11 +158,11 @@ public class ColumnIOConverter
                 if (metadataColumnIO == null) {
                     throw new IllegalArgumentException("Metadata field is missing for variant type: " + type);
                 }
-                Optional<Field> value = constructField(VarbinaryType.VARBINARY, valueColumnIO);
+                Optional<Field> value = constructField(VarbinaryType.VARBINARY, valueColumnIO, allowEmptyStruct);
                 if (!value.isPresent()) {
                     throw new IllegalArgumentException("Value field is missing for variant type: " + type);
                 }
-                Optional<Field> metadata = constructField(VarbinaryType.VARBINARY, metadataColumnIO);
+                Optional<Field> metadata = constructField(VarbinaryType.VARBINARY, metadataColumnIO, allowEmptyStruct);
                 if (!metadata.isPresent()) {
                     throw new IllegalArgumentException("Metadata field is missing for variant type: " + type);
                 }
@@ -136,6 +175,53 @@ public class ColumnIOConverter
             return Optional.of(new PrimitiveField(type, repetitionLevel, definitionLevel, required, column, primitiveColumnIO.getId()));
         }
         return Optional.empty();
+    }
+
+    /**
+     * Returns a {@link PrimitiveField} for the first leaf column found under {@code groupColumnIO},
+     * regardless of whether that leaf is a requested projection.  The field is used solely to read
+     * definition and repetition levels; its Presto type is chosen to be compatible with the
+     * Parquet physical type so that the column reader initialises without error.
+     */
+    private static Optional<PrimitiveField> findFirstLeafField(GroupColumnIO groupColumnIO)
+    {
+        for (int i = 0; i < groupColumnIO.getChildrenCount(); i++) {
+            ColumnIO child = groupColumnIO.getChild(i);
+            if (child instanceof PrimitiveColumnIO) {
+                PrimitiveColumnIO primitiveColumnIO = (PrimitiveColumnIO) child;
+                RichColumnDescriptor descriptor = new RichColumnDescriptor(
+                        primitiveColumnIO.getColumnDescriptor(),
+                        primitiveColumnIO.getType().asPrimitiveType());
+                Type prestoType = prestoTypeForParquet(primitiveColumnIO.getType().asPrimitiveType());
+                return Optional.of(new PrimitiveField(
+                        prestoType,
+                        columnRepetitionLevel(primitiveColumnIO),
+                        columnDefinitionLevel(primitiveColumnIO),
+                        primitiveColumnIO.getType().getRepetition() != OPTIONAL,
+                        descriptor,
+                        primitiveColumnIO.getId()));
+            }
+            if (child instanceof GroupColumnIO) {
+                Optional<PrimitiveField> found = findFirstLeafField((GroupColumnIO) child);
+                if (found.isPresent()) {
+                    return found;
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Type prestoTypeForParquet(PrimitiveType parquetType)
+    {
+        switch (parquetType.getPrimitiveTypeName()) {
+            case INT32: return IntegerType.INTEGER;
+            case INT64: return BigintType.BIGINT;
+            case FLOAT: return RealType.REAL;
+            case DOUBLE: return DoubleType.DOUBLE;
+            case BOOLEAN: return BooleanType.BOOLEAN;
+            case INT96: return TimestampType.TIMESTAMP;
+            default: return VarbinaryType.VARBINARY;
+        }
     }
 
     public static Optional<ColumnIO> findNestedColumnIO(ColumnIO columnIO, List<String> path)

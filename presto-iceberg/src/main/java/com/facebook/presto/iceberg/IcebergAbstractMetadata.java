@@ -442,15 +442,7 @@ public abstract class IcebergAbstractMetadata
                             "or CAST the column to a concrete type (e.g. CAST(NULL AS INTEGER)).",
                     firstUnknownColumn));
         }
-        schema.columns().stream()
-                .filter(f -> UnknownFields.containsUnknownType(f.type()) && !UnknownFields.isUnknownType(f.type()))
-                .findFirst()
-                .ifPresent(f -> {
-                    throw new PrestoException(NOT_SUPPORTED, format(
-                            "Unknown type nested inside a row, array, or map is not yet supported (column: '%s'). " +
-                                    "Use a top-level UNKNOWN column instead.",
-                            f.name()));
-                });
+        UnknownFields.validateWritable(schema);
     }
 
     protected static void validateTableForPresto(BaseTable table, Optional<Long> tableSnapshotId)
@@ -1407,13 +1399,11 @@ public abstract class IcebergAbstractMetadata
                             "Table '%s' is currently at format version %d. " +
                             "Declare a concrete column type, or recreate the table with format-version = '3'.",
                     handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion()));
-            // Nested UNKNOWN (e.g. ARRAY(UNKNOWN), MAP(k, UNKNOWN), ROW with an unknown field) is
-            // not yet supported in the read path. A bare top-level UNKNOWN column is fine.
+            // Also reject nested shapes that would make every subsequent INSERT fail (e.g. ARRAY(UNKNOWN),
+            // MAP with unknown key/value, ROW whose fields are all unknown). A bare top-level UNKNOWN
+            // column is fine: it is simply never stored and always reads back as null.
             if (!UnknownFields.isUnknownType(columnType)) {
-                throw new PrestoException(NOT_SUPPORTED, format(
-                        "Unknown type nested inside a row, array, or map is not yet supported (column: '%s'). " +
-                                "Use a top-level UNKNOWN column instead.",
-                        column.getName()));
+                UnknownFields.validateWritable(new Schema(Types.NestedField.optional(1, column.getName(), columnType)));
             }
         }
         // Reject a geospatial column the table could never be written with, rather than
@@ -1582,10 +1572,16 @@ public abstract class IcebergAbstractMetadata
 
         org.apache.iceberg.types.Type icebergType = toIcebergType(type);
         if (UnknownFields.containsUnknownType(icebergType)) {
-            throw new PrestoException(NOT_SUPPORTED, format(
-                    "Unknown type nested inside a row, array, or map is not supported (field: '%s'). " +
-                            "Use a top-level UNKNOWN column instead.",
-                    fieldName));
+            validateMinimumFormatVersion(icebergTable, 3, format(
+                    "Adding a field of type unknown is only supported with Iceberg format version 3 or higher. " +
+                            "Table '%s' is currently at format version %d. " +
+                            "Declare a concrete field type, or recreate the table with format-version = '3'.",
+                    handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion()));
+            // Also reject shapes that would make every subsequent INSERT fail.
+            // A bare top-level UNKNOWN field is fine; only reject nested shapes.
+            if (!UnknownFields.isUnknownType(icebergType)) {
+                UnknownFields.validateWritable(new Schema(Types.NestedField.optional(1, fieldName, icebergType)));
+            }
         }
         try {
             icebergTable.updateSchema()

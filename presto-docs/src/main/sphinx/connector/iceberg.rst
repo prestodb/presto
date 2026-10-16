@@ -3264,17 +3264,28 @@ A column of this type can be declared in ``CREATE TABLE``, ``ALTER TABLE ADD COL
 ``INSERT`` statements can write ``NULL`` to an ``unknown`` column or leave the column out entirely.
 Writing any other value is an error, because the value cannot be stored.
 
+An ``unknown`` field of a ``ROW`` behaves the same way, at any depth and inside an ``ARRAY`` or a
+``MAP``: the field is left out of the data file, and the other fields of the row are written and read
+back as usual::
+
+    CREATE TABLE iceberg.web.sessions (session_id BIGINT, page ROW(url VARCHAR, extra UNKNOWN)) WITH ("format-version" = '3');
+
+    INSERT INTO iceberg.web.sessions VALUES (1, ROW('http://example.com', NULL));
+
 **Restrictions:**
 
 * The table must use Iceberg format version 3 or higher.
 * An ``unknown`` column cannot be declared ``NOT NULL``.
 * An ``unknown`` column can be partitioned by ``identity`` and can be sorted on, but it cannot be
   bucketed, because Iceberg defines no hash for it.
-* Only top-level ``UNKNOWN`` columns are supported.  An ``unknown`` field nested inside a
-  ``ROW``, ``ARRAY``, or ``MAP`` (e.g. ``ROW(url VARCHAR, extra UNKNOWN)``) is not yet
-  supported and is rejected at ``CREATE TABLE`` and ``ADD COLUMN`` time.
-* A table whose top-level columns are all ``unknown`` is not writable.  If a ``DROP COLUMN``
-  would leave all remaining columns as ``unknown``, the drop is also rejected.
+* Writing is rejected for schemas where there is nothing left to store: an ``ARRAY(UNKNOWN)``,
+  a ``MAP`` whose key or value is ``unknown``, or a ``ROW`` whose fields are all ``unknown``.
+  A table whose top-level columns are all ``unknown`` is also not writable.  These shapes are
+  rejected at ``ADD COLUMN`` and ``ADD FIELD`` time.  If a ``DROP COLUMN`` would leave all
+  remaining columns as ``unknown``, the drop is also rejected.  For ``CREATE TABLE`` and
+  ``CREATE TABLE AS SELECT``, the statement succeeds but a subsequent ``INSERT`` will fail with
+  a ``NOT_SUPPORTED`` error.  Note that a ``CREATE TABLE AS SELECT`` returning zero rows creates
+  the table without writing any files, so the write restriction is not hit.
 * Creating a view or materialized view over a table that contains an ``unknown`` column fails with
   a "Column type is unknown" error.  As a workaround, exclude or cast the unknown column in the
   view's query (e.g. ``SELECT id, CAST(NULL AS INTEGER) AS x FROM t``).
