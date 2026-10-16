@@ -262,7 +262,7 @@ final class PrestoDriverUri
                 if (!useSecureConnection) {
                     throw new SQLException("Authentication using username/password requires SSL to be enabled");
                 }
-                builder.addInterceptor(basicAuth(getUser(), password));
+                builder.addNetworkInterceptor(basicAuth(getUser(), password));
             }
 
             if (useSecureConnection) {
@@ -299,7 +299,7 @@ final class PrestoDriverUri
                 if (!useSecureConnection) {
                     throw new SQLException("Authentication using an access token requires SSL to be enabled");
                 }
-                builder.addInterceptor(tokenAuth(ACCESS_TOKEN.getValue(properties).get()));
+                builder.addNetworkInterceptor(tokenAuth(ACCESS_TOKEN.getValue(properties).get()));
             }
 
             if (EXTERNAL_AUTHENTICATION.getValue(properties).orElse(false)) {
