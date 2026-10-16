@@ -381,8 +381,8 @@ public class ParquetQuickStatsBuilder
             return PartitionQuickStats.ZERO_INPUT_ROWS;
         }
         if (rolledUpColStats.isEmpty()) {
-            // Every column was skipped, e.g. because all are nested
-            return PartitionQuickStats.UNKNOWN_STATS;
+            // Every column was skipped, e.g. because all are nested, but the row count is still known
+            return new PartitionQuickStats(partitionId, ImmutableList.of(), filesCount, partitionRowCount);
         }
         return new PartitionQuickStats(partitionId, rolledUpColStats.values(), filesCount, partitionRowCount);
     }

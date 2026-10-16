@@ -70,7 +70,7 @@ public class PartitionQuickStats
                     ImmutableMap.of());
         }
 
-        if (partitionQuickStats.equals(UNKNOWN_STATS) || partitionQuickStats.getStats().isEmpty()) {
+        if (partitionQuickStats.equals(UNKNOWN_STATS)) {
             return empty();
         }
 

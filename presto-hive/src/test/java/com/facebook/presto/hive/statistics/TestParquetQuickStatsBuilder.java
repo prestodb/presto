@@ -31,6 +31,7 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
@@ -71,6 +72,7 @@ import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.parquet.ParquetTester.writeParquetFileFromPresto;
+import static com.facebook.presto.hive.statistics.PartitionQuickStats.convertToPartitionStatistics;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -85,6 +87,7 @@ import static org.apache.parquet.hadoop.metadata.CompressionCodecName.GZIP;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
+import static org.testng.Assert.assertTrue;
 
 public class TestParquetQuickStatsBuilder
 {
@@ -364,16 +367,19 @@ public class TestParquetQuickStatsBuilder
     }
 
     /**
-     * Nested columns are skipped, so an all-nested file also has an empty roll-up, but it has rows.
+     * Nested columns are skipped, so an all-nested file has no column stats, but its row count is known.
      */
     @Test
-    public void testAllNestedColumnsStaysUnknown()
+    public void testAllNestedColumnsReportRowCount()
             throws Exception
     {
         Type rowType = RowType.from(ImmutableList.of(RowType.field("a", BIGINT)));
-        assertSame(
-                buildQuickStatsForFile(rowType, ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(2L), ImmutableList.of(3L)), 3),
-                PartitionQuickStats.UNKNOWN_STATS);
+        PartitionQuickStats stats = buildQuickStatsForFile(rowType, ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(2L), ImmutableList.of(3L)), 3);
+
+        assertTrue(stats.getStats().isEmpty());
+        PartitionStatistics statistics = convertToPartitionStatistics(stats);
+        assertEquals(statistics.getBasicStatistics().getRowCount(), OptionalLong.of(3));
+        assertTrue(statistics.getColumnStatistics().isEmpty());
     }
 
     private PartitionQuickStats buildQuickStatsForFile(Type type, List<?> values, int rowCount)
