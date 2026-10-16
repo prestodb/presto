@@ -81,7 +81,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       int destination,
       const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
       velox::memory::MemoryPool* pool,
-      folly::CPUThreadPoolExecutor* driverExecutor,
+      folly::CPUThreadPoolExecutor* exchangeHttpCpuExecutor,
       folly::EventBase* ioEventBase,
       http::HttpClientConnectionPool* connPool,
       const proxygen::Endpoint& endpoint,

@@ -89,7 +89,7 @@ PrestoExchangeSource::PrestoExchangeSource(
     int destination,
     const std::shared_ptr<exec::ExchangeQueue>& queue,
     memory::MemoryPool* pool,
-    folly::CPUThreadPoolExecutor* driverExecutor,
+    folly::CPUThreadPoolExecutor* exchangeHttpCpuExecutor,
     folly::EventBase* ioEventBase,
     http::HttpClientConnectionPool* connPool,
     const proxygen::Endpoint& endpoint,
@@ -103,7 +103,7 @@ PrestoExchangeSource::PrestoExchangeSource(
       immediateBufferTransfer_(
           enableBufferCopy_ &&
           SystemConfig::instance()->exchangeImmediateBufferTransfer()),
-      exchangeHttpCpuExecutor_(driverExecutor) {
+      exchangeHttpCpuExecutor_(exchangeHttpCpuExecutor) {
   folly::SocketAddress address;
   if (folly::IPAddress::validate(host_)) {
     address = folly::SocketAddress(folly::IPAddress(host_), port_);
