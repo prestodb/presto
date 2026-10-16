@@ -13,6 +13,7 @@
  */
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -206,7 +207,7 @@ class LocalShuffleReader : public ShuffleReader {
   velox::memory::MemoryPool* pool_;
 
   // Latest read block (file) index in 'readPartitionFiles_' for 'partition_'.
-  size_t readPartitionFileIndex_{0};
+  std::atomic_size_t readPartitionFileIndex_{0};
 
   // List of generated files for 'partition_'.
   std::vector<std::string> readPartitionFiles_;
