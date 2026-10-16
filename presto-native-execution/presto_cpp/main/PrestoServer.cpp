@@ -397,8 +397,14 @@ void PrestoServer::run() {
       this);
   addServerPeriodicTasks();
   addAdditionalPeriodicTasks();
-  periodicTaskManager_->start();
+  // Initialize memoryChecker_ before the scheduler starts firing periodic
+  // tasks. populateMemAndCPUInfo() and checkOverload() both read the
+  // non-atomic unique_ptr; if the scheduler fired a callback between its
+  // start() and this assignment, that read would race the write. Ordering
+  // the create ahead of start() closes that window — the pointer value
+  // observed by every task callback is already the final one.
   createPeriodicMemoryChecker();
+  periodicTaskManager_->start();
   if (memoryChecker_ != nullptr) {
     memoryChecker_->start();
   }
@@ -1750,6 +1756,20 @@ void PrestoServer::populateMemAndCPUInfo() {
   RECORD_METRIC_VALUE(
       kCounterMemoryManagerTotalBytes,
       velox::memory::memoryManager()->getTotalBytes());
+
+  // Total process-level memory from LinuxMemoryChecker (cgroup
+  // inactive_anon+active_anon, or /proc/meminfo fallback). This is a superset
+  // of pool-tracked query memory and the AsyncDataCache footprint, and is the
+  // only field that reflects the presto_server binary, shared libraries,
+  // mmap'd files and other process overhead that the issue 28529 identifies
+  // as missing from existing endpoints. The checker caches its sample so this
+  // read is cheap; it returns 0 when the checker is disabled (non-Linux or
+  // system-mem-pushback not enabled).
+  const int64_t systemMemoryBytes =
+      (memoryChecker_ != nullptr) ? memoryChecker_->systemUsedMemoryBytes() : 0;
+  memoryInfo.systemMemoryBytes = systemMemoryBytes;
+  RECORD_METRIC_VALUE(kCounterLinuxMemoryCheckerUsedBytes, systemMemoryBytes);
+
   cpuMon_.update();
   checkOverload();
   **memoryInfo_.wlock() = std::move(memoryInfo);

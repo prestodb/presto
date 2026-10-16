@@ -77,6 +77,13 @@ constexpr std::string_view kCounterNumQueryContexts{
 constexpr std::string_view kCounterMemoryManagerTotalBytes{
     "presto_cpp.memory_manager_total_bytes"};
 
+/// Total process-level memory as computed by LinuxMemoryChecker — cgroup
+/// inactive_anon+active_anon, or /proc/meminfo MemTotal-MemAvailable as a
+/// fallback. Includes the presto_server binary, shared libraries, mmap'd files
+/// and process overhead that the query/cache memory counters do not cover.
+constexpr std::string_view kCounterLinuxMemoryCheckerUsedBytes{
+    "presto_cpp.linux_memory_checker_used_bytes"};
+
 constexpr std::string_view kCounterNumTasks{"presto_cpp.num_tasks"};
 constexpr std::string_view kCounterNumTasksBytesProcessed{
     "presto_cpp.num_tasks_bytes_processed"};

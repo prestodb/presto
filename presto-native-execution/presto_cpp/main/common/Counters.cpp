@@ -61,6 +61,8 @@ void registerPrestoMetrics(bool enableHttpRequestSizeHistogram) {
   DEFINE_METRIC(kCounterNumQueryContexts, facebook::velox::StatType::AVG);
   DEFINE_METRIC(
       kCounterMemoryManagerTotalBytes, facebook::velox::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterLinuxMemoryCheckerUsedBytes, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasks, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksBytesProcessed, facebook::velox::StatType::AVG);
   DEFINE_METRIC(kCounterNumTasksRunning, facebook::velox::StatType::AVG);

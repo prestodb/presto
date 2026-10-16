@@ -32,13 +32,28 @@ import static java.util.Objects.requireNonNull;
 public class MemoryInfo
 {
     private final DataSize totalNodeMemory;
+    // Total process-level memory on native workers (cgroup inactive_anon +
+    // active_anon, sampled by LinuxMemoryChecker). Covers the presto_server
+    // binary, shared libraries, mmap'd files and process overhead that
+    // pool-tracked query memory does not. 0 on JVM workers and on native
+    // workers where the memory checker is disabled.
+    private final long systemMemoryBytes;
     private final Map<MemoryPoolId, MemoryPoolInfo> pools;
+
+    public MemoryInfo(DataSize totalNodeMemory, Map<MemoryPoolId, MemoryPoolInfo> pools)
+    {
+        this(totalNodeMemory, 0L, pools);
+    }
 
     @ThriftConstructor
     @JsonCreator
-    public MemoryInfo(@JsonProperty("totalNodeMemory") DataSize totalNodeMemory, @JsonProperty("pools") Map<MemoryPoolId, MemoryPoolInfo> pools)
+    public MemoryInfo(
+            @JsonProperty("totalNodeMemory") DataSize totalNodeMemory,
+            @JsonProperty("systemMemoryBytes") long systemMemoryBytes,
+            @JsonProperty("pools") Map<MemoryPoolId, MemoryPoolInfo> pools)
     {
         this.totalNodeMemory = requireNonNull(totalNodeMemory, "totalNodeMemory is null");
+        this.systemMemoryBytes = systemMemoryBytes;
         this.pools = ImmutableMap.copyOf(requireNonNull(pools, "pools is null"));
     }
 
@@ -56,11 +71,19 @@ public class MemoryInfo
         return pools;
     }
 
+    @ThriftField(3)
+    @JsonProperty
+    public long getSystemMemoryBytes()
+    {
+        return systemMemoryBytes;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("totalNodeMemory", totalNodeMemory)
+                .add("systemMemoryBytes", systemMemoryBytes)
                 .add("pools", pools)
                 .toString();
     }

@@ -7529,6 +7529,13 @@ void to_json(json& j, const MemoryInfo& p) {
       "totalNodeMemory");
   to_json_key(
       j,
+      "systemMemoryBytes",
+      p.systemMemoryBytes,
+      "MemoryInfo",
+      "int64_t",
+      "systemMemoryBytes");
+  to_json_key(
+      j,
       "pools",
       p.pools,
       "MemoryInfo",
@@ -7544,6 +7551,20 @@ void from_json(const json& j, MemoryInfo& p) {
       "MemoryInfo",
       "DataSize",
       "totalNodeMemory");
+  // Backward-compat guard: a pre-upgrade coordinator (or an in-flight message
+  // from one) will not include this field; default to 0 so new native workers
+  // can still parse it. This handling lives in the .inc override (rather than
+  // as a hand-edit on the generated .cpp) so that `make presto_protocol`
+  // preserves it across regenerations.
+  if (j.count("systemMemoryBytes")) {
+    from_json_key(
+        j,
+        "systemMemoryBytes",
+        p.systemMemoryBytes,
+        "MemoryInfo",
+        "int64_t",
+        "systemMemoryBytes");
+  }
   from_json_key(
       j,
       "pools",
@@ -8385,6 +8406,11 @@ void from_json(const json& j, NodeStatus& p) {
       "heapAvailable");
   from_json_key(
       j, "nonHeapUsed", p.nonHeapUsed, "NodeStatus", "int64_t", "nonHeapUsed");
+  // Backward-compat guards: pre-upgrade coordinators (or in-flight messages
+  // from them) will not include these fields; default to 0 so new native
+  // workers can still parse them. See MemoryInfo.cpp.inc for the rationale on
+  // why these overrides live in .inc files rather than as hand-edits on the
+  // generated .cpp.
   if (j.count("asyncDataCacheBytes")) {
     from_json_key(
         j,
