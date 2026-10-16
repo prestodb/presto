@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.sql.planner.plan.RPCNode;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -22,9 +23,8 @@ import static java.util.Objects.requireNonNull;
  * {@link RpcExecutionPolicy#translateIntent} and applied by the optimizer to the
  * {@link RPCNode}.
  *
- * Immutable and built via {@link #builder}. Today it carries the resolved {@code streamingMode};
- * additional plan-time properties (e.g. dispatch parallelism / batch size) can be added here as a
- * new builder setter + getter without changing the policy method signature.
+ * Immutable and built via {@link #builder}. It carries the resolved {@code streamingMode} and a
+ * coordinator-only recommended task count.
  *
  * Scope note: this is the plan-time execution axis only. Runtime concerns (error policy,
  * deadlines, model-quality/cost) ride query config read by the worker and do NOT belong here.
@@ -32,10 +32,13 @@ import static java.util.Objects.requireNonNull;
 public class RpcExecutionProperties
 {
     private final RPCNode.StreamingMode streamingMode;
+    private final int recommendedTaskCount;
 
-    private RpcExecutionProperties(RPCNode.StreamingMode streamingMode)
+    private RpcExecutionProperties(RPCNode.StreamingMode streamingMode, int recommendedTaskCount)
     {
         this.streamingMode = requireNonNull(streamingMode, "streamingMode is null");
+        checkArgument(recommendedTaskCount >= 0, "recommendedTaskCount must be non-negative: %s", recommendedTaskCount);
+        this.recommendedTaskCount = recommendedTaskCount;
     }
 
     /**
@@ -44,6 +47,14 @@ public class RpcExecutionProperties
     public RPCNode.StreamingMode getStreamingMode()
     {
         return streamingMode;
+    }
+
+    /**
+     * Recommended remote task count; zero delegates to default planning.
+     */
+    public int getRecommendedTaskCount()
+    {
+        return recommendedTaskCount;
     }
 
     /**
@@ -62,6 +73,7 @@ public class RpcExecutionProperties
     public static class Builder
     {
         private RPCNode.StreamingMode streamingMode;
+        private int recommendedTaskCount;
 
         public Builder setStreamingMode(RPCNode.StreamingMode streamingMode)
         {
@@ -69,9 +81,15 @@ public class RpcExecutionProperties
             return this;
         }
 
+        public Builder setRecommendedTaskCount(int recommendedTaskCount)
+        {
+            this.recommendedTaskCount = recommendedTaskCount;
+            return this;
+        }
+
         public RpcExecutionProperties build()
         {
-            return new RpcExecutionProperties(streamingMode);
+            return new RpcExecutionProperties(streamingMode, recommendedTaskCount);
         }
     }
 }

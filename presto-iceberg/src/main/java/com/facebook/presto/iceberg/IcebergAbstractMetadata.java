@@ -29,11 +29,13 @@ import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.hive.BaseHiveColumnHandle;
 import com.facebook.presto.hive.HiveOutputInfo;
 import com.facebook.presto.hive.HiveOutputMetadata;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.PartitionSet;
+import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
@@ -86,6 +88,7 @@ import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
+import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.security.ViewSecurity;
@@ -200,6 +203,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMA
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_MATERIALIZED_VIEW;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TRANSACTION_CONFLICT_ERROR;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.validateGeospatialWrite;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getMaxSnapshotsPerRefresh;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getRefreshType;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStaleReadBehavior;
@@ -729,6 +733,7 @@ public abstract class IcebergAbstractMetadata
     protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable, List<String> insertColumnNames)
     {
         validateBranchExists(table, icebergTable);
+        validateGeospatialWrite(icebergTable);
         return new IcebergInsertTableHandle(
                 table.getSchemaName(),
                 table.getIcebergTableName(),
@@ -808,8 +813,13 @@ public abstract class IcebergAbstractMetadata
                 .collect(toImmutableList()), icebergTable.location())));
     }
 
-    private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, SchemaTableName tableName, IcebergWritableTableHandle writableTableHandle, Collection<Slice> fragments, ChangelogOperation operationType)
+    private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, SchemaTableName tableName,
+                                                          IcebergWritableTableHandle writableTableHandle,
+                                                          Collection<Slice> fragments,
+                                                          ChangelogOperation operationType,
+                                                          Optional<RowExpression> writeScope)
     {
+        requireNonNull(writeScope, "writeScope is null");
         if (fragments.isEmpty()) {
             return Optional.empty();
         }
@@ -832,6 +842,22 @@ public abstract class IcebergAbstractMetadata
         if (branchName.isPresent()) {
             rowDelta.toBranch(branchName.get());
         }
+
+        writeScope.ifPresent(scope -> {
+            DomainTranslator.ExtractionResult<Subfield> decomposedFilter = rowExpressionService.getDomainTranslator()
+                    .fromPredicate(session, scope, new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(session), session).toColumnExtractor());
+
+            Map<String, IcebergColumnHandle> nameToColumnHandlesMapping = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager)
+                    .stream()
+                    .collect(Collectors.toMap(BaseHiveColumnHandle::getName, e -> e));
+            TupleDomain<IcebergColumnHandle> entireColumnDomain = decomposedFilter.getTupleDomain()
+                    .transform(subfield -> subfield.getPath().isEmpty() ? subfield.getRootName() : null)
+                    .transform(nameToColumnHandlesMapping::get);
+
+            if (!entireColumnDomain.isAll()) {
+                rowDelta.conflictDetectionFilter(toIcebergExpression(entireColumnDomain));
+            }
+        });
 
         ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
         ImmutableSet.Builder<String> referencedDataFilesBuilder = ImmutableSet.builder();
@@ -1170,7 +1196,7 @@ public abstract class IcebergAbstractMetadata
 
         finishWrite(session,
                 new SchemaTableName(insertTableHandle.getSchemaName(), insertTableHandle.getTableName().getTableName()),
-                insertTableHandle, fragments, UPDATE_AFTER);
+                insertTableHandle, fragments, UPDATE_AFTER, Optional.empty());
     }
 
     @Override
@@ -1517,6 +1543,9 @@ public abstract class IcebergAbstractMetadata
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
         validateNoBranchSpecified(handle, "ADD COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        // Reject a geospatial column the table could never be written with, rather than
+        // accepting the schema change and failing every subsequent write
+        validateGeospatialWrite(column.getName(), columnType, opsFromTable(icebergTable).current().formatVersion(), getFileFormat(icebergTable));
         UpdateSchema updateSchema = icebergTable.updateSchema();
         checkNotSupported(column.getDefaultValue().isEmpty() || column.getDerivedColumnSpec().isEmpty(),
                 "A column can either have a 'default expression' or 'derived column definition' and not both.");
@@ -2471,7 +2500,7 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
-    public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, Optional<RowExpression> updateScope)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
@@ -2500,6 +2529,7 @@ public abstract class IcebergAbstractMetadata
         if (formatVersion >= MIN_FORMAT_VERSION_FOR_DELETION_VECTORS) {
             throw v3DeletionVectorNativeOnly();
         }
+        this.transactionContext.setQueryWriteScope(session.getQueryId(), updateScope);
         return handle
                 .withUpdatedColumns(updatedColumns.stream()
                         .map(IcebergColumnHandle.class::cast)
@@ -2522,7 +2552,8 @@ public abstract class IcebergAbstractMetadata
                 getCompressionCodec(session),
                 icebergTable.properties(),
                 handle.getSortOrder());
-        finishWrite(session, handle.getSchemaTableName(), outputTableHandle, fragments, UPDATE_AFTER);
+        finishWrite(session, handle.getSchemaTableName(), outputTableHandle, fragments, UPDATE_AFTER,
+                this.transactionContext.getQueryWriteScope(session.getQueryId()));
     }
 
     protected Optional<String> getDataLocationBasedOnWarehouseDataDir(SchemaTableName schemaTableName)
@@ -3189,6 +3220,7 @@ public abstract class IcebergAbstractMetadata
         SchemaTableName storageTableName = icebergTableHandle.getSchemaTableName();
         IcebergTableHandle storageTableHandle = getTableHandle(session, storageTableName);
         Table storageTable = getIcebergTable(session, storageTableName);
+        validateGeospatialWrite(storageTable);
         SchemaTableName materializedViewName = icebergTableHandle.getMaterializedViewName().get();
         MaterializedViewStatus status = getMaterializedViewStatus(session, materializedViewName, TupleDomain.all());
         boolean fullRefreshRequired = !status.isFullyMaterialized()

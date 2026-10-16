@@ -151,7 +151,7 @@ public class TestSetTablePropertyProcedure
         assertQueryFails("CALL system.set_table_property('test_table', key => 'key', value => 'value')",
                 "line 1:1: Named and positional arguments cannot be mixed");
         assertQueryFails("CALL custom.set_table_property('test_table', 'key', 'value')",
-                "Procedure not registered: custom.set_table_property");
+                "Procedure not registered: iceberg.custom.set_table_property");
         assertQueryFails("CALL system.set_table_property('schema', 'tablename', 'key')",
                 "line 1:1: Required procedure argument 'value' is missing");
         assertQueryFails("CALL system.set_table_property('', 'main', 'key')",

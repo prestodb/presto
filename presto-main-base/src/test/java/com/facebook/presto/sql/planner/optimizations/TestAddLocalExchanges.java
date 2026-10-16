@@ -14,11 +14,16 @@
 package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
+import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
+import com.facebook.presto.sql.planner.SystemPartitioningHandle;
 import com.facebook.presto.sql.planner.assertions.BasePlanTest;
 import com.facebook.presto.sql.planner.assertions.PlanMatchPattern;
 import com.facebook.presto.sql.planner.iterative.IterativeOptimizer;
 import com.facebook.presto.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -26,8 +31,11 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.SystemSessionProperties.RPC_FUNCTION_OPTIMIZER_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.RPC_FUNCTION_PARALLELISM;
 import static com.facebook.presto.SystemSessionProperties.RPC_STREAMING_MODE;
 import static com.facebook.presto.SystemSessionProperties.TASK_CONCURRENCY;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED;
@@ -35,8 +43,12 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTre
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.exchange;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STREAMING;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static org.testng.Assert.assertEquals;
 
 public class TestAddLocalExchanges
         extends BasePlanTest
@@ -67,6 +79,88 @@ public class TestAddLocalExchanges
         assertPlan(sql, session, OPTIMIZED, pattern, optimizers);
     }
 
+    private void assertAutomaticRemoteTaskCounts(
+            @Language("SQL") String sql,
+            int configuredTaskCount,
+            int recommendedTaskCount,
+            int expectedRpcCount,
+            List<Integer> expectedTaskCounts)
+    {
+        RpcExecutionPolicy policy = intent -> RpcExecutionProperties.builder()
+                .setStreamingMode(RPCNode.StreamingMode.BATCH)
+                .setRecommendedTaskCount(recommendedTaskCount)
+                .build();
+        assertAutomaticRemoteTaskCounts(
+                sql,
+                configuredTaskCount,
+                ImmutableSet.of("lower"),
+                policy,
+                false,
+                expectedRpcCount,
+                expectedTaskCounts);
+    }
+
+    private void assertAutomaticRemoteTaskCounts(
+            @Language("SQL") String sql,
+            int configuredTaskCount,
+            Set<String> functionNames,
+            RpcExecutionPolicy policy,
+            boolean prestoSparkExecutionEnvironment,
+            int expectedRpcCount,
+            List<Integer> expectedTaskCounts)
+    {
+        List<PlanOptimizer> optimizers = ImmutableList.of(
+                new RpcFunctionOptimizer(() -> functionNames, null, policy),
+                new UnaliasSymbolReferences(getMetadata().getFunctionAndTypeManager()),
+                new PruneUnreferencedOutputs(),
+                new IterativeOptimizer(
+                        getMetadata(),
+                        new RuleStatsRecorder(),
+                        getQueryRunner().getStatsCalculator(),
+                        getQueryRunner().getCostCalculator(),
+                        ImmutableSet.of(new RemoveRedundantIdentityProjections())),
+                new AddExchanges(
+                        getMetadata(),
+                        new PartitioningProviderManager(),
+                        false,
+                        prestoSparkExecutionEnvironment));
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(RPC_FUNCTION_OPTIMIZER_ENABLED, "true")
+                .setSystemProperty(RPC_FUNCTION_PARALLELISM, Integer.toString(configuredTaskCount))
+                .build();
+        getQueryRunner().inTransaction(session, transactionSession -> {
+            Plan actualPlan = getQueryRunner().createPlan(
+                    transactionSession,
+                    sql,
+                    optimizers,
+                    OPTIMIZED,
+                    WarningCollector.NOOP);
+            assertEquals(
+                    searchFrom(actualPlan.getRoot())
+                            .where(node -> node instanceof RPCNode)
+                            .count(),
+                    expectedRpcCount);
+            assertEquals(remoteRoundRobinTaskCounts(actualPlan), expectedTaskCounts);
+            return null;
+        });
+    }
+
+    private static List<Integer> remoteRoundRobinTaskCounts(Plan plan)
+    {
+        return searchFrom(plan.getRoot())
+                .where(node -> node instanceof ExchangeNode &&
+                        ((ExchangeNode) node).getScope() == REMOTE_STREAMING &&
+                        ((ExchangeNode) node).getType() == REPARTITION)
+                .findAll()
+                .stream()
+                .map(ExchangeNode.class::cast)
+                .map(exchange -> exchange.getPartitioningScheme().getPartitioning().getHandle().getConnectorHandle())
+                .filter(SystemPartitioningHandle.class::isInstance)
+                .map(SystemPartitioningHandle.class::cast)
+                .map(handle -> handle.getPartitionCount().orElseThrow(AssertionError::new))
+                .collect(Collectors.toList());
+    }
+
     @Test
     public void testBatchRpcGathersToSingleStream()
     {
@@ -93,5 +187,85 @@ public class TestAddLocalExchanges
                 anyTree(
                         node(RPCNode.class,
                                 tableScan("orders"))));
+    }
+
+    @Test
+    public void testAutomaticRpcParallelismIsMinimumOnly()
+    {
+        assertAutomaticRemoteTaskCounts(
+                "SELECT lower(x) FROM (VALUES 'a') t(x)",
+                0,
+                4,
+                1,
+                ImmutableList.of(4));
+        assertAutomaticRemoteTaskCounts(
+                "SELECT lower(comment) FROM orders",
+                0,
+                4,
+                1,
+                ImmutableList.of());
+        assertAutomaticRemoteTaskCounts(
+                "SELECT lower(lower(x)) FROM (VALUES 'a') t(x)",
+                0,
+                4,
+                2,
+                ImmutableList.of(4));
+    }
+
+    @Test
+    public void testAutomaticRpcParallelismPreservesKnownWiderDistribution()
+    {
+        RpcExecutionPolicy policy = intent -> RpcExecutionProperties.builder()
+                .setStreamingMode(RPCNode.StreamingMode.BATCH)
+                .setRecommendedTaskCount(intent.getFunctionName().equals("upper") ? 8 : 4)
+                .build();
+        assertAutomaticRemoteTaskCounts(
+                "SELECT lower(upper(x)) FROM (VALUES 'a') t(x)",
+                0,
+                ImmutableSet.of("lower", "upper"),
+                policy,
+                false,
+                2,
+                ImmutableList.of(8));
+    }
+
+    @Test
+    public void testAutomaticRpcParallelismDoesNotAddRemoteExchangeOnPrestoSpark()
+    {
+        RpcExecutionPolicy policy = intent -> RpcExecutionProperties.builder()
+                .setStreamingMode(RPCNode.StreamingMode.BATCH)
+                .setRecommendedTaskCount(4)
+                .build();
+        assertAutomaticRemoteTaskCounts(
+                "SELECT lower(x) FROM (VALUES 'a') t(x)",
+                0,
+                ImmutableSet.of("lower"),
+                policy,
+                true,
+                1,
+                ImmutableList.of());
+    }
+
+    @Test
+    public void testConfiguredRpcParallelismRemainsExact()
+    {
+        assertAutomaticRemoteTaskCounts(
+                "SELECT lower(x) FROM (VALUES 'a') t(x)",
+                3,
+                8,
+                1,
+                ImmutableList.of(3));
+        assertAutomaticRemoteTaskCounts(
+                "SELECT lower(comment) FROM orders",
+                3,
+                8,
+                1,
+                ImmutableList.of(3));
+        assertAutomaticRemoteTaskCounts(
+                "SELECT lower(x) FROM (VALUES 'a') t(x)",
+                1,
+                8,
+                1,
+                ImmutableList.of());
     }
 }

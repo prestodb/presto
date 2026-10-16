@@ -171,7 +171,7 @@ public abstract class AbstractTestRewriteDataFilesProcedure
         try {
             assertUpdate("CREATE TABLE " + tableName + " (a int, b varchar, c int)");
             assertQueryFails("CALL system.rewrite_data_files('n', table_name => 't')", ".*Named and positional arguments cannot be mixed");
-            assertQueryFails("CALL custom.rewrite_data_files('n', 't')", "Procedure not registered: custom.rewrite_data_files");
+            assertQueryFails("CALL custom.rewrite_data_files('n', 't')", "Procedure not registered: iceberg.custom.rewrite_data_files");
             assertQueryFails("CALL system.rewrite_data_files()", ".*Required procedure argument 'schema' is missing");
             assertQueryFails("CALL system.rewrite_data_files('s', 'n')", "Schema s does not exist");
             assertQueryFails("CALL system.rewrite_data_files('', '')", "Table name is empty");

@@ -13,9 +13,13 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.type.FunctionType;
+import com.facebook.presto.common.type.TestingTypeDeserializer;
+import com.facebook.presto.common.type.TestingTypeManager;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
@@ -38,6 +42,8 @@ import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.testing.TestingSession;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slices;
@@ -931,6 +937,17 @@ public class TestRpcFunctionOptimizer
         assertEquals(resolvedMode(policy, RPCNode.StreamingMode.AUTOMATIC, PlanNodeStatsEstimate.unknown(), session), RPCNode.StreamingMode.PER_ROW);
         assertEquals(resolvedMode(policy, RPCNode.StreamingMode.BATCH, PlanNodeStatsEstimate.builder().setOutputRowCount(1).build(), session), RPCNode.StreamingMode.BATCH);
         assertEquals(resolvedMode(policy, RPCNode.StreamingMode.PER_ROW, largeStats, session), RPCNode.StreamingMode.PER_ROW);
+
+        Session sessionWithAutoTaskCap = TestingSession.testSessionBuilder()
+                .setSystemProperty("rpc_batch_max_auto_task_count", "8")
+                .build();
+        RpcExecutionIntent intent = RpcExecutionIntent.builder()
+                .setRequestedMode(RPCNode.StreamingMode.BATCH)
+                .setInputStats(largeStats)
+                .setSession(sessionWithAutoTaskCap)
+                .setFunctionName("test_rpc_function")
+                .build();
+        assertEquals(policy.translateIntent(intent).getRecommendedTaskCount(), 0);
     }
 
     @Test
@@ -941,6 +958,48 @@ public class TestRpcFunctionOptimizer
         RpcExecutionPolicy toPerRow = intent -> RpcExecutionProperties.of(RPCNode.StreamingMode.PER_ROW);
         assertEquals(optimizeWithPolicy(streamingModeSession("AUTOMATIC"), toBatch), RPCNode.StreamingMode.BATCH);
         assertEquals(optimizeWithPolicy(streamingModeSession("AUTOMATIC"), toPerRow), RPCNode.StreamingMode.PER_ROW);
+
+        RpcExecutionPolicy withRecommendedTaskCount = intent -> RpcExecutionProperties.builder()
+                .setStreamingMode(RPCNode.StreamingMode.BATCH)
+                .setRecommendedTaskCount(4)
+                .build();
+        assertEquals(
+                optimizeToRpcNode(streamingModeSession("AUTOMATIC"), withRecommendedTaskCount).getRecommendedTaskCount(),
+                4);
+    }
+
+    @Test
+    public void testRecommendedTaskCountIsCoordinatorOnly()
+            throws Exception
+    {
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        VariableAllocator variableAllocator = new VariableAllocator();
+        VariableReferenceExpression input = variableAllocator.newVariable("input", VARCHAR);
+        VariableReferenceExpression output = variableAllocator.newVariable("output", VARCHAR);
+        ValuesNode source = new ValuesNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                ImmutableList.of(input),
+                ImmutableList.of(),
+                Optional.empty());
+        RPCNode rpcNode = new RPCNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                source,
+                "test_rpc_function",
+                ImmutableList.of(input),
+                ImmutableList.of(input.getName()),
+                output,
+                RPCNode.StreamingMode.BATCH,
+                128,
+                4);
+        ObjectMapper objectMapper = new JsonObjectMapperProvider().get()
+                .registerModule(new SimpleModule()
+                        .addDeserializer(Type.class, new TestingTypeDeserializer(new TestingTypeManager())));
+
+        String json = objectMapper.writeValueAsString(rpcNode);
+        assertFalse(json.contains("recommendedTaskCount"));
+        assertEquals(objectMapper.readValue(json, RPCNode.class).getRecommendedTaskCount(), 0);
     }
 
     @Test
@@ -986,6 +1045,7 @@ public class TestRpcFunctionOptimizer
                     ImmutableList.of("input_col"),
                     outputVar,
                     RPCNode.StreamingMode.AUTOMATIC,
+                    0,
                     0);
             fail("expected rejection when constructing RPCNode with AUTOMATIC");
         }
@@ -1048,6 +1108,26 @@ public class TestRpcFunctionOptimizer
             try {
                 meta.decode(bad);
                 fail("expected rejection for rpc_batch_min_rows=" + bad);
+            }
+            catch (PrestoException expected) {
+                assertEquals(expected.getErrorCode(), INVALID_SESSION_PROPERTY.toErrorCode());
+            }
+        }
+    }
+
+    @Test
+    public void testRpcBatchMaxAutoTaskCountRejectsNonPositive()
+    {
+        PropertyMetadata<?> meta = new SystemSessionProperties().getSessionProperties().stream()
+                .filter(p -> p.getName().equals(SystemSessionProperties.RPC_BATCH_MAX_AUTO_TASK_COUNT))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("rpc_batch_max_auto_task_count property not registered"));
+
+        assertEquals(meta.decode(1), 1);
+        for (int bad : new int[] {0, -1}) {
+            try {
+                meta.decode(bad);
+                fail("expected rejection for rpc_batch_max_auto_task_count=" + bad);
             }
             catch (PrestoException expected) {
                 assertEquals(expected.getErrorCode(), INVALID_SESSION_PROPERTY.toErrorCode());

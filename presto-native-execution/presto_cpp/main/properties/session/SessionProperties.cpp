@@ -75,6 +75,24 @@ SessionProperties::SessionProperties() {
       std::to_string(c.maxExtendedPartialAggregationMemoryUsage()));
 
   addSessionProperty(
+      kAbandonPartialAggregationMinRows,
+      "Number of input rows to receive before starting to check whether to "
+      "abandon partial aggregation.",
+      INTEGER(),
+      false,
+      QueryConfig::kAbandonPartialAggregationMinRows,
+      std::to_string(c.abandonPartialAggregationMinRows()));
+
+  addSessionProperty(
+      kAbandonPartialAggregationMinPct,
+      "Abandons partial aggregation if number of groups equals or exceeds this "
+      "percentage of the number of input rows.",
+      INTEGER(),
+      false,
+      QueryConfig::kAbandonPartialAggregationMinPct,
+      std::to_string(c.abandonPartialAggregationMinPct()));
+
+  addSessionProperty(
       kMaxSpillLevel,
       "Native Execution only. The maximum allowed spilling level for hash join "
       "build. 0 is the initial spilling level, -1 means unlimited.",

@@ -33,6 +33,7 @@ import com.facebook.presto.common.type.TypeWithName;
 import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarcharEnumType;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.geospatial.SphericalGeographyType;
 import com.facebook.presto.geospatial.type.GeometryType;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.PrestoWarning;
@@ -311,7 +312,7 @@ public class TestingPrestoClient
         else if (JSON.equals(type)) {
             return value;
         }
-        else if (type instanceof GeometryType) {
+        else if (type instanceof GeometryType || type instanceof SphericalGeographyType) {
             return value;
         }
         else {

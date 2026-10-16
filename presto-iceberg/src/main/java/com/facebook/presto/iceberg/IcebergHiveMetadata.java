@@ -120,6 +120,7 @@ import static com.facebook.presto.hive.metastore.MetastoreUtil.verifyAndPopulate
 import static com.facebook.presto.hive.metastore.Statistics.createComputedStatisticsToPartitionMap;
 import static com.facebook.presto.iceberg.HiveTableOperations.STORAGE_FORMAT;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.validateGeospatialWrite;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getHiveStatisticsMergeStrategy;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
@@ -130,6 +131,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewPropertie
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.parseFormatVersion;
 import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
@@ -414,6 +416,7 @@ public class IcebergHiveMetadata
         }
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
         FileFormat fileFormat = tableProperties.getFileFormat(session, tableMetadata.getProperties());
+        validateGeospatialWrite(schema, parseFormatVersion(tableProperties.getFormatVersion(session, tableMetadata.getProperties())), fileFormat);
         TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, targetPath,
                 populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session, schema));
         openCreateTableTransaction(schemaTableName, createTableTransaction(tableName, operations, metadata));

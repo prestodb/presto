@@ -48,6 +48,16 @@ class SessionProperties : public SessionPropertiesProvider {
   static constexpr const char* kMaxExtendedPartialAggregationMemory =
       "native_max_extended_partial_aggregation_memory";
 
+  /// Number of input rows to receive before starting to check whether to
+  /// abandon partial aggregation.
+  static constexpr const char* kAbandonPartialAggregationMinRows =
+      "native_abandon_partial_aggregation_min_rows";
+
+  /// Abandons partial aggregation if number of groups equals or exceeds this
+  /// percentage of the number of input rows.
+  static constexpr const char* kAbandonPartialAggregationMinPct =
+      "native_abandon_partial_aggregation_min_pct";
+
   /// Enable join spilling on native engine.
   static constexpr const char* kJoinSpillEnabled = "native_join_spill_enabled";
 
