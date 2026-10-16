@@ -39,7 +39,9 @@ public class PrestoQuerySourceQuerySupplier
                     resultSet.getString("suite"),
                     resultSet.getString("name"),
                     resultSet.getString("control_query"),
+                    resultSet.getString("control_query_utf8"),
                     resultSet.getString("test_query"),
+                    resultSet.getString("test_query_utf8"),
                     Optional.ofNullable(resultSet.getString("control_query_id")),
                     Optional.ofNullable(resultSet.getString("test_query_id")),
                     new QueryConfiguration(
