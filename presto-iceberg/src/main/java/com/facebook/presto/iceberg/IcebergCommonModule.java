@@ -51,6 +51,7 @@ import com.facebook.presto.iceberg.procedure.RegisterTableProcedure;
 import com.facebook.presto.iceberg.procedure.RemoveOrphanFiles;
 import com.facebook.presto.iceberg.procedure.RewriteDataFilesProcedure;
 import com.facebook.presto.iceberg.procedure.RewriteManifestsProcedure;
+import com.facebook.presto.iceberg.procedure.RewriteTablePathProcedure;
 import com.facebook.presto.iceberg.procedure.RollbackToSnapshotProcedure;
 import com.facebook.presto.iceberg.procedure.RollbackToTimestampProcedure;
 import com.facebook.presto.iceberg.procedure.SetCurrentSnapshotProcedure;
@@ -197,6 +198,7 @@ public class IcebergCommonModule
         procedures.addBinding().toProvider(ManifestFileCacheInvalidationProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(RewriteDataFilesProcedure.class).in(Scopes.SINGLETON);
         procedures.addBinding().toProvider(RewriteManifestsProcedure.class).in(Scopes.SINGLETON);
+        procedures.addBinding().toProvider(RewriteTablePathProcedure.class).in(Scopes.SINGLETON);
         if (buildConfigObject(MetastoreClientConfig.class).isInvalidateMetastoreCacheProcedureEnabled()) {
             procedures.addBinding().toProvider(InvalidateMetastoreCacheProcedure.class).in(Scopes.SINGLETON);
         }
