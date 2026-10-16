@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 public final class CallArgument
         extends Node
 {
-    private final Optional<String> name;
+    private final Optional<Identifier> name;
     private final Expression value;
 
     public CallArgument(Expression value)
@@ -43,19 +43,41 @@ public final class CallArgument
         this(Optional.empty(), Optional.of(name), value);
     }
 
+    public CallArgument(Identifier name, Expression value)
+    {
+        this(Optional.empty(), name, value);
+    }
+
     public CallArgument(NodeLocation location, String name, Expression value)
     {
         this(Optional.of(location), Optional.of(name), value);
     }
 
+    public CallArgument(NodeLocation location, Identifier name, Expression value)
+    {
+        this(Optional.of(location), name, value);
+    }
+
     public CallArgument(Optional<NodeLocation> location, Optional<String> name, Expression value)
     {
         super(location);
-        this.name = requireNonNull(name, "name is null");
+        this.name = requireNonNull(name, "name is null").map(Identifier::new);
+        this.value = requireNonNull(value, "value is null");
+    }
+
+    private CallArgument(Optional<NodeLocation> location, Identifier name, Expression value)
+    {
+        super(location);
+        this.name = Optional.of(requireNonNull(name, "name is null"));
         this.value = requireNonNull(value, "value is null");
     }
 
     public Optional<String> getName()
+    {
+        return name.map(Identifier::getValue);
+    }
+
+    public Optional<Identifier> getNameIdentifier()
     {
         return name;
     }
@@ -101,7 +123,7 @@ public final class CallArgument
     public String toString()
     {
         return toStringHelper(this)
-                .add("name", name.orElse(null))
+                .add("name", getName().orElse(null))
                 .add("value", value)
                 .omitNullValues()
                 .toString();
