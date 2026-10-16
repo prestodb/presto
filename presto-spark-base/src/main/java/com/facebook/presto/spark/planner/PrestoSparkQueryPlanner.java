@@ -20,18 +20,30 @@ import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.Output;
+import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spark.PrestoSparkPhysicalResourceCalculator;
 import com.facebook.presto.spark.PrestoSparkSourceStatsCollector;
+import com.facebook.presto.spark.planner.optimizers.AssignTableWriterPartitionCount;
+import com.facebook.presto.spark.planner.optimizers.RequireSingleWriterPerPartition;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.UpdateInfo;
 import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
+import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
+import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
+import com.facebook.presto.spi.plan.TableWriterNode;
 import com.facebook.presto.spi.prestospark.PhysicalResourceSettings;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.Optimizer;
 import com.facebook.presto.sql.analyzer.Analysis;
@@ -43,9 +55,14 @@ import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
 import com.facebook.presto.sql.planner.InputExtractor;
 import com.facebook.presto.sql.planner.LogicalPlanner;
 import com.facebook.presto.sql.planner.OutputExtractor;
+import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.PlanCanonicalInfoProvider;
 import com.facebook.presto.sql.planner.PlanOptimizers;
+import com.facebook.presto.sql.planner.optimizations.AddExchanges;
+import com.facebook.presto.sql.planner.optimizations.PlanOptimizer;
+import com.facebook.presto.sql.planner.optimizations.StatsRecordingPlanOptimizer;
+import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -53,6 +70,7 @@ import jakarta.inject.Inject;
 import org.apache.spark.SparkContext;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -62,7 +80,9 @@ import static com.facebook.presto.SystemSessionProperties.getHashPartitionCount;
 import static com.facebook.presto.SystemSessionProperties.isLogInvokedFunctionNamesEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.LOGICAL_PLANNER_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.OPTIMIZER_TIME_NANOS;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.getSparkTableWriterPartitionCount;
 import static com.facebook.presto.spark.PrestoSparkSettingsRequirements.SPARK_DYNAMIC_ALLOCATION_MAX_EXECUTORS_CONFIG;
+import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
@@ -70,13 +90,19 @@ import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATE
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.analyzer.utils.StatementUtils.getQueryType;
 import static com.facebook.presto.sql.planner.PlanNodeCanonicalInfo.getCanonicalInfo;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionRowExpression;
 import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class PrestoSparkQueryPlanner
 {
     private final SqlParser sqlParser;
-    private final PlanOptimizers optimizers;
+    private final List<PlanOptimizer> planningTimeOptimizers;
+    private final List<PlanOptimizer> tableWriterPartitionCountOptimizers;
+    private final List<PlanOptimizer> tableWriterPartitionCountOptimizersWithoutSingleWriter;
     private final QueryExplainer queryExplainer;
     private final Metadata metadata;
     private final StatsCalculator statsCalculator;
@@ -95,12 +121,28 @@ public class PrestoSparkQueryPlanner
             CostCalculator costCalculator,
             AccessControl accessControl,
             PlanChecker planChecker,
-            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager)
+            HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
+            PartitioningProviderManager partitioningProviderManager)
     {
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-        this.optimizers = requireNonNull(optimizers, "optimizers is null");
         this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.planningTimeOptimizers = requireNonNull(optimizers, "optimizers is null").getPlanningTimeOptimizers();
+        ImmutableList.Builder<PlanOptimizer> withSingleWriter = ImmutableList.builder();
+        ImmutableList.Builder<PlanOptimizer> withoutSingleWriter = ImmutableList.builder();
+        boolean addExchangesFound = false;
+        for (PlanOptimizer optimizer : planningTimeOptimizers) {
+            if (unwrap(optimizer) instanceof AddExchanges) {
+                withSingleWriter.add(new RequireSingleWriterPerPartition(metadata.getFunctionAndTypeManager()));
+                addExchangesFound = true;
+            }
+            withSingleWriter.add(optimizer);
+            withoutSingleWriter.add(optimizer);
+        }
+        checkState(addExchangesFound, "AddExchanges is not among the planning time optimizers");
+        AssignTableWriterPartitionCount assignTableWriterPartitionCount = new AssignTableWriterPartitionCount(partitioningProviderManager);
+        this.tableWriterPartitionCountOptimizers = withSingleWriter.add(assignTableWriterPartitionCount).build();
+        this.tableWriterPartitionCountOptimizersWithoutSingleWriter = withoutSingleWriter.add(assignTableWriterPartitionCount).build();
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -139,7 +181,7 @@ public class PrestoSparkQueryPlanner
         Optimizer optimizer = new Optimizer(
                 session,
                 metadata,
-                optimizers.getPlanningTimeOptimizers(),
+                getPlanningTimeOptimizers(session, analysis, planNode),
                 planChecker,
                 variableAllocator,
                 idAllocator,
@@ -181,6 +223,77 @@ public class PrestoSparkQueryPlanner
                 invokedScalarFunctions,
                 invokedAggregateFunctions,
                 invokedWindowFunctions);
+    }
+
+    private List<PlanOptimizer> getPlanningTimeOptimizers(Session session, Analysis analysis, PlanNode logicalPlan)
+    {
+        if (!getSparkTableWriterPartitionCount(session).isPresent() || !searchFrom(logicalPlan).where(TableWriterNode.class::isInstance).matches()) {
+            return planningTimeOptimizers;
+        }
+        if (choosesAtRandom(session, analysis, logicalPlan)) {
+            // A recomputed map task could choose other rows or values than its first attempt, and the choices can hide in
+            // table scans and join filters, so no write of the query gets a new shuffle
+            return tableWriterPartitionCountOptimizersWithoutSingleWriter;
+        }
+        return tableWriterPartitionCountOptimizers;
+    }
+
+    private boolean choosesAtRandom(Session session, Analysis analysis, PlanNode logicalPlan)
+    {
+        Map<FunctionHandle, Boolean> sqlFunctionDeterminism = new HashMap<>();
+        return analysis.getFunctionHandles().values().stream().anyMatch(function -> !isDeterministic(function, session, sqlFunctionDeterminism))
+                // the analysis keeps sample ratios per relation only; the logical plan has a SampleNode for every TABLESAMPLE
+                || searchFrom(logicalPlan).where(SampleNode.class::isInstance).matches();
+    }
+
+    // A SQL function is judged by its body, as InlineSqlFunctions inlines it, because its declared determinism is not checked
+    private boolean isDeterministic(FunctionHandle function, Session session, Map<FunctionHandle, Boolean> sqlFunctionDeterminism)
+    {
+        FunctionAndTypeManager functionAndTypeManager = metadata.getFunctionAndTypeManager();
+        FunctionMetadata functionMetadata = functionAndTypeManager.getFunctionMetadata(function);
+        if (functionMetadata.getImplementationType() != SQL) {
+            return functionMetadata.isDeterministic();
+        }
+        Boolean known = sqlFunctionDeterminism.get(function);
+        if (known != null) {
+            return known;
+        }
+        // a SQL function that reaches itself through the functions it calls counts as non-deterministic
+        sqlFunctionDeterminism.put(function, false);
+        List<RowExpression> arguments = functionMetadata.getArgumentTypes().stream()
+                .map(type -> new VariableReferenceExpression(Optional.empty(), "argument", functionAndTypeManager.getType(type)))
+                .collect(toImmutableList());
+        RowExpression body = getSqlFunctionRowExpression(
+                functionMetadata,
+                (SqlInvokedScalarFunctionImplementation) functionAndTypeManager.getScalarFunctionImplementation(function),
+                functionAndTypeManager,
+                session.getSqlFunctionProperties(),
+                session.getSessionFunctions(),
+                arguments);
+        ImmutableSet.Builder<FunctionHandle> calledFunctions = ImmutableSet.builder();
+        body.accept(new DefaultRowExpressionTraversalVisitor<ImmutableSet.Builder<FunctionHandle>>()
+        {
+            @Override
+            public Void visitCall(CallExpression call, ImmutableSet.Builder<FunctionHandle> context)
+            {
+                context.add(call.getFunctionHandle());
+                return super.visitCall(call, context);
+            }
+
+            @Override
+            public Void visitLambda(LambdaDefinitionExpression lambda, ImmutableSet.Builder<FunctionHandle> context)
+            {
+                return lambda.getBody().accept(this, context);
+            }
+        }, calledFunctions);
+        boolean deterministic = calledFunctions.build().stream().allMatch(calledFunction -> isDeterministic(calledFunction, session, sqlFunctionDeterminism));
+        sqlFunctionDeterminism.put(function, deterministic);
+        return deterministic;
+    }
+
+    private static PlanOptimizer unwrap(PlanOptimizer optimizer)
+    {
+        return optimizer instanceof StatsRecordingPlanOptimizer ? ((StatsRecordingPlanOptimizer) optimizer).getDelegate() : optimizer;
     }
 
     public static class PlanAndMore
