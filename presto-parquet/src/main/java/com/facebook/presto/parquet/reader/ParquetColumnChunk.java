@@ -54,7 +54,7 @@ import static java.util.Objects.requireNonNull;
 public class ParquetColumnChunk
         implements Closeable
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ParquetColumnChunk.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ParquetColumnChunk.class).instanceSize();
 
     private final ColumnChunkDescriptor descriptor;
     private final ColumnChunkBufferedInputStream stream;

@@ -48,7 +48,7 @@ import static java.lang.String.format;
 public class VariableWidthBlock
         extends AbstractVariableWidthBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlock.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(VariableWidthBlock.class).instanceSize();
 
     private final int arrayOffset;
     private final int positionCount;

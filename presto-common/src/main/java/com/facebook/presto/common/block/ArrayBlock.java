@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class ArrayBlock
         extends AbstractArrayBlock
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlock.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ArrayBlock.class).instanceSize();
 
     private final int arrayOffset;
     private final int positionCount;

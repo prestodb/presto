@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 public class LazyBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LazyBlock.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LazyBlock.class).instanceSize();
 
     private final int positionCount;
     private LazyBlockLoader<LazyBlock> loader;

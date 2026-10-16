@@ -60,7 +60,7 @@ public class SetAggregationStateFactory
             extends AbstractGroupedAccumulatorState
             implements SetAggregationState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
         private final Type elementType;
         private long size;
         private final ObjectBigArray<SetOfValues> set = new ObjectBigArray<>();
@@ -118,7 +118,7 @@ public class SetAggregationStateFactory
     public static class SingleState
             implements SetAggregationState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleState.class).instanceSize();
         private final Type elementType;
         private SetOfValues set;
 

@@ -26,7 +26,7 @@ public class GroupedHistogramState
         extends AbstractGroupedAccumulatorState
         implements HistogramState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedHistogramState.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedHistogramState.class).instanceSize();
     private TypedHistogram typedHistogram;
     private long size;
 

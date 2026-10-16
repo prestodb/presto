@@ -22,7 +22,7 @@ import static java.lang.Integer.MIN_VALUE;
 public class TestDateStatistics
         extends AbstractRangeStatisticsTest<DateStatistics, Integer>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DateStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DateStatistics.class).instanceSize();
 
     @Override
     protected DateStatistics getCreateStatistics(Integer min, Integer max)

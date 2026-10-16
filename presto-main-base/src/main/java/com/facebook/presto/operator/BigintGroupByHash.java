@@ -44,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 public class BigintGroupByHash
         implements GroupByHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BigintGroupByHash.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BigintGroupByHash.class).instanceSize();
 
     private static final float FILL_RATIO = 0.75f;
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);

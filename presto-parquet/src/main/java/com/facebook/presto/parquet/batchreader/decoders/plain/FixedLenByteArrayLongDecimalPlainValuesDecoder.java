@@ -28,7 +28,7 @@ import static java.util.Objects.requireNonNull;
 public class FixedLenByteArrayLongDecimalPlainValuesDecoder
         implements LongDecimalValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryLongDecimalPlainValuesDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BinaryLongDecimalPlainValuesDecoder.class).instanceSize();
 
     private final int typeLength;
     private final byte[] inputBytes;

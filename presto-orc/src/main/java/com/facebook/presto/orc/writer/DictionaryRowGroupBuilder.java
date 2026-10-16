@@ -50,7 +50,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
  */
 class DictionaryRowGroupBuilder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(DictionaryRowGroupBuilder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(DictionaryRowGroupBuilder.class).instanceSize();
 
     private byte[][] byteSegments;
     private int byteSegmentOffset;

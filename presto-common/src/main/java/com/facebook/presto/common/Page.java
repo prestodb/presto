@@ -44,7 +44,7 @@ import static java.util.Objects.requireNonNull;
  */
 public final class Page
 {
-    public static final int INSTANCE_SIZE = ClassLayout.parseClass(Page.class).instanceSize();
+    public static final long INSTANCE_SIZE = ClassLayout.parseClass(Page.class).instanceSize();
     private static final Block[] EMPTY_BLOCKS = new Block[0];
 
     /**

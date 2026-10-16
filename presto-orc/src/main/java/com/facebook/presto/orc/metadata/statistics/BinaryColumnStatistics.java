@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 public class BinaryColumnStatistics
         extends ColumnStatistics
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryColumnStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BinaryColumnStatistics.class).instanceSize();
 
     private final BinaryStatistics binaryStatistics;
 

@@ -427,7 +427,7 @@ public abstract class AbstractMapBlock
 
     public static class HashTables
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(HashTables.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(HashTables.class).instanceSize();
 
         // Hash to location in map. Writes to the field by MapBlock is protected by "HashTables" monitor in MapBlock.
         // MapBlockBuilder instances have their dedicated hashTables instances, so the write accesses to the hashTables

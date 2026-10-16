@@ -31,7 +31,7 @@ import static java.util.Objects.requireNonNull;
 final class LazySliceInput
         extends FixedLengthSliceInput
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LazySliceInput.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LazySliceInput.class).instanceSize();
 
     private final int globalLength;
     private final Supplier<FixedLengthSliceInput> loader;

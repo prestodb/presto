@@ -41,7 +41,7 @@ import static com.google.common.base.Preconditions.checkState;
  */
 public class ValueStore
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedTypedHistogram.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedTypedHistogram.class).instanceSize();
     private static final float MAX_FILL_RATIO = 0.5f;
     private static final int EMPTY_BUCKET = -1;
     private final BlockBuilder values;

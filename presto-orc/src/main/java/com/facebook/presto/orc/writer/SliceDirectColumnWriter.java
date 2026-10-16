@@ -57,7 +57,7 @@ import static java.util.Objects.requireNonNull;
 public class SliceDirectColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectColumnWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SliceDirectColumnWriter.class).instanceSize();
     private final int column;
     private final int sequence;
     private final boolean compressed;

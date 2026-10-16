@@ -28,7 +28,7 @@ public class LegacyHistogramGroupState
         extends AbstractGroupedAccumulatorState
         implements HistogramState
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LegacyHistogramGroupState.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LegacyHistogramGroupState.class).instanceSize();
     private final ObjectBigArray<TypedHistogram> typedHistograms = new ObjectBigArray<>();
     private final Type keyType;
     private final int expectedEntriesCount;
