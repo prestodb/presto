@@ -237,6 +237,8 @@ class TaskManager {
   // coordinator for a considerable time.
   void cancelAbandonedTasks();
 
+  void abortRunningTasks();
+
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTaskImpl(
       const protocol::TaskId& taskId,
       const velox::core::PlanFragment& planFragment,
@@ -264,6 +266,7 @@ class TaskManager {
   folly::Synchronized<TaskQueue> taskQueue_;
   folly::Executor* httpSrvCpuExecutor_;
   std::atomic_bool serverOverloaded_{false};
+  std::atomic_bool shuttingDown_{false};
   std::atomic_uint64_t lastNotOverloadedTimeInSecs_;
   std::atomic_uint32_t numQueuedDrivers_{0};
 };

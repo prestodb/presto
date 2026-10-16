@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/TaskManager.h"
 
+#include <algorithm>
 #include <utility>
 
 #include <boost/uuid/uuid.hpp>
@@ -22,6 +23,7 @@
 #include <velox/core/PlanNode.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/operators/MaterializedOutput.h"
 #include "presto_cpp/main/operators/MaterializedOutputBuffer.h"
@@ -582,6 +584,12 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
             prestoTask->updateInfoLocked(summarize));
       }
 
+      if (shuttingDown_) {
+        prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
+        return std::make_unique<TaskInfo>(
+            prestoTask->updateInfoLocked(summarize));
+      }
+
       const auto baseSpillDir = *(baseSpillDir_.rlock());
       auto spillDiskOpts =
           getTaskSpillOptions(taskId, planFragment, queryCtx, baseSpillDir);
@@ -634,8 +642,14 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
 
       prestoTask->task = std::move(newExecTask);
       prestoTask->info.needsPlan = false;
-      startTask = true;
       prestoTask->createFinishTimeMs = getCurrentTimeMs();
+      // 'prestoTask->mutex' orders this against shutdown()'s abort scan.
+      if (shuttingDown_) {
+        prestoTask->task->requestAbort();
+        return std::make_unique<TaskInfo>(
+            prestoTask->updateInfoLocked(summarize));
+      }
+      startTask = true;
     }
     execTask = prestoTask->task;
   }
@@ -1545,11 +1559,74 @@ int64_t TaskManager::getBytesProcessed() const {
   return totalCount;
 }
 
+void TaskManager::abortRunningTasks() {
+  const TaskMap taskMap = *taskMap_.rlock();
+  std::vector<velox::ContinueFuture> aborted;
+  for (const auto& [id, prestoTask] : taskMap) {
+    std::shared_ptr<velox::exec::Task> task;
+    {
+      std::lock_guard<std::mutex> l(prestoTask->mutex);
+      task = prestoTask->task;
+    }
+    if (task == nullptr || !task->isRunning()) {
+      continue;
+    }
+    PRESTO_SHUTDOWN_LOG(WARNING)
+        << "Aborting task still running at the end of the drain: " << id;
+    try {
+      task->setError(
+          std::make_exception_ptr(
+              velox::VeloxRuntimeError(
+                  __FILE__,
+                  __LINE__,
+                  __FUNCTION__,
+                  /*expression=*/"",
+                  fmt::format(
+                      "Server is shutting down. Task {} was still running at the end of the drain",
+                      id),
+                  velox::error_source::kErrorSourceRuntime,
+                  presto::error_code::kServerShuttingDown,
+                  /*isRetriable=*/false)));
+      aborted.push_back(task->requestAbort());
+    } catch (...) {
+      PRESTO_SHUTDOWN_LOG(WARNING) << "Failed to abort task: " << id;
+    }
+  }
+  if (aborted.empty()) {
+    return;
+  }
+  const auto numAborted = aborted.size();
+  // Same wait as the DELETE path: Drivers unwinding after requestAbort().
+  const auto timeout = std::chrono::milliseconds(taskSyncTerminateTimeoutMs_);
+  try {
+    folly::collectAll(std::move(aborted)).within(timeout).get();
+  } catch (const std::exception& e) {
+    PRESTO_SHUTDOWN_LOG(WARNING)
+        << "Gave up waiting for " << numAborted
+        << " aborted tasks to finish terminating: " << e.what();
+  } catch (...) {
+    PRESTO_SHUTDOWN_LOG(WARNING) << "Gave up waiting for " << numAborted
+                                 << " aborted tasks to finish terminating.";
+  }
+}
+
 void TaskManager::shutdown() {
+  const int32_t drainMaxSeconds =
+      SystemConfig::instance()->shutdownTaskDrainMaxSec();
+  const bool boundDrain = drainMaxSeconds > 0;
+  shuttingDown_ = boundDrain;
   size_t numTasks;
   auto taskNumbers = getTaskNumbers(numTasks);
   size_t seconds = 0;
   while (taskNumbers[static_cast<int>(velox::exec::TaskState::kRunning)] > 0) {
+    if (boundDrain && seconds >= static_cast<size_t>(drainMaxSeconds)) {
+      PRESTO_SHUTDOWN_LOG(WARNING)
+          << "Aborting 'Running' tasks after waiting " << seconds
+          << " seconds for them to complete. " << numTasks
+          << " tasks left: " << PrestoTask::taskStatesToString(taskNumbers);
+      abortRunningTasks();
+      break;
+    }
     PRESTO_SHUTDOWN_LOG(INFO)
         << "Waited (" << seconds
         << " seconds so far) for 'Running' tasks to complete. " << numTasks
