@@ -143,6 +143,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -3516,6 +3517,24 @@ public abstract class IcebergDistributedTestBase
         // update nulls to non-null
         assertUpdate("UPDATE " + tableName + " SET email = 'test@gmail.com' WHERE email is NULL", 4);
         assertQuery("SELECT count(*) FROM " + tableName + " WHERE email is not NULL", "VALUES 4");
+    }
+
+    @Test
+    public void testUpdateWithSemiJoin()
+    {
+        String tableName = "test_update_semi_join_" + randomTableSuffix();
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "PARTITIONED")
+                .build();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id int, name varchar)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'first'), (2, 'second'), (3, 'third')", 3);
+            assertUpdate(session, "UPDATE " + tableName + " SET id = id + 100 WHERE id IN (SELECT * FROM (VALUES (1), (3)))", 2);
+            assertQuery("SELECT id, name FROM " + tableName, "VALUES (101, 'first'), (2, 'second'), (103, 'third')");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Test
