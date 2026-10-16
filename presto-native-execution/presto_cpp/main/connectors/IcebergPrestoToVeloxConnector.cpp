@@ -227,7 +227,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
       // The type from the metastore may have upper case letters
       // in field names, convert them all to lower case to be
       // compatible with Presto.
-      types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
+      types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH_WITH_UNKNOWN(
           fieldNamesToLowerCase, parsedType->kind(), parsedType));
     }
 

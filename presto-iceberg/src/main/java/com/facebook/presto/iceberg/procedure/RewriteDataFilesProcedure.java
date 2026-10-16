@@ -26,6 +26,7 @@ import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.iceberg.PartitionData;
 import com.facebook.presto.iceberg.RuntimeStatsMetricsReporter;
 import com.facebook.presto.iceberg.SortField;
+import com.facebook.presto.iceberg.UnknownFields;
 import com.facebook.presto.iceberg.procedure.context.IcebergRewriteDataFilesProcedureContext;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -219,6 +220,10 @@ public class RewriteDataFilesProcedure
 
             Table icebergTable = procedureContext.getTable();
             validateGeospatialWrite(icebergTable);
+            // Rewriting an all-unknown table would produce a zero-column Parquet file (rejected by
+            // parquet-mr), and rewriting a table with UNKNOWN nested in a struct/array/map would
+            // silently drop those fields from the rewritten files.
+            UnknownFields.validateWritable(icebergTable.schema());
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 
             // Parsed and validated when the procedure context was created

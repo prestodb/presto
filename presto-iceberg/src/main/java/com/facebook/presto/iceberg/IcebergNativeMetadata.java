@@ -458,7 +458,9 @@ public class IcebergNativeMetadata
 
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
         FileFormat fileFormat = tableProperties.getFileFormat(session, tableMetadata.getProperties());
-        validateGeospatialWrite(schema, parseFormatVersion(tableProperties.getFormatVersion(session, tableMetadata.getProperties())), fileFormat);
+        int formatVersion = parseFormatVersion(tableProperties.getFormatVersion(session, tableMetadata.getProperties()));
+        validateGeospatialWrite(schema, formatVersion, fileFormat);
+        validateUnknownColumnsForCreateTable(schema, formatVersion);
 
         try {
             TableIdentifier tableIdentifier = toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled());
