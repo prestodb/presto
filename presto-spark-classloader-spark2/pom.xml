@@ -19,7 +19,8 @@
     <dependency>
       <groupId>com.facebook.presto.spark</groupId>
       <artifactId>spark-core</artifactId>
-      <scope>provided</scope>
+      <version>2.0.2-6</version>
+      <scope>compile</scope>
     </dependency>
 
     <dependency>
@@ -27,6 +28,12 @@
       <artifactId>guava</artifactId>
     </dependency>
 
+    <dependency>
+      <groupId>org.scala-lang</groupId>
+      <artifactId>scala-library</artifactId>
+      <version>2.11.12</version>
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
 
 </project>
