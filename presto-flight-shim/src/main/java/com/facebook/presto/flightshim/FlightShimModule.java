@@ -69,11 +69,16 @@ import com.facebook.presto.security.AccessControlModule;
 import com.facebook.presto.server.PluginManagerConfig;
 import com.facebook.presto.server.security.SecurityConfig;
 import com.facebook.presto.sessionpropertyproviders.NativeWorkerSessionPropertyProvider;
+import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorSplit;
+import com.facebook.presto.spi.ConnectorTableHandle;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PageIndexerFactory;
 import com.facebook.presto.spi.PageSorter;
 import com.facebook.presto.spi.RowExpressionSerde;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
 import com.facebook.presto.spi.relation.DeterminismEvaluator;
 import com.facebook.presto.spi.relation.DomainTranslator;
@@ -157,6 +162,12 @@ public class FlightShimModule
         jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
         jsonCodecBinder(binder).bindJsonCodec(RowExpression.class);
         jsonCodecBinder(binder).bindJsonCodec(ExecutionFailureInfo.class);
+        jsonCodecBinder(binder).bindJsonCodec(FlightShimRequest.class);
+        jsonCodecBinder(binder).bindJsonCodec(ConnectorSplit.class);
+        jsonCodecBinder(binder).bindJsonCodec(ColumnHandle.class);
+        jsonCodecBinder(binder).bindJsonCodec(ConnectorTableHandle.class);
+        jsonCodecBinder(binder).bindJsonCodec(ConnectorTableLayoutHandle.class);
+        jsonCodecBinder(binder).bindJsonCodec(ConnectorTransactionHandle.class);
 
         // Determine the NodeVersion - required by ConnectorManager
         NodeVersion nodeVersion = new NodeVersion("1");

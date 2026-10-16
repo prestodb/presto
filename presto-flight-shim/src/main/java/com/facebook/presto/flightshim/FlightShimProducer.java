@@ -14,18 +14,11 @@
 package com.facebook.presto.flightshim;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
 import com.facebook.plugin.arrow.ArrowBatchSource;
 import com.facebook.presto.Session;
-import com.facebook.presto.block.BlockJsonSerde;
 import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.common.RuntimeStats;
-import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockEncodingManager;
-import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.common.type.Type;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.metadata.Split;
@@ -42,10 +35,8 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.split.PageSourceManager;
-import com.facebook.presto.type.TypeDeserializer;
 import com.facebook.presto.util.Failures;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import org.apache.arrow.flight.BackpressureStrategy;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.ErrorFlightMetadata;
@@ -91,8 +82,7 @@ public class FlightShimProducer
             FlightShimConfig config,
             @ForFlightShimServer ExecutorService shimExecutor,
             PageSourceManager pageSourceManager,
-            TypeDeserializer typeDeserializer,
-            BlockEncodingManager blockEncodingManager,
+            JsonCodec<FlightShimRequest> requestCodec,
             JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec)
     {
         this.allocator = allocator.newChildAllocator("flight-shim", 0, Long.MAX_VALUE);
@@ -100,19 +90,8 @@ public class FlightShimProducer
         this.config = requireNonNull(config, "config is null");
         this.shimExecutor = requireNonNull(shimExecutor, "shimExecutor is null");
         this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
+        this.requestCodec = requireNonNull(requestCodec, "requestCodec is null");
         this.executionFailureInfoCodec = requireNonNull(executionFailureInfoCodec, "executionFailureInfoCodec is null");
-        requireNonNull(typeDeserializer, "typeDeserializer is null");
-        requireNonNull(blockEncodingManager, "blockEncodingManager is null");
-
-        JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
-        BlockJsonSerde.Deserializer blockDeserializer = new BlockJsonSerde.Deserializer(blockEncodingManager);
-        provider.setJsonDeserializers(ImmutableMap.of(
-                RowType.class, typeDeserializer,
-                Type.class, typeDeserializer,
-                Block.class, blockDeserializer));
-        JsonCodecFactory jsonCodecFactory = new JsonCodecFactory(provider);
-
-        this.requestCodec = jsonCodecFactory.jsonCodec(FlightShimRequest.class);
     }
 
     @Override
@@ -135,14 +114,14 @@ public class FlightShimProducer
             FlightShimRequest request = requestCodec.fromJson(ticket.getBytes());
             log.debug("Request for connector: %s", request.getConnectorId());
 
-            FlightShimPluginManager.ConnectorCodecs connectorCodecs = pluginManager.getConnectorCodecs(request.getConnectorId());
+            String connectorName = pluginManager.getConnectorName(request.getConnectorId());
 
-            ConnectorSplit connectorSplit = connectorCodecs.getCodecSplit().fromJson(request.getSplitBytes());
+            ConnectorSplit connectorSplit = pluginManager.decodeSplit(connectorName, request.getSplitBytes());
 
-            ConnectorTableHandle connectorTableHandle = connectorCodecs.getCodecTableHandle().fromJson(request.getTableHandleBytes());
-            ConnectorTransactionHandle transactionHandle = connectorCodecs.getCodecTransactionHandle().fromJson(request.getTransactionHandleBytes());
-            Optional<ConnectorTableLayoutHandle> connectorTableLayoutHandle =
-                    request.getTableLayoutHandleBytes().map(tableLayoutHandleBytes -> connectorCodecs.getCodecTableLayoutHandle().fromJson(tableLayoutHandleBytes));
+            ConnectorTableHandle connectorTableHandle = pluginManager.decodeTableHandle(connectorName, request.getTableHandleBytes());
+            ConnectorTransactionHandle transactionHandle = pluginManager.decodeTransactionHandle(connectorName, request.getTransactionHandleBytes());
+            Optional<ConnectorTableLayoutHandle> connectorTableLayoutHandle = request.getTableLayoutHandleBytes().map(
+                    tableLayoutHandleBytes -> pluginManager.decodeTableLayoutHandle(connectorName, tableLayoutHandleBytes));
             TableHandle tableHandle = new TableHandle(new ConnectorId(request.getConnectorId()), connectorTableHandle, transactionHandle, connectorTableLayoutHandle);
 
             // Create a dummy session to load the connector
@@ -156,7 +135,7 @@ public class FlightShimProducer
             Split split = new Split(connectorId, transactionHandle, connectorSplit);
 
             List<ColumnHandle> columnHandles = request.getColumnHandlesBytes().stream().map(
-                    columnHandleBytes -> connectorCodecs.getCodecColumnHandle().fromJson(columnHandleBytes)
+                    columnHandleBytes -> pluginManager.decodeColumnHandle(connectorName, columnHandleBytes)
             ).collect(toImmutableList());
 
             AtomicInteger fieldCount = new AtomicInteger();
