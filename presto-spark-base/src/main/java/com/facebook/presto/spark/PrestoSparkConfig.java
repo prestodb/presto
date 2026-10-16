@@ -72,6 +72,7 @@ public class PrestoSparkConfig
     private boolean adaptiveQueryExecutionEnabled;
     private boolean adaptiveJoinSideSwitchingEnabled;
     private String nativeExecutionBroadcastBasePath;
+    private boolean nativeExecutionReleaseTaskSourcesEnabled;
     private boolean nativeTerminateWithCoreWhenUnresponsiveEnabled;
     private Duration nativeTerminateWithCoreTimeout = new Duration(5, MINUTES);
     private boolean isDynamicPrestoMemoryPoolTuningEnabled;
@@ -527,6 +528,19 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setNativeExecutionBroadcastBasePath(String nativeExecutionBroadcastBasePath)
     {
         this.nativeExecutionBroadcastBasePath = nativeExecutionBroadcastBasePath;
+        return this;
+    }
+
+    public boolean isNativeExecutionReleaseTaskSourcesEnabled()
+    {
+        return nativeExecutionReleaseTaskSourcesEnabled;
+    }
+
+    @Config("native-execution-release-task-sources-enabled")
+    @ConfigDescription("Release a native task's splits on the executor once they have been sent to the native worker")
+    public PrestoSparkConfig setNativeExecutionReleaseTaskSourcesEnabled(boolean nativeExecutionReleaseTaskSourcesEnabled)
+    {
+        this.nativeExecutionReleaseTaskSourcesEnabled = nativeExecutionReleaseTaskSourcesEnabled;
         return this;
     }
 

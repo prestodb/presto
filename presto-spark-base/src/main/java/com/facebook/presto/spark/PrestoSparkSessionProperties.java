@@ -74,6 +74,7 @@ public class PrestoSparkSessionProperties
     public static final String SPARK_ADAPTIVE_QUERY_EXECUTION_ENABLED = "spark_adaptive_query_execution_enabled";
     public static final String ADAPTIVE_JOIN_SIDE_SWITCHING_ENABLED = "adaptive_join_side_switching_enabled";
     public static final String NATIVE_EXECUTION_BROADCAST_BASE_PATH = "native_execution_broadcast_base_path";
+    public static final String NATIVE_EXECUTION_RELEASE_TASK_SOURCES_ENABLED = "native_execution_release_task_sources_enabled";
     public static final String NATIVE_TERMINATE_WITH_CORE_WHEN_UNRESPONSIVE_ENABLED = "native_terminate_with_core_when_unresponsive_enabled";
     public static final String NATIVE_TERMINATE_WITH_CORE_TIMEOUT = "native_terminate_with_core_timeout";
     public static final String DYNAMIC_PRESTO_MEMORY_POOL_TUNING_ENABLED = "dynamic_presto_memory_pool_tuning_enabled";
@@ -284,6 +285,11 @@ public class PrestoSparkSessionProperties
                         prestoSparkConfig.getNativeExecutionBroadcastBasePath(),
                         false),
                 booleanProperty(
+                        NATIVE_EXECUTION_RELEASE_TASK_SOURCES_ENABLED,
+                        "Release a native task's splits on the executor once they have been sent to the native worker",
+                        prestoSparkConfig.isNativeExecutionReleaseTaskSourcesEnabled(),
+                        false),
+                booleanProperty(
                         NATIVE_TERMINATE_WITH_CORE_WHEN_UNRESPONSIVE_ENABLED,
                         "Terminate native execution process with core when it becomes unresponsive",
                         prestoSparkConfig.isNativeTerminateWithCoreWhenUnresponsiveEnabled(),
@@ -483,6 +489,11 @@ public class PrestoSparkSessionProperties
     public static String getNativeExecutionBroadcastBasePath(Session session)
     {
         return session.getSystemProperty(NATIVE_EXECUTION_BROADCAST_BASE_PATH, String.class);
+    }
+
+    public static boolean isNativeExecutionReleaseTaskSourcesEnabled(Session session)
+    {
+        return session.getSystemProperty(NATIVE_EXECUTION_RELEASE_TASK_SOURCES_ENABLED, Boolean.class);
     }
 
     public static boolean isNativeTerminateWithCoreWhenUnresponsiveEnabled(Session session)
