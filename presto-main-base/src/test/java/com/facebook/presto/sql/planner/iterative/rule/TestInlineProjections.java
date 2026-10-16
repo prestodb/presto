@@ -55,17 +55,15 @@ public class TestInlineProjections
                         project(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                         .put("out1", PlanMatchPattern.expression("x"))
-                                        .put("out2", PlanMatchPattern.expression("y + 1"))
-                                        .put("out3", PlanMatchPattern.expression("y + 2"))
+                                        .put("out2", PlanMatchPattern.expression("x * 2 + 1"))
+                                        .put("out3", PlanMatchPattern.expression("x * 2 + 2"))
                                         .put("out4", PlanMatchPattern.expression("1 + 1"))
                                         .put("out5", PlanMatchPattern.expression("1 + 2"))
                                         .put("out6", PlanMatchPattern.expression("x - 1 + 2"))
-                                        .put("out7", PlanMatchPattern.expression("try(y / 1)"))
+                                        .put("out7", PlanMatchPattern.expression("try(x * 2 / 1)"))
                                         .build(),
                                 project(
-                                        ImmutableMap.of(
-                                                "x", PlanMatchPattern.expression("x"),
-                                                "y", PlanMatchPattern.expression("x * 2")),
+                                        ImmutableMap.of(),
                                         values(ImmutableMap.of("x", 0)))));
     }
 
@@ -101,16 +99,14 @@ public class TestInlineProjections
                         project(
                                 ImmutableMap.<String, ExpressionMatcher>builder()
                                         .put("out1", PlanMatchPattern.expression("x"))
-                                        .put("out2", PlanMatchPattern.expression("y + 1"))
-                                        .put("out3", PlanMatchPattern.expression("y + 2"))
+                                        .put("out2", PlanMatchPattern.expression("x * 2 + 1"))
+                                        .put("out3", PlanMatchPattern.expression("x * 2 + 2"))
                                         .put("out4", PlanMatchPattern.expression("1 + 1"))
                                         .put("out5", PlanMatchPattern.expression("1 + 2"))
                                         .put("out6", PlanMatchPattern.expression("x - 1 + 2"))
                                         .build(),
                                 project(
-                                        ImmutableMap.of(
-                                                "x", PlanMatchPattern.expression("x"),
-                                                "y", PlanMatchPattern.expression("x * 2")),
+                                        ImmutableMap.of(),
                                         values(ImmutableMap.of("x", 0)))));
     }
 
