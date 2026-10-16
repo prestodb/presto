@@ -213,7 +213,7 @@ public class LongDirectBatchStreamReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (longNonNullValueTemp.length < minNonNullValueSize) {
             longNonNullValueTemp = new long[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(longNonNullValueTemp));
+            systemMemoryContext.setBytes(getRetainedSizeInBytes());
         }
 
         dataStream.next(longNonNullValueTemp, nonNullCount);
@@ -237,7 +237,7 @@ public class LongDirectBatchStreamReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (intNonNullValueTemp.length < minNonNullValueSize) {
             intNonNullValueTemp = new int[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(intNonNullValueTemp));
+            systemMemoryContext.setBytes(getRetainedSizeInBytes());
         }
 
         dataStream.next(intNonNullValueTemp, nonNullCount);
@@ -254,7 +254,7 @@ public class LongDirectBatchStreamReader
         int minNonNullValueSize = minNonNullValueSize(nonNullCount);
         if (shortNonNullValueTemp.length < minNonNullValueSize) {
             shortNonNullValueTemp = new short[minNonNullValueSize];
-            systemMemoryContext.setBytes(sizeOf(shortNonNullValueTemp));
+            systemMemoryContext.setBytes(getRetainedSizeInBytes());
         }
 
         dataStream.next(shortNonNullValueTemp, nonNullCount);
@@ -323,6 +323,6 @@ public class LongDirectBatchStreamReader
     @Override
     public long getRetainedSizeInBytes()
     {
-        return INSTANCE_SIZE;
+        return INSTANCE_SIZE + sizeOf(shortNonNullValueTemp) + sizeOf(longNonNullValueTemp) + sizeOf(intNonNullValueTemp);
     }
 }
