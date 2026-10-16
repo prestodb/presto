@@ -30,6 +30,7 @@ import com.facebook.presto.common.type.RealType;
 import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.VarbinaryType;
@@ -71,6 +72,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
@@ -581,6 +583,10 @@ public class IcebergPageSink
             // Iceberg expects epoch-microseconds. toEpochMicros converts both TIMESTAMP (p=3, millis)
             // and TIMESTAMP_MICROSECONDS (p=6, micros) to the required unit.
             return ((TimestampType) type).toEpochMicros(type.getLong(block, position));
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            // Iceberg expects timestamptz values as epoch-microseconds in UTC.
+            return MILLISECONDS.toMicros(unpackMillisUtc(type.getLong(block, position)));
         }
         if (type instanceof TimeType) {
             long time = type.getLong(block, position);
