@@ -20,8 +20,18 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.facebook.airlift</groupId>
+            <artifactId>json</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-base-jdbc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-parser</artifactId>
         </dependency>
 
         <dependency>
@@ -57,6 +67,11 @@
         <dependency>
             <groupId>com.esri.geometry</groupId>
             <artifactId>esri-geometry-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
 
         <!-- Presto SPI -->
