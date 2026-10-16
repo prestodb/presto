@@ -1854,6 +1854,14 @@ SQL Support
      - Yes
      - Yes
      -
+   * - ``ALTER TABLE ALTER COLUMN SET NOT NULL``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN DROP NOT NULL``
+     - Yes
+     - Yes
+     -
    * - ``ALTER VIEW``
      - Yes
      - Yes
@@ -2271,6 +2279,69 @@ The optional ``IF NOT EXISTS`` clause suppresses the error if the field already 
 The dotted path may refer to arbitrarily nested fields. The following clauses are not supported
 for nested fields and will be rejected: ``NOT NULL``, ``COMMENT``, ``DEFAULT``,
 ``GENERATED``/``AS``, ``WITH`` properties, and ``FIRST``/``AFTER``.
+
+ALTER COLUMN SET NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports adding a ``NOT NULL`` constraint on an existing column
+via ``ALTER COLUMN``.
+
+.. code-block:: sql
+
+    ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id SET NOT NULL;
+
+Only top-level columns of primitive types can be altered, and the statement is not supported on a branch.
+
+``SET NOT NULL`` checks existing data before it changes the schema. It reads the ``NULL`` counts
+that Iceberg keeps in the manifests for the head of every branch, and fails if a data file has
+``NULL`` values in the column or has no ``NULL`` count for it. No data file is read.
+
+* ``NULL`` counts are recorded when a data file is written and do not reflect later row-level
+  deletes. After ``UPDATE`` or ``DELETE`` removes the ``NULL`` values, run ``rewrite_data_files``
+  with the ``rewrite-all`` option before retrying ``SET NOT NULL``. A ``DELETE`` that removes whole
+  partitions needs no rewrite. ``rewrite_data_files`` rewrites only the ``main`` branch, so if the
+  file is on another branch, drop or replace that branch.
+* A data file has no ``NULL`` count for a column added after the file was written, for a column
+  whose metrics mode is ``none``, or for a column past
+  ``write.metadata.metrics.max-inferred-column-defaults``. ``SET NOT NULL`` on such a column fails
+  while those files exist. The exception is a column added with ``DEFAULT`` (Iceberg V3): data
+  files written before the column was added read the default, so they are accepted while the table
+  still has a snapshot from before the column was added. After those snapshots expire, run
+  ``rewrite_data_files`` with the ``rewrite-all`` option, which writes the default into new data
+  files with a ``NULL`` count.
+* Tags and older snapshots are not checked, because they are read with the schema of their snapshot.
+* Branches are read with the current schema. So ``rollback_to_snapshot``, ``rollback_to_timestamp``,
+  ``set_current_snapshot``, ``fast_forward``, and ``CREATE [OR REPLACE] BRANCH ... FOR SYSTEM_VERSION | SYSTEM_TIME AS OF``
+  fail if the data files of the target snapshot can hold ``NULL`` values in a column that is now
+  ``NOT NULL``. Drop the constraint before moving the branch.
+* After the constraint is set, a write that stores ``NULL`` in the column fails.
+* Setting ``NOT NULL`` on a primitive column that already has the constraint succeeds and does not change the schema.
+
+.. warning::
+
+    A write that was already running when ``SET NOT NULL`` committed is not checked against the
+    constraint and can still store ``NULL`` values. Other engines can also make a column required,
+    or move a branch to an older snapshot, without checking its data. Readers, including Presto,
+    treat a required column as never ``NULL``. So on such a column, ``IS NULL`` can miss those rows,
+    ``count`` can be wrong, and a ``DELETE`` or a ``rewrite_data_files`` filter with ``IS NOT NULL``
+    on a partition column can remove them.
+
+ALTER COLUMN DROP NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports removing a ``NOT NULL`` constraint from an existing column
+via ``ALTER COLUMN``.
+
+.. code-block:: sql
+
+    ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id DROP NOT NULL;
+
+The same restrictions as ``SET NOT NULL`` apply, except that columns of any type can be altered.
+Dropping the constraint fails on a column that does not have it, and on an Iceberg identifier
+field, which must stay ``NOT NULL``.
+
+``DROP NOT NULL`` changes only the schema and does not read or rewrite data files. Existing values
+are kept, and later writes can store ``NULL`` in the column.
 
 ALTER VIEW
 ^^^^^^^^^^

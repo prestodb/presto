@@ -764,6 +764,127 @@ public class TestIcebergV3
         }
     }
 
+    /**
+     * Files written before a column was added have no NULL count for it but read its initial default.
+     */
+    @Test
+    public void testSetNotNullOnColumnAddedWithDefault()
+    {
+        String tableName = "test_set_not_null_on_column_added_with_default";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 BIGINT) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c2 BIGINT DEFAULT 5");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 7)", 1);
+
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
+            assertQuery("SELECT is_nullable FROM information_schema.columns WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + tableName + "' AND column_name = 'c2'",
+                    "VALUES 'NO'");
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5), (2, 7)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    /**
+     * Once the snapshot from before the column was added expires, older files are not known to read its initial
+     * default. A rewrite writes the default out with a NULL count.
+     */
+    @Test
+    public void testSetNotNullOnColumnAddedWithDefaultAfterOlderSnapshotsExpire()
+    {
+        String tableName = "test_set_not_null_default_after_older_snapshots_expire";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 BIGINT) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            long beforeColumnAdded = loadTable(tableName).currentSnapshot().snapshotId();
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c2 BIGINT DEFAULT 5");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 7)", 1);
+            assertUpdate(format("CALL system.expire_snapshots(schema => '%s', table_name => '%s', snapshot_ids => ARRAY[%d])", TEST_SCHEMA, tableName, beforeColumnAdded));
+
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", ".*has no NULL count for the column.*");
+            assertQuerySucceeds(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['rewrite-all'], array['true']))", TEST_SCHEMA, tableName));
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5), (2, 7)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    /**
+     * Every row of a snapshot from before a column was added reads the column's initial default.
+     */
+    @Test
+    public void testRollbackToSnapshotBeforeRequiredColumnWithDefaultWasAdded()
+    {
+        String tableName = "test_rollback_before_required_column_with_default";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 BIGINT) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            long beforeColumnAdded = loadTable(tableName).currentSnapshot().snapshotId();
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c2 BIGINT DEFAULT 5");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 7)", 1);
+            // Made required via the Iceberg API, so only the rollback's check runs
+            loadTable(tableName).updateSchema().allowIncompatibleChanges().requireColumn("c2").commit();
+
+            assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %d)", TEST_SCHEMA, tableName, beforeColumnAdded));
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testSetNotNullOnColumnWithDefaultAndNullValues()
+    {
+        assertSetNotNullFails("test_set_not_null_default_with_null", "",
+                "has NULL values in the column",
+                "ALTER TABLE %s ADD COLUMN c2 BIGINT DEFAULT 5",
+                "INSERT INTO %s VALUES (2, NULL)");
+    }
+
+    /**
+     * Only files written before the column was added read its initial default; for later files, the NULL count decides.
+     */
+    @Test
+    public void testSetNotNullOnColumnWithDefaultWithoutNullCount()
+    {
+        assertSetNotNullFails("test_set_not_null_default_without_null_count", ", \"write.metadata.metrics.max-inferred-column-defaults\" = 1",
+                "has no NULL count for the column",
+                "ALTER TABLE %s ADD COLUMN c2 BIGINT DEFAULT 5",
+                "INSERT INTO %s VALUES (2, NULL)");
+    }
+
+    /**
+     * A write default applies only to new writes, so files written before the column was added read NULL.
+     */
+    @Test
+    public void testSetNotNullOnColumnWithWriteDefaultOnly()
+    {
+        assertSetNotNullFails("test_set_not_null_write_default_only", "",
+                "has no NULL count for the column",
+                "ALTER TABLE %s ADD COLUMN c2 BIGINT",
+                "ALTER TABLE %s ALTER COLUMN c2 SET DEFAULT 5");
+    }
+
+    private void assertSetNotNullFails(String tableName, String tableProperties, String expectedError, String... statements)
+    {
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 BIGINT) WITH (\"format-version\" = '3'" + tableProperties + ")");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            for (String statement : statements) {
+                assertQuerySucceeds(format(statement, tableName));
+            }
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", ".*" + expectedError + ".*");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     private Table loadTable(String tableName)
     {
         Catalog catalog = CatalogUtil.loadCatalog(

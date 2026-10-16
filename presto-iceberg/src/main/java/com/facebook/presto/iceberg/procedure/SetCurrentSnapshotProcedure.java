@@ -33,8 +33,10 @@ import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.verifyNoNullValuesInRequiredColumns;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.SnapshotRef.MAIN_BRANCH;
 
 public class SetCurrentSnapshotProcedure
         implements Provider<Procedure>
@@ -79,6 +81,7 @@ public class SetCurrentSnapshotProcedure
             IcebergTransactionMetadata metadata = metadataFactory.create();
             Table icebergTable = getIcebergTable(metadata, clientSession, schemaTableName);
             long targetSnapshotId = snapshotId != null ? snapshotId : getSnapshotIdFromReference(icebergTable, reference);
+            verifyNoNullValuesInRequiredColumns(icebergTable, schemaTableName, MAIN_BRANCH, targetSnapshotId);
             icebergTable.manageSnapshots().setCurrentSnapshot(targetSnapshotId).commit();
             metadata.commit();
         }

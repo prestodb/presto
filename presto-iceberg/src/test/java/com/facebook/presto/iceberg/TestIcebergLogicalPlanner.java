@@ -78,6 +78,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
+import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.NATIVE_UPDATE_MERGE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_DEREFERENCE_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
@@ -145,6 +147,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.NaN;
 import static java.lang.String.format;
@@ -3650,6 +3653,38 @@ public class TestIcebergLogicalPlanner
         }
         finally {
             getQueryRunner().execute(sessionWithoutSubfieldPushdown, "DROP TABLE " + targetTable);
+        }
+    }
+
+    @Test
+    public void testNativeUpdatePlansSetValuesInTableColumnOrder()
+    {
+        String tableName = "native_update_set_order_" + randomTableSuffix();
+        // PushdownSubfields fails on MERGE's synthetic $target_table_row_id variable.
+        Session nativeUpdateSession = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(PUSHDOWN_SUBFIELDS_ENABLED, "false")
+                .setSystemProperty(NATIVE_EXECUTION_ENABLED, "true")
+                .setSystemProperty(NATIVE_UPDATE_MERGE_ENABLED, "true")
+                .build();
+        try {
+            getQueryRunner().execute(format("CREATE TABLE %s (a BIGINT, b BIGINT NOT NULL)", tableName));
+            getQueryRunner().execute(format("INSERT INTO %s VALUES (1, 2)", tableName));
+
+            // SET lists b before a; a column assigned twice takes its first value.
+            for (String update : ImmutableList.of(
+                    format("UPDATE %s SET b = a + 222222, b = a + 333333, a = a + 111111", tableName),
+                    format("UPDATE %s SET b = a + 222222, a = a + 111111", tableName))) {
+                String mergeRow = Arrays.stream(planText(update, nativeUpdateSession).split("\n"))
+                        .filter(line -> line.contains("merge_row :="))
+                        .collect(onlyElement());
+                int aValue = mergeRow.indexOf("111111");
+                int bValue = mergeRow.indexOf("222222");
+                assertTrue(aValue >= 0 && aValue < bValue && !mergeRow.contains("333333"),
+                        "merge_row should hold the value of a, then the value of b, but was: " + mergeRow);
+            }
+        }
+        finally {
+            getQueryRunner().execute("DROP TABLE IF EXISTS " + tableName);
         }
     }
 

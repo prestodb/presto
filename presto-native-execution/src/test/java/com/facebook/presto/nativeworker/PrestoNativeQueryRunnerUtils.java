@@ -170,6 +170,7 @@ public class PrestoNativeQueryRunnerUtils
                         .putAll(getNativeWorkerHiveProperties())
                         .put("hive.allow-drop-table", "true")
                         .put("hive.allow-add-constraint", "true")
+                        .put("hive.allow-drop-constraint", "true")
                         .build());
                 this.security = "legacy";
                 this.useExternalWorkerLauncher = true;

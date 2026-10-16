@@ -22,17 +22,25 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import jakarta.inject.Inject;
+import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.util.SnapshotUtil;
 
 import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.verifyNoNullValuesInRequiredColumns;
+import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
+import static org.apache.iceberg.SnapshotRef.MAIN_BRANCH;
 
 public class RollbackToTimestampProcedure
         implements Provider<Procedure>
@@ -77,10 +85,24 @@ public class RollbackToTimestampProcedure
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, tableName);
         IcebergTransactionMetadata metadata = metadataFactory.create();
-        getIcebergTable(metadata, clientSession, schemaTableName)
-                .manageSnapshots()
-                .rollbackToTime(timestamp.isLegacyTimestamp() ? timestamp.getMillisUtc() : timestamp.getMillis())
-                .commit();
+        Table icebergTable = getIcebergTable(metadata, clientSession, schemaTableName);
+        long timestampMillis = timestamp.isLegacyTimestamp() ? timestamp.getMillisUtc() : timestamp.getMillis();
+        // Same target as ManageSnapshots.rollbackToTime: the newest ancestor strictly older than the timestamp.
+        Optional<Snapshot> target = Streams.stream(SnapshotUtil.currentAncestors(icebergTable))
+                .filter(snapshot -> snapshot.timestampMillis() < timestampMillis)
+                .max(comparingLong(Snapshot::timestampMillis));
+        if (target.isPresent()) {
+            verifyNoNullValuesInRequiredColumns(icebergTable, schemaTableName, MAIN_BRANCH, target.get().snapshotId());
+            icebergTable.manageSnapshots()
+                    .rollbackTo(target.get().snapshotId())
+                    .commit();
+        }
+        else {
+            // Nothing is older than the timestamp; let Iceberg reject it.
+            icebergTable.manageSnapshots()
+                    .rollbackToTime(timestampMillis)
+                    .commit();
+        }
         metadata.commit();
     }
 }

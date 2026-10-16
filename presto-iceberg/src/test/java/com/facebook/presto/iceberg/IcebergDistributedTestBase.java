@@ -3546,6 +3546,33 @@ public abstract class IcebergDistributedTestBase
         assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 44, 23)");
     }
 
+    @Test
+    public void testUpdateNullIntoNotNullColumn()
+    {
+        String tableName = "test_update_not_null_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (a BIGINT, b BIGINT NOT NULL, c BIGINT)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2, 3), (4, 5, 6)", 2);
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c SET NOT NULL");
+
+            assertQueryFails("UPDATE " + tableName + " SET b = NULL WHERE a = 1", "NULL value not allowed for NOT NULL column. Table: " + tableName + " Column: b");
+            assertQueryFails("UPDATE " + tableName + " SET c = NULL", "NULL value not allowed for NOT NULL column. Table: " + tableName + " Column: c");
+            assertQueryFails("UPDATE " + tableName + " SET c = IF(a = 4, NULL, c)", "NULL value not allowed for NOT NULL column. Table: " + tableName + " Column: c");
+            assertQuery("SELECT a, b, c FROM " + tableName, "VALUES (1, 2, 3), (4, 5, 6)");
+
+            assertUpdate("UPDATE " + tableName + " SET a = NULL, b = b + 1 WHERE a = 1", 1);
+            assertQuery("SELECT a, b, c FROM " + tableName, "VALUES (NULL, 3, 3), (4, 5, 6)");
+
+            // A column assigned more than once takes its first value.
+            assertQueryFails("UPDATE " + tableName + " SET b = NULL, b = 7 WHERE a = 4", "NULL value not allowed for NOT NULL column. Table: " + tableName + " Column: b");
+            assertUpdate("UPDATE " + tableName + " SET c = 7, c = 8 WHERE a = 4", 1);
+            assertQuery("SELECT a, b, c FROM " + tableName, "VALUES (NULL, 3, 3), (4, 5, 7)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     public void testUpdateOnPartitionTable()
     {
         String tableName = "test_update_partition_column_" + randomTableSuffix();
