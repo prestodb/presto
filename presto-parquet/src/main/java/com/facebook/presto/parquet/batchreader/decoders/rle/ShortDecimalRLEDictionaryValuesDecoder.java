@@ -25,7 +25,7 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.getShortDecimalValue;
 import static java.util.Objects.requireNonNull;
 
 public class ShortDecimalRLEDictionaryValuesDecoder
-        extends BaseRLEBitPackedDecoder
+        extends GenericRLEDictionaryValuesDecoder
         implements ShortDecimalValuesDecoder
 {
     private final BinaryRLEDictionaryValuesDecoder delegate;
