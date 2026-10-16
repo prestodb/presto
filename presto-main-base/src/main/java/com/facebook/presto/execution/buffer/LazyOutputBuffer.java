@@ -219,7 +219,10 @@ public class LazyOutputBuffer
     @Override
     public void acknowledge(OutputBufferId bufferId, long token)
     {
-        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
+        OutputBuffer outputBuffer = getDelegateOrNullIfTerminal();
+        if (outputBuffer == null) {
+            return;
+        }
         outputBuffer.acknowledge(bufferId, token);
     }
 
@@ -244,35 +247,50 @@ public class LazyOutputBuffer
     @Override
     public ListenableFuture<?> isFull()
     {
-        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
+        OutputBuffer outputBuffer = getDelegateOrNullIfTerminal();
+        if (outputBuffer == null) {
+            return immediateFuture(null);
+        }
         return outputBuffer.isFull();
     }
 
     @Override
     public void registerLifespanCompletionCallback(Consumer<Lifespan> callback)
     {
-        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
+        OutputBuffer outputBuffer = getDelegateOrNullIfTerminal();
+        if (outputBuffer == null) {
+            return;
+        }
         outputBuffer.registerLifespanCompletionCallback(callback);
     }
 
     @Override
     public void enqueue(Lifespan lifespan, List<SerializedPage> pages)
     {
-        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
+        OutputBuffer outputBuffer = getDelegateOrNullIfTerminal();
+        if (outputBuffer == null) {
+            return;
+        }
         outputBuffer.enqueue(lifespan, pages);
     }
 
     @Override
     public void enqueue(Lifespan lifespan, int partition, List<SerializedPage> pages)
     {
-        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
+        OutputBuffer outputBuffer = getDelegateOrNullIfTerminal();
+        if (outputBuffer == null) {
+            return;
+        }
         outputBuffer.enqueue(lifespan, partition, pages);
     }
 
     @Override
     public void setNoMorePages()
     {
-        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
+        OutputBuffer outputBuffer = getDelegateOrNullIfTerminal();
+        if (outputBuffer == null) {
+            return;
+        }
         outputBuffer.setNoMorePages();
     }
 
@@ -329,14 +347,20 @@ public class LazyOutputBuffer
     @Override
     public void setNoMorePagesForLifespan(Lifespan lifespan)
     {
-        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
+        OutputBuffer outputBuffer = getDelegateOrNullIfTerminal();
+        if (outputBuffer == null) {
+            return;
+        }
         outputBuffer.setNoMorePagesForLifespan(lifespan);
     }
 
     @Override
     public boolean isFinishedForLifespan(Lifespan lifespan)
     {
-        OutputBuffer outputBuffer = getDelegateOutputBufferOrFail();
+        OutputBuffer outputBuffer = getDelegateOrNullIfTerminal();
+        if (outputBuffer == null) {
+            return true;
+        }
         return outputBuffer.isFinishedForLifespan(lifespan);
     }
 
@@ -368,6 +392,20 @@ public class LazyOutputBuffer
         OutputBuffer outputBuffer = getDelegateOutputBuffer();
         checkState(outputBuffer != null, "Buffer has not been initialized");
         return outputBuffer;
+    }
+
+    /** Returns delegate if initialized, or null when state is already terminal (task finished/failed before buffer init). */
+    @Nullable
+    private OutputBuffer getDelegateOrNullIfTerminal()
+    {
+        OutputBuffer outputBuffer = getDelegateOutputBuffer();
+        if (outputBuffer != null) {
+            return outputBuffer;
+        }
+        if (state.get().isTerminal()) {
+            return null;
+        }
+        throw new IllegalStateException("Buffer has not been initialized");
     }
 
     private static class PendingRead
