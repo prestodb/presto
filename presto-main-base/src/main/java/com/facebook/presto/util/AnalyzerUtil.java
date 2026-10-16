@@ -138,6 +138,7 @@ public class AnalyzerUtil
             AccessControl accessControl = accessControlInfo.getAccessControl();
             QualifiedObjectName tableName = accessControlInfoForTable.getTableName();
             Identity identity = accessControlInfo.getIdentity();
+
             Optional<TransactionId> transactionId = accessControlInfo.getTransactionId();
             checkState(transactionId.isPresent(), "transactionId is not present");
             AccessControlContext accessControlContext = accessControlInfo.getAccessControlContext();
