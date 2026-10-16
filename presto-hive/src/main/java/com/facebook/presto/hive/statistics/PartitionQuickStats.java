@@ -65,15 +65,15 @@ public class PartitionQuickStats
 
             HiveColumnStatistics hiveColumnStatistics;
             if (columnQuickStats.getStatType().equals(Integer.class)) {
-                hiveColumnStatistics = createIntegerColumnStatistics(OptionalLong.of((int) minValue), OptionalLong.of((int) maxValue),
+                hiveColumnStatistics = createIntegerColumnStatistics(toOptionalLong(minValue), toOptionalLong(maxValue),
                         OptionalLong.of(nullsCount), OptionalLong.empty());
             }
             else if (columnQuickStats.getStatType().equals(Long.class)) {
-                hiveColumnStatistics = createIntegerColumnStatistics(OptionalLong.of((long) minValue), OptionalLong.of((long) maxValue),
+                hiveColumnStatistics = createIntegerColumnStatistics(toOptionalLong(minValue), toOptionalLong(maxValue),
                         OptionalLong.of(nullsCount), OptionalLong.empty());
             }
             else if (columnQuickStats.getStatType().equals(Double.class)) {
-                hiveColumnStatistics = createDoubleColumnStatistics(OptionalDouble.of((double) minValue), OptionalDouble.of((double) maxValue),
+                hiveColumnStatistics = createDoubleColumnStatistics(minValue == null ? OptionalDouble.empty() : OptionalDouble.of((double) minValue), maxValue == null ? OptionalDouble.empty() : OptionalDouble.of((double) maxValue),
                         OptionalLong.of(nullsCount), OptionalLong.empty());
             }
             else if (columnQuickStats.getStatType().equals(Slice.class)) {
@@ -83,7 +83,7 @@ public class PartitionQuickStats
                 hiveColumnStatistics = createBooleanColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(nullsCount));
             }
             else if (columnQuickStats.getStatType().equals(ChronoLocalDate.class)) {
-                hiveColumnStatistics = createDateColumnStatistics(Optional.of((LocalDate) minValue), Optional.of((LocalDate) maxValue),
+                hiveColumnStatistics = createDateColumnStatistics(Optional.ofNullable((LocalDate) minValue), Optional.ofNullable((LocalDate) maxValue),
                         OptionalLong.of(nullsCount), OptionalLong.empty());
             }
             else {
@@ -109,6 +109,12 @@ public class PartitionQuickStats
                 OptionalLong.empty());
 
         return new PartitionStatistics(hiveBasicStatistics, hiveColumnStatisticsBuilder.build());
+    }
+
+    // Min/max are null when the files had no usable min/max for the column
+    private static OptionalLong toOptionalLong(Object value)
+    {
+        return value == null ? OptionalLong.empty() : OptionalLong.of(((Number) value).longValue());
     }
 
     public List<ColumnQuickStats<?>> getStats()
