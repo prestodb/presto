@@ -138,6 +138,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spi.ConnectorMergeSink.DELETE_OPERATION_NUMBER;
@@ -917,7 +918,7 @@ public class QueryPlanner
         // Build the "else" clause for the SearchedCaseExpression
         ImmutableList.Builder<Expression> joinElseBuilder = ImmutableList.builder();
         mergeAnalysis.getTargetColumnsMetadata().forEach(columnMetadata ->
-                joinElseBuilder.add(new Cast(new NullLiteral(), columnMetadata.getType().getDisplayName())));
+                joinElseBuilder.add(nullValueOfType(columnMetadata.getType())));
 
         // The operation number column value: -1
         joinElseBuilder.add(new GenericLiteral("TINYINT", "-1"));
@@ -1110,6 +1111,15 @@ public class QueryPlanner
             return UPDATE_OPERATION_NUMBER;
         }
         throw new IllegalArgumentException("Unrecognized MergeCase: " + mergeCase);
+    }
+
+    private static Expression nullValueOfType(Type type)
+    {
+        // A null literal already has the unknown type, and casting it to unknown is not supported.
+        if (type.equals(UNKNOWN)) {
+            return new NullLiteral();
+        }
+        return new Cast(new NullLiteral(), type.getDisplayName());
     }
 
     private static RowType createMergeRowType(List<ColumnMetadata> allColumnsMetadata)

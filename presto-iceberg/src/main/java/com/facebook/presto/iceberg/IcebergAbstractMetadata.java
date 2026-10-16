@@ -28,6 +28,7 @@ import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.BaseHiveColumnHandle;
 import com.facebook.presto.hive.HiveOutputInfo;
@@ -431,6 +432,32 @@ public abstract class IcebergAbstractMetadata
         return Optional.ofNullable(this.procedureContext.get());
     }
 
+    // DDL validation for CREATE TABLE and CTAS: enforces the V3 format requirement and rejects UNKNOWN nested in composite types.
+    static void validateUnknownColumnsForCreateTable(Schema schema, int formatVersion)
+    {
+        if (formatVersion < 3 && UnknownFields.containsUnknownType(schema.asStruct())) {
+            String firstUnknownColumn = schema.columns().stream()
+                    .filter(column -> UnknownFields.containsUnknownType(column.type()))
+                    .map(Types.NestedField::name)
+                    .findFirst()
+                    .orElse("?");
+            throw new PrestoException(NOT_SUPPORTED, format(
+                    "Tables with unknown columns require format-version = '3' (first unknown column: '%s'). " +
+                            "Set format-version = '3' in WITH properties, " +
+                            "or CAST the column to a concrete type (e.g. CAST(NULL AS INTEGER)).",
+                    firstUnknownColumn));
+        }
+        schema.columns().stream()
+                .filter(column -> UnknownFields.containsUnknownType(column.type()) && !UnknownFields.isUnknownType(column.type()))
+                .findFirst()
+                .ifPresent(column -> {
+                    throw new PrestoException(NOT_SUPPORTED, format(
+                            "Unknown type nested inside a row, array, or map is not yet supported (column: '%s'). " +
+                                    "Use a top-level UNKNOWN column instead.",
+                            column.name()));
+                });
+    }
+
     protected static void validateTableForPresto(BaseTable table, Optional<Long> tableSnapshotId)
     {
         Snapshot snapshot;
@@ -721,19 +748,32 @@ public abstract class IcebergAbstractMetadata
     {
         shouldRunInAutoCommitTransaction("CREATE TABLE");
         Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
-        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
+        // Bypass finishCreateTable (which rejects all-UNKNOWN CTAS) so that plain DDL can create
+        // an all-UNKNOWN table; writes to such a table are rejected later at INSERT time.
+        finishInsert(session, (IcebergOutputTableHandle) beginCreateTable(session, tableMetadata, layout), ImmutableList.of());
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        return finishInsert(session, (IcebergOutputTableHandle) tableHandle, fragments);
+        IcebergOutputTableHandle outputHandle = (IcebergOutputTableHandle) tableHandle;
+        // The native worker writes nothing when every column is UNKNOWN, producing empty fragments
+        // that would commit silently.  Enforce the same all-UNKNOWN rejection here so that CTAS
+        // fails consistently on both Java and native runners.
+        if (!outputHandle.getInputColumns().isEmpty() &&
+                outputHandle.getInputColumns().stream().allMatch(col -> col.getType() instanceof UnknownType)) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    "Writing to a table where every column is of type UNKNOWN is not supported");
+        }
+        return finishInsert(session, outputHandle, fragments);
     }
 
     protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable, List<String> insertColumnNames)
     {
         validateBranchExists(table, icebergTable);
         validateGeospatialWrite(icebergTable);
+        // Return value (file schema) is intentionally ignored here; IcebergFileWriterFactory recomputes it per writer.
+        UnknownFields.validateWritable(icebergTable.schema());
         return new IcebergInsertTableHandle(
                 table.getSchemaName(),
                 table.getIcebergTableName(),
@@ -1586,6 +1626,23 @@ public abstract class IcebergAbstractMetadata
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
         validateNoBranchSpecified(handle, "ADD COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        // Reject an unknown-type column on a pre-V3 table rather than accepting the schema change
+        // and failing every subsequent write with a cryptic internal error from Iceberg's schema commit
+        if (UnknownFields.containsUnknownType(columnType)) {
+            validateMinimumFormatVersion(icebergTable, 3, format(
+                    "Adding a column of type unknown is only supported with Iceberg format version 3 or higher. " +
+                            "Table '%s' is currently at format version %d. " +
+                            "Declare a concrete column type, or recreate the table with format-version = '3'.",
+                    handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion()));
+            // Nested UNKNOWN (e.g. ARRAY(UNKNOWN), MAP(k, UNKNOWN), ROW with an unknown field) is
+            // not yet supported in the read path. A bare top-level UNKNOWN column is fine.
+            if (!UnknownFields.isUnknownType(columnType)) {
+                throw new PrestoException(NOT_SUPPORTED, format(
+                        "Unknown type nested inside a row, array, or map is not yet supported (column: '%s'). " +
+                                "Use a top-level UNKNOWN column instead.",
+                        column.getName()));
+            }
+        }
         // Reject a geospatial column the table could never be written with, rather than
         // accepting the schema change and failing every subsequent write
         validateGeospatialWrite(column.getName(), columnType, opsFromTable(icebergTable).current().formatVersion(), getFileFormat(icebergTable));
@@ -1751,6 +1808,12 @@ public abstract class IcebergAbstractMetadata
         }
 
         org.apache.iceberg.types.Type icebergType = toIcebergType(type);
+        if (UnknownFields.containsUnknownType(icebergType)) {
+            throw new PrestoException(NOT_SUPPORTED, format(
+                    "Unknown type nested inside a row, array, or map is not supported (field: '%s'). " +
+                            "Use a top-level UNKNOWN column instead.",
+                    fieldName));
+        }
         try {
             icebergTable.updateSchema()
                     .addColumn(canonicalParentName, fieldName, icebergType)
@@ -3277,6 +3340,7 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle storageTableHandle = getTableHandle(session, storageTableName);
         Table storageTable = getIcebergTable(session, storageTableName);
         validateGeospatialWrite(storageTable);
+        UnknownFields.validateWritable(storageTable.schema());
         SchemaTableName materializedViewName = icebergTableHandle.getMaterializedViewName().get();
         MaterializedViewStatus status = getMaterializedViewStatus(session, materializedViewName, TupleDomain.all());
         boolean fullRefreshRequired = !status.isFullyMaterialized()

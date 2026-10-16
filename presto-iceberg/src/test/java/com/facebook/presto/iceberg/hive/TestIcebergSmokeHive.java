@@ -465,6 +465,41 @@ public class TestIcebergSmokeHive
         dropTable(session, tableName);
     }
 
+    @Test
+    public void testUnknownColumnDDLHiveCatalog()
+    {
+        Session session = getSession();
+        String tableName = "test_unknown_column_ddl_hive";
+        try {
+            // CREATE TABLE with UNKNOWN column on V3 table succeeds
+            assertUpdate(session, "CREATE TABLE " + tableName + " (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3')");
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, NULL)", 1);
+            assertQuery(session, "SELECT * FROM " + tableName, "VALUES (1, NULL)");
+
+            // UNKNOWN on V2 table is rejected
+            assertQueryFails(
+                    session,
+                    "CREATE TABLE " + tableName + "_v2 (id INTEGER, unknown_column UNKNOWN)",
+                    ".*require.*format-version.*3.*|.*format-version.*3.*");
+
+            // Adding an UNKNOWN subfield inside a nested struct is rejected even on V3.
+            // First verify rejection when the parent is a scalar (not-a-struct path fires):
+            assertQueryFails(
+                    session,
+                    "ALTER TABLE " + tableName + " ADD COLUMN id.nested UNKNOWN",
+                    ".*Unknown type 'UNKNOWN' for column.*|.*Unknown type nested inside a row.*not supported.*|.*not a struct/ROW type.*");
+            // Also verify rejection when the parent IS a struct (UNKNOWN-nested-in-composite path fires):
+            assertUpdate(session, "ALTER TABLE " + tableName + " ADD COLUMN info ROW(name VARCHAR)");
+            assertQueryFails(
+                    session,
+                    "ALTER TABLE " + tableName + " ADD COLUMN info.nested UNKNOWN",
+                    ".*Unknown type nested inside a row.*not supported.*|.*Unknown type 'UNKNOWN' for column.*");
+        }
+        finally {
+            dropTable(session, tableName);
+        }
+    }
+
     private Table getIcebergTable(Session session, String tableName)
     {
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
