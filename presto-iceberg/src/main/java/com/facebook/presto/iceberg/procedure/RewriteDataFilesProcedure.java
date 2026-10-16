@@ -26,6 +26,7 @@ import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
 import com.facebook.presto.iceberg.PartitionData;
 import com.facebook.presto.iceberg.RuntimeStatsMetricsReporter;
 import com.facebook.presto.iceberg.SortField;
+import com.facebook.presto.iceberg.UnknownFields;
 import com.facebook.presto.iceberg.procedure.context.IcebergRewriteDataFilesProcedureContext;
 import com.facebook.presto.spi.ConnectorDistributedProcedureHandle;
 import com.facebook.presto.spi.ConnectorSession;
@@ -219,6 +220,7 @@ public class RewriteDataFilesProcedure
 
             Table icebergTable = procedureContext.getTable();
             validateGeospatialWrite(icebergTable);
+            UnknownFields.validateWritable(icebergTable.schema());
             IcebergTableHandle tableHandle = layoutHandle.getTable();
 
             // Parsed and validated when the procedure context was created

@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.parquet.ParquetFileWriter;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
 import jakarta.annotation.Nullable;
 import org.apache.hadoop.fs.Path;
@@ -35,7 +36,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_FAILED;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergParquetFileWriter
@@ -47,7 +50,6 @@ public class IcebergParquetFileWriter
     private final HdfsContext hdfsContext;
     private final MetricsConfig metricsConfig;
     private final Set<Integer> geospatialFieldIds;
-
     public IcebergParquetFileWriter(
             OutputStream outputStream,
             Callable<Void> rollbackAction,
@@ -87,9 +89,19 @@ public class IcebergParquetFileWriter
     @Override
     public Metrics getMetrics()
     {
-        Metrics metrics = hdfsEnvironment.doAs(
-                hdfsContext.getIdentity().getUser(),
-                () -> ParquetUtil.fileMetrics(new HdfsInputFile(outputPath, hdfsEnvironment, hdfsContext), metricsConfig));
+        Metrics metrics;
+        try {
+            metrics = hdfsEnvironment.doAs(
+                    hdfsContext.getIdentity().getUser(),
+                    () -> ParquetUtil.fileMetrics(new HdfsInputFile(outputPath, hdfsEnvironment, hdfsContext), metricsConfig));
+        }
+        catch (RuntimeException e) {
+            if (e instanceof PrestoException) {
+                throw (PrestoException) e;
+            }
+            throw new PrestoException(ICEBERG_WRITE_VALIDATION_FAILED,
+                    format("Failed to read Parquet metrics from %s: %s", outputPath, e.toString()), e);
+        }
         return dropGeospatialBounds(metrics);
     }
 

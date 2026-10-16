@@ -130,6 +130,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.CacheQuota.NO_CACHE_CONSTRAINTS;
@@ -325,19 +326,26 @@ public class IcebergPageSourceProvider
             List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 Optional<Integer> firstIndex = findFirstNonHiddenColumnId(block);
+                Optional<ColumnIndexStore> columnIndexStore = Optional.empty();
+                boolean includeBlock = false;
+
                 if (firstIndex.isPresent()) {
                     long firstDataPage = block.getColumns().get(firstIndex.get()).getFirstDataPageOffset();
-                    Optional<ColumnIndexStore> columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, false);
-                    if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
-                            predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, false, Optional.of(session.getWarningCollector()))) {
-                        blocks.add(block);
-                        blockIndexStores.add(columnIndexStore.orElse(null));
-                        blockStarts.add(nextStart);
-                        if (!startRowPosition.isPresent()) {
-                            startRowPosition = Optional.of(nextStart);
-                        }
-                        endRowPosition = Optional.of(nextStart + block.getRowCount());
+                    columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, false);
+                    includeBlock = (firstDataPage >= start) && (firstDataPage < (start + length)) &&
+                            predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, false, Optional.of(session.getWarningCollector()));
+                }
+
+                if (includeBlock) {
+                    blocks.add(block);
+                    blockIndexStores.add(columnIndexStore.orElse(null));
+                    blockStarts.add(nextStart);
+                    if (!startRowPosition.isPresent()) {
+                        startRowPosition = Optional.of(nextStart);
                     }
+                    endRowPosition = Optional.of(nextStart + block.getRowCount());
+                }
+                if (firstIndex.isPresent()) {
                     nextStart += block.getRowCount();
                 }
             }
@@ -403,7 +411,9 @@ public class IcebergPageSourceProvider
                         // We do NOT derive the type from the Parquet schema here because doing so
                         // would produce the old file schema for schema-evolved tables and cause a
                         // "field N has unexpected position count" error when new fields were added.
-                        Type parquetCompatibleType = encodeFieldNamesForParquet(column.getType());
+                        Type parquetCompatibleType = parquetField.get().isPrimitive()
+                                ? column.getType()
+                                : encodeFieldNamesForParquet(column.getType());
                         ColumnIO fieldColumnIO = lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()));
                         internalFields.add(constructField(parquetCompatibleType, fieldColumnIO));
                     }
@@ -478,8 +488,9 @@ public class IcebergPageSourceProvider
         ImmutableMap.Builder<ColumnDescriptor, Domain> predicate = ImmutableMap.builder();
         effectivePredicate.getDomains().get().forEach((columnHandle, domain) -> {
             String baseType = columnHandle.getType().getTypeSignature().getBase();
-            // skip looking up predicates for complex types as Parquet only stores stats for primitives
-            if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)) {
+            // skip complex types (no Parquet stats) and unknown columns (always null, no physical data)
+            if (!baseType.equals(StandardTypes.MAP) && !baseType.equals(StandardTypes.ARRAY) && !baseType.equals(StandardTypes.ROW)
+                    && !columnHandle.getType().equals(UNKNOWN)) {
                 RichColumnDescriptor descriptor = descriptorsByPath.get(ImmutableList.of(columnHandle.getName()));
                 if (descriptor != null) {
                     predicate.put(descriptor, domain);

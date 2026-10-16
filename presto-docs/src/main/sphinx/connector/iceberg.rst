@@ -3150,6 +3150,8 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``JSON``
   * - ``GEOGRAPHY``
     - ``SphericalGeography``
+  * - ``UNKNOWN``
+    - ``UNKNOWN``
 
 
 No other types are supported.
@@ -3237,9 +3239,51 @@ Map of PrestoDB types to the relevant Iceberg types:
     - ``STRUCT``
   * - ``SphericalGeography``
     - ``GEOGRAPHY``
+  * - ``UNKNOWN``
+    - ``UNKNOWN``
 
 
 No other types are supported.
+
+Unknown type (Iceberg V3)
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Iceberg Format Version 3 adds the ``unknown`` type, for a column whose type is not known. Such a
+column only ever holds null values: it is always optional, is not stored in the data files, and
+always reads back as ``NULL``.
+
+A column of this type can be declared in ``CREATE TABLE``, ``ALTER TABLE ADD COLUMN``, and
+``CREATE TABLE AS SELECT``::
+
+    CREATE TABLE iceberg.web.page_views (view_time TIMESTAMP, extra UNKNOWN) WITH ("format-version" = '3');
+
+    ALTER TABLE iceberg.web.page_views ADD COLUMN more UNKNOWN;
+
+    CREATE TABLE iceberg.web.page_view_copy WITH ("format-version" = '3') AS SELECT view_time, NULL AS extra FROM iceberg.web.page_views;
+
+``INSERT`` statements can write ``NULL`` to an ``unknown`` column or leave the column out entirely.
+Writing any other value is an error, because the value cannot be stored.
+
+**Restrictions:**
+
+* The table must use Iceberg format version 3 or higher.
+* An ``unknown`` column cannot be declared ``NOT NULL``.
+* An ``unknown`` column can be partitioned by ``identity`` and can be sorted on, but it cannot be
+  bucketed, because Iceberg defines no hash for it.
+* Only top-level ``UNKNOWN`` columns are supported.  An ``unknown`` field nested inside a
+  ``ROW``, ``ARRAY``, or ``MAP`` (e.g. ``ROW(url VARCHAR, extra UNKNOWN)``) is not yet
+  supported and is rejected at ``CREATE TABLE`` and ``ADD COLUMN`` time.
+* A table whose top-level columns are all ``unknown`` is not writable.  If a ``DROP COLUMN``
+  would leave all remaining columns as ``unknown``, the drop is also rejected.
+* Creating a view or materialized view over a table that contains an ``unknown`` column fails with
+  a "Column type is unknown" error.  As a workaround, exclude or cast the unknown column in the
+  view's query (e.g. ``SELECT id, CAST(NULL AS INTEGER) AS x FROM t``).
+* Promoting an ``unknown`` column to a concrete type (e.g. ``ALTER TABLE ... ALTER COLUMN ... SET DATA TYPE``)
+  is not yet supported in Presto, though the Iceberg spec allows it.
+* This feature is currently supported in the Java (JVM) connector only.  The Presto C++ (Velox-based)
+  worker cannot currently create or write tables with ``unknown`` columns.
+* **Rollback note:** tables that contain an ``unknown`` column cannot be read by Presto versions
+  that predate this feature.  Drop any ``unknown`` columns before rolling back a cluster.
 
 
 Sorted Tables

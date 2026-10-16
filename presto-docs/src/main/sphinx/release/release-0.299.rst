@@ -123,6 +123,7 @@ _________________________
 * Add read support for row lineage columns as per Iceberg V3 spec. `#27743 <https://github.com/prestodb/presto/pull/27743>`_
 * Add support for Iceberg V3 field-id protocol in Presto Native. `#28116 <https://github.com/prestodb/presto/pull/28116>`_
 * Add support for Iceberg V3 deletion vectors and ``UPDATE`` / ``MERGE`` statements in Presto Native. `#28058 <https://github.com/prestodb/presto/pull/28058>`_
+* Add support for reading and writing Iceberg V3 ``unknown`` type columns (Java connector only; not supported in Presto C++). An ``unknown`` column always reads as ``NULL`` and is never stored in data files. See :ref:`connector/iceberg:Unknown type (Iceberg V3)`. **Upgrade note:** tables that contain an ``unknown`` column cannot be read by Presto versions that predate this release. Drop any ``unknown`` columns before rolling back.
 
 Lance Connector Changes
 _______________________
