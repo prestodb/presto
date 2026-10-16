@@ -16,6 +16,7 @@ package com.facebook.presto.connector.jmx;
 import com.facebook.airlift.bootstrap.Bootstrap;
 import com.facebook.presto.common.util.RebindSafeMBeanServer;
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.ConnectorSystemConfig;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
@@ -62,6 +63,7 @@ public class JmxConnectorFactory
                         configBinder(binder).bindConfig(JmxConnectorConfig.class);
                         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(mbeanServer));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                        binder.bind(ConnectorSystemConfig.class).toInstance(context.getConnectorSystemConfig());
                         binder.bind(JmxConnector.class).in(Scopes.SINGLETON);
                         binder.bind(JmxHistoricalData.class).in(Scopes.SINGLETON);
                         binder.bind(JmxMetadata.class).in(Scopes.SINGLETON);
