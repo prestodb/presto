@@ -277,6 +277,90 @@ public class TestStaticSelector
         assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", "a " + principal + " b", EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
     }
 
+    @Test
+    public void testUserRegexNamedGroup()
+    {
+        ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "teamA");
+        StaticSelector selector = new StaticSelector(
+                Optional.of(Pattern.compile("(?<team>[a-zA-Z]+)_user")),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                new ResourceGroupIdTemplate("global.${team}"));
+        assertEquals(
+                selector.match(newSelectionCriteria("teamA_user", null, ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId),
+                Optional.of(resourceGroupId));
+        assertEquals(
+                selector.match(newSelectionCriteria("noMatch", null, ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)),
+                Optional.empty());
+    }
+
+    @Test
+    public void testSourceRegexNamedGroup()
+    {
+        ResourceGroupId resourceGroupId = new ResourceGroupId(new ResourceGroupId("global"), "pipeline");
+        StaticSelector selector = new StaticSelector(
+                Optional.empty(),
+                Optional.of(Pattern.compile("(?<pipeline>[a-zA-Z]+)\\.query")),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                new ResourceGroupIdTemplate("global.${pipeline}"));
+        assertEquals(
+                selector.match(newSelectionCriteria("user", "pipeline.query", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId),
+                Optional.of(resourceGroupId));
+        assertEquals(
+                selector.match(newSelectionCriteria("user", "other", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)),
+                Optional.empty());
+    }
+
+    @Test
+    public void testMultipleNamedGroupsInSinglePattern()
+    {
+        ResourceGroupId resourceGroupId = new ResourceGroupId(
+                new ResourceGroupId(new ResourceGroupId("global"), "teamA"), "role1");
+        StaticSelector selector = new StaticSelector(
+                Optional.of(Pattern.compile("(?<team>[a-zA-Z]+)_(?<role>[a-zA-Z0-9]+)")),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                new ResourceGroupIdTemplate("global.${team}.${role}"));
+        assertEquals(
+                selector.match(newSelectionCriteria("teamA_role1", null, ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId),
+                Optional.of(resourceGroupId));
+    }
+
+    @Test
+    public void testNamedGroupsFromBothUserAndSourceRegex()
+    {
+        ResourceGroupId resourceGroupId = new ResourceGroupId(
+                new ResourceGroupId(new ResourceGroupId("global"), "alice"), "etl");
+        StaticSelector selector = new StaticSelector(
+                Optional.of(Pattern.compile("(?<name>[a-zA-Z]+)")),
+                Optional.of(Pattern.compile("(?<pipeline>[a-zA-Z]+)_job")),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                new ResourceGroupIdTemplate("global.${name}.${pipeline}"));
+        assertEquals(
+                selector.match(newSelectionCriteria("alice", "etl_job", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId),
+                Optional.of(resourceGroupId));
+    }
+
     private SelectionCriteria newSelectionCriteria(String user, String source, Set<String> tags, ResourceEstimates resourceEstimates)
     {
         return new SelectionCriteria(true, user, Optional.ofNullable(source), tags, resourceEstimates, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
