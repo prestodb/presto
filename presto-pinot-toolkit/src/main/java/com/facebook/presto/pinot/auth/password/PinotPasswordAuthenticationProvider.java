@@ -66,9 +66,13 @@ public class PinotPasswordAuthenticationProvider
         return authToken;
     }
 
-    private String encode(String username, String password)
+   private String encode(String username, String password)
     {
         String valueToEncode = username + ":" + password;
-        return Base64.getEncoder().encodeToString(valueToEncode.getBytes());
+        /*
+            pinot expects token in format of 'basic baseEncodedToken'
+         */
+        String basicEncodedValue="Basic "+Base64.getEncoder().encodeToString(valueToEncode.getBytes());
+        return basicEncodedValue;
     }
 }
