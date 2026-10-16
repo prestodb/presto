@@ -118,8 +118,7 @@ void PeriodicServiceInventoryManager::sendRequest() {
   // derives Host from the resolved IP in serviceAddress_, which fails SNI.
   auto coordinatorHostname = coordinatorDiscoverer_->getHostname();
   if (!coordinatorHostname.empty()) {
-    request.getHeaders().set(
-        proxygen::HTTP_HEADER_HOST, coordinatorHostname);
+    request.getHeaders().set(proxygen::HTTP_HEADER_HOST, coordinatorHostname);
   }
 
   client_->sendRequest(request, body)
