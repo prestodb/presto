@@ -16,6 +16,7 @@ from different data sources.
     connector/clickhouse
     connector/deltalake
     connector/druid
+    connector/ducklake
     connector/elasticsearch
     connector/googlesheets
     connector/hana
