@@ -1618,6 +1618,16 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testOrderByQualifiedColumnAfterWildcardGrouping()
+    {
+        String query = "SELECT t.*, count(*) " +
+                "FROM (VALUES (1, 'a'), (1, 'a')) AS t(id, label) " +
+                "GROUP BY 1, 2 ORDER BY t.id";
+
+        assertPlanSucceeded(query, this.getQueryRunner().getDefaultSession());
+    }
+
+    @Test
     public void testComplexOrderBy()
     {
         assertDistributedPlan("SELECT COUNT(*) " +
