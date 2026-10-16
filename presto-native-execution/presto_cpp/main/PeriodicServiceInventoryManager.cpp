@@ -116,9 +116,10 @@ void PeriodicServiceInventoryManager::sendRequest() {
   // Set Host explicitly from the coordinator's DNS hostname so that Jetty's
   // http-server.https.sni-host-check passes. ensureHostHeader() in HttpClient
   // derives Host from the resolved IP in serviceAddress_, which fails SNI.
-  auto coordinatorHostname = coordinatorDiscoverer_->getHostname();
-  if (!coordinatorHostname.empty()) {
-    request.getHeaders().set(proxygen::HTTP_HEADER_HOST, coordinatorHostname);
+  auto coordinatorHostHeader = coordinatorDiscoverer_->getHostHeader();
+  if (!coordinatorHostHeader.empty()) {
+    request.getHeaders().set(
+        proxygen::HTTP_HEADER_HOST, coordinatorHostHeader);
   }
 
   client_->sendRequest(request, body)
