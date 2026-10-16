@@ -49,6 +49,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -714,7 +715,7 @@ public class SqlTaskExecution
     @NotThreadSafe
     private static class PendingSplits
     {
-        private Set<ScheduledSplit> splits = new HashSet<>();
+        private Set<ScheduledSplit> splits = new LinkedHashSet<>();
         private SplitsState state = ADDING_SPLITS;
 
         public SplitsState getState()
@@ -732,7 +733,7 @@ public class SqlTaskExecution
         {
             checkState(state == ADDING_SPLITS || state == NO_MORE_SPLITS);
             Set<ScheduledSplit> result = splits;
-            splits = new HashSet<>();
+            splits = new LinkedHashSet<>();
             return result;
         }
 

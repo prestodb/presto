@@ -36,12 +36,12 @@ import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.SplitWeight;
 import com.facebook.presto.ttl.nodettlfetchermanagers.NodeTtlFetcherManager;
 import com.google.common.base.Supplier;
-import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
@@ -414,7 +414,7 @@ public class NodeScheduler
             BucketNodeMap bucketNodeMap,
             NodeSelectionStats nodeSelectionStats)
     {
-        Multimap<InternalNode, Split> assignments = HashMultimap.create();
+        ListMultimap<InternalNode, Split> assignments = ArrayListMultimap.create();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
         Set<InternalNode> blockedNodes = new HashSet<>();
