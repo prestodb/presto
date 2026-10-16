@@ -375,6 +375,11 @@ public abstract class AbstractTestArrowFederationNativeQueries
     @Test(enabled = false)
     public void testLambdaInAggregation() {}
 
+    /// TODO: Velox's BETWEEN returns NULL when any argument is NULL, see https://github.com/prestodb/presto/issues/28582.
+    @Override
+    @Test(enabled = false)
+    public void testBetweenWithNullOperands() {}
+
     /// reduce_agg returns different results in Presto C++. See Presto C++ limitations here:
     /// https://prestodb.io/docs/current/presto_cpp/limitations.html.
     @Override
