@@ -34,7 +34,7 @@ folly::SocketAddress CoordinatorDiscoverer::updateAddress() {
   // bracketed (RFC 7230 §5.4): "[::1]:8080" not "::1:8080".
   const auto& host = uri.hostname();
   const bool isIpv6 = host.find(':') != std::string::npos;
-  updateHostnameSafe(
+  updateHostHeaderSafe(
       isIpv6 ? fmt::format("[{}]:{}", host, uri.port())
              : fmt::format("{}:{}", host, uri.port()));
   return coordinatorAddress_;
@@ -45,9 +45,9 @@ folly::SocketAddress CoordinatorDiscoverer::getAddress() {
   return coordinatorAddress_;
 }
 
-std::string CoordinatorDiscoverer::getHostname() {
+std::string CoordinatorDiscoverer::getHostHeader() {
   std::lock_guard<std::mutex> l(mutex_);
-  return coordinatorHostname_;
+  return coordinatorHostHeader_;
 }
 
 void CoordinatorDiscoverer::updateAddressSafe(
@@ -59,9 +59,10 @@ void CoordinatorDiscoverer::updateAddressSafe(
   coordinatorAddress_ = address;
 }
 
-void CoordinatorDiscoverer::updateHostnameSafe(const std::string& hostname) {
+void CoordinatorDiscoverer::updateHostHeaderSafe(
+    const std::string& hostHeader) {
   std::lock_guard<std::mutex> l(mutex_);
-  coordinatorHostname_ = hostname;
+  coordinatorHostHeader_ = hostHeader;
 }
 
 } // namespace facebook::presto

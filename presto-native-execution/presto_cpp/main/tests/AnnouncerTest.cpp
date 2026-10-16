@@ -159,7 +159,7 @@ class TestCoordinatorDiscoverer : public CoordinatorDiscoverer {
   folly::SocketAddress updateAddress() override {
     auto prevCnt = addressLookupCnt++;
     if (prevCnt < 3) {
-      updateHostnameSafe(
+      updateHostHeaderSafe(
           fmt::format(
               "{}:{}", serverAddress.getAddressStr(), serverAddress.getPort()));
       return serverAddress;
@@ -176,7 +176,7 @@ class TestCoordinatorDiscoverer : public CoordinatorDiscoverer {
     if (prevCnt == 6) {
       discoveryServer = makeDiscoveryServer(onAnnouncement, useHttps);
       serverAddress = discoveryServer->start().get();
-      updateHostnameSafe(
+      updateHostHeaderSafe(
           fmt::format(
               "{}:{}", serverAddress.getAddressStr(), serverAddress.getPort()));
     }
@@ -191,7 +191,7 @@ class TestCoordinatorDiscoverer : public CoordinatorDiscoverer {
   bool useHttps;
 };
 
-// CoordinatorDiscoverer that exposes the server address as a stable hostname
+// CoordinatorDiscoverer that exposes the server address as a stable host header
 // and captures the Host header sent by the first announcement.
 class HostHeaderCapturingDiscoverer : public CoordinatorDiscoverer {
  public:
@@ -200,7 +200,7 @@ class HostHeaderCapturingDiscoverer : public CoordinatorDiscoverer {
     hostHeaderPromise_ = std::move(p);
     hostHeaderFuture_ = std::move(f);
 
-    discoveryServer_ = makeDiscoveryServerCapturingHost(
+    discoveryServer = makeDiscoveryServerCapturingHost(
         [this](const std::string& host) {
           if (!captured_) {
             captured_ = true;
@@ -208,23 +208,24 @@ class HostHeaderCapturingDiscoverer : public CoordinatorDiscoverer {
           }
         },
         useHttps_);
-    serverAddress_ = discoveryServer_->start().get();
-    // Pre-populate hostname so sendRequest() sets Host on the very first call.
-    updateHostnameSafe(
+    serverAddress = discoveryServer->start().get();
+    // Pre-populate host header so sendRequest() sets Host on the very first
+    // call.
+    updateHostHeaderSafe(
         fmt::format(
-            "{}:{}", serverAddress_.getAddressStr(), serverAddress_.getPort()));
+            "{}:{}", serverAddress.getAddressStr(), serverAddress.getPort()));
   }
 
   folly::SocketAddress updateAddress() override {
-    return serverAddress_;
+    return serverAddress;
   }
 
   std::string waitForHostHeader() {
-    return std::move(hostHeaderFuture_).get();
+    return std::move(hostHeaderFuture_).get(std::chrono::seconds(10));
   }
 
-  std::unique_ptr<test::HttpServerWrapper> discoveryServer_;
-  folly::SocketAddress serverAddress_;
+  std::unique_ptr<test::HttpServerWrapper> discoveryServer;
+  folly::SocketAddress serverAddress;
 
  private:
   bool useHttps_;
@@ -263,7 +264,7 @@ TEST_P(AnnouncerTestSuite, basic) {
 }
 
 // Verify that PeriodicServiceInventoryManager::sendRequest() sets the HTTP
-// Host header from CoordinatorDiscoverer::getHostname() when it is non-empty,
+// Host header from CoordinatorDiscoverer::getHostHeader() when it is non-empty,
 // so that the coordinator's Jetty SNI host check passes.
 TEST_P(AnnouncerTestSuite, hostHeaderIsSetFromHostname) {
   const bool useHttps = GetParam();
@@ -273,8 +274,8 @@ TEST_P(AnnouncerTestSuite, hostHeaderIsSetFromHostname) {
 
   const std::string expectedHost = fmt::format(
       "{}:{}",
-      coordinatorDiscoverer->serverAddress_.getAddressStr(),
-      coordinatorDiscoverer->serverAddress_.getPort());
+      coordinatorDiscoverer->serverAddress.getAddressStr(),
+      coordinatorDiscoverer->serverAddress.getPort());
 
   Announcer announcer(
       "127.0.0.1",
