@@ -678,6 +678,28 @@ the per-mode built-in values are used: PER_ROW mode defaults to 100, BATCH mode 
 Raise this value for high-latency backends so admission-controlled dispatch can run at high
 concurrency. The congestion window controls how many RPC requests can be in flight per driver.
 
+``native_rpc_congestion_batch_start_window``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Restrictions:** must be non-negative
+* **Default value:** ``0``
+
+Native Execution only. Initial per-driver BATCH RPC congestion window. Zero preserves the default
+of 2. A positive value is clamped between 1 and ``native_rpc_congestion_max_window``. PER_ROW always
+starts at its ceiling and is unaffected by this property.
+
+``native_rpc_congestion_async_growth_max_window``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``0``
+
+Native Execution only. Cap for per-driver BATCH window growth on clean completions that carry no
+usable latency sample. Zero disables the growth, preserving the legacy pinned start; positive values
+let the window discover capacity additively up to the cap. Size at or below the backend's measured
+concurrency knee.
+
 ``native_request_data_sizes_max_wait_sec``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

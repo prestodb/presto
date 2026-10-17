@@ -11,8 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "presto_cpp/main/properties/session/SessionProperties.h"
+
+#include <fmt/format.h>
 #include <folly/Conv.h>
+
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/type/Type.h"
@@ -166,6 +170,27 @@ SessionProperties::SessionProperties() {
       false,
       "rpc.ratelimiter.hard_limit",
       "-1");
+
+  addSessionProperty(
+      kRpcCongestionBatchStartWindow,
+      "Native Execution only. Initial per-driver BATCH RPC congestion window. "
+      "Zero preserves the default of 2; positive values are clamped to the "
+      "window bounds.",
+      BIGINT(),
+      false,
+      QueryConfig::kRpcCongestionBatchStartWindow,
+      fmt::to_string(c.rpcCongestionBatchStartWindow()));
+
+  addSessionProperty(
+      kRpcCongestionAsyncGrowthMaxWindow,
+      "Native Execution only. Cap for per-driver BATCH window growth on clean "
+      "completions that carry no usable latency sample. Zero disables the "
+      "growth, preserving the legacy pinned start; positive values let the "
+      "window discover capacity additively up to the cap.",
+      BIGINT(),
+      false,
+      QueryConfig::kRpcCongestionAsyncGrowthMaxWindow,
+      fmt::to_string(c.rpcCongestionAsyncGrowthMaxWindow()));
 
   addSessionProperty(
       kRpcCongestionMaxWindow,
