@@ -18,6 +18,7 @@ import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -313,7 +314,7 @@ public class TestDeltaTableStatisticsProvider
     @Test
     public void testToDoubleStatisticDecimal()
     {
-        assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic(12345, parseTypeSignature("decimal(10,2)")),
+        assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic(123.45, parseTypeSignature("decimal(10,2)")),
                 OptionalDouble.of(123.45));
     }
 
@@ -357,6 +358,57 @@ public class TestDeltaTableStatisticsProvider
                 OptionalDouble.of(19737.0));
         assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic("invalid-date", parseTypeSignature("date")),
                 OptionalDouble.empty());
+    }
+
+    @Test
+    public void testToDoubleStatisticTimestamp()
+    {
+        // 2024-01-15T08:30:00.123456Z -> 1705307400123456 microseconds
+        double expectedMicros = 1_705_307_400_123_456.0;
+
+        assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic("2024-01-15T08:30:00.123456Z", parseTypeSignature("timestamp")),
+                OptionalDouble.of(expectedMicros));
+        assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic("2024-01-15 08:30:00.123456Z", parseTypeSignature("timestamp")),
+                OptionalDouble.of(expectedMicros));
+        assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic("2024-01-15 08:30:00.123456", parseTypeSignature("timestamp")),
+                OptionalDouble.of(expectedMicros));
+        assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic("2024-01-15T08:30:00.123456", parseTypeSignature("timestamp_ntz")),
+                OptionalDouble.of(expectedMicros));
+        assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic("2024-01-15T08:30:00.123456Z", parseTypeSignature("timestamp with time zone")),
+                OptionalDouble.of(expectedMicros));
+
+        // ISO format without fraction: 2024-01-15T08:30:00Z -> 1705307400000000 microseconds
+        assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic("2024-01-15T08:30:00Z", parseTypeSignature("timestamp")),
+                OptionalDouble.of(1_705_307_400_000_000.0));
+        assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic("2024-01-15 08:30:00", parseTypeSignature("timestamp")),
+                OptionalDouble.of(1_705_307_400_000_000.0));
+
+        // Numeric value
+        assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic(1_705_307_400_000_000L, parseTypeSignature("timestamp")),
+                OptionalDouble.of(1_705_307_400_000_000.0));
+
+        // Invalid timestamp strings return empty
+        assertEquals(DeltaTableStatisticsProvider.toDoubleStatistic("invalid-timestamp", parseTypeSignature("timestamp")),
+                OptionalDouble.empty());
+    }
+
+    @Test
+    public void testTimestampRangeAggregation()
+    {
+        DeltaColumn col = regular("created_at", "timestamp");
+        String s1 = "{\"numRecords\":3,\"minValues\":{\"created_at\":\"2024-01-15T08:00:00Z\"},\"maxValues\":{\"created_at\":\"2024-01-15T10:00:00Z\"},\"nullCount\":{\"created_at\":0}}";
+        String s2 = "{\"numRecords\":4,\"minValues\":{\"created_at\":\"2024-01-15T09:00:00Z\"},\"maxValues\":{\"created_at\":\"2024-01-15T12:00:00Z\"},\"nullCount\":{\"created_at\":0}}";
+
+        TableStatistics result = PROVIDER.computeTableStatistics(
+                Arrays.asList(entry("p0.parquet", s1, emptyMap()), entry("p1.parquet", s2, emptyMap())),
+                table(col));
+
+        ColumnStatistics cs = colStats(result, col);
+        assertTrue(cs.getRange().isPresent());
+        // 2024-01-15T08:00:00Z = 1705305600000000 microseconds
+        assertEquals(cs.getRange().get().getMin(), 1_705_305_600_000_000.0);
+        // 2024-01-15T12:00:00Z = 1705320000000000 microseconds
+        assertEquals(cs.getRange().get().getMax(), 1_705_320_000_000_000.0);
     }
 
     @Test
@@ -408,5 +460,18 @@ public class TestDeltaTableStatisticsProvider
         assertEquals(cs.getRange().get().getMin(), 100.0);
         assertEquals(cs.getRange().get().getMax(), 300.0);
         assertEquals(cs.getNullsFraction(), Estimate.of(0.0));
+    }
+
+    @Test
+    public void testPartitionNdvExceedsThreshold()
+    {
+        DeltaColumn date = partition("date", "varchar");
+        String stats = "{\"numRecords\":1}";
+        List<DeltaFileEntry> entries = new ArrayList<>();
+        for (int i = 0; i <= DeltaTableStatisticsProvider.MAX_PARTITION_NDV_THRESHOLD; i++) {
+            entries.add(entry("p" + i + ".parquet", stats, singletonMap("date", "val-" + i)));
+        }
+        TableStatistics result = PROVIDER.computeTableStatistics(entries, table(date));
+        assertTrue(colStats(result, date).getDistinctValuesCount().isUnknown());
     }
 }

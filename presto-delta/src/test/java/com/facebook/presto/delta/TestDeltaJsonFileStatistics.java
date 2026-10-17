@@ -78,7 +78,7 @@ public class TestDeltaJsonFileStatistics
         // Construct a huge JSON string exceeding 50,000 characters
         StringBuilder sb = new StringBuilder();
         sb.append("{\"numRecords\":5,\"nullCount\":{");
-        for (int i = 0; i < 4000; i++) {
+        for (int i = 0; i < 5000; i++) {
             sb.append("\"col").append(i).append("\":0,");
         }
         sb.append("\"id\":0}}");

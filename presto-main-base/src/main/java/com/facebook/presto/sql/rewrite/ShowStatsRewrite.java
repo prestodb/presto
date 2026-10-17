@@ -226,7 +226,10 @@ public class ShowStatsRewrite
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);
 
             // Require appropriate table or column read authorization before returning statistics
-            Set<Subfield> subfields = columnHandles.keySet().stream()
+            Set<Subfield> subfields = tableMetadata.getColumns().stream()
+                    .filter(column -> !column.isHidden())
+                    .map(ColumnMetadata::getName)
+                    .filter(columnHandles::containsKey)
                     .map(Subfield::new)
                     .collect(toImmutableSet());
             accessControl.checkCanSelectFromColumns(

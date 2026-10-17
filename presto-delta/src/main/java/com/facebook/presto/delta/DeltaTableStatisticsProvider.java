@@ -32,7 +32,12 @@ import jakarta.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -65,6 +70,9 @@ public class DeltaTableStatisticsProvider
     private static final Logger log = Logger.get(DeltaTableStatisticsProvider.class);
     private static final long WARN_INTERVAL_MS = 60_000;
     private static long lastWarnTime;
+
+    @VisibleForTesting
+    static final int MAX_PARTITION_NDV_THRESHOLD = 10_000;
 
     private static synchronized void logIncompleteStatsWarning(String tableName, String filePath)
     {
@@ -120,7 +128,7 @@ public class DeltaTableStatisticsProvider
             List<ColumnHandle> requestedColumnHandles)
     {
         List<DeltaColumnHandle> columnHandles = buildColumnHandles(deltaTable.getColumns());
-        if (requestedColumnHandles != null && !requestedColumnHandles.isEmpty()) {
+        if (requestedColumnHandles != null) {
             Set<ColumnHandle> requestedSet = ImmutableSet.copyOf(requestedColumnHandles);
             columnHandles = columnHandles.stream()
                     .filter(requestedSet::contains)
@@ -154,9 +162,13 @@ public class DeltaTableStatisticsProvider
 
         // Distinct partition values per partition column for exact NDV
         Map<DeltaColumnHandle, Set<String>> partitionDistinctValues = new HashMap<>();
+        Map<DeltaColumnHandle, Boolean> partitionNdvExceeded = new HashMap<>();
         columnHandles.stream()
                 .filter(col -> col.getColumnType() == PARTITION)
-                .forEach(col -> partitionDistinctValues.put(col, new HashSet<>()));
+                .forEach(col -> {
+                    partitionDistinctValues.put(col, new HashSet<>());
+                    partitionNdvExceeded.put(col, false);
+                });
 
         boolean hasFiles = false;
         while (fileEntries.hasNext()) {
@@ -186,8 +198,13 @@ public class DeltaTableStatisticsProvider
                     if (partitionValue == null) {
                         nullCounts.merge(column, (double) fileNumRecords, Double::sum);
                     }
-                    else {
-                        partitionDistinctValues.get(column).add(partitionValue);
+                    else if (!partitionNdvExceeded.get(column)) {
+                        Set<String> distincts = partitionDistinctValues.get(column);
+                        distincts.add(partitionValue);
+                        if (distincts.size() > MAX_PARTITION_NDV_THRESHOLD) {
+                            partitionNdvExceeded.put(column, true);
+                            distincts.clear(); // Free up memory immediately
+                        }
                     }
                 }
                 else {
@@ -301,8 +318,13 @@ public class DeltaTableStatisticsProvider
 
             if (column.getColumnType() == PARTITION) {
                 // Exact NDV from observed distinct partition values
-                colBuilder.setDistinctValuesCount(
-                        Estimate.of(partitionDistinctValues.get(column).size()));
+                if (partitionNdvExceeded.get(column)) {
+                    colBuilder.setDistinctValuesCount(Estimate.unknown());
+                }
+                else {
+                    colBuilder.setDistinctValuesCount(
+                            Estimate.of(partitionDistinctValues.get(column).size()));
+                }
             }
             statsBuilder.setColumnStatistics(column, colBuilder.build());
         }
@@ -394,12 +416,7 @@ public class DeltaTableStatisticsProvider
                 return OptionalDouble.empty();
             case "decimal":
                 if (value instanceof Number) {
-                    // parameters: [precision, scale]
-                    int scale = type.getParameters().size() >= 2
-                            ? (int) (long) type.getParameters().get(1).getLongLiteral()
-                            : 0;
-                    double divisor = Math.pow(10, scale);
-                    return OptionalDouble.of(((Number) value).doubleValue() / divisor);
+                    return OptionalDouble.of(((Number) value).doubleValue());
                 }
                 // Delta may encode decimal as a string (e.g. "123.45")
                 if (value instanceof String) {
@@ -426,8 +443,37 @@ public class DeltaTableStatisticsProvider
                     }
                 }
                 return OptionalDouble.empty();
+            case "timestamp":
+            case "timestamp with time zone":
+            case "timestamp_ntz":
+                if (value instanceof Number) {
+                    return OptionalDouble.of(((Number) value).doubleValue());
+                }
+                if (value instanceof String) {
+                    try {
+                        String str = ((String) value).trim().replace(' ', 'T');
+                        Instant instant;
+                        if (str.endsWith("Z") || str.endsWith("z") || str.contains("+") || (str.lastIndexOf('-') > 10)) {
+                            try {
+                                instant = Instant.parse(str);
+                            }
+                            catch (DateTimeParseException e) {
+                                instant = OffsetDateTime.parse(str).toInstant();
+                            }
+                        }
+                        else {
+                            instant = LocalDateTime.parse(str).toInstant(ZoneOffset.UTC);
+                        }
+                        long epochMicros = instant.getEpochSecond() * 1_000_000L + (instant.getNano() / 1_000L);
+                        return OptionalDouble.of((double) epochMicros);
+                    }
+                    catch (Exception e) {
+                        return OptionalDouble.empty();
+                    }
+                }
+                return OptionalDouble.empty();
             default:
-                return OptionalDouble.empty(); // varchar, boolean, timestamp etc. — no range stats
+                return OptionalDouble.empty(); // varchar, boolean etc. — no range stats
         }
     }
 }
