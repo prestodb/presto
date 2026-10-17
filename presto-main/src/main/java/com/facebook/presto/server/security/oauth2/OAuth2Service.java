@@ -43,6 +43,7 @@ import static com.facebook.presto.server.security.oauth2.TokenPairSerializer.Tok
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.hash.Hashing.sha256;
+import static com.google.common.html.HtmlEscapers.htmlEscaper;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
 import static jakarta.ws.rs.core.Response.Status.FORBIDDEN;
@@ -256,12 +257,12 @@ public class OAuth2Service
 
     public String getCallbackErrorHtml(String errorCode)
     {
-        return failureHtml.replace(FAILURE_REPLACEMENT_TEXT, getOAuth2ErrorMessage(errorCode));
+        return failureHtml.replace(FAILURE_REPLACEMENT_TEXT, htmlEscaper().escape(getOAuth2ErrorMessage(errorCode)));
     }
 
     public String getInternalFailureHtml(String errorMessage)
     {
-        return failureHtml.replace(FAILURE_REPLACEMENT_TEXT, nullToEmpty(errorMessage));
+        return failureHtml.replace(FAILURE_REPLACEMENT_TEXT, htmlEscaper().escape(nullToEmpty(errorMessage)));
     }
 
     private static byte[] secureRandomBytes(int count)
