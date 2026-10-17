@@ -121,7 +121,8 @@ public class MVRewriteCandidatesNode
                     newChildren.get(i + 1),
                     oldCandidate.getMaterializedViewCatalog(),
                     oldCandidate.getMaterializedViewSchema(),
-                    oldCandidate.getMaterializedViewName()));
+                    oldCandidate.getMaterializedViewName(),
+                    oldCandidate.isRowLevel()));
         }
 
         return new MVRewriteCandidatesNode(getSourceLocation(), getId(), getStatsEquivalentPlanNode(), newOriginalPlan, newCandidates, outputVariables);
@@ -138,18 +139,39 @@ public class MVRewriteCandidatesNode
         private final String materializedViewCatalog;
         private final String materializedViewSchema;
         private final String materializedViewName;
+        /**
+         * Whether this candidate recomputes only the rows a connector reported as changed, as
+         * opposed to whole stale partitions. Recorded so the cost picker can say that row-level was
+         * available and lost on cost, which is not the same as row-level having been ineligible.
+         */
+        private final boolean rowLevel;
 
         @JsonCreator
         public MVRewriteCandidate(
                 @JsonProperty("plan") PlanNode plan,
                 @JsonProperty("materializedViewCatalog") String materializedViewCatalog,
                 @JsonProperty("materializedViewSchema") String materializedViewSchema,
-                @JsonProperty("materializedViewName") String materializedViewName)
+                @JsonProperty("materializedViewName") String materializedViewName,
+                @JsonProperty("rowLevel") boolean rowLevel)
         {
             this.plan = requireNonNull(plan, "plan is null");
             this.materializedViewCatalog = requireNonNull(materializedViewCatalog, "materializedViewCatalog is null");
             this.materializedViewSchema = requireNonNull(materializedViewSchema, "materializedViewSchema is null");
             this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
+            this.rowLevel = rowLevel;
+        }
+
+        /**
+         * Retains the signature that predates the row-level granularity flag; a caller that does
+         * not distinguish granularities reads as partition-level.
+         */
+        public MVRewriteCandidate(
+                PlanNode plan,
+                String materializedViewCatalog,
+                String materializedViewSchema,
+                String materializedViewName)
+        {
+            this(plan, materializedViewCatalog, materializedViewSchema, materializedViewName, false);
         }
 
         @JsonProperty
@@ -174,6 +196,12 @@ public class MVRewriteCandidatesNode
         public String getMaterializedViewName()
         {
             return materializedViewName;
+        }
+
+        @JsonProperty
+        public boolean isRowLevel()
+        {
+            return rowLevel;
         }
 
         public String getFullyQualifiedName()
