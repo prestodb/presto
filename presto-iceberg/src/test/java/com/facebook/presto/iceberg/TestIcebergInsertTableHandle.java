@@ -106,7 +106,8 @@ public class TestIcebergInsertTableHandle
                 Optional.empty(),
                 false,
                 ImmutableList.of("id"),
-                existingDeletionVectors);
+                existingDeletionVectors,
+                Optional.empty());
     }
 
     private static PrestoIcebergSchema emptySchema()
