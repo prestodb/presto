@@ -604,6 +604,17 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            Session session,
+            InsertTableHandle tableHandle,
+            Collection<Slice> deleteFragments,
+            Collection<Slice> insertFragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        return delegate.finishRefreshMaterializedView(session, tableHandle, deleteFragments, insertFragments, computedStatistics);
+    }
+
+    @Override
     public List<QualifiedObjectName> getReferencedMaterializedViews(Session session, QualifiedObjectName tableName)
     {
         return delegate.getReferencedMaterializedViews(session, tableName);

@@ -292,6 +292,7 @@ public final class SystemSessionProperties
     public static final String MATERIALIZED_VIEW_DEFAULT_REFRESH_TYPE = "materialized_view_default_refresh_type";
     public static final String MATERIALIZED_VIEW_STITCHING_STRATEGY = "materialized_view_stitching_strategy";
     public static final String MATERIALIZED_VIEW_INCREMENTAL_REFRESH_STRATEGY = "materialized_view_incremental_refresh_strategy";
+    public static final String MATERIALIZED_VIEW_ROW_LEVEL_INCREMENTAL_STRATEGY = "materialized_view_row_level_incremental_strategy";
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
     public static final String JOINS_NOT_NULL_INFERENCE_STRATEGY = "joins_not_null_inference_strategy";
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
@@ -1710,6 +1711,18 @@ public final class SystemSessionProperties
                         VARCHAR,
                         MaterializedViewRewriteStrategy.class,
                         featuresConfig.getMaterializedViewIncrementalRefreshStrategy(),
+                        false,
+                        value -> MaterializedViewRewriteStrategy.valueOf(((String) value).toUpperCase()),
+                        MaterializedViewRewriteStrategy::name),
+                new PropertyMetadata<>(
+                        MATERIALIZED_VIEW_ROW_LEVEL_INCREMENTAL_STRATEGY,
+                        format("Strategy controlling when row-level incremental refresh of materialized views fires. Valid values: %s",
+                                Stream.of(MaterializedViewRewriteStrategy.values())
+                                        .map(MaterializedViewRewriteStrategy::name)
+                                        .collect(joining(", "))),
+                        VARCHAR,
+                        MaterializedViewRewriteStrategy.class,
+                        featuresConfig.getMaterializedViewRowLevelIncrementalStrategy(),
                         false,
                         value -> MaterializedViewRewriteStrategy.valueOf(((String) value).toUpperCase()),
                         MaterializedViewRewriteStrategy::name),
@@ -3636,6 +3649,11 @@ public final class SystemSessionProperties
     public static MaterializedViewRewriteStrategy getMaterializedViewIncrementalRefreshStrategy(Session session)
     {
         return session.getSystemProperty(MATERIALIZED_VIEW_INCREMENTAL_REFRESH_STRATEGY, MaterializedViewRewriteStrategy.class);
+    }
+
+    public static MaterializedViewRewriteStrategy getMaterializedViewRowLevelIncrementalStrategy(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZED_VIEW_ROW_LEVEL_INCREMENTAL_STRATEGY, MaterializedViewRewriteStrategy.class);
     }
 
     public static boolean isVerboseRuntimeStatsEnabled(Session session)
