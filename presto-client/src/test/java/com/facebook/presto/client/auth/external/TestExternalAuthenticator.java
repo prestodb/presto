@@ -38,6 +38,7 @@ import java.util.concurrent.Future;
 import java.util.stream.Stream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
+import static com.facebook.presto.client.auth.external.ExternalAuthenticator.REDIRECT_URI_FIELD;
 import static com.facebook.presto.client.auth.external.ExternalAuthenticator.TOKEN_URI_FIELD;
 import static com.facebook.presto.client.auth.external.ExternalAuthenticator.toAuthentication;
 import static com.facebook.presto.client.auth.external.MockTokenPoller.onPoll;
@@ -128,6 +129,45 @@ public class TestExternalAuthenticator
                 .isInstanceOf(ClientException.class)
                 .hasMessageContaining(format("Failed to parse URI for field '%s'", TOKEN_URI_FIELD))
                 .hasRootCauseInstanceOf(URISyntaxException.class);
+    }
+
+    @Test
+    public void testChallengeWithNonHttpUri()
+    {
+        assertThatThrownBy(() -> buildAuthentication("Bearer x_redirect_server=\"file:///C:/Windows/System32/calc.exe\", x_token_server=\"http://token.uri\""))
+                .isInstanceOf(ClientException.class)
+                .hasMessage(format("Unsupported URI scheme for field '%s': file", REDIRECT_URI_FIELD));
+
+        assertThatThrownBy(() -> buildAuthentication("Bearer x_redirect_server=\"smb://attacker/share/payload\", x_token_server=\"http://token.uri\""))
+                .isInstanceOf(ClientException.class)
+                .hasMessage(format("Unsupported URI scheme for field '%s': smb", REDIRECT_URI_FIELD));
+
+        assertThatThrownBy(() -> buildAuthentication("Bearer x_redirect_server=\"-a\", x_token_server=\"http://token.uri\""))
+                .isInstanceOf(ClientException.class)
+                .hasMessage(format("Unsupported URI scheme for field '%s': null", REDIRECT_URI_FIELD));
+
+        assertThatThrownBy(() -> buildAuthentication("Bearer x_token_server=\"file:///etc/passwd\""))
+                .isInstanceOf(ClientException.class)
+                .hasMessage(format("Unsupported URI scheme for field '%s': file", TOKEN_URI_FIELD));
+
+        assertThat(buildAuthentication("Bearer x_redirect_server=\"HTTPS://redirect.uri\", x_token_server=\"https://token.uri\""))
+                .hasValueSatisfying(authentication -> {
+                    assertThat(authentication.getRedirectUri()).hasValue(create("HTTPS://redirect.uri"));
+                    assertThat(authentication.getTokenUri()).isEqualTo(create("https://token.uri"));
+                });
+    }
+
+    @Test
+    public void testRedirectHandlerNotCalledForNonHttpUri()
+    {
+        MockRedirectHandler redirectHandler = new MockRedirectHandler();
+        MockTokenPoller tokenPoller = new MockTokenPoller()
+                .withResult(URI.create("http://token.uri"), successful(new Token("valid-token")));
+        ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, tokenPoller, KnownToken.local(), Duration.ofSeconds(1));
+
+        assertThatThrownBy(() -> authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"file:///C:/Windows/System32/calc.exe\"")))
+                .isInstanceOf(ClientException.class);
+        assertThat(redirectHandler.getRedirectionCount()).isEqualTo(0);
     }
 
     @Test
