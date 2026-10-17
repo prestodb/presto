@@ -19,6 +19,9 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+/**
+ * Unit tests for {@link DeltaConfig}.
+ */
 public class TestDeltaConfig
 {
     @Test
@@ -27,22 +30,25 @@ public class TestDeltaConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(DeltaConfig.class)
                 .setMaxSplitsBatchSize(200)
                 .setParquetDereferencePushdownEnabled(true)
-                .setCaseSensitivePartitionsEnabled(true));
+                .setCaseSensitivePartitionsEnabled(true)
+                .setTableStatisticsEnabled(true));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("delta.max-splits-batch-size", "400")
                 .put("delta.parquet-dereference-pushdown-enabled", "false")
                 .put("delta.case-sensitive-partitions-enabled", "false")
+                .put("delta.table-statistics-enabled", "false")
                 .build();
 
         DeltaConfig expected = new DeltaConfig()
                 .setMaxSplitsBatchSize(400)
                 .setParquetDereferencePushdownEnabled(false)
-                .setCaseSensitivePartitionsEnabled(false);
+                .setCaseSensitivePartitionsEnabled(false)
+                .setTableStatisticsEnabled(false);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

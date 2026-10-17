@@ -28,6 +28,8 @@ File-Based Metastore
 For testing or development purposes, this connector can be configured to use a local 
 filesystem directory as a Hive Metastore. See :ref:`installation/deployment:File-Based Metastore`.  
 
+.. _delta-configuration-properties:
+
 Configuration Properties
 ------------------------
 
@@ -52,7 +54,27 @@ Property Name                                   Description                     
                                                 ``true``.
 ``delta.case-sensitive-partitions-enabled``     Allows matching the names of partitioned columns in a     ``true``
                                                 case-sensitive manner.
+``delta.table-statistics-enabled``              Enable table statistics (row count, min/max, null         ``true``
+                                                fractions, partition NDV) derived from the transaction
+                                                log for cost-based query optimization. Also see the
+                                                session property :ref:`delta-session-properties`.
 =============================================== ========================================================= ============
+
+.. _delta-session-properties:
+
+Session Properties
+------------------
+
+The following session properties are available:
+
+============================== ======================================================================== ============
+Property Name                  Description                                                              Default
+============================== ======================================================================== ============
+``statistics_enabled``         Allows overriding the                                                    Inherited
+                               :ref:`delta.table-statistics-enabled <delta-configuration-properties>`
+                               configuration property to enable or disable reading Delta Lake table
+                               statistics from the transaction log for the current session.
+============================== ======================================================================== ============
 
 Delta Lake connector reuses many of the modules existing in Hive connector.
 Modules for connectivity and security such as S3, Azure Data Lake, and Glue metastore.
