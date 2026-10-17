@@ -20,6 +20,7 @@ import com.facebook.presto.cost.PlanCostEstimate;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.MVRewriteCandidatesNode;
 import com.facebook.presto.spi.plan.MVRewriteCandidatesNode.MVRewriteCandidate;
@@ -33,8 +34,12 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import java.util.List;
 
 import static com.facebook.presto.SystemSessionProperties.getMaterializedViewIncrementalRefreshStrategy;
+import static com.facebook.presto.SystemSessionProperties.getMaterializedViewRowLevelIncrementalStrategy;
 import static com.facebook.presto.SystemSessionProperties.getMaterializedViewStitchingStrategy;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewQueryRewriteCostBasedSelectionEnabled;
+import static com.facebook.presto.common.RuntimeMetricName.MATERIALIZED_VIEW_ROW_LEVEL_STITCHING_APPLIED;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
+import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_ROW_LEVEL_REJECTED_ON_COST;
 import static com.facebook.presto.sql.planner.iterative.rule.materializedview.MaterializedViewRewriteStrategy.AUTOMATIC;
 import static com.facebook.presto.sql.planner.plan.Patterns.mvRewriteCandidates;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -68,7 +73,8 @@ public class SelectLowestCostMVRewrite
     {
         return isMaterializedViewQueryRewriteCostBasedSelectionEnabled(session)
                 || getMaterializedViewStitchingStrategy(session) == AUTOMATIC
-                || getMaterializedViewIncrementalRefreshStrategy(session) == AUTOMATIC;
+                || getMaterializedViewIncrementalRefreshStrategy(session) == AUTOMATIC
+                || getMaterializedViewRowLevelIncrementalStrategy(session) == AUTOMATIC;
     }
 
     @Override
@@ -87,14 +93,28 @@ public class SelectLowestCostMVRewrite
 
         PlanNode selectedPlan = node.getOriginalPlan();
         PlanCostEstimate lowestCost = costProvider.getCost(selectedPlan);
+        // Null while the original plan is still winning, i.e. no candidate has beaten a full
+        // recompute yet.
+        MVRewriteCandidate selectedCandidate = null;
+
+        // The row-level candidate's own estimate, kept so the warning below can say whether it was
+        // actually priced. That warning claims another plan "cost less", which holds only if the
+        // comparison happened and the winner was strictly cheaper. An estimate with unknown
+        // components is never compared, and a tie leaves the incumbent in place without either being
+        // cheaper -- reporting those as a cost rejection asserts a measurement nobody took.
+        PlanCostEstimate rowLevelCost = null;
 
         for (MVRewriteCandidate candidate : node.getCandidates()) {
             PlanCostEstimate candidateCost = costProvider.getCost(candidate.getPlan());
+            if (candidate.isRowLevel()) {
+                rowLevelCost = candidateCost;
+            }
 
             if (!candidateCost.hasUnknownComponents() && !lowestCost.hasUnknownComponents()) {
                 if (costComparator.compare(session, candidateCost, lowestCost) < 0) {
                     lowestCost = candidateCost;
                     selectedPlan = candidate.getPlan();
+                    selectedCandidate = candidate;
                 }
             }
             else {
@@ -104,8 +124,40 @@ public class SelectLowestCostMVRewrite
                 if (!Double.isNaN(candidateRows) && (Double.isNaN(selectedRows) || candidateRows < selectedRows)) {
                     lowestCost = candidateCost;
                     selectedPlan = candidate.getPlan();
+                    selectedCandidate = candidate;
                 }
             }
+        }
+
+        // A row-level candidate that was offered and not chosen is the cost picker working, not a
+        // capability gap, so it gets its own code: without one, a view that never refreshes
+        // row-level looks the same whether it was ineligible or merely more expensive.
+        boolean rowLevelOffered = node.getCandidates().stream().anyMatch(MVRewriteCandidate::isRowLevel);
+        if (selectedCandidate != null && selectedCandidate.isRowLevel()) {
+            context.getSession().getRuntimeStats()
+                    .addMetricValue(MATERIALIZED_VIEW_ROW_LEVEL_STITCHING_APPLIED, NONE, 1);
+        }
+        if (rowLevelOffered && (selectedCandidate == null || !selectedCandidate.isRowLevel())) {
+            String viewName = node.getCandidates().stream()
+                    .filter(MVRewriteCandidate::isRowLevel)
+                    .map(MVRewriteCandidate::getFullyQualifiedName)
+                    .findFirst()
+                    .orElse("<unknown>");
+            // Compared against the plan that actually won, not against whatever was leading when the
+            // row-level candidate happened to be visited.
+            boolean pricedAndLost = rowLevelCost != null
+                    && !rowLevelCost.hasUnknownComponents()
+                    && !lowestCost.hasUnknownComponents()
+                    && costComparator.compare(session, rowLevelCost, lowestCost) > 0;
+            context.getWarningCollector().add(new PrestoWarning(
+                    MATERIALIZED_VIEW_ROW_LEVEL_REJECTED_ON_COST,
+                    pricedAndLost
+                            ? "Row-level incremental refresh was available for materialized view " + viewName +
+                            " and was not chosen because another plan cost less."
+                            : "Row-level incremental refresh was available for materialized view " + viewName +
+                            " and was not chosen, but its cost could not be compared with the plan that was. " +
+                            "Collect statistics on the base table and on the view's storage table so the " +
+                            "comparison can be made."));
         }
 
         // Resolve GroupReference since Memo wraps children as GroupReferences
