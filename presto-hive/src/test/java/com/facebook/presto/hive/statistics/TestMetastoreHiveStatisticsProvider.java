@@ -752,6 +752,31 @@ public class TestMetastoreHiveStatisticsProvider
     }
 
     @Test
+    public void testZeroRowCountSurvivesStatsRollup()
+    {
+        String partitionName = "p1=string1/p2=1234";
+        PartitionStatistics zeroRows = PartitionQuickStats.convertToPartitionStatistics(PartitionQuickStats.ZERO_INPUT_ROWS);
+        MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider(
+                (session, table, hivePartitions) -> ImmutableMap.of(partitionName, zeroRows), quickStatsProvider);
+
+        TestingConnectorSession session = new TestingConnectorSession(new HiveSessionProperties(
+                new HiveClientConfig(),
+                new OrcFileWriterConfig(),
+                new ParquetFileWriterConfig(),
+                new CacheConfig()).getSessionProperties());
+
+        TableStatistics statistics = statisticsProvider.getTableStatistics(
+                session,
+                TABLE,
+                ImmutableMap.of(),
+                ImmutableMap.of(),
+                ImmutableList.of(partition(partitionName)));
+
+        assertEquals(statistics.getRowCount(), Estimate.of(0));
+        assertEquals(statistics.getTotalSize(), Estimate.of(0));
+    }
+
+    @Test
     public void testGetTableStatisticsSampling()
     {
         MetastoreHiveStatisticsProvider statisticsProvider = new MetastoreHiveStatisticsProvider((session, table, hivePartitions) -> {

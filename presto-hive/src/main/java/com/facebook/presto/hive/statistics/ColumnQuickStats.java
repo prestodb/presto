@@ -14,8 +14,12 @@
 
 package com.facebook.presto.hive.statistics;
 
+import io.airlift.slice.Slice;
+
 import java.lang.reflect.Type;
+import java.time.chrono.ChronoLocalDate;
 import java.util.Objects;
+import java.util.OptionalLong;
 
 import static java.util.Objects.hash;
 
@@ -68,11 +72,6 @@ public class ColumnQuickStats<T extends Comparable<T>>
         this.maxValue = this.maxValue == null ? maxValue : this.maxValue.compareTo(maxValue) > 0 ? this.maxValue : maxValue;
     }
 
-    public long getRowCount()
-    {
-        return rowCount;
-    }
-
     public void addToRowCount(long rowCount)
     {
         this.rowCount = this.rowCount + rowCount;
@@ -86,6 +85,67 @@ public class ColumnQuickStats<T extends Comparable<T>>
     public void addToNullsCount(long nullsCount)
     {
         this.nullsCount = this.nullsCount + nullsCount;
+    }
+
+    /**
+     * @param nonNullCount an upper bound on the number of non-null values of this column in the partition
+     */
+    public OptionalLong getDistinctValuesCount(long nonNullCount)
+    {
+        // No non-null values means no distinct values, for every type.
+        if (nonNullCount <= 0) {
+            return OptionalLong.of(0);
+        }
+
+        if (statType.equals(Boolean.class)) {
+            return OptionalLong.of(Math.min(nonNullCount, 2));
+        }
+        if (statType.equals(Slice.class)) {
+            // No min/max is collected for VARCHAR/VARBINARY, so there is nothing to bound by.
+            return OptionalLong.empty();
+        }
+        if (statType.equals(Float.class)) {
+            // PartitionQuickStats#convertToPartitionStatistics does not emit NDV for FLOAT.
+            return OptionalLong.empty();
+        }
+        if (minValue == null || maxValue == null) {
+            return OptionalLong.empty();
+        }
+
+        // Bound NDV by the size of the observed [min, max] range, capped at the non-null row count.
+        // This avoids an unknown NDV, which leaves the optimizer to fall back to default selectivity.
+        OptionalLong rangeCardinality = estimateRangeCardinality();
+        long bound = rangeCardinality.isPresent() ? Math.min(nonNullCount, rangeCardinality.getAsLong()) : nonNullCount;
+        return OptionalLong.of(bound);
+    }
+
+    /**
+     * {@code maxValue - minValue + 1} for integral and date types; empty for continuous types such as
+     * DOUBLE, or when the range overflows a {@code long}.
+     */
+    private OptionalLong estimateRangeCardinality()
+    {
+        try {
+            if (statType.equals(Integer.class)) {
+                long min = (Integer) minValue;
+                long max = (Integer) maxValue;
+                return OptionalLong.of(Math.addExact(Math.subtractExact(max, min), 1));
+            }
+            if (statType.equals(Long.class)) {
+                long min = (Long) minValue;
+                long max = (Long) maxValue;
+                return OptionalLong.of(Math.addExact(Math.subtractExact(max, min), 1));
+            }
+            if (statType.equals(ChronoLocalDate.class)) {
+                long min = ((ChronoLocalDate) minValue).toEpochDay();
+                long max = ((ChronoLocalDate) maxValue).toEpochDay();
+                return OptionalLong.of(Math.addExact(Math.subtractExact(max, min), 1));
+            }
+        }
+        catch (ArithmeticException e) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.empty();
     }
 
     @Override
