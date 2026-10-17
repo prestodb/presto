@@ -772,13 +772,7 @@ public class ExpressionInterpreter
                 return null;
             }
             Object min = process(node.getMin(), context);
-            if (min == null) {
-                return null;
-            }
             Object max = process(node.getMax(), context);
-            if (max == null) {
-                return null;
-            }
 
             if (hasUnresolvedValue(value, min, max)) {
                 return new BetweenPredicate(
@@ -787,7 +781,19 @@ public class ExpressionInterpreter
                         toExpression(max, type(node.getMax())));
             }
 
-            return invokeOperator(OperatorType.BETWEEN, types(node.getValue(), node.getMin(), node.getMax()), ImmutableList.of(value, min, max));
+            if (min != null && max != null) {
+                return invokeOperator(OperatorType.BETWEEN, types(node.getValue(), node.getMin(), node.getMax()), ImmutableList.of(value, min, max));
+            }
+
+            // BETWEEN is equivalent to (value >= min AND value <= max), so the result is false if the non-null bound is not satisfied
+            Object withinNonNullBound = null;
+            if (min != null) {
+                withinNonNullBound = invokeOperator(OperatorType.GREATER_THAN_OR_EQUAL, types(node.getValue(), node.getMin()), ImmutableList.of(value, min));
+            }
+            else if (max != null) {
+                withinNonNullBound = invokeOperator(OperatorType.LESS_THAN_OR_EQUAL, types(node.getValue(), node.getMax()), ImmutableList.of(value, max));
+            }
+            return Boolean.FALSE.equals(withinNonNullBound) ? false : null;
         }
 
         @Override
