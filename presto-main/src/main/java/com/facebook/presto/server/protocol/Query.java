@@ -504,6 +504,7 @@ class Query
         // the pages will be lost.
         Iterable<List<Object>> data = null;
         List<String> binaryData = null;
+        boolean producedRows = false;
         try {
             long rows = 0;
             long bytes = 0;
@@ -549,7 +550,7 @@ class Query
                 }
             }
             if (rows > 0) {
-                hasProducedResult = true;
+                producedRows = true;
             }
         }
         catch (Exception e) {
@@ -562,9 +563,12 @@ class Query
         queryManager.recordHeartbeat(queryId);
 
         // TODO: figure out a better way to do this
+        // the only output of a data manipulation statement is a single row holding the update count
+        boolean isUpdateCountResult = (queryInfo.getUpdateInfo() != null) && (columns != null) &&
+                (columns.size() == 1) && (columns.get(0).getType().equals(StandardTypes.BIGINT));
+
         // grab the update count for non-queries
-        if ((data != null) && (queryInfo.getUpdateInfo() != null) && (updateCount == null) &&
-                (columns.size() == 1) && (columns.get(0).getType().equals(StandardTypes.BIGINT))) {
+        if ((data != null) && isUpdateCountResult && (updateCount == null)) {
             Iterator<List<Object>> iterator = data.iterator();
             if (iterator.hasNext()) {
                 Number number = (Number) iterator.next().get(0);
@@ -572,6 +576,14 @@ class Query
                     updateCount = number.longValue();
                 }
             }
+        }
+
+        // The update count is not a query result: it only becomes meaningful once the auto-commit
+        // transaction of the statement commits, and that happens after the count has been streamed
+        // out. Sending it therefore does not prevent the statement from being retried, unlike real
+        // rows, which the client cannot be asked to consume twice.
+        if (producedRows && !isUpdateCountResult) {
+            hasProducedResult = true;
         }
 
         closeExchangeClientIfNecessary(queryInfo);
