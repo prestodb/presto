@@ -22,8 +22,10 @@ import com.facebook.presto.cost.PlanNodeStatsEstimate;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsProvider;
+import com.facebook.presto.execution.warnings.WarningCollectorConfig;
 import com.facebook.presto.matching.Match;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.LogicalProperties;
@@ -42,6 +44,8 @@ import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesImpl;
 import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesProviderImpl;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.testing.TestingWarningCollector;
+import com.facebook.presto.testing.TestingWarningCollectorConfig;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -73,6 +77,12 @@ public class RuleAssert
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
     private final List<String> extraCatalogs;
+    /**
+     * Collects whatever the rule under test reports, so a test can assert on it. Previously the
+     * context handed rules WarningCollector.NOOP, which made rule-emitted warnings unobservable.
+     */
+    private final WarningCollector warningCollector = new TestingWarningCollector(
+            new WarningCollectorConfig(), new TestingWarningCollectorConfig());
 
     private Session session;
     private TypeProvider types;
@@ -96,6 +106,14 @@ public class RuleAssert
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.logicalPropertiesProvider = requireNonNull(logicalPropertiesProvider, "logicalPropertiesProvider is null");
         this.extraCatalogs = requireNonNull(extraCatalogs, "extraCatalogs is null");
+    }
+
+    /**
+     * The warnings the rule reported during the most recent application.
+     */
+    public List<PrestoWarning> getWarnings()
+    {
+        return warningCollector.getWarnings();
     }
 
     public RuleAssert setSystemProperty(String key, String value)
@@ -318,7 +336,7 @@ public class RuleAssert
             @Override
             public WarningCollector getWarningCollector()
             {
-                return WarningCollector.NOOP;
+                return warningCollector;
             }
 
             @Override
