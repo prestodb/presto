@@ -14,11 +14,16 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.spi.ConnectorCodec;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import jakarta.inject.Inject;
 import jakarta.inject.Provider;
+
+import java.util.Optional;
+import java.util.function.Function;
 
 public class TableFunctionJacksonHandleModule
         extends AbstractTypedJacksonModule<ConnectorTableFunctionHandle>
@@ -36,5 +41,17 @@ public class TableFunctionJacksonHandleModule
                 connectorId -> connectorManagerProvider.get()
                         .getConnectorCodecProvider(connectorId)
                         .flatMap(ConnectorCodecProvider::getConnectorTableFunctionHandleCodec));
+    }
+
+    public TableFunctionJacksonHandleModule(
+            HandleResolver handleResolver,
+            FeaturesConfig featuresConfig,
+            Function<ConnectorId, Optional<ConnectorCodec<ConnectorTableFunctionHandle>>> codecExtractor)
+    {
+        super(ConnectorTableFunctionHandle.class,
+                handleResolver::getId,
+                handleResolver::getTableFunctionHandleClass,
+                featuresConfig.isUseConnectorProvidedSerializationCodecs(),
+                codecExtractor);
     }
 }
