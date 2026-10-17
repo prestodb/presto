@@ -3112,6 +3112,39 @@ public abstract class IcebergAbstractMetadata
         derivedColumnOperations(icebergTable, Optional.of(columnMetadataSource), columnMetadataTarget, DerivedColumnOperationType.UPDATE);
     }
 
+    @Override
+    public void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, List<String> fieldPath, com.facebook.presto.common.type.Type type)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        validateNoBranchSpecified(table, "SET FIELD TYPE");
+        IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
+
+        Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        ColumnMetadata columnMetadataSource = getColumnMetadata(session, icebergTable, column.getName());
+        try {
+            Schema schema = icebergTable.schema();
+            Types.NestedField field = schema.findField(column.getId());
+            for (String pathElement : fieldPath) {
+                if (!field.type().isStructType()) {
+                    throw new IllegalArgumentException("Cannot find nested field " + pathElement);
+                }
+                field = field.type().asStructType().caseInsensitiveField(pathElement);
+                if (field == null) {
+                    throw new IllegalArgumentException("Cannot find nested field " + pathElement);
+                }
+            }
+            icebergTable.updateSchema()
+                    .updateColumn(schema.findColumnName(field.fieldId()), toIcebergType(type).asPrimitiveType())
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_INCOMPATIBLE_COLUMN_TYPE, "Failed to set field type: " + firstNonNull(e.getMessage(), e), e);
+        }
+        Table updatedIcebergTable = getIcebergTable(session, table.getSchemaTableName());
+        ColumnMetadata columnMetadataTarget = getColumnMetadata(session, updatedIcebergTable, column.getName());
+        derivedColumnOperations(updatedIcebergTable, Optional.of(columnMetadataSource), columnMetadataTarget, DerivedColumnOperationType.UPDATE);
+    }
+
     protected void openCreateTableTransaction(SchemaTableName tableName, Transaction transaction)
     {
         transactionContext.registerTransaction(tableName, transaction);

@@ -259,6 +259,11 @@ public interface Metadata
      */
     void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type);
 
+    default void setFieldType(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type)
+    {
+        throw new UnsupportedOperationException();
+    }
+
     /**
      * Move the specified column to the specified position within the table's column order.
      */

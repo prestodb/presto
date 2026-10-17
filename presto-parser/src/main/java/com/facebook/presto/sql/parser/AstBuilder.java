@@ -1156,7 +1156,7 @@ class AstBuilder
         return new SetColumnType(
                 getLocation(context),
                 getQualifiedName(context.tableName),
-                (Identifier) visit(context.columnName),
+                getQualifiedName(context.columnName),
                 getType(context.type()),
                 context.EXISTS() != null);
     }

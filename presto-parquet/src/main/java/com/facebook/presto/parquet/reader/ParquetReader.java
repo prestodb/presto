@@ -80,6 +80,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
@@ -647,6 +648,11 @@ public class ParquetReader
                 newBlock = rewriteIntegerArrayBlock((IntArrayBlock) columnChunk.getBlock(), outputType);
             }
         }
+        else if (DOUBLE.equals(outputType) && physicalDataType == PrimitiveTypeName.FLOAT) {
+            if (columnChunk.getBlock() instanceof IntArrayBlock) {
+                newBlock = rewriteFloatArrayBlockToDouble((IntArrayBlock) columnChunk.getBlock());
+            }
+        }
 
         if (newBlock != null) {
             return new ColumnChunk(newBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
@@ -681,6 +687,22 @@ public class ParquetReader
             }
             else {
                 targetType.writeLong(newBlockBuilder, longArrayBlock.getLong(position));
+            }
+        }
+
+        return newBlockBuilder.build();
+    }
+
+    private static Block rewriteFloatArrayBlockToDouble(IntArrayBlock intArrayBlock)
+    {
+        int positionCount = intArrayBlock.getPositionCount();
+        BlockBuilder newBlockBuilder = DOUBLE.createBlockBuilder(null, positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            if (intArrayBlock.isNull(position)) {
+                newBlockBuilder.appendNull();
+            }
+            else {
+                DOUBLE.writeDouble(newBlockBuilder, Float.intBitsToFloat(intArrayBlock.getInt(position)));
             }
         }
 
