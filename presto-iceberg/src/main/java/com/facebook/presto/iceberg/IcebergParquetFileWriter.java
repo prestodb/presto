@@ -13,11 +13,13 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.parquet.ParquetFileWriter;
 import com.facebook.presto.parquet.writer.ParquetWriterOptions;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableSet;
 import jakarta.annotation.Nullable;
 import org.apache.hadoop.fs.Path;
@@ -32,10 +34,14 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.function.UnaryOperator;
 
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_FAILED;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergParquetFileWriter
@@ -47,6 +53,7 @@ public class IcebergParquetFileWriter
     private final HdfsContext hdfsContext;
     private final MetricsConfig metricsConfig;
     private final Set<Integer> geospatialFieldIds;
+    private final Optional<UnaryOperator<Page>> pagePruner;
 
     public IcebergParquetFileWriter(
             OutputStream outputStream,
@@ -57,6 +64,7 @@ public class IcebergParquetFileWriter
             Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
             int[] fileInputColumnIndexes,
+            Optional<UnaryOperator<Page>> pagePruner,
             CompressionCodecName compressionCodecName,
             Path outputPath,
             HdfsEnvironment hdfsEnvironment,
@@ -82,14 +90,31 @@ public class IcebergParquetFileWriter
         this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
         this.metricsConfig = requireNonNull(metricsConfig, "metricsConfig is null");
         this.geospatialFieldIds = ImmutableSet.copyOf(requireNonNull(geospatialFieldIds, "geospatialFieldIds is null"));
+        this.pagePruner = requireNonNull(pagePruner, "pagePruner is null");
+    }
+
+    @Override
+    public void appendRows(Page dataPage)
+    {
+        super.appendRows(pagePruner.map(pruner -> pruner.apply(dataPage)).orElse(dataPage));
     }
 
     @Override
     public Metrics getMetrics()
     {
-        Metrics metrics = hdfsEnvironment.doAs(
-                hdfsContext.getIdentity().getUser(),
-                () -> ParquetUtil.fileMetrics(new HdfsInputFile(outputPath, hdfsEnvironment, hdfsContext), metricsConfig));
+        Metrics metrics;
+        try {
+            metrics = hdfsEnvironment.doAs(
+                    hdfsContext.getIdentity().getUser(),
+                    () -> ParquetUtil.fileMetrics(new HdfsInputFile(outputPath, hdfsEnvironment, hdfsContext), metricsConfig));
+        }
+        catch (RuntimeException e) {
+            if (e instanceof PrestoException) {
+                throw (PrestoException) e;
+            }
+            throw new PrestoException(ICEBERG_WRITE_VALIDATION_FAILED,
+                    format("Failed to read Parquet metrics from %s: %s", outputPath, e.toString()), e);
+        }
         return dropGeospatialBounds(metrics);
     }
 

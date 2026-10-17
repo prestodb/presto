@@ -428,6 +428,23 @@ public abstract class IcebergAbstractMetadata
         return Optional.ofNullable(this.procedureContext.get());
     }
 
+    static void validateUnknownColumnsForCreateTable(Schema schema, int formatVersion)
+    {
+        if (formatVersion < 3 && UnknownFields.containsUnknownType(schema.asStruct())) {
+            String firstUnknownColumn = schema.columns().stream()
+                    .filter(f -> UnknownFields.containsUnknownType(f.type()))
+                    .map(Types.NestedField::name)
+                    .findFirst()
+                    .orElse("?");
+            throw new PrestoException(NOT_SUPPORTED, format(
+                    "Tables with unknown columns require format-version = '3' (first unknown column: '%s'). " +
+                            "Set format-version = '3' in WITH properties, " +
+                            "or CAST the column to a concrete type (e.g. CAST(NULL AS INTEGER)).",
+                    firstUnknownColumn));
+        }
+        UnknownFields.validateWritable(schema);
+    }
+
     protected static void validateTableForPresto(BaseTable table, Optional<Long> tableSnapshotId)
     {
         Snapshot snapshot;
@@ -731,6 +748,7 @@ public abstract class IcebergAbstractMetadata
     {
         validateBranchExists(table, icebergTable);
         validateGeospatialWrite(icebergTable);
+        UnknownFields.validateWritable(icebergTable.schema());
         return new IcebergInsertTableHandle(
                 table.getSchemaName(),
                 table.getIcebergTableName(),
@@ -1373,6 +1391,21 @@ public abstract class IcebergAbstractMetadata
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
         validateNoBranchSpecified(handle, "ADD COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        // Reject an unknown-type column on a pre-V3 table rather than accepting the schema change
+        // and failing every subsequent write with a cryptic internal error from Iceberg's schema commit
+        if (UnknownFields.containsUnknownType(columnType)) {
+            validateMinimumFormatVersion(icebergTable, 3, format(
+                    "Adding a column of type unknown is only supported with Iceberg format version 3 or higher. " +
+                            "Table '%s' is currently at format version %d. " +
+                            "Declare a concrete column type, or recreate the table with format-version = '3'.",
+                    handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion()));
+            // Also reject nested shapes that would make every subsequent INSERT fail (e.g. ARRAY(UNKNOWN),
+            // MAP with unknown key/value, ROW whose fields are all unknown). A bare top-level UNKNOWN
+            // column is fine: it is simply never stored and always reads back as null.
+            if (!UnknownFields.isUnknownType(columnType)) {
+                UnknownFields.validateWritable(new Schema(Types.NestedField.optional(1, column.getName(), columnType)));
+            }
+        }
         // Reject a geospatial column the table could never be written with, rather than
         // accepting the schema change and failing every subsequent write
         validateGeospatialWrite(column.getName(), columnType, opsFromTable(icebergTable).current().formatVersion(), getFileFormat(icebergTable));
@@ -1538,6 +1571,18 @@ public abstract class IcebergAbstractMetadata
         }
 
         org.apache.iceberg.types.Type icebergType = toIcebergType(type);
+        if (UnknownFields.containsUnknownType(icebergType)) {
+            validateMinimumFormatVersion(icebergTable, 3, format(
+                    "Adding a field of type unknown is only supported with Iceberg format version 3 or higher. " +
+                            "Table '%s' is currently at format version %d. " +
+                            "Declare a concrete field type, or recreate the table with format-version = '3'.",
+                    handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion()));
+            // Also reject shapes that would make every subsequent INSERT fail.
+            // A bare top-level UNKNOWN field is fine; only reject nested shapes.
+            if (!UnknownFields.isUnknownType(icebergType)) {
+                UnknownFields.validateWritable(new Schema(Types.NestedField.optional(1, fieldName, icebergType)));
+            }
+        }
         try {
             icebergTable.updateSchema()
                     .addColumn(canonicalParentName, fieldName, icebergType)
@@ -2836,6 +2881,7 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle storageTableHandle = getTableHandle(session, storageTableName);
         Table storageTable = getIcebergTable(session, storageTableName);
         validateGeospatialWrite(storageTable);
+        UnknownFields.validateWritable(storageTable.schema());
         SchemaTableName materializedViewName = icebergTableHandle.getMaterializedViewName().get();
         MaterializedViewStatus status = getMaterializedViewStatus(session, materializedViewName, TupleDomain.all());
         boolean fullRefreshRequired = !status.isFullyMaterialized()

@@ -75,6 +75,10 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetWri
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetWriterVersion;
 import static com.facebook.presto.iceberg.TypeConverter.toOrcType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
+import static com.facebook.presto.iceberg.UnknownFields.fileSchema;
+import static com.facebook.presto.iceberg.UnknownFields.isUnknownType;
+import static com.facebook.presto.iceberg.UnknownFields.pagePruner;
+import static com.facebook.presto.iceberg.UnknownFields.validateWritable;
 import static com.facebook.presto.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcEncoding.ORC;
@@ -122,6 +126,8 @@ public class IcebergFileWriterFactory
             FileFormat fileFormat,
             MetricsConfig metricsConfig)
     {
+        validateWritable(icebergSchema);
+
         switch (fileFormat) {
             case PARQUET:
                 return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext, metricsConfig);
@@ -140,12 +146,14 @@ public class IcebergFileWriterFactory
             HdfsContext hdfsContext,
             MetricsConfig metricsConfig)
     {
-        List<String> fileColumnNames = icebergSchema.columns().stream()
+        Schema dataFileSchema = fileSchema(icebergSchema);
+        List<String> fileColumnNames = dataFileSchema.columns().stream()
                 .map(Types.NestedField::name)
                 .collect(toImmutableList());
+        // dataFileSchema excludes UNKNOWN columns (never written to Parquet files).
         // Geospatial columns reach the writer as well-known binary, so the writer is given
         // VARBINARY while the Parquet schema keeps the geospatial logical annotation.
-        List<Type> fileColumnTypes = icebergSchema.columns().stream()
+        List<Type> fileColumnTypes = dataFileSchema.columns().stream()
                 .map(column -> toPrestoType(column.type(), typeManager))
                 .map(type -> toFileType(type, typeManager))
                 .collect(toImmutableList());
@@ -170,10 +178,11 @@ public class IcebergFileWriterFactory
                     rollbackAction,
                     fileColumnNames,
                     fileColumnTypes,
-                    convert(icebergSchema, "table", geospatialAnnotations),
+                    convert(dataFileSchema, "table", geospatialAnnotations),
                     makeTypeMap(fileColumnTypes, fileColumnNames),
                     parquetWriterOptions,
-                    IntStream.range(0, fileColumnNames.size()).toArray(),
+                    fileInputColumnIndexes(icebergSchema),
+                    pagePruner(icebergSchema, typeManager),
                     getCompressionCodec(session).getParquetCompressionCodec(),
                     outputPath,
                     hdfsEnvironment,
@@ -202,7 +211,8 @@ public class IcebergFileWriterFactory
                 return null;
             };
 
-            List<Types.NestedField> columnFields = icebergSchema.columns();
+            Schema dataFileSchema = fileSchema(icebergSchema);
+            List<Types.NestedField> columnFields = dataFileSchema.columns();
             List<String> fileColumnNames = columnFields.stream()
                     .map(Types.NestedField::name)
                     .collect(toImmutableList());
@@ -232,13 +242,13 @@ public class IcebergFileWriterFactory
             }
 
             return new IcebergOrcFileWriter(
-                    icebergSchema,
+                    dataFileSchema,
                     orcDataSink,
                     rollbackAction,
                     ORC,
                     fileColumnNames,
                     fileColumnTypes,
-                    toOrcType(icebergSchema),
+                    toOrcType(dataFileSchema),
                     getCompressionCodec(session).getOrcCompressionKind(),
                     orcFileWriterConfig
                             .toOrcWriterOptionsBuilder()
@@ -250,7 +260,8 @@ public class IcebergFileWriterFactory
                             .withDictionaryMaxMemory(getOrcOptimizedWriterMaxDictionaryMemory(session))
                             .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session))
                             .build(),
-                    IntStream.range(0, fileColumnNames.size()).toArray(),
+                    fileInputColumnIndexes(icebergSchema),
+                    pagePruner(icebergSchema, typeManager),
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())
                             .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
@@ -265,5 +276,17 @@ public class IcebergFileWriterFactory
         catch (IOException e) {
             throw new PrestoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating ORC file", e);
         }
+    }
+
+    /**
+     * The input channel each file column is written from. Channels of columns that are not stored in
+     * the data file are left out, so that the writers do not read them.
+     */
+    private static int[] fileInputColumnIndexes(Schema icebergSchema)
+    {
+        List<Types.NestedField> columns = icebergSchema.columns();
+        return IntStream.range(0, columns.size())
+                .filter(channel -> !isUnknownType(columns.get(channel).type()))
+                .toArray();
     }
 }
