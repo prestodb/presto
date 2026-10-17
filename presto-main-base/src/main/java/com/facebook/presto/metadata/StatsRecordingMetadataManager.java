@@ -678,6 +678,23 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+            Session session,
+            InsertTableHandle tableHandle,
+            Collection<Slice> deleteFragments,
+            Collection<Slice> insertFragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        long startTime = System.nanoTime();
+        try {
+            return delegate.finishRefreshMaterializedView(session, tableHandle, deleteFragments, insertFragments, computedStatistics);
+        }
+        finally {
+            stats.recordFinishRefreshMaterializedViewCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
     public List<QualifiedObjectName> getReferencedMaterializedViews(Session session, QualifiedObjectName tableName)
     {
         long startTime = System.nanoTime();

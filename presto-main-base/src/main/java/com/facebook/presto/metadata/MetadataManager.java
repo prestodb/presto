@@ -35,6 +35,7 @@ import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorRefreshMaterializedViewHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -1451,7 +1452,26 @@ public class MetadataManager
         // beginRefreshMaterializedView (some connectors, e.g. Prism, return distinct read/write
         // instances); this lets a connector read state set during begin (e.g. the refresh scope).
         ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        return metadata.finishRefreshMaterializedView(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fragments, computedStatistics);
+        ConnectorInsertTableHandle connectorHandle = tableHandle.getConnectorHandle();
+        if (connectorHandle instanceof ConnectorRefreshMaterializedViewHandle) {
+            return metadata.finishRefreshMaterializedView(session.toConnectorSession(connectorId), (ConnectorRefreshMaterializedViewHandle) connectorHandle, fragments, computedStatistics);
+        }
+        return metadata.finishRefreshMaterializedView(session.toConnectorSession(connectorId), connectorHandle, fragments, computedStatistics);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(Session session, InsertTableHandle tableHandle, Collection<Slice> deleteFragments, Collection<Slice> insertFragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        ConnectorInsertTableHandle connectorHandle = tableHandle.getConnectorHandle();
+        if (!(connectorHandle instanceof ConnectorRefreshMaterializedViewHandle)) {
+            if (!deleteFragments.isEmpty()) {
+                throw new PrestoException(NOT_SUPPORTED, "Atomic delete and insert materialized view refresh is not supported");
+            }
+            return metadata.finishRefreshMaterializedView(session.toConnectorSession(connectorId), connectorHandle, insertFragments, computedStatistics);
+        }
+        return metadata.finishRefreshMaterializedView(session.toConnectorSession(connectorId), (ConnectorRefreshMaterializedViewHandle) connectorHandle, deleteFragments, insertFragments, computedStatistics);
     }
 
     @Override

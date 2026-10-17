@@ -30,6 +30,17 @@ public class RuntimeMetricName
     public static final String OPTIMIZED_WITH_MATERIALIZED_VIEW_SUBQUERY_COUNT = "optimizedWithMaterializedViewSubqueryCount";
     public static final String MANY_PARTITIONS_MISSING_IN_MATERIALIZED_VIEW_COUNT = "manyPartitionsMissingInMaterializedViewCount";
     public static final String SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT = "skipReadingFromMaterializedViewCount";
+    /**
+     * Incremented once per query whose plan reads a stale materialized view by stitching the
+     * materialized rows together with a row-level delta, rather than recomputing the view.
+     *
+     * <p>Counted because the decline is reported as a warning but success was not reported at all,
+     * so a reader of a query could not tell "row-level was used" from "row-level was never
+     * eligible" -- both produce a clean result. Written during planning, so it means the plan was
+     * chosen, not that it ran; and session-scoped, so a query over two materialized views
+     * contributes twice without saying which.
+     */
+    public static final String MATERIALIZED_VIEW_ROW_LEVEL_STITCHING_APPLIED = "materializedViewRowLevelStitchingApplied";
     public static final String FRAGMENT_RESULT_CACHE_HIT = "fragmentResultCacheHitCount";
     public static final String FRAGMENT_RESULT_CACHE_MISS = "fragmentResultCacheMissCount";
     public static final String GET_VIEW_TIME_NANOS = "getViewTimeNanos";

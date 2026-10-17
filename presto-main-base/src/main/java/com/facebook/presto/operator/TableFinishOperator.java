@@ -287,7 +287,9 @@ public class TableFinishOperator
         state = State.FINISHED;
 
         lifespanAndStageStateTracker.commit();
-        outputMetadata.set(tableFinisher.finishTable(lifespanAndStageStateTracker.getFinalFragments(), computedStatisticsBuilder.build()));
+        outputMetadata.set(tableFinisher.finishRefreshMaterializedView(
+                new RefreshMaterializedViewCommit(ImmutableList.of(), lifespanAndStageStateTracker.getFinalFragments()),
+                computedStatisticsBuilder.build()));
 
         // output page will only be constructed once,
         // so a new PageBuilder is constructed (instead of using PageBuilder.reset)
@@ -343,6 +345,11 @@ public class TableFinishOperator
     public interface TableFinisher
     {
         Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
+
+        default Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(RefreshMaterializedViewCommit commit, Collection<ComputedStatistics> computedStatistics)
+        {
+            return finishTable(commit.getInsertFragments(), computedStatistics);
+        }
     }
 
     public interface PageSinkCommitter
