@@ -20,6 +20,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.AbstractMockMetadata;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ChangedRowsPredicate;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
@@ -121,6 +122,67 @@ public class TestIncrementalRefreshRule
                 tester().getMetadata(),
                 createSimpleMvDefinition(),
                 new MaterializedViewStatus(PARTIALLY_MATERIALIZED, ImmutableMap.of(), Optional.empty()));
+
+        tester().assertThat(new IncrementalRefreshRule(metadata))
+                .on(this::buildRefreshPlan)
+                .matches(values("id", "ds"));
+    }
+
+    @Test
+    public void testFallsBackToFullRefreshWhenRowChangesHaveNoStorageIdentifierPath()
+    {
+        MaterializedViewStatus status = new MaterializedViewStatus(
+                PARTIALLY_MATERIALIZED,
+                ImmutableMap.of(),
+                Optional.empty(),
+                ImmutableMap.of(BASE_TABLE, ChangedRowsPredicate.empty()));
+        Metadata metadata = new TestingMetadataForIncrementalRefresh(
+                tester().getMetadata(),
+                createSimpleMvDefinition(),
+                status);
+
+        tester().assertThat(new IncrementalRefreshRule(metadata))
+                .on(this::buildRefreshPlan)
+                .matches(values("id", "ds"));
+    }
+
+    @Test
+    public void testFallsBackToFullRefreshWhenPartitionEntryHasNoPredicates()
+    {
+        MaterializedViewStatus status = new MaterializedViewStatus(
+                PARTIALLY_MATERIALIZED,
+                ImmutableMap.of(BASE_TABLE, new MaterializedDataPredicates(ImmutableList.of(), ImmutableList.of())),
+                Optional.empty());
+        Metadata metadata = new TestingMetadataForIncrementalRefresh(
+                tester().getMetadata(),
+                createSimpleMvDefinition(),
+                status);
+
+        tester().assertThat(new IncrementalRefreshRule(metadata))
+                .on(this::buildRefreshPlan)
+                .matches(values("id", "ds"));
+    }
+
+    @Test
+    public void testRowLevelChangesDoNotSuppressRefresh()
+    {
+        // A base table reporting row-level changes must not lose the refresh it can still do. This
+        // rule builds no row-level plan, so it proceeds on the partition-level predicates; the
+        // Values source here cannot be delta-planned, so the fallback is the source itself.
+        MaterializedViewStatus status = new MaterializedViewStatus(
+                PARTIALLY_MATERIALIZED,
+                ImmutableMap.of(
+                        BASE_TABLE,
+                        new MaterializedDataPredicates(
+                                ImmutableList.of(TupleDomain.withColumnDomains(
+                                        ImmutableMap.of("ds", Domain.singleValue(VARCHAR, utf8Slice("2024-01-03"))))),
+                                ImmutableList.of("ds"))),
+                Optional.empty(),
+                ImmutableMap.of(BASE_TABLE, ChangedRowsPredicate.empty()));
+        Metadata metadata = new TestingMetadataForIncrementalRefresh(
+                tester().getMetadata(),
+                createSimpleMvDefinition(),
+                status);
 
         tester().assertThat(new IncrementalRefreshRule(metadata))
                 .on(this::buildRefreshPlan)
