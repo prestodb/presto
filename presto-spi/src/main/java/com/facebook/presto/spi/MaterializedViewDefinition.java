@@ -43,6 +43,12 @@ public final class MaterializedViewDefinition
     private final Optional<List<String>> validRefreshColumns;
     private final Optional<MaterializedViewStalenessConfig> stalenessConfig;
     private final Optional<MaterializedViewRefreshType> refreshType;
+    /**
+     * Per-view opt in or out of row-level incremental refresh. Empty means the view expresses no
+     * preference and the session strategy decides on cost; see
+     * {@code materialized_view_row_level_incremental_strategy}.
+     */
+    private final Optional<Boolean> rowLevelIncrementalRefresh;
 
     @JsonCreator
     public MaterializedViewDefinition(
@@ -57,7 +63,8 @@ public final class MaterializedViewDefinition
             @JsonProperty("baseTablesOnOuterJoinSide") List<SchemaTableName> baseTablesOnOuterJoinSide,
             @JsonProperty("validRefreshColumns") Optional<List<String>> validRefreshColumns,
             @JsonProperty("stalenessConfig") Optional<MaterializedViewStalenessConfig> stalenessConfig,
-            @JsonProperty("refreshType") Optional<MaterializedViewRefreshType> refreshType)
+            @JsonProperty("refreshType") Optional<MaterializedViewRefreshType> refreshType,
+            @JsonProperty("rowLevelIncrementalRefresh") Optional<Boolean> rowLevelIncrementalRefresh)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -71,6 +78,42 @@ public final class MaterializedViewDefinition
         this.validRefreshColumns = requireNonNull(validRefreshColumns, "validRefreshColumns is null").map(columns -> unmodifiableList(new ArrayList<>(columns)));
         this.stalenessConfig = requireNonNull(stalenessConfig, "stalenessConfig is null");
         this.refreshType = requireNonNull(refreshType, "refreshType is null");
+        this.rowLevelIncrementalRefresh = requireNonNull(rowLevelIncrementalRefresh, "rowLevelIncrementalRefresh is null");
+    }
+
+    /**
+     * Retains the signature that predates {@code rowLevelIncrementalRefresh}, so a caller that does
+     * not express a per-view row-level preference keeps compiling unchanged.
+     */
+    @JsonIgnore
+    public MaterializedViewDefinition(
+            String originalSql,
+            String schema,
+            String table,
+            List<SchemaTableName> baseTables,
+            Optional<List<String>> baseTableCatalogs,
+            Optional<String> owner,
+            Optional<ViewSecurity> securityMode,
+            List<ColumnMapping> columnMappings,
+            List<SchemaTableName> baseTablesOnOuterJoinSide,
+            Optional<List<String>> validRefreshColumns,
+            Optional<MaterializedViewStalenessConfig> stalenessConfig,
+            Optional<MaterializedViewRefreshType> refreshType)
+    {
+        this(
+                originalSql,
+                schema,
+                table,
+                baseTables,
+                baseTableCatalogs,
+                owner,
+                securityMode,
+                columnMappings,
+                baseTablesOnOuterJoinSide,
+                validRefreshColumns,
+                stalenessConfig,
+                refreshType,
+                Optional.empty());
     }
 
     @JsonIgnore
@@ -96,6 +139,7 @@ public final class MaterializedViewDefinition
                 columnMappings,
                 baseTablesOnOuterJoinSide,
                 validRefreshColumns,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
     }
@@ -128,6 +172,7 @@ public final class MaterializedViewDefinition
                         new SchemaTableName(schema, table)),
                 baseTablesOnOuterJoinSide,
                 validRefreshColumns,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
     }
@@ -194,6 +239,7 @@ public final class MaterializedViewDefinition
                         new SchemaTableName(schema, table)),
                 baseTablesOnOuterJoinSide,
                 validRefreshColumns,
+                Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
     }
@@ -270,6 +316,12 @@ public final class MaterializedViewDefinition
         return refreshType;
     }
 
+    @JsonProperty
+    public Optional<Boolean> getRowLevelIncrementalRefresh()
+    {
+        return rowLevelIncrementalRefresh;
+    }
+
     @Override
     public String toString()
     {
@@ -286,6 +338,7 @@ public final class MaterializedViewDefinition
         sb.append(",validRefreshColumns=").append(validRefreshColumns.orElse(null));
         sb.append(",stalenessConfig=").append(stalenessConfig.orElse(null));
         sb.append(",refreshType=").append(refreshType.orElse(null));
+        sb.append(",rowLevelIncrementalRefresh=").append(rowLevelIncrementalRefresh.orElse(null));
         sb.append("}");
         return sb.toString();
     }
