@@ -90,6 +90,7 @@ import com.facebook.presto.operator.PagesSpatialIndexFactory;
 import com.facebook.presto.operator.PartitionFunction;
 import com.facebook.presto.operator.PartitionedLookupSourceFactory;
 import com.facebook.presto.operator.PipelineExecutionStrategy;
+import com.facebook.presto.operator.RefreshMaterializedViewCommit;
 import com.facebook.presto.operator.RegularTableFunctionPartition;
 import com.facebook.presto.operator.RemoteProjectOperator.RemoteProjectOperatorFactory;
 import com.facebook.presto.operator.RowNumberOperator;
@@ -141,6 +142,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.function.JavaAggregationFunctionImplementation;
@@ -196,6 +198,7 @@ import com.facebook.presto.spi.relation.InputReferenceExpression;
 import com.facebook.presto.spi.relation.LambdaDefinitionExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spiller.PartitioningSpillerFactory;
 import com.facebook.presto.spiller.SingleStreamSpillerFactory;
 import com.facebook.presto.spiller.SpillerFactory;
@@ -250,6 +253,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Slice;
 import jakarta.inject.Inject;
 
 import java.util.ArrayList;
@@ -3692,33 +3696,47 @@ public class LocalExecutionPlanner
 
     private static TableFinisher createTableFinisher(Session session, Metadata metadata, ExecutionWriterTarget target)
     {
-        return (fragments, statistics) -> {
-            if (target instanceof CreateHandle) {
-                return metadata.finishCreateTable(session, ((CreateHandle) target).getHandle(), fragments, statistics);
+        return new TableFinisher()
+        {
+            @Override
+            public Optional<ConnectorOutputMetadata> finishTable(Collection<Slice> fragments, Collection<ComputedStatistics> statistics)
+            {
+                if (target instanceof CreateHandle) {
+                    return metadata.finishCreateTable(session, ((CreateHandle) target).getHandle(), fragments, statistics);
+                }
+                else if (target instanceof InsertHandle) {
+                    return metadata.finishInsert(session, ((InsertHandle) target).getHandle(), fragments, statistics);
+                }
+                else if (target instanceof DeleteHandle) {
+                    return metadata.finishDeleteWithOutput(session, ((DeleteHandle) target).getHandle(), fragments);
+                }
+                else if (target instanceof RefreshMaterializedViewHandle) {
+                    return metadata.finishRefreshMaterializedView(session, ((RefreshMaterializedViewHandle) target).getHandle(), fragments, statistics);
+                }
+                else if (target instanceof UpdateHandle) {
+                    metadata.finishUpdate(session, ((UpdateHandle) target).getHandle(), fragments);
+                    return Optional.empty();
+                }
+                else if (target instanceof MergeHandle) {
+                    metadata.finishMerge(session, ((MergeHandle) target).getHandle(), fragments, statistics);
+                    return Optional.empty();
+                }
+                else if (target instanceof ExecuteProcedureHandle) {
+                    metadata.finishCallDistributedProcedure(session, ((ExecuteProcedureHandle) target).getHandle(), ((ExecuteProcedureHandle) target).getProcedureName(), fragments);
+                    return Optional.empty();
+                }
+                else {
+                    throw new AssertionError("Unhandled target type: " + target.getClass().getName());
+                }
             }
-            else if (target instanceof InsertHandle) {
-                return metadata.finishInsert(session, ((InsertHandle) target).getHandle(), fragments, statistics);
-            }
-            else if (target instanceof DeleteHandle) {
-                return metadata.finishDeleteWithOutput(session, ((DeleteHandle) target).getHandle(), fragments);
-            }
-            else if (target instanceof RefreshMaterializedViewHandle) {
-                return metadata.finishRefreshMaterializedView(session, ((RefreshMaterializedViewHandle) target).getHandle(), fragments, statistics);
-            }
-            else if (target instanceof UpdateHandle) {
-                metadata.finishUpdate(session, ((UpdateHandle) target).getHandle(), fragments);
-                return Optional.empty();
-            }
-            else if (target instanceof MergeHandle) {
-                metadata.finishMerge(session, ((MergeHandle) target).getHandle(), fragments, statistics);
-                return Optional.empty();
-            }
-            else if (target instanceof ExecuteProcedureHandle) {
-                metadata.finishCallDistributedProcedure(session, ((ExecuteProcedureHandle) target).getHandle(), ((ExecuteProcedureHandle) target).getProcedureName(), fragments);
-                return Optional.empty();
-            }
-            else {
-                throw new AssertionError("Unhandled target type: " + target.getClass().getName());
+
+            @Override
+            public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(RefreshMaterializedViewCommit commit, Collection<ComputedStatistics> statistics)
+            {
+                if (target instanceof RefreshMaterializedViewHandle) {
+                    return metadata.finishRefreshMaterializedView(session, ((RefreshMaterializedViewHandle) target).getHandle(), commit.getDeleteFragments(), commit.getInsertFragments(), statistics);
+                }
+                return finishTable(commit.getInsertFragments(), statistics);
             }
         };
     }
