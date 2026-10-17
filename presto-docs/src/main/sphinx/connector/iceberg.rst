@@ -1854,6 +1854,10 @@ SQL Support
      - Yes
      - Yes
      -
+   * - ``ALTER TABLE DROP COLUMN`` (nested struct field)
+     - Yes
+     - Yes
+     -
    * - ``ALTER VIEW``
      - Yes
      - Yes
@@ -2271,6 +2275,19 @@ The optional ``IF NOT EXISTS`` clause suppresses the error if the field already 
 The dotted path may refer to arbitrarily nested fields. The following clauses are not supported
 for nested fields and will be rejected: ``NOT NULL``, ``COMMENT``, ``DEFAULT``,
 ``GENERATED``/``AS``, ``WITH`` properties, and ``FIRST``/``AFTER``.
+
+The Iceberg connector supports dropping a field from a ``ROW`` column using a dotted path to identify
+the target struct and field. This is a metadata-only change — no data files are rewritten.
+
+Example — Drop a field from a struct column::
+
+     ALTER TABLE iceberg.web.orders DROP COLUMN address.zip;
+
+The optional ``IF EXISTS`` clause suppresses the error if the field or any parent in the path does not exist::
+
+     ALTER TABLE iceberg.web.orders DROP COLUMN IF EXISTS address.zip;
+
+The dotted path may refer to arbitrarily nested fields, including fields nested within lists (using the pseudo-step ``.element``, e.g., ``items.element.name``) and maps (using the pseudo-step ``.value``, e.g., ``m.value.name``). Attempting to drop list elements directly, map keys, or map value containers is not supported and will be rejected.
 
 ALTER VIEW
 ^^^^^^^^^^
