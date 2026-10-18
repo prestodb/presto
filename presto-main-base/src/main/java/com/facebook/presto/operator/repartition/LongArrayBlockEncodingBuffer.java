@@ -35,7 +35,7 @@ public class LongArrayBlockEncodingBuffer
     static final int POSITION_SIZE = Long.BYTES + Byte.BYTES;
 
     private static final String NAME = "LONG_ARRAY";
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlockEncodingBuffer.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LongArrayBlockEncodingBuffer.class).instanceSize();
 
     private byte[] valuesBuffer;
     private int valuesBufferIndex;

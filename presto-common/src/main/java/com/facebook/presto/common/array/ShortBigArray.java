@@ -28,7 +28,7 @@ import static io.airlift.slice.SizeOf.sizeOfShortArray;
 // Copyright (C) 2010-2013 Sebastiano Vigna
 public final class ShortBigArray
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ShortBigArray.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ShortBigArray.class).instanceSize();
     private static final long SIZE_OF_SEGMENT = sizeOfShortArray(SEGMENT_SIZE);
 
     private final short initialValue;

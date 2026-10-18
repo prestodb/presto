@@ -29,7 +29,7 @@ public class Int32RLEDictionaryValuesDecoder
         extends BaseRLEBitPackedDecoder
         implements Int32ValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int32RLEDictionaryValuesDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Int32RLEDictionaryValuesDecoder.class).instanceSize();
 
     private final IntegerDictionary dictionary;
 

@@ -28,7 +28,7 @@ import static io.airlift.slice.SizeOf.sizeOfIntArray;
 // Copyright (C) 2010-2013 Sebastiano Vigna
 public final class IntBigArray
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(IntBigArray.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(IntBigArray.class).instanceSize();
     private static final long SIZE_OF_SEGMENT = sizeOfIntArray(SEGMENT_SIZE);
 
     private final int initialValue;

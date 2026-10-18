@@ -52,7 +52,7 @@ public class DigestAndPercentileStateFactory
             extends AbstractGroupedAccumulatorState
             implements DigestAndPercentileState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedDigestAndPercentileState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedDigestAndPercentileState.class).instanceSize();
         private final ObjectBigArray<QuantileDigest> digests = new ObjectBigArray<>();
         private final DoubleBigArray percentiles = new DoubleBigArray();
         private long size;
@@ -105,7 +105,7 @@ public class DigestAndPercentileStateFactory
     public static class SingleDigestAndPercentileState
             implements DigestAndPercentileState
     {
-        public static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleDigestAndPercentileState.class).instanceSize();
+        public static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleDigestAndPercentileState.class).instanceSize();
         private QuantileDigest digest;
         private double percentile;
 

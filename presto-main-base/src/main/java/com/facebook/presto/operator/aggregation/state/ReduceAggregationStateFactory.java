@@ -63,7 +63,7 @@ public class ReduceAggregationStateFactory
             extends AbstractGroupedAccumulatorState
             implements ReduceAggregationState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
 
         private final ObjectBigArray<Object> values = new ObjectBigArray<>();
         private long size = INSTANCE_SIZE;
@@ -97,7 +97,7 @@ public class ReduceAggregationStateFactory
     public static class SingleState
             implements ReduceAggregationState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
 
         private Object value;
 

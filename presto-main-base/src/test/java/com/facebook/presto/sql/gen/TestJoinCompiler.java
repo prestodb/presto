@@ -196,7 +196,7 @@ public class TestJoinCompiler
         // verify channel count
         assertEquals(hashStrategy.getChannelCount(), outputChannels.size());
         // verify size
-        int instanceSize = ClassLayout.parseClass(hashStrategy.getClass()).instanceSize();
+        long instanceSize = ClassLayout.parseClass(hashStrategy.getClass()).instanceSize();
         long sizeInBytes = instanceSize + channels.stream()
                 .flatMap(List::stream)
                 .mapToLong(Block::getRetainedSizeInBytes)

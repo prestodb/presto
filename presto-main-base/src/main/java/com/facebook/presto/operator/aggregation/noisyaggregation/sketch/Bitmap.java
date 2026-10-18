@@ -34,8 +34,8 @@ import static java.util.Objects.requireNonNull;
  */
 public class Bitmap
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Bitmap.class).instanceSize();
-    private static final int BITSET_INSTANCE_SIZE = ClassLayout.parseClass(BitSet.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Bitmap.class).instanceSize();
+    private static final long BITSET_INSTANCE_SIZE = ClassLayout.parseClass(BitSet.class).instanceSize();
 
     private final BitSet bitSet;
     private final int length;

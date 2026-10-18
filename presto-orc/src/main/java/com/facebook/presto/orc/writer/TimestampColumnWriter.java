@@ -60,7 +60,7 @@ import static java.util.Objects.requireNonNull;
 public class TimestampColumnWriter
         implements ColumnWriter
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(TimestampColumnWriter.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(TimestampColumnWriter.class).instanceSize();
     private static final int MILLIS_PER_SECOND = 1000;
     private static final int MICROS_PER_SECOND = 1000_000;
     private static final int MILLIS_TO_NANOS_TRAILING_ZEROS = 5;

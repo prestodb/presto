@@ -26,7 +26,7 @@ public class BooleanStatistics
     // 1 byte to denote if null + 1 byte for the value
     public static final long BOOLEAN_VALUE_BYTES = Byte.BYTES + Byte.BYTES;
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BooleanStatistics.class).instanceSize();
 
     private final long trueValueCount;
 
