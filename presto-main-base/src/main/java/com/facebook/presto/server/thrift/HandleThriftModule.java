@@ -35,14 +35,7 @@ public class HandleThriftModule
     @Override
     public void configure(Binder binder)
     {
-        thriftCodecBinder(binder).bindCustomThriftCodec(ConnectorSplitThriftCodec.class);
-        thriftCodecBinder(binder).bindCustomThriftCodec(TransactionHandleThriftCodec.class);
-        thriftCodecBinder(binder).bindCustomThriftCodec(OutputTableHandleThriftCodec.class);
-        thriftCodecBinder(binder).bindCustomThriftCodec(InsertTableHandleThriftCodec.class);
-        thriftCodecBinder(binder).bindCustomThriftCodec(DeleteTableHandleThriftCodec.class);
-        thriftCodecBinder(binder).bindCustomThriftCodec(MergeTableHandleThriftCodec.class);
-        thriftCodecBinder(binder).bindCustomThriftCodec(TableLayoutHandleThriftCodec.class);
-        thriftCodecBinder(binder).bindCustomThriftCodec(TableHandleThriftCodec.class);
+        bindHandleThriftCodecs(binder);
 
         jsonCodecBinder(binder).bindJsonCodec(ConnectorSplit.class);
         jsonCodecBinder(binder).bindJsonCodec(ConnectorTransactionHandle.class);
@@ -54,5 +47,17 @@ public class HandleThriftModule
         jsonCodecBinder(binder).bindJsonCodec(ConnectorTableHandle.class);
 
         binder.bind(HandleResolver.class).in(Scopes.SINGLETON);
+    }
+
+    public static void bindHandleThriftCodecs(Binder binder)
+    {
+        thriftCodecBinder(binder).bindCustomThriftCodec(ConnectorSplitThriftCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(TransactionHandleThriftCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(OutputTableHandleThriftCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(InsertTableHandleThriftCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(DeleteTableHandleThriftCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(MergeTableHandleThriftCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(TableLayoutHandleThriftCodec.class);
+        thriftCodecBinder(binder).bindCustomThriftCodec(TableHandleThriftCodec.class);
     }
 }
