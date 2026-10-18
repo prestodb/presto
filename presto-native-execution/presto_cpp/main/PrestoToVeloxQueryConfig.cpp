@@ -17,7 +17,10 @@
 #include "presto_cpp/main/common/LegacyHiveConfigKeys.h"
 #include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "velox/common/compression/Compression.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/core/QueryConfig.h"
+#include "velox/dwio/common/Options.h"
+#include "velox/dwio/parquet/common/ParquetConfig.h"
 #include "velox/functions/prestosql/PrestoQueryConfig.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
@@ -249,6 +252,31 @@ void updateFromSystemConfigs(
     }
   }
 }
+
+// Rewrites Presto Java writer session properties whose Velox equivalent has a
+// different name. 'target_max_file_size' applies to every file format, so it
+// fans out to each format-specific Velox key. A Velox key that is already set
+// wins.
+void mapJavaWriterSessionProperties(
+    std::unordered_map<std::string, std::string>& connectorConfig) {
+  using velox::connector::hive::HiveConfig;
+  if (auto node = connectorConfig.extract("parquet_writer_block_size")) {
+    connectorConfig.emplace(
+        velox::dwio::common::formatConfigPrefix(
+            velox::dwio::common::FileFormat::PARQUET, "_") +
+            std::string(
+                velox::parquet::ParquetConfig::kWriterRowGroupSizeSession),
+        std::move(node.mapped()));
+  }
+  if (auto node = connectorConfig.extract("target_max_file_size")) {
+    for (const char* veloxKey :
+         {HiveConfig::kParquetMaxTargetFileSizeSession,
+          HiveConfig::kOrcMaxTargetFileSizeSession,
+          HiveConfig::kNimbleMaxTargetFileSizeSession}) {
+      connectorConfig.emplace(veloxKey, node.mapped());
+    }
+  }
+}
 } // namespace
 
 std::unordered_map<std::string, std::string>
@@ -291,6 +319,7 @@ toConnectorConfigs(
       connectorConfig.emplace(veloxConfig, sessionProperty.second);
     }
     util::migrateLegacyHiveParquetSessionKeys(connectorConfig);
+    mapJavaWriterSessionProperties(connectorConfig);
     for (const auto& [key, credential] : taskUpdateRequest.extraCredentials) {
       credentialKeys.write(
           connectorConfig,

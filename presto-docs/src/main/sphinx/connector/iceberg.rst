@@ -620,7 +620,7 @@ Session properties set behavior changes for queries executed within the given se
      - Overrides the behavior of the connector property
        ``iceberg.target-max-file-size`` in the current session.
      - Yes
-     - No
+     - Yes
    * - .. _iceberg-sess-target-split-size-bytes:
 
        ``iceberg.target_split_size_bytes``
