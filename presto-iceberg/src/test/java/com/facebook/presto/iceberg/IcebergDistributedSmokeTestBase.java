@@ -3302,6 +3302,34 @@ public abstract class IcebergDistributedSmokeTestBase
         }
     }
 
+    @Test
+    public void testAggregatePushDownForUuidMinMax()
+    {
+        Session aggregatePushDownEnabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "aggregate_push_down_enabled", "true")
+                .build();
+        Session aggregatePushDownDisabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "aggregate_push_down_enabled", "false")
+                .build();
+
+        String tableName = "test_aggregate_push_down_uuid_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (u UUID)", tableName));
+            for (String uuid : ImmutableList.of("00000000-0000-0000-0000-000000000001", "7fffffff-ffff-ffff-ffff-ffffffffffff", "ffffffff-ffff-ffff-ffff-ffffffffffff")) {
+                assertUpdate(format("INSERT INTO %s VALUES (UUID '%s')", tableName, uuid), 1);
+            }
+
+            @Language("SQL") String query = format("SELECT CAST(min(u) AS VARCHAR), CAST(max(u) AS VARCHAR) FROM %s", tableName);
+            // Presto does not order UUIDs lexicographically.
+            String expected = "VALUES ('7fffffff-ffff-ffff-ffff-ffffffffffff', '00000000-0000-0000-0000-000000000001')";
+            assertQuery(aggregatePushDownEnabled, query, expected);
+            assertQuery(aggregatePushDownDisabled, query, expected);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     /**
      * Returns the table's column names in table order, resolved against the default session's schema.
      * {@code assertQuery} compares results as an unordered multiset, so asserting order requires
