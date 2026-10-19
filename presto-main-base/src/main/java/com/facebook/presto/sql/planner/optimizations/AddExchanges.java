@@ -887,23 +887,24 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitRPC(RPCNode node, PreferredProperties preferredProperties)
         {
-            PlanWithProperties source = accept(node.getSource(), preferredProperties);
-
             int configuredTaskCount = getRpcFunctionParallelism(session);
-            if (configuredTaskCount > 1) {
-                PlanNode newNode = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, source.getNode(), configuredTaskCount);
-                newNode = ChildReplacer.replaceChildren(node, ImmutableList.of(newNode));
-                return new PlanWithProperties(newNode, derivePropertiesRecursively(newNode));
-            }
+            PreferredProperties sourcePreferred = configuredTaskCount > 1 ? PreferredProperties.any() :
+                    preferredProperties.translate(variable -> variable.equals(node.getOutputVariable()) ? Optional.empty() : Optional.of(variable));
+            PlanWithProperties source = accept(node.getSource(), sourcePreferred);
 
+            int taskCount = configuredTaskCount;
             int recommendedTaskCount = node.getRecommendedTaskCount();
             if (!prestoSparkExecutionEnvironment &&
                     configuredTaskCount == 0 &&
                     node.getStreamingMode() == RPCNode.StreamingMode.BATCH &&
                     shouldIncreaseTaskCount(source.getProperties(), recommendedTaskCount)) {
-                PlanNode newNode = roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, source.getNode(), recommendedTaskCount);
-                newNode = ChildReplacer.replaceChildren(node, ImmutableList.of(newNode));
-                return new PlanWithProperties(newNode, derivePropertiesRecursively(newNode));
+                taskCount = recommendedTaskCount;
+            }
+
+            if (taskCount > 1) {
+                source = withDerivedProperties(
+                        roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, source.getNode(), taskCount),
+                        source.getProperties());
             }
 
             return rebaseAndDeriveProperties(node, source);
