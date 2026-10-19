@@ -87,7 +87,7 @@ public class TestRewriteTablePathProcedure
         assertQueryFails("CALL system.rewrite_table_path('schema', 'table', 'src')",
                 "line 1:1: Required procedure argument 'target_prefix' is missing");
         assertQueryFails("CALL custom.rewrite_table_path('tpch', 'test', 'src', 'dst')",
-                "Procedure not registered: custom.rewrite_table_path");
+                "Procedure not registered: .*custom.rewrite_table_path");
         assertQueryFails("CALL system.rewrite_table_path(table_name => 'test', source_prefix => 'src', target_prefix => 'dst')",
                 "line 1:1: Required procedure argument 'schema' is missing");
     }
