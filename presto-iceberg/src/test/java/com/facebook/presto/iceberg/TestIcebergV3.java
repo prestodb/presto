@@ -13,6 +13,11 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.google.common.collect.ImmutableMap;
@@ -28,22 +33,33 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.types.Types;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.UUID;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.UuidType.javaUuidToPrestoUuid;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_METADATA_TABLES;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -916,6 +932,48 @@ public class TestIcebergV3
             dropTable(tableName);
             dropTable(tableName + "_like");
         }
+    }
+
+    @Test
+    public void testColumnMetadataWithBinaryTimestampWithTimeZoneAndUuidWriteDefaults()
+    {
+        String tableName = "test_column_metadata_with_write_defaults";
+        UUID uuid = UUID.fromString("f79c3e09-677c-4bbd-a479-3f349cb785e7");
+        long timestampMicros = 1_672_531_200_123_000L;
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (c1 BIGINT) WITH (\"format-version\" = '3')");
+            loadTable(tableName).updateSchema()
+                    .addColumn("c_varbinary", Types.BinaryType.get(), Literal.of(ByteBuffer.wrap(new byte[] {1, 2})))
+                    .addColumn("c_fixed", Types.FixedType.ofLength(2), Literal.of(ByteBuffer.wrap(new byte[] {3, 4})).to(Types.FixedType.ofLength(2)))
+                    .addColumn("c_timestamptz", Types.TimestampType.withZone(), Literal.of(timestampMicros).to(Types.TimestampType.withZone()))
+                    .addColumn("c_uuid", Types.UUIDType.get(), Literal.of(uuid))
+                    .commit();
+
+            assertQuerySucceeds("DESCRIBE " + tableName);
+            assertQuerySucceeds("SELECT * FROM " + tableName);
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + tableName + "'",
+                    "VALUES 'c1', 'c_varbinary', 'c_fixed', 'c_timestamptz', 'c_uuid'");
+            assertEquals(getWriteDefaults(tableName), ImmutableMap.of(
+                    "c_varbinary", wrappedBuffer(new byte[] {1, 2}),
+                    "c_fixed", wrappedBuffer(new byte[] {3, 4}),
+                    "c_timestamptz", packDateTimeWithZone(MICROSECONDS.toMillis(timestampMicros), UTC_KEY),
+                    "c_uuid", javaUuidToPrestoUuid(uuid)));
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    private Map<String, Object> getWriteDefaults(String tableName)
+    {
+        Metadata metadata = getQueryRunner().getMetadata();
+        return transaction(getQueryRunner().getTransactionManager(), new AllowAllAccessControl())
+                .execute(getSession(), session -> {
+                    TableHandle tableHandle = metadata.getMetadataResolver(session).getTableHandle(new QualifiedObjectName(ICEBERG_CATALOG, TEST_SCHEMA, tableName)).get();
+                    return metadata.getTableMetadata(session, tableHandle).getColumns().stream()
+                            .filter(column -> column.getDefaultValue().isPresent())
+                            .collect(toImmutableMap(ColumnMetadata::getName, column -> column.getDefaultValue().get()));
+                });
     }
 
     private void assertSetNotNullFails(String tableName, String tableProperties, String expectedError, String... statements)

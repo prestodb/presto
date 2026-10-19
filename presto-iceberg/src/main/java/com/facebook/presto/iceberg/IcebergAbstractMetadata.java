@@ -200,7 +200,6 @@ import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_HANDLE
 import static com.facebook.presto.iceberg.IcebergColumnHandle.PATH_COLUMN_METADATA;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.ROW_ID_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.ROW_ID_COLUMN_METADATA;
-import static com.facebook.presto.iceberg.IcebergColumnHandle.icebergDefaultToString;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INCOMPATIBLE_COLUMN_TYPE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMAT_VERSION;
@@ -246,12 +245,12 @@ import static com.facebook.presto.iceberg.IcebergUtil.checkInvalidDerivedColumnS
 import static com.facebook.presto.iceberg.IcebergUtil.checkNotSupported;
 import static com.facebook.presto.iceberg.IcebergUtil.convertToIcebergLiteral;
 import static com.facebook.presto.iceberg.IcebergUtil.createDomainFromIcebergPartitionValue;
-import static com.facebook.presto.iceberg.IcebergUtil.deserializeIcebergValue;
 import static com.facebook.presto.iceberg.IcebergUtil.findDataFileWithNullValues;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.IcebergUtil.getDeleteMode;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
+import static com.facebook.presto.iceberg.IcebergUtil.getNativeValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionFields;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionSpecsIncludingValidData;
@@ -1323,7 +1322,7 @@ public abstract class IcebergAbstractMetadata
         if (column.writeDefault() == null) {
             return ImmutableMap.of();
         }
-        return ImmutableMap.of(DEFAULT_VALUE_PROPERTY, deserializeIcebergValue(toPrestoType(column.type(), typeManager), icebergDefaultToString(column.type().typeId(), column.writeDefault()), column.name()));
+        return ImmutableMap.of(DEFAULT_VALUE_PROPERTY, getNativeValue(toPrestoType(column.type(), typeManager), column.writeDefault()));
     }
 
     protected List<ColumnMetadata> getColumnMetadata(ConnectorSession session, View view)

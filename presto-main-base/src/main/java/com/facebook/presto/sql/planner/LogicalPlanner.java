@@ -706,7 +706,7 @@ public class LogicalPlanner
                 components.getPlan(),
                 target,
                 components.getColumnNames(),
-                components.getColumnMetadata(),
+                components.getNotNullCheckedColumns(),
                 components.getTableLayout(),
                 components.getStatisticsMetadata());
     }
@@ -749,7 +749,7 @@ public class LogicalPlanner
                 components.getPlan(),
                 target,
                 components.getColumnNames(),
-                components.getColumnMetadata(),
+                components.getNotNullCheckedColumns(),
                 components.getTableLayout(),
                 components.getStatisticsMetadata());
     }
@@ -835,20 +835,20 @@ public class LogicalPlanner
     {
         private final RelationPlan plan;
         private final List<String> columnNames;
-        private final List<ColumnMetadata> columnMetadata;
+        private final List<ColumnMetadata> notNullCheckedColumns;
         private final Optional<NewTableLayout> tableLayout;
         private final TableStatisticsMetadata statisticsMetadata;
 
         InsertPlanComponents(
                 RelationPlan plan,
                 List<String> columnNames,
-                List<ColumnMetadata> columnMetadata,
+                List<ColumnMetadata> notNullCheckedColumns,
                 Optional<NewTableLayout> tableLayout,
                 TableStatisticsMetadata statisticsMetadata)
         {
             this.plan = requireNonNull(plan, "plan is null");
             this.columnNames = requireNonNull(columnNames, "columnNames is null");
-            this.columnMetadata = requireNonNull(columnMetadata, "columnMetadata is null");
+            this.notNullCheckedColumns = requireNonNull(notNullCheckedColumns, "notNullCheckedColumns is null");
             this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
             this.statisticsMetadata = requireNonNull(statisticsMetadata, "statisticsMetadata is null");
         }
@@ -863,9 +863,9 @@ public class LogicalPlanner
             return columnNames;
         }
 
-        public List<ColumnMetadata> getColumnMetadata()
+        public List<ColumnMetadata> getNotNullCheckedColumns()
         {
-            return columnMetadata;
+            return notNullCheckedColumns;
         }
 
         public Optional<NewTableLayout> getTableLayout()

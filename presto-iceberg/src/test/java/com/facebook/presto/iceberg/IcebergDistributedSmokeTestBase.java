@@ -2366,6 +2366,26 @@ public abstract class IcebergDistributedSmokeTestBase
         }
     }
 
+    @Test
+    public void testAlterColumnNotNullOnBranch()
+    {
+        String tableName = "test_alter_column_not_null_branch_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT NOT NULL, c2 BIGINT)", tableName));
+            assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'br1'", tableName));
+
+            assertQueryFails(
+                    format("ALTER TABLE \"%s.branch_br1\" ALTER COLUMN c2 SET NOT NULL", tableName),
+                    ".*ALTER COLUMN SET NOT NULL is not supported on branch-specific tables.*");
+            assertQueryFails(
+                    format("ALTER TABLE \"%s.branch_br1\" ALTER COLUMN c1 DROP NOT NULL", tableName),
+                    ".*ALTER COLUMN DROP NOT NULL is not supported on branch-specific tables.*");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     private void assertColumnNullability(String tableName, String expectedValues)
     {
         assertQueryOrdered(
@@ -2403,26 +2423,6 @@ public abstract class IcebergDistributedSmokeTestBase
     private static String noNullCountError(String column)
     {
         return ".*Cannot set NOT NULL on column '" + column + "' of table '.*': data file '.*' on branch '.*' has no NULL count for the column";
-    }
-
-    @Test
-    public void testAlterColumnNotNullOnBranch()
-    {
-        String tableName = "test_alter_column_not_null_branch_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT NOT NULL, c2 BIGINT)", tableName));
-            assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'br1'", tableName));
-
-            assertQueryFails(
-                    format("ALTER TABLE \"%s.branch_br1\" ALTER COLUMN c2 SET NOT NULL", tableName),
-                    ".*ALTER COLUMN SET NOT NULL is not supported on branch-specific tables.*");
-            assertQueryFails(
-                    format("ALTER TABLE \"%s.branch_br1\" ALTER COLUMN c1 DROP NOT NULL", tableName),
-                    ".*ALTER COLUMN DROP NOT NULL is not supported on branch-specific tables.*");
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     @Test

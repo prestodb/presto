@@ -128,6 +128,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -151,6 +152,7 @@ import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UuidType.javaUuidToPrestoUuid;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -649,12 +651,14 @@ public final class IcebergUtil
      */
     public static void verifyNoNullValuesInRequiredColumns(Table icebergTable, SchemaTableName tableName, String branchName, long snapshotId)
     {
-        if (icebergTable.snapshot(snapshotId) == null) {
+        Snapshot snapshot = icebergTable.snapshot(snapshotId);
+        if (snapshot == null) {
             return;
         }
-        Schema snapshotSchema = SnapshotUtil.schemaFor(icebergTable, snapshotId);
+        // Older Iceberg versions wrote snapshots without a schema ID, so every required field of such a snapshot is checked.
+        Optional<Schema> snapshotSchema = Optional.ofNullable(snapshot.schemaId()).map(icebergTable.schemas()::get);
         for (NestedField field : icebergTable.schema().columns()) {
-            NestedField snapshotField = snapshotSchema.findField(field.fieldId());
+            NestedField snapshotField = snapshotSchema.map(schema -> schema.findField(field.fieldId())).orElse(null);
             if (field.isOptional() || (snapshotField != null && snapshotField.isRequired())) {
                 continue;
             }
@@ -683,7 +687,10 @@ public final class IcebergUtil
     {
         // Data files written without the field read its initial default in every row.
         OptionalLong lastSequenceNumberWithoutField = field.initialDefault() == null ? OptionalLong.empty() : lastSequenceNumberWithoutField(scan.table(), field.fieldId());
-        try (CloseableIterable<FileScanTask> tasks = scan.includeColumnStats().planFiles()) {
+        // Planning copies the requested stats into every data file, so only this field's are requested, by its name in the scan's schema.
+        NestedField scanField = scan.schema().findField(field.fieldId());
+        TableScan statsScan = scanField == null ? scan.includeColumnStats() : scan.includeColumnStats(ImmutableSet.of(scanField.name()));
+        try (CloseableIterable<FileScanTask> tasks = statsScan.planFiles()) {
             for (FileScanTask task : tasks) {
                 DataFile file = task.file();
                 Map<Integer, Long> nullCounts = file.nullValueCounts();
@@ -1897,6 +1904,9 @@ public final class IcebergUtil
             }
             else if (value instanceof CharBuffer) {
                 slice = Slices.utf8Slice(((CharBuffer) value).toString());
+            }
+            else if (value instanceof UUID) {
+                slice = javaUuidToPrestoUuid((UUID) value);
             }
             else {
                 slice = (Slice) value;

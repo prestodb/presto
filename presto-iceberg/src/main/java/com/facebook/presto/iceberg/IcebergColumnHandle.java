@@ -340,7 +340,7 @@ public class IcebergColumnHandle
     private static final DateTimeFormatter TIMESTAMP_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
 
-    static String icebergDefaultToString(TypeID typeId, Object value)
+    private static String icebergDefaultToString(TypeID typeId, Object value)
     {
         switch (typeId) {
             case DATE: {
