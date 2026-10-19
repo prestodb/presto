@@ -2,6 +2,8 @@
 Presto C++ Functions
 ====================
 
+This document describes how, and why, Presto C++ functions diverge from Presto functions.
+
 Aggregate Functions
 -------------------
 
