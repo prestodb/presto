@@ -19,6 +19,7 @@
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <cerrno>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -1835,7 +1836,8 @@ void PrestoServer::checkOverload() {
   // Determine if the server is overloaded. We require both memory and CPU to be
   // not overloaded for some time (continuous period) to consider the server as
   // not overloaded.
-  const uint64_t currentTimeSecs = velox::getCurrentTimeSec();
+  const uint64_t currentTimeSecs =
+      velox::EpochTime::now<std::chrono::seconds>();
   if (memOverloaded_ || cpuOverloaded_) {
     lastOverloadedTimeInSecs_ = currentTimeSecs;
   }

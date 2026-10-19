@@ -34,6 +34,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SCRIPT_CXX_FLAGS}")
 set(DISABLED_WARNINGS "-Wno-nullability-completeness -Wno-deprecated-declarations")
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # GCC -O3 -Wstringop-overflow false positive in the velox dwio dictionary
+  # visitor: bounds checks added by velox 0166f69b changed inlining in
+  # DictionaryColumnVisitor::processRun, tripping the warning on std::copy in
+  # SelectiveIntegerDictionaryColumnReader.cpp. Keep the warning visible but
+  # do not fail the build on it. Scoped to GNU: Clang has no such warning
+  # group and would flag the unknown option under -Werror.
+  string(APPEND DISABLED_WARNINGS " -Wno-error=stringop-overflow")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "14.0.0")
     string(APPEND DISABLED_WARNINGS " -Wno-error=template-id-cdtor")
   endif()
