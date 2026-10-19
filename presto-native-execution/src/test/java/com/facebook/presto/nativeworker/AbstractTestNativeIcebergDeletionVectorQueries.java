@@ -264,6 +264,64 @@ public abstract class AbstractTestNativeIcebergDeletionVectorQueries
         }
     }
 
+    @Test
+    public void testV3DeleteOnBranchIsScopedToTheBranchSnapshot()
+    {
+        // Guards the branch-scoping of IcebergAbstractMetadata.enumerateExistingDeletionVectors.
+        // On a branch DELETE, the connector resolves the read snapshot from the handle's
+        // branch id (branch head), not icebergTable.currentSnapshot() (main head). If that
+        // resolution leaks to main, the branch mutation seeds its new DV from main's prior
+        // DV on the same data file, and the branch ends up with positions deleted that were
+        // only ever deleted on main.
+        //
+        // Setup produces exactly this failure mode: delete one row on main (main's DV marks
+        // that position), then delete a DIFFERENT row on the branch (branch's DV should mark
+        // only its own position). A broken enumeration seeds from main and the branch loses
+        // both positions. The Java-only Iceberg suite cannot see this -- V3 DELETE fails on
+        // Java before reaching the connector's enumeration -- so this assertion only has
+        // meaning on native.
+        QueryRunner nativeRunner = getQueryRunner();
+        String table = "iceberg_native_v3_dv_branch_test";
+        String branchRef = "\"" + table + ".branch_test_branch\"";
+        try {
+            nativeRunner.execute(
+                    "CREATE TABLE " + table + " (id BIGINT, name VARCHAR)" +
+                            " WITH (\"format-version\" = '3')");
+            nativeRunner.execute("INSERT INTO " + table + " VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Carol')");
+
+            nativeRunner.execute("ALTER TABLE " + table + " CREATE BRANCH 'test_branch'");
+
+            // DELETE id = 2 on main. Main's base data file now carries a DV marking id=2.
+            nativeRunner.execute("DELETE FROM " + table + " WHERE id = 2");
+            assertRowCount("SELECT * FROM " + table, 2);
+            assertRowCount("SELECT * FROM " + table + " WHERE id = 2", 0);
+
+            // DELETE id = 1 on the branch. The branch's base-file DV must mark ONLY id=1.
+            // If enumeration reads main's snapshot, it seeds from main's DV (which marks
+            // id=2) and the resulting branch DV marks both id=1 and id=2 -- the row count
+            // and the id=2 presence check below catch that.
+            nativeRunner.execute("DELETE FROM " + branchRef + " WHERE id = 1");
+
+            // Branch: lost only id=1 (its own DELETE), retains id=2 (never deleted on branch)
+            // and id=3.
+            assertRowCount("SELECT * FROM " + branchRef, 2);
+            assertRowCount("SELECT * FROM " + branchRef + " WHERE id = 1", 0);
+            assertRowCount("SELECT * FROM " + branchRef + " WHERE id = 2", 1);
+            assertRowCount("SELECT * FROM " + branchRef + " WHERE id = 3", 1);
+
+            // Main is unchanged by the branch DELETE: still lost id=2, still has id=1 and id=3.
+            assertRowCount("SELECT * FROM " + table, 2);
+            assertRowCount("SELECT * FROM " + table + " WHERE id = 1", 1);
+            assertRowCount("SELECT * FROM " + table + " WHERE id = 2", 0);
+            assertRowCount("SELECT * FROM " + table + " WHERE id = 3", 1);
+
+            nativeRunner.execute("ALTER TABLE " + table + " DROP BRANCH 'test_branch'");
+        }
+        finally {
+            nativeRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
     private void assertRowCount(String sql, int expected)
     {
         assertEquals(getQueryRunner().execute(sql).getRowCount(), expected);
