@@ -63,8 +63,8 @@ import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestDropColumnTask
@@ -108,13 +108,7 @@ public class TestDropColumnTask
     public void testTopLevelDropColumnDeniedWhenDropColumnNotAllowed()
     {
         accessControl.deny(privilege(TABLE_NAME, DROP_COLUMN));
-        try {
-            execute(dropColumn(QualifiedName.of("x"), false));
-            fail("Expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-            // expected
-        }
+        assertThrows(AccessDeniedException.class, () -> execute(dropColumn(QualifiedName.of("x"), false)));
         // A denied statement must not reach the metadata layer
         assertEquals(metadata.dropColumnCalls, 0);
         assertEquals(metadata.dropFieldCalls, 0);
@@ -136,13 +130,7 @@ public class TestDropColumnTask
     public void testNestedDropColumnDeniedWhenAlterColumnNotAllowed()
     {
         accessControl.deny(privilege(TABLE_NAME, ALTER_COLUMN));
-        try {
-            execute(dropColumn(QualifiedName.of("info", "age"), false));
-            fail("Expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-            // expected
-        }
+        assertThrows(AccessDeniedException.class, () -> execute(dropColumn(QualifiedName.of("info", "age"), false)));
         // A denied statement must not reach the metadata layer
         assertEquals(metadata.dropColumnCalls, 0);
         assertEquals(metadata.dropFieldCalls, 0);

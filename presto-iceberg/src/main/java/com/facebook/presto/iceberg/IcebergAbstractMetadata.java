@@ -1826,16 +1826,23 @@ public abstract class IcebergAbstractMetadata
         if (!resolvedField.isPresent()) {
             return;
         }
-        Types.NestedField field = resolvedField.get();
+        NestedField field = resolvedField.get();
         String dottedPath = String.join(".", fieldPath);
         String canonicalPath = icebergTable.schema().findColumnName(field.fieldId());
 
         // Reject dropping a field referenced by any partition spec (current or historical).
+        // This must cover the field's own ID AND all descendant IDs: a partition spec references
+        // leaf fields by sourceId, so dropping a struct whose child is a partition source must
+        // also be rejected. TypeUtil.getProjectedIds returns the IDs of all nested fields inside
+        // the type (empty for primitives), but does NOT include the field's own ID, so we add it.
         // See https://github.com/apache/iceberg/issues/4563
-        long fieldId = field.fieldId();
+        Set<Integer> droppedFieldIds = ImmutableSet.<Integer>builder()
+                .add(field.fieldId())
+                .addAll(TypeUtil.getProjectedIds(field.type()))
+                .build();
         boolean isPartitionField = icebergTable.specs().values().stream()
                 .flatMap(spec -> spec.fields().stream())
-                .anyMatch(partField -> partField.sourceId() == fieldId);
+                .anyMatch(partField -> droppedFieldIds.contains(partField.sourceId()));
         if (isPartitionField) {
             throw new PrestoException(NOT_SUPPORTED,
                     format("Cannot drop field '%s' which is used by a partition spec", dottedPath));

@@ -56,13 +56,6 @@ public class TestIcebergSmokeHive
         super(HIVE);
     }
 
-    @Test
-    @Override
-    public void testDropNestedField()
-    {
-        super.testDropNestedField();
-    }
-
     @Override
     protected String getLocation(String schema, String table)
     {
@@ -470,6 +463,58 @@ public class TestIcebergSmokeHive
         assertQueryOrdered(session, "SELECT * FROM " + tableName + " ORDER BY part", "VALUES ('p1', 2, 1), ('p2', 20, 10), ('p3', 200, 100)");
 
         dropTable(session, tableName);
+    }
+
+    /**
+     * Verifies that dropping a nested struct field whose descendant is referenced by a partition spec is rejected.
+     * Presto SQL cannot create a nested partition spec (ARRAY['...'] only supports top-level field names), so we
+     * inject the partition spec directly via the Iceberg API to simulate a table created by Spark or another engine.
+     */
+    @Test
+    public void testDropNestedFieldBlockedByDescendantPartitionSpec()
+    {
+        Session session = getSession();
+        String tableName = "test_nested_drop_partition_guard";
+        try {
+            // outer_col has two children (inner_col and sibling) so that inner_col is NOT the only
+            // child of outer_col. This is necessary because Presto rejects dropping the sole field
+            // of a nested struct before it ever reaches the partition-spec guard. Having a sibling
+            // ensures the "only field" check does not short-circuit the partition-spec validation.
+            assertUpdate(session,
+                    "CREATE TABLE " + tableName + " (" +
+                            "id BIGINT, " +
+                            "outer_col ROW(inner_col ROW(city VARCHAR, extra VARCHAR), sibling VARCHAR)" +
+                            ")");
+
+            // Inject a partition spec on the nested leaf field via the Iceberg API.
+            // This simulates a table created by Spark with a nested partition field.
+            Table icebergTable = getIcebergTable(session, tableName);
+            icebergTable.updateSpec()
+                    .addField("outer_col.inner_col.city")
+                    .commit();
+
+            // Dropping the immediate parent struct whose child is the partition source must be rejected.
+            // Before the fix this would silently succeed because only the struct's own ID was checked.
+            assertQueryFails(session,
+                    "ALTER TABLE " + tableName + " DROP COLUMN outer_col.inner_col",
+                    "Cannot drop field 'outer_col.inner_col' which is used by a partition spec");
+
+            // Dropping the leaf partition field directly must also be rejected.
+            assertQueryFails(session,
+                    "ALTER TABLE " + tableName + " DROP COLUMN outer_col.inner_col.city",
+                    "Cannot drop field 'outer_col.inner_col.city' which is used by a partition spec");
+
+            // Dropping an unrelated field from inner_col (not the partition source) must succeed.
+            assertUpdate(session,
+                    "ALTER TABLE " + tableName + " DROP COLUMN outer_col.inner_col.extra");
+
+            // Dropping the unrelated sibling field from outer_col must also succeed.
+            assertUpdate(session,
+                    "ALTER TABLE " + tableName + " DROP COLUMN outer_col.sibling");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     private Table getIcebergTable(Session session, String tableName)

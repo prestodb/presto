@@ -29,12 +29,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DropColumnTask
@@ -71,7 +71,7 @@ public class DropColumnTask
 
         List<String> normalizedParts = statement.getColumn().getOriginalParts().stream()
                 .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part.getValue()))
-                .collect(Collectors.toList());
+                .collect(toImmutableList());
 
         if (normalizedParts.size() == 1) {
             // Top-level column: use existing ColumnHandle-based path.
