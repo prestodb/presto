@@ -1872,13 +1872,13 @@ public abstract class IcebergDistributedSmokeTestBase
                 assertQueryFails(
                         session,
                         format("ALTER TABLE %s ALTER COLUMN info.nonexistent SET DATA TYPE BIGINT", tableName),
-                        "Failed to set field type: Cannot find nested field nonexistent");
+                        "Cannot find nested field 'info\\.nonexistent' in table '.*'");
 
                 // Non-struct parent (id is BIGINT, not ROW) must fail
                 assertQueryFails(
                         session,
                         format("ALTER TABLE %s ALTER COLUMN id.age SET DATA TYPE BIGINT", tableName),
-                        "Failed to set field type: Cannot find nested field age");
+                        "Cannot find nested field 'id\\.age' in table '.*'");
             }
             finally {
                 dropTable(session, tableName);
@@ -1905,18 +1905,11 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN info.score SET DATA TYPE DOUBLE", tableName));
 
             // Pre-existing rows must return correct double values after widening.
-            // 1.5 and 2.5 are exact binary fractions: (double)(float)1.5f == 1.5d exactly.
-            // With batchRead=true the nested FLOAT column is stored as raw int32 bits (IntArrayBlock);
-            // the rewriteFloatArrayBlockToDouble path must decode them via Float.intBitsToFloat.
             assertQuery(session,
                     format("SELECT info.score FROM %s ORDER BY id", tableName),
                     "VALUES CAST(1.5 AS DOUBLE), CAST(NULL AS DOUBLE), CAST(2.5 AS DOUBLE)");
 
             // Whole-row read exercises the ROW block coercion path.
-            // H2 cannot parse VALUES ROW(…) — use computeActual for ROW-typed columns.
-            // With batchRead=true, DoubleType.getObjectValue sees a LongArrayBlock (after
-            // rewriteFloatArrayBlockToDouble converts the IntArrayBlock); values are Double.
-            // If the coercion is broken the values come back as Float and the assertion fails.
             MaterializedResult infoRows = computeActual(session,
                     format("SELECT info FROM %s ORDER BY id", tableName));
             assertEquals(infoRows.getRowCount(), 3);

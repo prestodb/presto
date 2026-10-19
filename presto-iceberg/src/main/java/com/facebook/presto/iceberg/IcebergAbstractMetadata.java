@@ -3084,23 +3084,25 @@ public abstract class IcebergAbstractMetadata
     public void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, List<String> fieldPath, com.facebook.presto.common.type.Type type)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        validateNoBranchSpecified(table, "SET FIELD TYPE");
+        verify(table.getIcebergTableName().getTableType() == DATA, "only the data table can have field types changed");
+        validateNoBranchSpecified(table, "SET DATA TYPE");
         IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
 
         Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
         ColumnMetadata columnMetadataSource = getColumnMetadata(session, icebergTable, column.getName());
+
+        // Build the full path: top-level column name followed by the nested fieldPath elements.
+        List<String> fullPath = ImmutableList.<String>builder()
+                .add(column.getName())
+                .addAll(fieldPath)
+                .build();
+        String fullPathString = String.join(".", fullPath);
+        Schema schema = icebergTable.schema();
+        NestedField field = findNestedField(schema, fullPath)
+                .orElseThrow(() -> new PrestoException(COLUMN_NOT_FOUND,
+                        format("Cannot find nested field '%s' in table '%s'", fullPathString, table.getSchemaTableName())));
+
         try {
-            Schema schema = icebergTable.schema();
-            Types.NestedField field = schema.findField(column.getId());
-            for (String pathElement : fieldPath) {
-                if (!field.type().isStructType()) {
-                    throw new IllegalArgumentException("Cannot find nested field " + pathElement);
-                }
-                field = field.type().asStructType().caseInsensitiveField(pathElement);
-                if (field == null) {
-                    throw new IllegalArgumentException("Cannot find nested field " + pathElement);
-                }
-            }
             icebergTable.updateSchema()
                     .updateColumn(schema.findColumnName(field.fieldId()), toIcebergType(type).asPrimitiveType())
                     .commit();
