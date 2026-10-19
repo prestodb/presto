@@ -247,7 +247,6 @@ public class TestQuickStatsProvider
         mockIntegerColumnStats = new ColumnQuickStats<>("column", Integer.class);
         mockIntegerColumnStats.setMinValue(Integer.MIN_VALUE);
         mockIntegerColumnStats.setMaxValue(Integer.MAX_VALUE);
-        mockIntegerColumnStats.addToRowCount(PER_FILE_ROW_COUNT);
         mockPartitionQuickStats = new PartitionQuickStats("partitionId", ImmutableList.of(mockIntegerColumnStats), 42, 42 * PER_FILE_ROW_COUNT);
         expectedPartitionStats = convertToPartitionStatistics(mockPartitionQuickStats);
     }

@@ -171,6 +171,7 @@ public class PartitionQuickStats
                 "partitionId='" + partitionId + '\'' +
                 ", stats=" + stats +
                 ", fileCount=" + fileCount +
+                ", rowCount=" + rowCount +
                 '}';
     }
 }

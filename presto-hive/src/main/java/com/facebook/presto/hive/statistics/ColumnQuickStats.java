@@ -30,7 +30,6 @@ public class ColumnQuickStats<T extends Comparable<T>>
 {
     private final String columnName;
     private final Type statType;
-    private long rowCount;
     private long nullsCount;
 
     private T minValue;
@@ -70,11 +69,6 @@ public class ColumnQuickStats<T extends Comparable<T>>
     public void setMaxValue(T maxValue)
     {
         this.maxValue = this.maxValue == null ? maxValue : this.maxValue.compareTo(maxValue) > 0 ? this.maxValue : maxValue;
-    }
-
-    public void addToRowCount(long rowCount)
-    {
-        this.rowCount = this.rowCount + rowCount;
     }
 
     public long getNullsCount()
@@ -125,27 +119,29 @@ public class ColumnQuickStats<T extends Comparable<T>>
      */
     private OptionalLong estimateRangeCardinality()
     {
+        long min;
+        long max;
+        if (statType.equals(Integer.class)) {
+            min = (Integer) minValue;
+            max = (Integer) maxValue;
+        }
+        else if (statType.equals(Long.class)) {
+            min = (Long) minValue;
+            max = (Long) maxValue;
+        }
+        else if (statType.equals(ChronoLocalDate.class)) {
+            min = ((ChronoLocalDate) minValue).toEpochDay();
+            max = ((ChronoLocalDate) maxValue).toEpochDay();
+        }
+        else {
+            return OptionalLong.empty();
+        }
         try {
-            if (statType.equals(Integer.class)) {
-                long min = (Integer) minValue;
-                long max = (Integer) maxValue;
-                return OptionalLong.of(Math.addExact(Math.subtractExact(max, min), 1));
-            }
-            if (statType.equals(Long.class)) {
-                long min = (Long) minValue;
-                long max = (Long) maxValue;
-                return OptionalLong.of(Math.addExact(Math.subtractExact(max, min), 1));
-            }
-            if (statType.equals(ChronoLocalDate.class)) {
-                long min = ((ChronoLocalDate) minValue).toEpochDay();
-                long max = ((ChronoLocalDate) maxValue).toEpochDay();
-                return OptionalLong.of(Math.addExact(Math.subtractExact(max, min), 1));
-            }
+            return OptionalLong.of(Math.addExact(Math.subtractExact(max, min), 1));
         }
         catch (ArithmeticException e) {
             return OptionalLong.empty();
         }
-        return OptionalLong.empty();
     }
 
     @Override
@@ -154,7 +150,6 @@ public class ColumnQuickStats<T extends Comparable<T>>
         return "ColumnQuickStats{" +
                 "columnName='" + columnName + '\'' +
                 ", statType=" + statType +
-                ", rowCount=" + rowCount +
                 ", nullsCount=" + nullsCount +
                 ", minValue=" + minValue +
                 ", maxValue=" + maxValue +
@@ -171,7 +166,7 @@ public class ColumnQuickStats<T extends Comparable<T>>
             return false;
         }
         ColumnQuickStats<?> that = (ColumnQuickStats<?>) o;
-        return rowCount == that.rowCount && nullsCount == that.nullsCount &&
+        return nullsCount == that.nullsCount &&
                 Objects.equals(columnName, that.columnName) &&
                 Objects.equals(statType, that.statType) &&
                 Objects.equals(minValue, that.minValue) &&
@@ -181,6 +176,6 @@ public class ColumnQuickStats<T extends Comparable<T>>
     @Override
     public int hashCode()
     {
-        return hash(columnName, statType, rowCount, nullsCount, minValue, maxValue);
+        return hash(columnName, statType, nullsCount, minValue, maxValue);
     }
 }
