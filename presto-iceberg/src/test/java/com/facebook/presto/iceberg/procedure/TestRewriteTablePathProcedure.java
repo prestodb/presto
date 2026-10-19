@@ -2249,7 +2249,7 @@ public class TestRewriteTablePathProcedure
                     .filter(p -> p.getFileName().toString().endsWith(".metadata.json"))
                     .max(Comparator.comparingLong(p -> p.toFile().lastModified()));
             assertTrue(latest.isPresent(), "No metadata file found under " + metadataDir);
-            return TableMetadataParser.read(null,
+            return TableMetadataParser.read(
                     HadoopInputFile.fromLocation("file:" + latest.get().toAbsolutePath(), new Configuration()));
         }
         catch (IOException e) {
