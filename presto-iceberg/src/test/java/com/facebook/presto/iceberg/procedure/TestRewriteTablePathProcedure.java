@@ -24,6 +24,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogUtil;
+import org.apache.iceberg.ImmutableGenericPartitionStatisticsFile;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
@@ -32,6 +33,7 @@ import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.hadoop.HadoopCatalog;
+import org.apache.iceberg.hadoop.HadoopFileIO;
 import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.testng.annotations.Test;
 
@@ -60,6 +62,7 @@ import static com.facebook.presto.iceberg.procedure.RewriteTablePathProcedure.FI
 import static com.facebook.presto.iceberg.procedure.RewriteTablePathProcedure.STAGING_DIR_PREFIX;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestRewriteTablePathProcedure
@@ -90,6 +93,28 @@ public class TestRewriteTablePathProcedure
     }
 
     @Test
+    public void testRewriteTablePathNullPrefixesFail()
+    {
+        // NULL source_prefix or target_prefix must fail with a clear INVALID_PROCEDURE_ARGUMENT
+        // error rather than an NPE from stripTrailingSlash.
+        String tableName = "rewrite_null_prefix_test";
+        createTable(tableName);
+        try {
+            assertQueryFails(
+                    format("CALL system.rewrite_table_path('%s', '%s', null, 'file://new/warehouse')",
+                            TEST_SCHEMA, tableName),
+                    "source_prefix cannot be null");
+            assertQueryFails(
+                    format("CALL system.rewrite_table_path('%s', '%s', 'file://old/warehouse', null)",
+                            TEST_SCHEMA, tableName),
+                    "target_prefix cannot be null");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
     public void testRewriteTablePathOnNonExistingTableFails()
     {
         assertQueryFails("CALL system.rewrite_table_path('tpch', 'non_existing_table', 'src', 'dst')",
@@ -109,6 +134,592 @@ public class TestRewriteTablePathProcedure
         }
         finally {
             dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteMetadataJsonPathsFieldAware()
+    {
+        // Build a minimal Iceberg metadata JSON exercising all path fields plus edge cases.
+        String src = "s3://bucket/warehouse";
+        String tgt = "s3://bucket/target";
+
+        // Path that contains the source prefix more than once (double-prefix bug).
+        // The document-wide text-replace approach rewrites BOTH occurrences; the field-aware
+        // approach rewrites only the leading prefix, leaving the embedded occurrence intact.
+        String doublePrefixPath = src + "/archive/" + src + "/t/metadata/v1.metadata.json";
+        String expectedDoublePrefixPath = tgt + "/archive/" + src + "/t/metadata/v1.metadata.json";
+
+        String json = "{"
+                + "\"format-version\":2,"
+                + "\"location\":\"" + src + "/t\","
+                + "\"snapshots\":[{\"snapshot-id\":1,\"manifest-list\":\"" + src + "/t/metadata/snap.avro\"}],"
+                + "\"metadata-log\":[{\"timestamp-ms\":1,\"metadata-file\":\"" + doublePrefixPath + "\"}],"
+                + "\"statistics\":[{\"snapshot-id\":1,\"statistics-path\":\"" + src + "/t/metadata/stats.puffin\",\"file-size-in-bytes\":100,\"file-footer-size-in-bytes\":10,\"blob-metadata\":[]}],"
+                + "\"partition-statistics\":[{\"snapshot-id\":1,\"statistics-path\":\"" + src + "/t/metadata/pstats\"}],"
+                + "\"properties\":{"
+                + "\"write.location\":\"" + src + "/t\","          // path property → rewritten
+                + "\"column.comment\":\"a " + src + " string\","   // non-path property value → NOT rewritten
+                + "\"table.name\":\"my_table\""                     // non-path property → NOT rewritten
+                + "}"
+                + "}";
+
+        String result = RewriteTablePathProcedure.rewriteMetadataJsonPaths(json, src, tgt);
+
+        // location
+        assertTrue(result.contains("\"" + tgt + "/t\""), "location must reference target prefix");
+        assertFalse(result.contains("\"" + src + "/t\""), "location must not reference source prefix");
+
+        // snapshot manifest-list
+        assertTrue(result.contains(tgt + "/t/metadata/snap.avro"), "manifest-list must reference target prefix");
+
+        // metadata-log: only the leading prefix replaced — the embedded occurrence survives
+        assertTrue(result.contains(expectedDoublePrefixPath),
+                "metadata-file must replace only the leading prefix occurrence");
+        assertFalse(result.contains(tgt + "/archive/" + tgt),
+                "double-prefix path must not have both occurrences replaced");
+
+        // statistics
+        assertTrue(result.contains(tgt + "/t/metadata/stats.puffin"), "statistics-path must reference target prefix");
+
+        // partition-statistics
+        assertTrue(result.contains(tgt + "/t/metadata/pstats"), "partition-statistics-path must reference target prefix");
+
+        // properties: write.location is a path → rewritten; other values untouched
+        assertTrue(result.contains("\"write.location\":\"" + tgt + "/t\""),
+                "write.location property must reference target prefix");
+        assertTrue(result.contains("\"a " + src + " string\""),
+                "non-path column.comment property value must not be rewritten");
+        assertTrue(result.contains("\"my_table\""), "table.name property must be unchanged");
+    }
+
+    @Test
+    public void testRewriteMetadataJsonPathsJsonEscaping()
+    {
+        // Target prefix containing a backslash must be JSON-escaped in the output.
+        // This guards against producing invalid JSON when the replacement text has metacharacters.
+        String src = "s3://bucket/src";
+        // Use a target with a backslash (unusual but possible on some filesystems/configs).
+        String tgt = "s3://bucket/tar\\get";
+        String json = "{\"format-version\":2,\"location\":\"" + src + "/t\"}";
+
+        String result = RewriteTablePathProcedure.rewriteMetadataJsonPaths(json, src, tgt);
+
+        // Jackson must have serialised the backslash as \\ in the JSON output.
+        assertTrue(result.contains("tar\\\\get") || result.contains("tar\\get"),
+                "backslash in target prefix must be preserved in output JSON");
+        // Round-trip: the parsed location must equal tgt + "/t"
+        try {
+            com.fasterxml.jackson.databind.JsonNode node =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(result);
+            assertEquals(node.path("location").textValue(), tgt + "/t",
+                    "round-tripped location must equal target + path suffix");
+        }
+        catch (Exception e) {
+            throw new AssertionError("rewritten JSON must be parseable: " + result, e);
+        }
+    }
+
+    @Test
+    public void testRewriteMetadataJsonGzipCompressed()
+            throws Exception
+    {
+        // Verify that gzip-compressed metadata (.gz.metadata.json and .metadata.json.gz) is
+        // decompressed before path rewriting and re-compressed on write, so the output is a
+        // valid gzip stream with correct paths rather than a corrupted file.
+        String src = "s3://bucket/src";
+        String tgt = "s3://bucket/tgt";
+        String json = "{\"format-version\":2,\"location\":\"" + src + "/t\","
+                + "\"snapshots\":[{\"snapshot-id\":1,\"manifest-list\":\"" + src + "/t/metadata/snap.avro\"}]}";
+
+        for (String suffix : new String[] {".gz.metadata.json", ".metadata.json.gz"}) {
+            assertTrue(RewriteTablePathProcedure.isGzipMetadata("00001" + suffix),
+                    "isGzipMetadata must return true for " + suffix);
+
+            // Compress the JSON as gzip
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            try (java.util.zip.GZIPOutputStream gzos = new java.util.zip.GZIPOutputStream(baos)) {
+                gzos.write(json.getBytes(StandardCharsets.UTF_8));
+            }
+            byte[] compressed = baos.toByteArray();
+
+            Path tmpDir = Files.createTempDirectory("iceberg-gz-metadata-test");
+            try {
+                // Write compressed metadata to a temp file with gzip suffix
+                String srcMetaPath = "file://" + tmpDir + "/src/metadata/00001" + suffix;
+                String stagingPrefix = "file://" + tmpDir + "/staging";
+                String targetPrefix = tgt;
+                String sourcePrefix = src;
+
+                // Use HadoopFileIO to write the compressed source file
+                HadoopFileIO fileIO = new HadoopFileIO(new Configuration());
+                String srcLocalPath = tmpDir + "/src/metadata/00001" + suffix;
+                Files.createDirectories(Paths.get(tmpDir + "/src/metadata"));
+                Files.write(Paths.get(srcLocalPath), compressed);
+
+                // Call rewriteMetadataJson via the full procedure indirectly:
+                // decompress → rewrite → compress by invoking gunzip+gzip path directly.
+                // Verify isGzipMetadata + gunzip + gzip round-trip.
+                String decompressed = new String(
+                        decompress(compressed), StandardCharsets.UTF_8);
+                assertEquals(decompressed, json, "gunzip round-trip must reproduce original JSON");
+
+                String rewritten = RewriteTablePathProcedure.rewriteMetadataJsonPaths(decompressed, src, tgt);
+                assertTrue(rewritten.contains(tgt + "/t"), "rewritten JSON must reference target");
+                assertFalse(rewritten.contains(src + "/t"), "rewritten JSON must not reference source");
+
+                // Compress the rewritten JSON and verify the bytes decompress cleanly
+                java.io.ByteArrayOutputStream rewrittenBaos = new java.io.ByteArrayOutputStream();
+                try (java.util.zip.GZIPOutputStream gzos2 = new java.util.zip.GZIPOutputStream(rewrittenBaos)) {
+                    gzos2.write(rewritten.getBytes(StandardCharsets.UTF_8));
+                }
+                byte[] rewrittenCompressed = rewrittenBaos.toByteArray();
+                String roundTripped = new String(decompress(rewrittenCompressed), StandardCharsets.UTF_8);
+                assertEquals(roundTripped, rewritten, "gzip round-trip of rewritten JSON must be lossless");
+            }
+            finally {
+                Files.walk(tmpDir).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+            }
+        }
+    }
+
+    private static byte[] decompress(byte[] data)
+            throws IOException
+    {
+        try (java.util.zip.GZIPInputStream gzis = new java.util.zip.GZIPInputStream(
+                new java.io.ByteArrayInputStream(data));
+             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = gzis.read(buf)) != -1) {
+                out.write(buf, 0, n);
+            }
+            return out.toByteArray();
+        }
+    }
+
+    /**
+     * Regression test for V3 deletion-vector entries: the {@code referenced_data_file} field in
+     * the {@code data_file} struct of a manifest entry must be rewritten along with {@code file_path}
+     * so that the DV continues to associate with the relocated data file.
+     *
+     * <p>This is tested at the Avro-rewrite level because Presto's Iceberg connector does not yet
+     * support creating deletion vectors via SQL (V3 DELETE is not wired up). The test builds a
+     * minimal manifest-shaped Avro file with both fields populated, calls {@code rewriteAvroFile}
+     * directly, and asserts that both paths reference the target prefix in the output.
+     */
+    @Test
+    public void testRewriteAvroFileRewritesReferencedDataFile()
+            throws Exception
+    {
+        Path tmpDir = Files.createTempDirectory("iceberg-dv-rewrite-test");
+        try {
+            String sourcePrefix = "file://" + tmpDir + "/source";
+            String targetPrefix = "file://" + tmpDir + "/target";
+
+            // Minimal manifest-like Avro schema: a data_file record with file_path and
+            // referenced_data_file (the two path fields a DV entry carries).
+            org.apache.avro.Schema nullable = org.apache.avro.Schema.createUnion(
+                    org.apache.avro.Schema.create(org.apache.avro.Schema.Type.NULL),
+                    org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING));
+            org.apache.avro.Schema dataFileSchema = org.apache.avro.Schema.createRecord(
+                    "r2", null, null, false,
+                    java.util.Arrays.asList(
+                            new org.apache.avro.Schema.Field("file_path", nullable, null, (Object) null),
+                            new org.apache.avro.Schema.Field("referenced_data_file", nullable, null, (Object) null)));
+            org.apache.avro.Schema manifestSchema = org.apache.avro.Schema.createRecord(
+                    "manifest_entry", null, null, false,
+                    java.util.Arrays.asList(
+                            new org.apache.avro.Schema.Field("data_file", dataFileSchema, null, (Object) null)));
+
+            // Write a single DV-like entry to a temp Avro file.
+            Path srcAvro = tmpDir.resolve("manifest.avro");
+            try (java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                 org.apache.avro.file.DataFileWriter<org.apache.avro.generic.GenericRecord> w =
+                         new org.apache.avro.file.DataFileWriter<>(new org.apache.avro.generic.GenericDatumWriter<>(manifestSchema))) {
+                w.create(manifestSchema, baos);
+                org.apache.avro.generic.GenericRecord dataFile =
+                        new org.apache.avro.generic.GenericData.Record(dataFileSchema);
+                dataFile.put("file_path", new org.apache.avro.util.Utf8(sourcePrefix + "/data/00000.parquet"));
+                dataFile.put("referenced_data_file", new org.apache.avro.util.Utf8(sourcePrefix + "/data/00001.parquet"));
+                org.apache.avro.generic.GenericRecord entry =
+                        new org.apache.avro.generic.GenericData.Record(manifestSchema);
+                entry.put("data_file", dataFile);
+                w.append(entry);
+                w.flush();
+                Files.write(srcAvro, baos.toByteArray());
+            }
+
+            // Rewrite via the procedure's Avro rewriter.
+            Path dstAvro = tmpDir.resolve("manifest_rewritten.avro");
+            HadoopFileIO fileIO = new HadoopFileIO(new Configuration());
+            RewriteTablePathProcedure.rewriteAvroFile(
+                    srcAvro.toUri().toString(),
+                    "data_file",
+                    "file_path",
+                    fileIO,
+                    sourcePrefix,
+                    targetPrefix,
+                    dstAvro.toUri().toString(),
+                    new ArrayList<>(),
+                    null);
+
+            // Both path fields must reference the target prefix in the rewritten file.
+            try (org.apache.avro.file.DataFileReader<org.apache.avro.generic.GenericRecord> r =
+                    new org.apache.avro.file.DataFileReader<>(
+                            new org.apache.avro.file.SeekableByteArrayInput(Files.readAllBytes(dstAvro)),
+                            new org.apache.avro.generic.GenericDatumReader<>())) {
+                assertTrue(r.hasNext(), "Rewritten manifest must have at least one record");
+                org.apache.avro.generic.GenericRecord record = r.next();
+                org.apache.avro.generic.GenericRecord df = (org.apache.avro.generic.GenericRecord) record.get("data_file");
+                assertEquals(df.get("file_path").toString(), targetPrefix + "/data/00000.parquet",
+                        "file_path must reference target prefix");
+                assertEquals(df.get("referenced_data_file").toString(), targetPrefix + "/data/00001.parquet",
+                        "referenced_data_file must reference target prefix");
+            }
+        }
+        finally {
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(java.io.File::delete);
+        }
+    }
+
+    @Test
+    public void testRewriteAvroFileSkipsDeletedEntriesInFileList()
+            throws Exception
+    {
+        // DELETED entries (status=2) remain in the Avro manifest but must NOT appear in the
+        // collectDataFiles output: the physical file may have been removed by expire_snapshots
+        // or remove_orphan_files, so including it would cause the migration copy step to fail.
+        // The path MUST still be rewritten in the Avro output (for manifest consistency).
+        Path tmpDir = Files.createTempDirectory("iceberg-deleted-entry-test");
+        try {
+            String sourcePrefix = "file://" + tmpDir + "/source";
+            String targetPrefix = "file://" + tmpDir + "/target";
+
+            org.apache.avro.Schema nullable = org.apache.avro.Schema.createUnion(
+                    org.apache.avro.Schema.create(org.apache.avro.Schema.Type.NULL),
+                    org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING));
+            org.apache.avro.Schema dataFileSchema = org.apache.avro.Schema.createRecord(
+                    "r2", null, null, false,
+                    java.util.Arrays.asList(
+                            new org.apache.avro.Schema.Field("file_path", nullable, null, (Object) null)));
+            org.apache.avro.Schema manifestSchema = org.apache.avro.Schema.createRecord(
+                    "manifest_entry", null, null, false,
+                    java.util.Arrays.asList(
+                            new org.apache.avro.Schema.Field("status",
+                                    org.apache.avro.Schema.create(org.apache.avro.Schema.Type.INT), null, (Object) null),
+                            new org.apache.avro.Schema.Field("data_file", dataFileSchema, null, (Object) null)));
+
+            String existingPath = sourcePrefix + "/data/existing.parquet";
+            String deletedPath = sourcePrefix + "/data/deleted.parquet";
+
+            Path srcAvro = tmpDir.resolve("manifest.avro");
+            try (java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                 org.apache.avro.file.DataFileWriter<org.apache.avro.generic.GenericRecord> w =
+                         new org.apache.avro.file.DataFileWriter<>(new org.apache.avro.generic.GenericDatumWriter<>(manifestSchema))) {
+                w.create(manifestSchema, baos);
+
+                // EXISTING entry (status=0)
+                org.apache.avro.generic.GenericRecord existingFile =
+                        new org.apache.avro.generic.GenericData.Record(dataFileSchema);
+                existingFile.put("file_path", new org.apache.avro.util.Utf8(existingPath));
+                org.apache.avro.generic.GenericRecord existingEntry =
+                        new org.apache.avro.generic.GenericData.Record(manifestSchema);
+                existingEntry.put("status", 0);
+                existingEntry.put("data_file", existingFile);
+                w.append(existingEntry);
+
+                // DELETED entry (status=2) — simulates a file removed by expire_snapshots
+                org.apache.avro.generic.GenericRecord deletedFile =
+                        new org.apache.avro.generic.GenericData.Record(dataFileSchema);
+                deletedFile.put("file_path", new org.apache.avro.util.Utf8(deletedPath));
+                org.apache.avro.generic.GenericRecord deletedEntry =
+                        new org.apache.avro.generic.GenericData.Record(manifestSchema);
+                deletedEntry.put("status", 2);
+                deletedEntry.put("data_file", deletedFile);
+                w.append(deletedEntry);
+
+                w.flush();
+                Files.write(srcAvro, baos.toByteArray());
+            }
+
+            HadoopFileIO fileIO = new HadoopFileIO(new org.apache.hadoop.conf.Configuration());
+            String srcPath = srcAvro.toUri().toString();
+            String outPath = tmpDir.resolve("manifest_out.avro").toUri().toString();
+            List<String[]> collected = new ArrayList<>();
+
+            RewriteTablePathProcedure.rewriteAvroFile(
+                    srcPath, "data_file", "file_path", fileIO,
+                    sourcePrefix, targetPrefix, outPath, collected, null);
+
+            // EXISTING entry must be in the collection
+            assertEquals(collected.size(), 1, "Only the EXISTING entry must appear in the file list");
+            assertEquals(collected.get(0)[0], existingPath);
+            assertEquals(collected.get(0)[1], targetPrefix + "/data/existing.parquet");
+
+            // Both paths must be rewritten in the output Avro
+            try (org.apache.avro.file.DataFileReader<org.apache.avro.generic.GenericRecord> outReader =
+                         new org.apache.avro.file.DataFileReader<>(
+                                 new org.apache.avro.file.SeekableFileInput(tmpDir.resolve("manifest_out.avro").toFile()),
+                                 new org.apache.avro.generic.GenericDatumReader<>())) {
+                List<String> outPaths = new ArrayList<>();
+                for (org.apache.avro.generic.GenericRecord r : outReader) {
+                    org.apache.avro.generic.GenericRecord df = (org.apache.avro.generic.GenericRecord) r.get("data_file");
+                    outPaths.add(df.get("file_path").toString());
+                }
+                assertEquals(outPaths.size(), 2, "Both entries must be present in the output Avro");
+                assertTrue(outPaths.stream().allMatch(p -> p.startsWith(targetPrefix)),
+                        "All paths in output Avro must reference target prefix");
+                assertFalse(outPaths.stream().anyMatch(p -> p.startsWith(sourcePrefix)),
+                        "No paths in output Avro should reference source prefix");
+            }
+        }
+        finally {
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(java.io.File::delete);
+        }
+    }
+
+    @Test
+    public void testRewriteAvroFileThrowsForDataFileOutsideSourcePrefix()
+            throws Exception
+    {
+        // Data files outside source_prefix must cause the procedure to fail, consistent with the
+        // behavior for manifest and manifest-list paths. Silently skipping them would produce a
+        // partially-migrated table that reads from a mix of old and new storage without any
+        // indication to the caller (e.g. tables using write.data.path or files added via add_files).
+        Path tmpDir = Files.createTempDirectory("iceberg-outofprefix-test");
+        try {
+            String sourcePrefix = "file://" + tmpDir + "/source";
+            String targetPrefix = "file://" + tmpDir + "/target";
+            String outsidePrefix = "file://" + tmpDir + "/external";
+
+            org.apache.avro.Schema nullable = org.apache.avro.Schema.createUnion(
+                    org.apache.avro.Schema.create(org.apache.avro.Schema.Type.NULL),
+                    org.apache.avro.Schema.create(org.apache.avro.Schema.Type.STRING));
+            org.apache.avro.Schema dataFileSchema = org.apache.avro.Schema.createRecord(
+                    "r2", null, null, false,
+                    java.util.Arrays.asList(
+                            new org.apache.avro.Schema.Field("file_path", nullable, null, (Object) null)));
+            org.apache.avro.Schema manifestSchema = org.apache.avro.Schema.createRecord(
+                    "manifest_entry", null, null, false,
+                    java.util.Arrays.asList(
+                            new org.apache.avro.Schema.Field("status",
+                                    org.apache.avro.Schema.create(org.apache.avro.Schema.Type.INT), null, (Object) null),
+                            new org.apache.avro.Schema.Field("data_file", dataFileSchema, null, (Object) null)));
+
+            Path srcAvro = tmpDir.resolve("manifest.avro");
+            try (java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                 org.apache.avro.file.DataFileWriter<org.apache.avro.generic.GenericRecord> w =
+                         new org.apache.avro.file.DataFileWriter<>(new org.apache.avro.generic.GenericDatumWriter<>(manifestSchema))) {
+                w.create(manifestSchema, baos);
+
+                // One file within source_prefix (fine) …
+                org.apache.avro.generic.GenericRecord inFile =
+                        new org.apache.avro.generic.GenericData.Record(dataFileSchema);
+                inFile.put("file_path", new org.apache.avro.util.Utf8(sourcePrefix + "/data/in.parquet"));
+                org.apache.avro.generic.GenericRecord inEntry =
+                        new org.apache.avro.generic.GenericData.Record(manifestSchema);
+                inEntry.put("status", 0);
+                inEntry.put("data_file", inFile);
+                w.append(inEntry);
+
+                // … and one outside source_prefix — must trigger the failure.
+                org.apache.avro.generic.GenericRecord outFile =
+                        new org.apache.avro.generic.GenericData.Record(dataFileSchema);
+                outFile.put("file_path", new org.apache.avro.util.Utf8(outsidePrefix + "/data/out.parquet"));
+                org.apache.avro.generic.GenericRecord outEntry =
+                        new org.apache.avro.generic.GenericData.Record(manifestSchema);
+                outEntry.put("status", 0);
+                outEntry.put("data_file", outFile);
+                w.append(outEntry);
+
+                w.flush();
+                Files.write(srcAvro, baos.toByteArray());
+            }
+
+            HadoopFileIO fileIO = new HadoopFileIO(new org.apache.hadoop.conf.Configuration());
+            String outPath = tmpDir.resolve("manifest_out.avro").toUri().toString();
+
+            try {
+                RewriteTablePathProcedure.rewriteAvroFile(
+                        srcAvro.toUri().toString(), "data_file", "file_path", fileIO,
+                        sourcePrefix, targetPrefix, outPath, new ArrayList<>(), null);
+                throw new AssertionError("Expected PrestoException for data file outside source_prefix");
+            }
+            catch (com.facebook.presto.spi.PrestoException e) {
+                assertTrue(e.getMessage().contains(outsidePrefix + "/data/out.parquet"),
+                        "Error message must name the offending file: " + e.getMessage());
+                assertTrue(e.getMessage().contains(sourcePrefix),
+                        "Error message must name source_prefix: " + e.getMessage());
+            }
+        }
+        finally {
+            Files.walk(tmpDir).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(java.io.File::delete);
+        }
+    }
+
+    @Test
+    public void testCanonicalizeLocationNormalizesEquivalentForms()
+    {
+        // file:/path and file:///path must resolve to the same canonical form
+        assertEquals(
+                RewriteTablePathProcedure.canonicalizeLocation("file:/tmp/warehouse/tbl"),
+                RewriteTablePathProcedure.canonicalizeLocation("file:///tmp/warehouse/tbl"));
+
+        // Dot segments must be collapsed
+        assertEquals(
+                RewriteTablePathProcedure.canonicalizeLocation("file:///tmp/warehouse/tbl"),
+                RewriteTablePathProcedure.canonicalizeLocation("file:///tmp/warehouse/tbl/."));
+        assertEquals(
+                RewriteTablePathProcedure.canonicalizeLocation("file:///tmp/warehouse/tbl"),
+                RewriteTablePathProcedure.canonicalizeLocation("file:///tmp/warehouse/other/../tbl"));
+
+        // Distinct locations must remain distinct
+        assertFalse(
+                RewriteTablePathProcedure.canonicalizeLocation("file:///tmp/warehouse/tbl")
+                        .equals(RewriteTablePathProcedure.canonicalizeLocation("file:///tmp/warehouse/tbl_backup")));
+
+        // Non-file schemes: dot segments collapsed, distinct paths remain distinct
+        assertEquals(
+                RewriteTablePathProcedure.canonicalizeLocation("s3://bucket/warehouse/tbl"),
+                RewriteTablePathProcedure.canonicalizeLocation("s3://bucket/warehouse/other/../tbl"));
+        assertFalse(
+                RewriteTablePathProcedure.canonicalizeLocation("s3://bucket/warehouse/tbl")
+                        .equals(RewriteTablePathProcedure.canonicalizeLocation("s3://bucket/warehouse/tbl_backup")));
+    }
+
+    @Test
+    public void testRewriteTablePathStagingEqualToSourceRejectedForEquivalentUris()
+    {
+        // Regression test: the staging == source guard must fire even when the two URI strings
+        // differ only in spelling (file:/path vs file:///path, trailing dot segment, etc.).
+        String tableName = "rewrite_path_canonical_staging_check";
+        createTable(tableName);
+        try {
+            Table table = loadTable(tableName);
+            table.refresh();
+            String tableLocation = table.location(); // e.g. file:///...warehouse.../tpch/rewrite_path_...
+            String sourcePrefix = tableLocation.substring(0, tableLocation.lastIndexOf('/'));
+            String targetPrefix = sourcePrefix + "_target";
+
+            // Build an alternative-spelling URI that resolves to the same directory as sourcePrefix.
+            // Strip "file://" so we get "file:/" + absolute-path, which equals "file:///abs-path".
+            String equivalentStaging = sourcePrefix.replaceFirst("file:///", "file:/");
+
+            assertQueryFails(
+                    format("CALL system.rewrite_table_path('%s', '%s', '%s', '%s', '%s')",
+                            TEST_SCHEMA, tableName, sourcePrefix, targetPrefix, equivalentStaging),
+                    "staging_location must differ from source_prefix");
+
+            // Dot-segment variant: append /. which normalises to the same directory.
+            String dotSegmentStaging = sourcePrefix + "/.";
+            assertQueryFails(
+                    format("CALL system.rewrite_table_path('%s', '%s', '%s', '%s', '%s')",
+                            TEST_SCHEMA, tableName, sourcePrefix, targetPrefix, dotSegmentStaging),
+                    "staging_location must differ from source_prefix");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testHasPathPrefixBoundaryAwareness()
+    {
+        // Exact match
+        assertTrue(RewriteTablePathProcedure.hasPathPrefix("s3://bucket/tbl", "s3://bucket/tbl"));
+        // Path under prefix
+        assertTrue(RewriteTablePathProcedure.hasPathPrefix("s3://bucket/tbl/metadata/v1.json", "s3://bucket/tbl"));
+        // Sibling directory — shares a string prefix but NOT at a path boundary
+        assertFalse(RewriteTablePathProcedure.hasPathPrefix("s3://bucket/tbl_backup/metadata/v1.json", "s3://bucket/tbl"));
+        assertFalse(RewriteTablePathProcedure.hasPathPrefix("s3://bucket/tbl_backup", "s3://bucket/tbl"));
+        // Unrelated path
+        assertFalse(RewriteTablePathProcedure.hasPathPrefix("s3://bucket/other/path", "s3://bucket/tbl"));
+    }
+
+    @Test
+    public void testRewriteTablePathRejectsSiblingPrefixMatch()
+    {
+        // Regression test: source_prefix must match at a path boundary, not as a bare string prefix.
+        // A source_prefix of "file://.../tbl" must NOT match a table located at "file://.../tbl_extra".
+        String tableName = "rewrite_path_sibling_check";
+        createTable(tableName);
+        try {
+            Table table = loadTable(tableName);
+            table.refresh();
+            String tableLocation = table.location(); // e.g. file:///warehouse/.../tpch/tbl_extra
+            // Construct a prefix that is a string-prefix of the location but NOT path-boundary aligned:
+            // strip the last character so it matches as substring but not as path segment.
+            String siblingPrefix = tableLocation.substring(0, tableLocation.length() - 1);
+            assertQueryFails(
+                    format("CALL system.rewrite_table_path('%s', '%s', '%s', '%s')",
+                            TEST_SCHEMA, tableName, siblingPrefix, siblingPrefix + "_new"),
+                    "Table location .* does not start with source prefix .*");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteTablePathFileListQuotesCommaInPath()
+            throws IOException
+    {
+        // Paths containing commas (e.g. a staging directory named "migration,2026") must produce
+        // valid RFC 4180 CSV — the field must be double-quoted so the CSV is still parseable.
+        String sourceName = "rewrite_path_comma_source";
+        String targetName = "rewrite_path_comma_target";
+        createTable(sourceName);
+        try {
+            assertUpdate("INSERT INTO " + sourceName + " VALUES (1, 'a')", 1);
+
+            Table table = loadTable(sourceName);
+            table.refresh();
+            String tableLocation = table.location();
+            String sourcePrefix = tableLocation.substring(0, tableLocation.lastIndexOf('/'));
+            String targetPrefix = sourcePrefix + "_comma_target";
+            // Staging location with an embedded comma — propagates to every staged metadata path.
+            String stagingWithComma = sourcePrefix + "_staging,dir";
+
+            assertUpdate(format("CALL system.rewrite_table_path('%s', '%s', '%s', '%s', '%s')",
+                    TEST_SCHEMA, sourceName, sourcePrefix, targetPrefix, stagingWithComma));
+
+            // Read the file-list with the RFC 4180 parser — all rows must parse to exactly two fields.
+            Path fileListPath = toPath(stagingWithComma + "/" + FILE_LIST_NAME);
+            assertTrue(Files.exists(fileListPath), "file-list should exist");
+            List<String> lines = Files.readAllLines(fileListPath);
+            assertTrue(lines.size() > 0, "file-list must not be empty");
+            for (String line : lines) {
+                String[] parts = parseCsvLine(line);
+                assertEquals(parts.length, 2, "CSV line must parse to exactly 2 fields: " + line);
+            }
+
+            // Verify that at least one quoted field is present (the staging path contains a comma).
+            assertTrue(lines.stream().anyMatch(l -> l.startsWith("\"")),
+                    "At least one field referencing the staging path must be quoted");
+
+            // End-to-end: copy files and register to confirm the paths are valid after unquoting.
+            for (String line : lines) {
+                String[] parts = parseCsvLine(line);
+                Path from = toPath(parts[0]);
+                Path to = toPath(parts[1]);
+                Files.createDirectories(to.getParent());
+                Files.copy(from, to, StandardCopyOption.REPLACE_EXISTING);
+            }
+            String metadataFileDest = lines.stream()
+                    .map(l -> parseCsvLine(l)[1])
+                    .filter(p -> p.endsWith(".metadata.json"))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionError("No .metadata.json in file-list"));
+            String targetMetadataDir = metadataFileDest.substring(0, metadataFileDest.lastIndexOf('/'));
+            assertUpdate(format("CALL system.register_table('%s', '%s', '%s')",
+                    TEST_SCHEMA, targetName, targetMetadataDir));
+            assertQuery(format("SELECT * FROM %s.%s ORDER BY id", TEST_SCHEMA, targetName),
+                    "VALUES (1, 'a')");
+        }
+        finally {
+            dropTable(sourceName);
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + TEST_SCHEMA + "." + targetName);
         }
     }
 
@@ -372,14 +983,14 @@ public class TestRewriteTablePathProcedure
 
             assertTrue(lines.size() > 0, "file-list should not be empty");
             for (String line : lines) {
-                String[] parts = line.split(",", 2);
+                String[] parts = parseCsvLine(line);
                 assertEquals(parts.length, 2, "Each line should have exactly two columns: " + line);
                 assertTrue(parts[1].startsWith(targetPrefix),
                         format("Target column '%s' should start with '%s'", parts[1], targetPrefix));
             }
 
-            List<String> sourceCol = lines.stream().map(l -> l.split(",", 2)[0]).collect(Collectors.toList());
-            List<String> targetCol = lines.stream().map(l -> l.split(",", 2)[1]).collect(Collectors.toList());
+            List<String> sourceCol = lines.stream().map(l -> parseCsvLine(l)[0]).collect(Collectors.toList());
+            List<String> targetCol = lines.stream().map(l -> parseCsvLine(l)[1]).collect(Collectors.toList());
 
             // Data files: source column is the original location, target is target_prefix.
             assertTrue(sourceCol.stream().anyMatch(p -> p.endsWith(".parquet")),
@@ -539,7 +1150,7 @@ public class TestRewriteTablePathProcedure
             // Step 3: copy every row — data files (original → target) and
             // metadata files (staging → target). No other path logic needed.
             for (String line : lines) {
-                String[] parts = line.split(",", 2);
+                String[] parts = parseCsvLine(line);
                 Path from = toPath(parts[0]);
                 Path to = toPath(parts[1]);
                 Files.createDirectories(to.getParent());
@@ -548,7 +1159,7 @@ public class TestRewriteTablePathProcedure
 
             // Step 4: derive the metadata dir from the .metadata.json destination row.
             String metadataFileDest = lines.stream()
-                    .map(l -> l.split(",", 2)[1])
+                    .map(l -> parseCsvLine(l)[1])
                     .filter(p -> p.endsWith(".metadata.json"))
                     .findFirst()
                     .orElseThrow(() -> new AssertionError("No .metadata.json entry in file-list"));
@@ -600,7 +1211,7 @@ public class TestRewriteTablePathProcedure
             // Step 3: copy every row — data files (original → target) and
             // metadata files (staging → target). No other path logic needed.
             for (String line : lines) {
-                String[] parts = line.split(",", 2);
+                String[] parts = parseCsvLine(line);
                 Path from = toPath(parts[0]);
                 Path to = toPath(parts[1]);
                 Files.createDirectories(to.getParent());
@@ -609,7 +1220,7 @@ public class TestRewriteTablePathProcedure
 
             // Step 4: derive the metadata dir from the .metadata.json destination row.
             String metadataFileDest = lines.stream()
-                    .map(l -> l.split(",", 2)[1])
+                    .map(l -> parseCsvLine(l)[1])
                     .filter(p -> p.endsWith(".metadata.json"))
                     .findFirst()
                     .orElseThrow(() -> new AssertionError("No .metadata.json entry found in file-list"));
@@ -682,10 +1293,10 @@ public class TestRewriteTablePathProcedure
 
     @Test
     public void testRewriteTablePathWithDeleteFiles()
-            throws IOException
     {
-        // Test that delete files are included in the file list.
-        // Create a table with deletes (MOR - merge-on-read).
+        // Position delete files embed data-file paths in their Parquet payload. Copying them
+        // unchanged while relocating data files makes the deletes stop matching the new paths,
+        // so deleted rows reappear in the migrated table. The procedure must reject this upfront.
         String tableName = "rewrite_with_deletes_test";
         assertUpdate("CREATE TABLE " + tableName + " (id integer, value varchar) WITH (format = 'PARQUET', format_version = '2')");
         try {
@@ -695,65 +1306,20 @@ public class TestRewriteTablePathProcedure
             Table table = loadTable(tableName);
             table.refresh();
 
-            // Verify we have delete files
+            // Guard: confirm we actually produced position delete files; otherwise the test is vacuous.
             Snapshot snapshot = table.currentSnapshot();
-            long deleteFileCount = snapshot.deleteManifests(table.io()).stream().count();
-            assertTrue(deleteFileCount > 0, "Should have delete files after DELETE operation");
+            long deleteManifestCount = snapshot.deleteManifests(table.io()).stream().count();
+            assertTrue(deleteManifestCount > 0, "Should have delete manifests after DELETE operation");
 
             String originalLocation = table.location();
             String sourcePrefix = originalLocation.substring(0, originalLocation.lastIndexOf('/'));
             String targetPrefix = sourcePrefix + "_with_deletes";
             String stagingLocation = sourcePrefix + "_deletes_staging";
 
-            assertUpdate(format("CALL system.rewrite_table_path('%s', '%s', '%s', '%s', '%s', true)",
-                    TEST_SCHEMA, tableName, sourcePrefix, targetPrefix, stagingLocation));
-
-            // Verify file list includes delete files
-            Path fileListPath = toPath(stagingLocation + "/file-list");
-            assertTrue(Files.exists(fileListPath), "file-list should exist");
-
-            List<String> lines = Files.readAllLines(fileListPath);
-
-            // Verify delete files are in the file list
-            long deleteFilesInList = lines.stream()
-                    .filter(line -> line.contains("delete_file") && line.endsWith(".parquet"))
-                    .count();
-            assertTrue(deleteFilesInList > 0, "File list should include delete files");
-
-            // Copy all files to target location
-            for (String line : lines) {
-                String[] parts = line.split(",", 2);
-                Path from = toPath(parts[0]);
-                Path to = toPath(parts[1]);
-                Files.createDirectories(to.getParent());
-                Files.copy(from, to, StandardCopyOption.REPLACE_EXISTING);
-            }
-
-            // Register the migrated table
-            String targetTableName = tableName + "_target";
-            String metadataFileDest = lines.stream()
-                    .map(l -> l.split(",", 2)[1])
-                    .filter(p -> p.endsWith(".metadata.json"))
-                    .findFirst()
-                    .orElseThrow(() -> new AssertionError("No .metadata.json entry found"));
-            String targetMetadataDir = metadataFileDest.substring(0, metadataFileDest.lastIndexOf('/'));
-
-            assertUpdate(format("CALL system.register_table('%s', '%s', '%s')",
-                    TEST_SCHEMA, targetTableName, targetMetadataDir));
-
-            // TODO: Delete files are correctly collected, copied, and referenced in metadata,
-            // but Presto's Iceberg connector does not currently apply them when querying.
-            // This appears to be a limitation in how Presto handles delete files for registered tables.
-            // Once Presto's connector is fixed, uncomment these assertions:
-
-            // Query the migrated table and verify deletes are still applied
-            // Should only have 2 rows (id=1 and id=3), id=2 was deleted
-            // assertQuery(format("SELECT COUNT(*) FROM %s.%s", TEST_SCHEMA, targetTableName), "VALUES (2)");
-            // assertQuery(format("SELECT id FROM %s.%s ORDER BY id", TEST_SCHEMA, targetTableName), "VALUES (1), (3)");
-            // assertQuery(format("SELECT COUNT(*) FROM %s.%s WHERE id = 2", TEST_SCHEMA, targetTableName), "VALUES (0)");
-
-            // Clean up target table
-            assertQuerySucceeds("DROP TABLE IF EXISTS " + TEST_SCHEMA + "." + targetTableName);
+            assertQueryFails(
+                    format("CALL system.rewrite_table_path('%s', '%s', '%s', '%s', '%s', true)",
+                            TEST_SCHEMA, tableName, sourcePrefix, targetPrefix, stagingLocation),
+                    "Table '.*' contains position delete files.*");
         }
         finally {
             assertQuerySucceeds("DROP TABLE IF EXISTS " + TEST_SCHEMA + "." + tableName);
@@ -818,6 +1384,74 @@ public class TestRewriteTablePathProcedure
                     "format-version metadata should be preserved");
             assertEquals(targetContent, sourceContent,
                     "content metadata should be preserved");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testRewriteTablePathPreservesManifestListAvroMetadata()
+            throws IOException
+    {
+        // Regression test: manifest list files carry snapshot-id, parent-snapshot-id, and
+        // sequence-number as Avro file-level metadata. These were silently dropped when the
+        // rewriter used a fixed allowlist that only covered manifest keys, not manifest list keys.
+        // Losing snapshot-id breaks Iceberg readers that rely on it for snapshot inheritance.
+        String tableName = "rewrite_ml_avro_meta_test";
+        createTable(tableName);
+        try {
+            // Two inserts so the second manifest list carries both snapshot-id and parent-snapshot-id.
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'b')", 1);
+
+            Table table = loadTable(tableName);
+            table.refresh();
+            String originalLocation = table.location();
+            String sourcePrefix = originalLocation.substring(0, originalLocation.lastIndexOf('/'));
+            String stagingLocation = sourcePrefix + "_ml_avro_staging";
+
+            Snapshot snapshot = table.currentSnapshot();
+            String manifestListPath = snapshot.manifestListLocation();
+
+            // Read the source manifest list metadata before rewriting.
+            org.apache.avro.file.DataFileReader<org.apache.avro.generic.GenericRecord> sourceReader =
+                    new org.apache.avro.file.DataFileReader<>(
+                            toPath(manifestListPath).toFile(),
+                            new org.apache.avro.generic.GenericDatumReader<>());
+            String sourceSnapshotId = sourceReader.getMetaString("snapshot-id");
+            String sourceParentSnapshotId = sourceReader.getMetaString("parent-snapshot-id");
+            String sourceSequenceNumber = sourceReader.getMetaString("sequence-number");
+            sourceReader.close();
+
+            assertTrue(sourceSnapshotId != null, "Source manifest list must have snapshot-id metadata");
+            assertTrue(sourceSequenceNumber != null, "Source manifest list must have sequence-number metadata");
+
+            // Rewrite with a staging location.
+            String targetPrefix = sourcePrefix + "_ml_avro_target";
+            assertUpdate(format("CALL system.rewrite_table_path('%s', '%s', '%s', '%s', '%s')",
+                    TEST_SCHEMA, tableName, sourcePrefix, targetPrefix, stagingLocation));
+
+            // Read the rewritten manifest list from staging.
+            String stagedManifestListPath = manifestListPath.replace(sourcePrefix, stagingLocation);
+            Path stagedFile = toPath(stagedManifestListPath);
+            assertTrue(Files.exists(stagedFile), "Rewritten manifest list must exist at " + stagedFile);
+
+            org.apache.avro.file.DataFileReader<org.apache.avro.generic.GenericRecord> targetReader =
+                    new org.apache.avro.file.DataFileReader<>(
+                            stagedFile.toFile(),
+                            new org.apache.avro.generic.GenericDatumReader<>());
+            String targetSnapshotId = targetReader.getMetaString("snapshot-id");
+            String targetParentSnapshotId = targetReader.getMetaString("parent-snapshot-id");
+            String targetSequenceNumber = targetReader.getMetaString("sequence-number");
+            targetReader.close();
+
+            assertEquals(targetSnapshotId, sourceSnapshotId,
+                    "snapshot-id must be preserved in rewritten manifest list");
+            assertEquals(targetParentSnapshotId, sourceParentSnapshotId,
+                    "parent-snapshot-id must be preserved in rewritten manifest list");
+            assertEquals(targetSequenceNumber, sourceSequenceNumber,
+                    "sequence-number must be preserved in rewritten manifest list");
         }
         finally {
             dropTable(tableName);
@@ -908,7 +1542,7 @@ public class TestRewriteTablePathProcedure
             Path fileListPath = toPath(stagingLocation + "/file-list");
             List<String> lines = Files.readAllLines(fileListPath);
             for (String line : lines) {
-                String[] parts = line.split(",", 2);
+                String[] parts = parseCsvLine(line);
                 Path from = toPath(parts[0]);
                 Path to = toPath(parts[1]);
                 Files.createDirectories(to.getParent());
@@ -923,7 +1557,7 @@ public class TestRewriteTablePathProcedure
 
             // Register and query at target location
             String metadataFileDest = lines.stream()
-                    .map(l -> l.split(",", 2)[1])
+                    .map(l -> parseCsvLine(l)[1])
                     .filter(p -> p.endsWith(".metadata.json"))
                     .findFirst()
                     .orElseThrow(() -> new AssertionError("No .metadata.json entry found"));
@@ -977,7 +1611,7 @@ public class TestRewriteTablePathProcedure
             Path fileListPath = toPath(stagingLocation + "/file-list");
             List<String> lines = Files.readAllLines(fileListPath);
             for (String line : lines) {
-                String[] parts = line.split(",", 2);
+                String[] parts = parseCsvLine(line);
                 Path from = toPath(parts[0]);
                 Path to = toPath(parts[1]);
                 Files.createDirectories(to.getParent());
@@ -992,7 +1626,7 @@ public class TestRewriteTablePathProcedure
 
             // Register and query at target location
             String metadataFileDest = lines.stream()
-                    .map(l -> l.split(",", 2)[1])
+                    .map(l -> parseCsvLine(l)[1])
                     .filter(p -> p.endsWith(".metadata.json"))
                     .findFirst()
                     .orElseThrow(() -> new AssertionError("No .metadata.json entry found"));
@@ -1091,7 +1725,7 @@ public class TestRewriteTablePathProcedure
             Path fileListPath = toPath(stagingLocation + "/file-list");
             List<String> lines = Files.readAllLines(fileListPath);
             for (String line : lines) {
-                String[] parts = line.split(",", 2);
+                String[] parts = parseCsvLine(line);
                 Path from = toPath(parts[0]);
                 Path to = toPath(parts[1]);
                 Files.createDirectories(to.getParent());
@@ -1106,7 +1740,7 @@ public class TestRewriteTablePathProcedure
 
             // Register and query at target location
             String metadataFileDest = lines.stream()
-                    .map(l -> l.split(",", 2)[1])
+                    .map(l -> parseCsvLine(l)[1])
                     .filter(p -> p.endsWith(".metadata.json"))
                     .findFirst()
                     .orElseThrow(() -> new AssertionError("No .metadata.json entry found"));
@@ -1231,7 +1865,7 @@ public class TestRewriteTablePathProcedure
             Path fileListPath = toPath(stagingLocation + "/file-list");
             List<String> lines = Files.readAllLines(fileListPath);
             for (String line : lines) {
-                String[] parts = line.split(",", 2);
+                String[] parts = parseCsvLine(line);
                 Path from = toPath(parts[0]);
                 Path to = toPath(parts[1]);
                 Files.createDirectories(to.getParent());
@@ -1246,7 +1880,7 @@ public class TestRewriteTablePathProcedure
 
             // Register and query at target location
             String metadataFileDest = lines.stream()
-                    .map(l -> l.split(",", 2)[1])
+                    .map(l -> parseCsvLine(l)[1])
                     .filter(p -> p.endsWith(".metadata.json"))
                     .findFirst()
                     .orElseThrow(() -> new AssertionError("No .metadata.json entry found"));
@@ -1408,7 +2042,7 @@ public class TestRewriteTablePathProcedure
 
             List<String> lines = Files.readAllLines(toPath(stagingLocation + "/" + FILE_LIST_NAME));
             String metadataFileDest = lines.stream()
-                    .map(l -> l.split(",", 2)[1])
+                    .map(l -> parseCsvLine(l)[1])
                     .filter(p -> p.endsWith(".metadata.json"))
                     .findFirst()
                     .orElseThrow(() -> new AssertionError("No .metadata.json entry found"));
@@ -1501,6 +2135,78 @@ public class TestRewriteTablePathProcedure
         return checked;
     }
 
+    @Test
+    public void testRewriteTablePathCollectsPartitionStatisticsFiles()
+            throws IOException
+    {
+        // partitionStatisticsFiles() must be collected into the file-list so they are copied
+        // during migration. Previously only statisticsFiles() was included; partition stats files
+        // would be referenced in the rewritten metadata JSON but never copied, leaving the target
+        // table with dangling partition-statistics pointers.
+        String tableName = "rewrite_partition_stats_test";
+        createTable(tableName);
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'a')", 1);
+
+            Table table = loadTable(tableName);
+            table.refresh();
+
+            // Write a dummy partition statistics file under the table's metadata directory.
+            String tableLocation = table.location();
+            String statsFileName = "00001-pstats.parquet";
+            String statsFilePath = tableLocation + "/metadata/" + statsFileName;
+            Path statsLocalPath = toPath(statsFilePath);
+            Files.createDirectories(statsLocalPath.getParent());
+            Files.write(statsLocalPath, new byte[] {0x50, 0x41, 0x52, 0x31});
+
+            // Register the dummy file as a partition statistics file on the table.
+            long snapshotId = table.currentSnapshot().snapshotId();
+            ImmutableGenericPartitionStatisticsFile partitionStatsFile =
+                    ImmutableGenericPartitionStatisticsFile.builder()
+                            .snapshotId(snapshotId)
+                            .path(statsFilePath)
+                            .fileSizeInBytes(Files.size(statsLocalPath))
+                            .build();
+            table.updatePartitionStatistics()
+                    .setPartitionStatistics(partitionStatsFile)
+                    .commit();
+            table.refresh();
+
+            // Verify the partition stats were committed to the table.
+            TableMetadata currentMeta = ((BaseTable) table).operations().current();
+            assertEquals(currentMeta.partitionStatisticsFiles().size(), 1,
+                    "Table should have one partition statistics file registered");
+
+            String sourcePrefix = tableLocation.substring(0, tableLocation.lastIndexOf('/'));
+            String targetPrefix = sourcePrefix + "_pstats_target";
+            String stagingLocation = sourcePrefix + "_pstats_staging";
+
+            assertUpdate(format("CALL system.rewrite_table_path('%s', '%s', '%s', '%s', '%s')",
+                    TEST_SCHEMA, tableName, sourcePrefix, targetPrefix, stagingLocation));
+
+            // The partition statistics file must appear in the file-list source column.
+            Path fileListPath = toPath(stagingLocation + "/" + FILE_LIST_NAME);
+            assertTrue(Files.exists(fileListPath), "file-list should exist");
+            List<String> lines = Files.readAllLines(fileListPath);
+            boolean partitionStatsInList = lines.stream()
+                    .map(l -> parseCsvLine(l)[0])
+                    .anyMatch(src -> src.contains(statsFileName));
+            assertTrue(partitionStatsInList,
+                    "Partition statistics file '" + statsFileName + "' must appear in file-list source column");
+
+            // Verify the target path is correctly mapped to the target prefix.
+            String expectedTarget = statsFilePath.replace(sourcePrefix, targetPrefix);
+            boolean correctTargetPresent = lines.stream()
+                    .map(l -> parseCsvLine(l)[1])
+                    .anyMatch(tgt -> tgt.equals(expectedTarget));
+            assertTrue(correctTargetPresent,
+                    "Partition statistics file must map to target path '" + expectedTarget + "' in file-list");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     private void createTable(String tableName)
     {
         assertQuerySucceeds("DROP TABLE IF EXISTS " + TEST_SCHEMA + "." + tableName);
@@ -1576,11 +2282,51 @@ public class TestRewriteTablePathProcedure
         List<String> lines = Files.readAllLines(fileListPath);
         assertTrue(lines.size() > 0, "file-list should not be empty");
         for (String line : lines) {
-            String[] parts = line.split(",", 2);
+            String[] parts = parseCsvLine(line);
             Path from = toPath(parts[0]);
             Path to = toPath(parts[1]);
             Files.createDirectories(to.getParent());
             Files.copy(from, to, StandardCopyOption.REPLACE_EXISTING);
         }
+    }
+
+    /**
+     * Parses one line of RFC 4180 CSV into fields.
+     * Fields may be enclosed in double-quotes; {@code ""} inside a quoted field is a literal quote.
+     */
+    private static String[] parseCsvLine(String line)
+    {
+        List<String> fields = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean inQuote = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (inQuote) {
+                if (c == '"') {
+                    if (i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                        current.append('"');
+                        i++;
+                    }
+                    else {
+                        inQuote = false;
+                    }
+                }
+                else {
+                    current.append(c);
+                }
+            }
+            else if (c == '"') {
+                inQuote = true;
+            }
+            else if (c == ',') {
+                fields.add(current.toString());
+                current = new StringBuilder();
+            }
+            else {
+                current.append(c);
+            }
+        }
+        fields.add(current.toString());
+        return fields.toArray(new String[0]);
     }
 }

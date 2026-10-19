@@ -25,19 +25,28 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
 import org.apache.avro.Schema;
 import org.apache.avro.file.CodecFactory;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
-import org.apache.avro.file.SeekableByteArrayInput;
+import org.apache.avro.file.SeekableInput;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.Utf8;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.DeleteFile;
+import org.apache.iceberg.FileContent;
 import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
+import org.apache.iceberg.ManifestReader;
+import org.apache.iceberg.PartitionStatisticsFile;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
@@ -50,17 +59,23 @@ import org.apache.iceberg.io.SeekableInputStream;
 
 import javax.inject.Provider;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.BOOLEAN;
@@ -68,6 +83,7 @@ import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
@@ -125,11 +141,15 @@ public class RewriteTablePathProcedure
 
     private static final String MANIFEST_DATA_FILE_FIELD = "data_file";
     private static final String MANIFEST_FILE_PATH_FIELD = "file_path";
+    // V3 deletion-vector field: identifies the data file the deletion vector applies to.
+    // Must be rewritten together with file_path so the DV still associates with the migrated file.
+    private static final String MANIFEST_REFERENCED_DATA_FILE_FIELD = "referenced_data_file";
     private static final String MANIFEST_LIST_PATH_FIELD = "manifest_path";
     private static final String MANIFEST_LIST_LENGTH_FIELD = "manifest_length";
-
-    private static final List<String> AVRO_METADATA_KEYS_TO_PRESERVE = ImmutableList.of(
-            "format-version", "content", "partition-spec-id", "schema", "partition-spec");
+    // ManifestEntry.Status ordinal for a logically-deleted file. Files with this status remain in
+    // the Avro container (needed for snapshot history) but may have been physically removed by
+    // expire_snapshots / remove_orphan_files, so they must not be added to the copy file-list.
+    private static final int MANIFEST_ENTRY_STATUS_DELETED = 2;
 
     private static final MethodHandle REWRITE_TABLE_PATH = methodHandle(
             RewriteTablePathProcedure.class,
@@ -187,25 +207,32 @@ public class RewriteTablePathProcedure
             IcebergAbstractMetadata metadata = (IcebergAbstractMetadata) metadataFactory.create();
             Table icebergTable = getIcebergTable(metadata, session, schemaTableName);
 
+            if (sourcePrefix == null) {
+                throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "source_prefix cannot be null");
+            }
+            if (targetPrefix == null) {
+                throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "target_prefix cannot be null");
+            }
+
             String normalizedSource = stripTrailingSlash(sourcePrefix);
             String normalizedTarget = stripTrailingSlash(targetPrefix);
 
             // Guard: source prefix must not be empty (would match between every character)
             if (normalizedSource.isEmpty()) {
-                throw new PrestoException(ICEBERG_INVALID_METADATA,
+                throw new PrestoException(INVALID_PROCEDURE_ARGUMENT,
                         "source_prefix cannot be empty or '/'");
             }
 
             // Guard: source and target must differ
             if (normalizedSource.equals(normalizedTarget)) {
-                throw new PrestoException(ICEBERG_INVALID_METADATA,
+                throw new PrestoException(INVALID_PROCEDURE_ARGUMENT,
                         "source_prefix and target_prefix must differ");
             }
 
             String currentLocation = icebergTable.location();
-            // Verify table location is under source prefix
-            if (!currentLocation.startsWith(normalizedSource)) {
-                throw new PrestoException(ICEBERG_INVALID_METADATA, format(
+            // Verify table location is under source prefix (path-boundary aware)
+            if (!hasPathPrefix(currentLocation, normalizedSource)) {
+                throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format(
                         "Table location '%s' does not start with source prefix '%s'",
                         currentLocation, normalizedSource));
             }
@@ -222,14 +249,21 @@ public class RewriteTablePathProcedure
                     ? stripTrailingSlash(stagingLocation)
                     : defaultStagingLocation(currentMetadata);
 
-            // Guard: staging must differ from source to avoid overwriting source files
-            if (normalizedStaging.equals(normalizedSource)) {
-                throw new PrestoException(ICEBERG_INVALID_METADATA,
+            // Guard: staging must differ from source to avoid overwriting source files.
+            // Compare canonical forms so that equivalent URI spellings (file:/p vs file:///p,
+            // dot segments like /p/./q) are recognised as the same location.
+            if (canonicalizeLocation(normalizedStaging).equals(canonicalizeLocation(normalizedSource))) {
+                throw new PrestoException(INVALID_PROCEDURE_ARGUMENT,
                         "staging_location must differ from source_prefix");
             }
 
             HdfsContext hdfsContext = new HdfsContext(session, schema, tableName, currentLocation, false);
             FileIO fileIO = new HdfsFileIO(manifestFileCache, hdfsEnvironment, hdfsContext);
+
+            // Reject before any write: position delete files embed data-file paths in their
+            // Parquet payload. Copying them unchanged while relocating data files makes those
+            // deletes stop matching the new paths, so deleted rows reappear in the migrated table.
+            validateNoPositionDeleteFiles(currentMetadata, fileIO, schemaTableName);
 
             List<String[]> fileList = new ArrayList<>();
 
@@ -289,7 +323,7 @@ public class RewriteTablePathProcedure
         for (Snapshot snapshot : currentMetadata.snapshots()) {
             for (ManifestFile manifest : snapshot.allManifests(fileIO)) {
                 if (seen.add(manifest.path())) {
-                    if (!manifest.path().startsWith(normalizedSource)) {
+                    if (!hasPathPrefix(manifest.path(), normalizedSource)) {
                         throw new PrestoException(ICEBERG_INVALID_METADATA, format(
                                 "Manifest path '%s' does not start with source_prefix '%s'",
                                 manifest.path(), normalizedSource));
@@ -324,7 +358,7 @@ public class RewriteTablePathProcedure
         for (Snapshot snapshot : currentMetadata.snapshots()) {
             String manifestListPath = snapshot.manifestListLocation();
             if (manifestListPath != null && seen.add(manifestListPath)) {
-                if (!manifestListPath.startsWith(normalizedSource)) {
+                if (!hasPathPrefix(manifestListPath, normalizedSource)) {
                     throw new PrestoException(ICEBERG_INVALID_METADATA, format(
                             "Manifest list path '%s' does not start with source_prefix '%s'",
                             manifestListPath, normalizedSource));
@@ -339,9 +373,10 @@ public class RewriteTablePathProcedure
     }
 
     /**
-     * Appends statistics file (.puffin/.stats) path pairs to {@code fileList}. The metadata JSON
-     * rewrite updates the embedded paths; this ensures the actual blobs are included in the copy
-     * manifest. Statistics files are rarely generated in practice but handled for completeness.
+     * Appends statistics file (.puffin/.stats) path pairs to {@code fileList} for both
+     * {@code statistics} and {@code partition-statistics} entries. The metadata JSON rewrite
+     * updates the embedded paths for both; this ensures the actual blobs are included in the
+     * copy manifest so they are not missing at the target location.
      */
     private static void collectStatisticsFilePairs(
             TableMetadata currentMetadata,
@@ -349,12 +384,15 @@ public class RewriteTablePathProcedure
             String normalizedTarget,
             List<String[]> fileList)
     {
-        if (currentMetadata.statisticsFiles() == null) {
-            return;
-        }
         for (StatisticsFile statsFile : currentMetadata.statisticsFiles()) {
             String statsPath = statsFile.path();
-            if (statsPath.startsWith(normalizedSource)) {
+            if (hasPathPrefix(statsPath, normalizedSource)) {
+                fileList.add(new String[] {statsPath, normalizedTarget + statsPath.substring(normalizedSource.length())});
+            }
+        }
+        for (PartitionStatisticsFile partStatsFile : currentMetadata.partitionStatisticsFiles()) {
+            String statsPath = partStatsFile.path();
+            if (hasPathPrefix(statsPath, normalizedSource)) {
                 fileList.add(new String[] {statsPath, normalizedTarget + statsPath.substring(normalizedSource.length())});
             }
         }
@@ -373,7 +411,7 @@ public class RewriteTablePathProcedure
             List<String[]> fileList)
     {
         for (String metadataFile : allMetadataFiles) {
-            if (!metadataFile.startsWith(normalizedSource)) {
+            if (!hasPathPrefix(metadataFile, normalizedSource)) {
                 continue;
             }
             rewriteMetadataJson(metadataFile, fileIO, normalizedSource, normalizedTarget, normalizedStaging, fileList);
@@ -381,17 +419,17 @@ public class RewriteTablePathProcedure
     }
 
     /**
-     * Writes a two-column CSV (no header) of {@code source,target} file path pairs to
+     * Writes a two-column RFC 4180 CSV (no header) of {@code source,target} file path pairs to
      * {@code path} using the given {@code fileIO}.
      *
-     * <p><strong>Note:</strong> Values are not quoted. This assumes paths do not contain commas,
-     * which is true for S3/HDFS/GCS but may not hold for local filesystem paths or unusual configs.
+     * <p>Fields containing commas, double-quotes, or line breaks are enclosed in double-quotes;
+     * embedded double-quotes are escaped as {@code ""}.
      */
     private static void writeCsvFileList(List<String[]> fileList, String path, FileIO fileIO)
     {
         StringBuilder csv = new StringBuilder();
         for (String[] pair : fileList) {
-            csv.append(pair[0]).append(',').append(pair[1]).append('\n');
+            csv.append(csvQuote(pair[0])).append(',').append(csvQuote(pair[1])).append('\n');
         }
         byte[] bytes = csv.toString().getBytes(StandardCharsets.UTF_8);
         OutputFile outputFile = fileIO.newOutputFile(path);
@@ -402,6 +440,14 @@ public class RewriteTablePathProcedure
             throw new PrestoException(ICEBERG_FILESYSTEM_ERROR,
                     format("Failed to write file list to '%s'", path), e);
         }
+    }
+
+    private static String csvQuote(String value)
+    {
+        if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 
     /**
@@ -424,7 +470,8 @@ public class RewriteTablePathProcedure
      *                        {@code manifest_path} (manifest list files only)
      * @return the exact number of bytes written to {@code writePath}
      */
-    private static long rewriteAvroFile(
+    // package-private for testing
+    static long rewriteAvroFile(
             String sourcePath,
             String nestedRecord,
             String pathField,
@@ -435,85 +482,167 @@ public class RewriteTablePathProcedure
             List<String[]> collectDataFiles,
             Map<String, Long> manifestLengths)
     {
-        byte[] sourceBytes = readAllBytes(fileIO.newInputFile(sourcePath));
-
-        try (DataFileReader<GenericRecord> reader = new DataFileReader<>(
-                new SeekableByteArrayInput(sourceBytes),
-                new GenericDatumReader<>())) {
-            Schema schema = reader.getSchema();
-            // Buffer the rewritten container in memory rather than streaming straight to the
-            // output file: the referencing manifest list must record this file's exact byte
-            // length, which is only known once the Avro container is fully written and closed.
-            // The source is already fully buffered above, so this adds no new memory class.
-            ByteArrayOutputStream rewritten = new ByteArrayOutputStream(sourceBytes.length);
-            try (DataFileWriter<GenericRecord> writer = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
-                // Preserve codec
-                String codec = reader.getMetaString("avro.codec");
-                writer.setCodec(CodecFactory.fromString(codec != null ? codec : "null"));
-
-                // Preserve specific Iceberg metadata keys that are safe to copy.
-                // These include schema and partition-spec which are necessary for correct
-                // interpretation of manifests when the table has undergone schema/partition evolution.
-                // Avoid copying keys that may be location-specific or auto-generated.
-                // Based on org.apache.iceberg.avro.AvroFileAppender metadata keys.
-                for (String key : AVRO_METADATA_KEYS_TO_PRESERVE) {
-                    byte[] value = reader.getMeta(key);
-                    if (value != null) {
-                        writer.setMeta(key, value);
-                    }
+        InputFile inputFile = fileIO.newInputFile(sourcePath);
+        // Stream input directly: wrap SeekableInputStream as SeekableInput so DataFileReader can
+        // seek without reading the whole file into memory first.
+        try (SeekableInputStream stream = inputFile.newStream()) {
+            SeekableInput nonClosingInput = new SeekableInput()
+            {
+                @Override
+                public void seek(long p) throws IOException
+                {
+                    stream.seek(p);
                 }
 
-                writer.create(schema, rewritten);
+                @Override
+                public long tell() throws IOException
+                {
+                    return stream.getPos();
+                }
 
-                // Collect file paths from both data and delete manifests
-                boolean shouldCollectFiles = collectDataFiles != null &&
-                        MANIFEST_DATA_FILE_FIELD.equals(nestedRecord);
+                @Override
+                public long length()
+                {
+                    return inputFile.getLength();
+                }
 
-                for (GenericRecord record : reader) {
-                    // Collect data/delete file pairs if requested (manifest files only)
-                    if (shouldCollectFiles) {
-                        // Check if the nested record field exists in the schema
-                        Schema.Field nestedField = schema.getField(nestedRecord);
-                        if (nestedField != null) {
-                            GenericRecord fileRecord = (GenericRecord) record.get(nestedField.pos());
-                            if (fileRecord != null) {
-                                Schema.Field filePathField = fileRecord.getSchema().getField(MANIFEST_FILE_PATH_FIELD);
-                                if (filePathField != null) {
-                                    Object filePathValue = fileRecord.get(filePathField.pos());
-                                    if (filePathValue != null) {
-                                        String filePath = filePathValue.toString();
-                                        if (filePath.startsWith(sourcePrefix)) {
-                                            collectDataFiles.add(new String[] {
-                                                    filePath,
-                                                    targetPrefix + filePath.substring(sourcePrefix.length())
-                                            });
+                @Override
+                public int read(byte[] b, int off, int len) throws IOException
+                {
+                    return stream.read(b, off, len);
+                }
+
+                @Override
+                public void close() throws IOException
+                {
+                    // stream lifecycle is managed by the enclosing try-with-resources
+                }
+            };
+            try (DataFileReader<GenericRecord> reader = new DataFileReader<>(
+                    nonClosingInput, new GenericDatumReader<>())) {
+                Schema schema = reader.getSchema();
+                OutputFile outputFile = fileIO.newOutputFile(writePath);
+                // Stream output directly: DataFileWriter writes through a non-closing delegate so
+                // rawOut stays open after writer.close(), letting us read getPos() for the exact
+                // byte count without a second in-memory buffer or a separate stat call.
+                try (PositionOutputStream rawOut = outputFile.createOrOverwrite()) {
+                    PositionOutputStream writerOut = new PositionOutputStream()
+                    {
+                        @Override
+                        public long getPos() throws IOException
+                        {
+                            return rawOut.getPos();
+                        }
+
+                        @Override
+                        public void write(int b) throws IOException
+                        {
+                            rawOut.write(b);
+                        }
+
+                        @Override
+                        public void write(byte[] b, int off, int len) throws IOException
+                        {
+                            rawOut.write(b, off, len);
+                        }
+
+                        @Override
+                        public void flush() throws IOException
+                        {
+                            rawOut.flush();
+                        }
+
+                        @Override
+                        public void close() throws IOException
+                        {
+                            // flush only; rawOut lifecycle is managed by the enclosing try-with-resources
+                            rawOut.flush();
+                        }
+                    };
+                    try (DataFileWriter<GenericRecord> writer = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
+                        String codec = reader.getMetaString("avro.codec");
+                        writer.setCodec(CodecFactory.fromString(codec != null ? codec : "null"));
+
+                        // Copy every non-avro.* metadata key from the source file.
+                        // avro.codec is already applied above; avro.schema is written by writer.create().
+                        // Non-avro keys include manifest keys (format-version, content, schema,
+                        // partition-spec) and manifest-list keys (snapshot-id, parent-snapshot-id,
+                        // sequence-number, first-row-id).
+                        for (String key : reader.getMetaKeys()) {
+                            if (!key.startsWith("avro.")) {
+                                writer.setMeta(key, reader.getMeta(key));
+                            }
+                        }
+
+                        writer.create(schema, writerOut);
+
+                        // Collect file paths from both data and delete manifests
+                        boolean shouldCollectFiles = collectDataFiles != null &&
+                                MANIFEST_DATA_FILE_FIELD.equals(nestedRecord);
+
+                        for (GenericRecord record : reader) {
+                            // Collect data/delete file pairs if requested (manifest files only).
+                            // status is a manifest-file field; it does not exist in manifest lists,
+                            // so this entire block is guarded by shouldCollectFiles.
+                            if (shouldCollectFiles) {
+                                // Skip DELETED entries (status 2): they remain in the Avro for snapshot
+                                // history but may have been physically removed by expire_snapshots or
+                                // remove_orphan_files. Including them would break the copy step when the
+                                // files no longer exist at the source.
+                                Schema.Field statusField = schema.getField("status");
+                                Object statusValue = statusField != null ? record.get(statusField.pos()) : null;
+                                boolean isDeletedEntry = statusValue instanceof Integer &&
+                                        (Integer) statusValue == MANIFEST_ENTRY_STATUS_DELETED;
+                                if (!isDeletedEntry) {
+                                    Schema.Field nestedField = schema.getField(nestedRecord);
+                                    if (nestedField != null) {
+                                        GenericRecord fileRecord = (GenericRecord) record.get(nestedField.pos());
+                                        if (fileRecord != null) {
+                                            Schema.Field filePathField = fileRecord.getSchema().getField(MANIFEST_FILE_PATH_FIELD);
+                                            if (filePathField != null) {
+                                                Object filePathValue = fileRecord.get(filePathField.pos());
+                                                if (filePathValue != null) {
+                                                    String filePath = filePathValue.toString();
+                                                    if (!hasPathPrefix(filePath, sourcePrefix)) {
+                                                        throw new PrestoException(ICEBERG_INVALID_METADATA, format(
+                                                                "Data file '%s' does not start with source_prefix '%s'. " +
+                                                                "Tables with data files outside source_prefix (e.g. via " +
+                                                                "write.data.path or add_files) cannot be migrated atomically; " +
+                                                                "move those files under source_prefix first.",
+                                                                filePath, sourcePrefix));
+                                                    }
+                                                    collectDataFiles.add(new String[] {
+                                                            filePath,
+                                                            targetPrefix + filePath.substring(sourcePrefix.length())
+                                                    });
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
+
+                            // Correct manifest_length before the path is rewritten, since the recorded
+                            // lengths are keyed by the original (source) manifest path.
+                            if (manifestLengths != null) {
+                                updateManifestLength(record, manifestLengths);
+                            }
+
+                            // Always rewrite and write all records to the output manifest
+                            rewritePathField(record, nestedRecord, pathField, sourcePrefix, targetPrefix);
+                            // V3 deletion vectors: referenced_data_file must be kept in sync with
+                            // file_path so the DV continues to associate with the relocated data file.
+                            // rewritePathField is a no-op when the field is absent (pre-V3 schemas).
+                            if (MANIFEST_DATA_FILE_FIELD.equals(nestedRecord)) {
+                                rewritePathField(record, nestedRecord, MANIFEST_REFERENCED_DATA_FILE_FIELD, sourcePrefix, targetPrefix);
+                            }
+                            writer.append(record);
                         }
                     }
-
-                    // Correct manifest_length before the path is rewritten, since the recorded
-                    // lengths are keyed by the original (source) manifest path.
-                    if (manifestLengths != null) {
-                        updateManifestLength(record, manifestLengths);
-                    }
-
-                    // Always rewrite and write all records to the output manifest
-                    rewritePathField(record, nestedRecord, pathField, sourcePrefix, targetPrefix);
-                    writer.append(record);
+                    // writer.close() has flushed rawOut through writerOut; rawOut is still open.
+                    return rawOut.getPos();
                 }
             }
-
-            // The writer is closed at this point, so the Avro container is complete and the
-            // buffered length is final.
-            byte[] rewrittenBytes = rewritten.toByteArray();
-            OutputFile outputFile = fileIO.newOutputFile(writePath);
-            try (PositionOutputStream out = outputFile.createOrOverwrite()) {
-                out.write(rewrittenBytes);
-            }
-            return rewrittenBytes.length;
         }
         catch (IOException e) {
             throw new PrestoException(ICEBERG_FILESYSTEM_ERROR,
@@ -575,7 +704,7 @@ public class RewriteTablePathProcedure
         Object value = target.get(field.pos());
         if (value != null) {
             String path = value.toString();
-            String rewritten = path.startsWith(sourcePrefix)
+            String rewritten = hasPathPrefix(path, sourcePrefix)
                     ? targetPrefix + path.substring(sourcePrefix.length())
                     : path;
             target.put(field.pos(), new Utf8(rewritten));
@@ -583,35 +712,30 @@ public class RewriteTablePathProcedure
     }
 
     /**
-     * Reads the metadata JSON at {@code sourceMetadataPath}, rewrites all path strings from
-     * {@code sourcePrefix} to {@code targetPrefix}, and physically writes the raw rewritten
-     * bytes directly to {@code stagingPath}. Writing the raw bytes (rather than re-serialising
-     * through {@code TableMetadataParser.write}) ensures the file exactly mirrors what the
-     * caller requested — in particular, {@code TableMetadataParser.write} would embed the
-     * {@code OutputFile.location()} (i.e. the staging path) as the {@code metadataFileLocation}
-     * field, which would put the staging path back into the content.
+     * Reads the Iceberg metadata JSON at {@code sourceMetadataPath}, rewrites the known path
+     * fields from {@code sourcePrefix} to {@code targetPrefix}, and writes the result to
+     * {@code stagingPath}.
      *
-     * <p>The staging path is computed as:
-     * {@code sourceMetadataPath.replace(sourcePrefix, stagingPrefix)}.
-     * The final target path is:
-     * {@code sourceMetadataPath.replace(sourcePrefix, targetPrefix)}.
-     *
-     * <p>Both paths are appended as a {@code [stagingPath, finalTargetPath]} row to
-     * {@code fileList}.
-     *
-     * <p><strong>Limitation:</strong> Uses unanchored {@code String.replace(sourcePrefix, targetPrefix)}
-     * over the entire JSON document. This rewrites all occurrences of {@code sourcePrefix}, including:
+     * <p>Only the following Iceberg-defined path fields are rewritten; schema names, column
+     * defaults, arbitrary property values, and any other non-path strings are left untouched:
      * <ul>
-     *   <li>Intended path fields: {@code location}, {@code metadata-file-location}, {@code manifest-list},
-     *       {@code manifest-path}, {@code statistics}, snapshot manifest lists, etc.</li>
-     *   <li>Unintended non-path fields: table properties, column comments, partition spec defaults,
-     *       or any user-supplied metadata that happens to contain the prefix as a substring.</li>
+     *   <li>{@code location} — top-level table location</li>
+     *   <li>{@code snapshots[*].manifest-list} — V2+ manifest-list pointer</li>
+     *   <li>{@code snapshots[*].manifests[*]} — V1 inline manifest array</li>
+     *   <li>{@code metadata-log[*].metadata-file} — previous metadata file pointer</li>
+     *   <li>{@code statistics[*].statistics-path} — puffin statistics file path</li>
+     *   <li>{@code partition-statistics[*].statistics-path} — partition statistics file path</li>
+     *   <li>{@code properties} string values that are paths under the source prefix</li>
      * </ul>
-     * For whole-bucket migrations (e.g., {@code s3://source-bucket → s3://target-bucket}) this is typically
-     * correct. For parent-directory prefixes (e.g., {@code s3://bucket/warehouse → s3://bucket/warehouse2})
-     * embedded in property values, this may rewrite unintended fields. Alternative: parse JSON and rewrite
-     * only known path fields (as Iceberg's Spark RewriteTablePathAction does). This implementation prioritizes
-     * simplicity and handles the common case correctly.
+     *
+     * <p>Every path is rewritten only when {@link #hasPathPrefix} confirms the match is at a
+     * path boundary, preventing {@code s3://bucket/tbl} from matching {@code s3://bucket/tbl_bak}.
+     * Serialisation is handled by Jackson, so any characters in {@code targetPrefix} that require
+     * JSON escaping (backslash, double-quote) are encoded correctly.
+     *
+     * <p>The staging path ({@code sourceMetadataPath} with {@code sourcePrefix} replaced by
+     * {@code stagingPrefix}) is the physical write destination; the final target path (with
+     * {@code targetPrefix}) is the logical destination. Both are appended to {@code fileList}.
      */
     private static void rewriteMetadataJson(
             String sourceMetadataPath,
@@ -621,22 +745,19 @@ public class RewriteTablePathProcedure
             String stagingPrefix,
             List<String[]> fileList)
     {
-        // Read and rewrite the raw JSON text — a single string replace covers all path fields
-        // (table location, metadataFileLocation, snapshot manifest-list pointers,
-        // metadata-log entries, statistics file paths, etc.).
+        boolean gzip = isGzipMetadata(sourceMetadataPath);
         byte[] sourceBytes = readAllBytes(fileIO.newInputFile(sourceMetadataPath));
-        String rewrittenJson = new String(sourceBytes, StandardCharsets.UTF_8)
-                .replace(sourcePrefix, targetPrefix);
+        String sourceJson = gzip ? gunzip(sourceBytes, sourceMetadataPath)
+                                 : new String(sourceBytes, StandardCharsets.UTF_8);
+        String rewrittenJson = rewriteMetadataJsonPaths(sourceJson, sourcePrefix, targetPrefix);
 
         // Compute staging path (physical write destination) and final target path (logical).
         // Anchored: sourceMetadataPath is validated to start with sourcePrefix by the caller.
         String stagingPath = stagingPrefix + sourceMetadataPath.substring(sourcePrefix.length());
         String finalTargetPath = targetPrefix + sourceMetadataPath.substring(sourcePrefix.length());
 
-        // Write the rewritten bytes directly — bypassing TableMetadataParser.write() which
-        // would re-serialise the object and embed the staging OutputFile.location() as the
-        // metadataFileLocation, thereby reintroducing the staging path into the content.
-        byte[] rewrittenBytes = rewrittenJson.getBytes(StandardCharsets.UTF_8);
+        byte[] rewrittenBytes = gzip ? gzip(rewrittenJson, stagingPath)
+                                     : rewrittenJson.getBytes(StandardCharsets.UTF_8);
         OutputFile outputFile = fileIO.newOutputFile(stagingPath);
         try (PositionOutputStream out = outputFile.createOrOverwrite()) {
             out.write(rewrittenBytes);
@@ -647,6 +768,202 @@ public class RewriteTablePathProcedure
         }
 
         fileList.add(new String[] {stagingPath, finalTargetPath});
+    }
+
+    /**
+     * Parses {@code json} as an Iceberg table-metadata document and rewrites every known path
+     * field using an anchored prefix replacement. Only the fields listed in
+     * {@link #rewriteMetadataJson} are touched; all other content is preserved verbatim.
+     */
+    static String rewriteMetadataJsonPaths(String json, String sourcePrefix, String targetPrefix)
+    {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            ObjectNode root = (ObjectNode) mapper.readTree(json);
+
+            // Top-level table location
+            rewriteJsonStringField(root, "location", sourcePrefix, targetPrefix);
+
+            // Per-snapshot paths
+            for (JsonNode snapshot : jsonArrayOrEmpty(root.path("snapshots"))) {
+                if (!snapshot.isObject()) {
+                    continue;
+                }
+                ObjectNode snap = (ObjectNode) snapshot;
+                // V2+: single manifest-list pointer
+                rewriteJsonStringField(snap, "manifest-list", sourcePrefix, targetPrefix);
+                // V1: inline manifests array (each element is a path string)
+                rewriteJsonStringArray(snap, "manifests", sourcePrefix, targetPrefix);
+            }
+
+            // Metadata-log entries (previous metadata file locations)
+            for (JsonNode entry : jsonArrayOrEmpty(root.path("metadata-log"))) {
+                if (entry.isObject()) {
+                    rewriteJsonStringField((ObjectNode) entry, "metadata-file", sourcePrefix, targetPrefix);
+                }
+            }
+
+            // Puffin statistics files
+            for (JsonNode statsFile : jsonArrayOrEmpty(root.path("statistics"))) {
+                if (statsFile.isObject()) {
+                    rewriteJsonStringField((ObjectNode) statsFile, "statistics-path", sourcePrefix, targetPrefix);
+                }
+            }
+
+            // Partition statistics files
+            for (JsonNode partStats : jsonArrayOrEmpty(root.path("partition-statistics"))) {
+                if (partStats.isObject()) {
+                    rewriteJsonStringField((ObjectNode) partStats, "statistics-path", sourcePrefix, targetPrefix);
+                }
+            }
+
+            // Table properties whose values are paths under the source prefix
+            // (e.g. write.location). Collect keys first to avoid ConcurrentModificationException.
+            JsonNode propsNode = root.path("properties");
+            if (propsNode.isObject()) {
+                ObjectNode props = (ObjectNode) propsNode;
+                List<String> pathKeys = new ArrayList<>();
+                props.fields().forEachRemaining(e -> {
+                    if (e.getValue().isTextual() && hasPathPrefix(e.getValue().textValue(), sourcePrefix)) {
+                        pathKeys.add(e.getKey());
+                    }
+                });
+                for (String key : pathKeys) {
+                    String val = props.get(key).textValue();
+                    props.put(key, targetPrefix + val.substring(sourcePrefix.length()));
+                }
+            }
+
+            return mapper.writeValueAsString(root);
+        }
+        catch (IOException e) {
+            throw new PrestoException(ICEBERG_FILESYSTEM_ERROR,
+                    "Failed to parse Iceberg metadata JSON for path rewriting", e);
+        }
+    }
+
+    private static void rewriteJsonStringField(ObjectNode node, String field, String sourcePrefix, String targetPrefix)
+    {
+        JsonNode value = node.path(field);
+        if (value.isTextual() && hasPathPrefix(value.textValue(), sourcePrefix)) {
+            node.put(field, targetPrefix + value.textValue().substring(sourcePrefix.length()));
+        }
+    }
+
+    private static void rewriteJsonStringArray(ObjectNode parent, String field, String sourcePrefix, String targetPrefix)
+    {
+        JsonNode node = parent.path(field);
+        if (!node.isArray()) {
+            return;
+        }
+        ArrayNode array = (ArrayNode) node;
+        for (int i = 0; i < array.size(); i++) {
+            JsonNode elem = array.get(i);
+            if (elem.isTextual() && hasPathPrefix(elem.textValue(), sourcePrefix)) {
+                array.set(i, array.textNode(targetPrefix + elem.textValue().substring(sourcePrefix.length())));
+            }
+        }
+    }
+
+    private static Iterable<JsonNode> jsonArrayOrEmpty(JsonNode node)
+    {
+        if (node == null || node.isMissingNode() || !node.isArray()) {
+            return Collections.emptyList();
+        }
+        return node;
+    }
+
+    /**
+     * Rejects the procedure early if the table's <em>current</em> snapshot contains any
+     * position delete files.
+     *
+     * <p>Position delete files store the data-file path as a Parquet column value. That payload
+     * is not rewritten by this procedure (only Avro metadata files are rewritten). After
+     * relocation, data files live at new paths, but the position delete files still reference
+     * the old paths, so the deletes no longer match and previously-deleted rows reappear.
+     *
+     * <p>Equality delete files are safe because they store column values, not file paths.
+     *
+     * <p><strong>Scope — current snapshot only:</strong> Historical snapshots that have already
+     * been superseded by {@code rewrite_data_files} compaction may still reference position
+     * delete files in the metadata log; those are not checked here. Tables that have been
+     * compacted (so the current live view has no position deletes) may be migrated. Time-travel
+     * to such historical snapshots after migration will produce incorrect results (deleted rows
+     * may reappear) because the delete-file payloads are not rewritten; this is an accepted
+     * limitation documented in the procedure contract.
+     */
+    private static void validateNoPositionDeleteFiles(
+            TableMetadata currentMetadata,
+            FileIO fileIO,
+            SchemaTableName tableName)
+    {
+        Snapshot currentSnapshot = currentMetadata.currentSnapshot();
+        if (currentSnapshot == null) {
+            return; // empty table — no files of any kind
+        }
+        for (ManifestFile manifest : currentSnapshot.deleteManifests(fileIO)) {
+            try (ManifestReader<DeleteFile> reader = ManifestFiles.readDeleteManifest(
+                    manifest, fileIO, currentMetadata.specsById())) {
+                for (DeleteFile deleteFile : reader) {
+                    if (deleteFile.content() == FileContent.POSITION_DELETES) {
+                        throw new PrestoException(ICEBERG_INVALID_METADATA, format(
+                                "Table '%s' contains position delete files. Position delete " +
+                                "files store the data-file path as payload; those paths become " +
+                                "stale after relocation and deleted rows reappear in the migrated " +
+                                "table. Compact the table (e.g. rewrite_data_files) to remove " +
+                                "position deletes before running rewrite_table_path.",
+                                tableName));
+                    }
+                }
+            }
+            catch (IOException e) {
+                throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, format(
+                        "Failed to read delete manifest '%s'", manifest.path()), e);
+            }
+        }
+    }
+
+    /**
+     * Returns true if {@code path} equals {@code prefix} exactly or begins with {@code prefix + "/"}.
+     * Plain {@code startsWith} is not path-boundary aware: prefix {@code s3://b/tbl} would
+     * incorrectly match {@code s3://b/tbl_backup/...}.
+     */
+    static boolean hasPathPrefix(String path, String prefix)
+    {
+        return path.equals(prefix) || path.startsWith(prefix + "/");
+    }
+
+    /**
+     * Returns a canonical string form of {@code location} suitable for equality comparisons.
+     *
+     * <p>For {@code file:} URIs, resolves the local path to an absolute, normalised form so that
+     * {@code file:/tmp/tbl}, {@code file:///tmp/tbl}, and {@code file:///tmp/tbl/.} all compare
+     * equal. For all other schemes (s3, hdfs, …) {@link URI#normalize()} is applied, which
+     * resolves dot-segments in the path component without requiring a filesystem call.
+     *
+     * <p>Falls back to the original string on any parse error so the caller's equality check
+     * degrades gracefully to a plain string comparison.
+     */
+    static String canonicalizeLocation(String location)
+    {
+        URI uri;
+        try {
+            uri = URI.create(location).normalize();
+        }
+        catch (IllegalArgumentException e) {
+            return location;
+        }
+        if ("file".equals(uri.getScheme())) {
+            try {
+                // Paths.get(URI) accepts both file:/path and file:///path and produces a
+                // consistent java.nio.Path that toUri() re-serialises in a single canonical form.
+                return Paths.get(uri).toAbsolutePath().normalize().toUri().toString();
+            }
+            catch (Exception e) {
+                return uri.toString();
+            }
+        }
+        return uri.toString();
     }
 
     private static byte[] readAllBytes(InputFile inputFile)
@@ -664,5 +981,48 @@ public class RewriteTablePathProcedure
             throw new PrestoException(ICEBERG_FILESYSTEM_ERROR,
                     format("Failed to read file '%s'", inputFile.location()), e);
         }
+    }
+
+    // Mirrors TableMetadataParser.Codec.fromFileName: .gz.metadata.json and .metadata.json.gz
+    static boolean isGzipMetadata(String path)
+    {
+        if (path.endsWith(".metadata.json.gz")) {
+            return true;
+        }
+        if (path.contains(".metadata.json")) {
+            String withoutSuffix = path.substring(0, path.lastIndexOf(".metadata.json"));
+            return withoutSuffix.endsWith(".gz");
+        }
+        return false;
+    }
+
+    private static String gunzip(byte[] compressed, String path)
+    {
+        try (GZIPInputStream in = new GZIPInputStream(new ByteArrayInputStream(compressed))) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) != -1) {
+                out.write(buf, 0, n);
+            }
+            return out.toString(StandardCharsets.UTF_8.name());
+        }
+        catch (IOException e) {
+            throw new PrestoException(ICEBERG_FILESYSTEM_ERROR,
+                    format("Failed to decompress gzip metadata '%s'", path), e);
+        }
+    }
+
+    private static byte[] gzip(String json, String path)
+    {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (GZIPOutputStream gzos = new GZIPOutputStream(baos)) {
+            gzos.write(json.getBytes(StandardCharsets.UTF_8));
+        }
+        catch (IOException e) {
+            throw new PrestoException(ICEBERG_FILESYSTEM_ERROR,
+                    format("Failed to gzip-compress rewritten metadata for '%s'", path), e);
+        }
+        return baos.toByteArray();
     }
 }
