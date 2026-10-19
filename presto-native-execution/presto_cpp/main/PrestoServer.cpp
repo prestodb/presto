@@ -92,6 +92,7 @@
 #include "velox/experimental/cudf/CudfConfig.h"
 #include "velox/experimental/cudf/exec/ToCudf.h"
 #include "velox/experimental/cudf/expression/PrestoFunctions.h"
+#include "velox/experimental/cudf/memory/PinnedMemoryAllocator.h"
 #endif
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
@@ -1187,6 +1188,31 @@ void PrestoServer::initializeVeloxMemory() {
                            << velox::memory::memoryManager()->toString();
 
   if (systemConfig->asyncDataCacheEnabled()) {
+    auto* cacheAllocator = velox::memory::memoryManager()->allocator();
+#ifdef PRESTO_ENABLE_CUDF
+    const auto& values = systemConfig->values();
+    if (const auto it = values.find("cudf.shared_pinned_host_memory_bytes");
+        it != values.end() && folly::to<uint64_t>(it->second) != 0) {
+      VELOX_USER_CHECK(
+          values.contains("cudf.enabled") &&
+              folly::to<bool>(values.at("cudf.enabled")),
+          "Pinned cache memory requires cudf.enabled=true");
+      const auto capacity = folly::to<uint64_t>(it->second);
+      std::optional<int> numa;
+      if (const auto node = values.find("cudf.pinned_host_memory_numa_node");
+          node != values.end()) {
+        const auto id = folly::to<int>(node->second);
+        VELOX_USER_CHECK_GE(id, 0);
+        numa = id;
+      }
+      pinnedCacheAllocator_ =
+          std::make_shared<velox::cudf_velox::PinnedMemoryAllocator>(
+              velox::cudf_velox::PinnedMemoryAllocator::Options{capacity, numa});
+      cacheAllocator = pinnedCacheAllocator_.get();
+      PRESTO_STARTUP_LOG(INFO)
+          << "Pinned AsyncDataCache allocator: " << cacheAllocator->toString();
+    }
+#endif
     std::unique_ptr<velox::cache::SsdCache> ssd = setupSsdCache();
     std::string cacheStr =
         ssd == nullptr ? "AsyncDataCache" : "AsyncDataCache with SSD";
@@ -1198,7 +1224,7 @@ void PrestoServer::initializeVeloxMemory() {
         systemConfig->asyncCacheNumShards(),
         systemConfig->asyncCacheSsdFlushThresholdBytes()};
     cache_ = velox::cache::AsyncDataCache::create(
-        velox::memory::memoryManager()->allocator(),
+        cacheAllocator,
         std::move(ssd),
         cacheOptions);
     velox::cache::AsyncDataCache::setInstance(cache_.get());
