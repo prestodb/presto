@@ -17,25 +17,19 @@ import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
-import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.spi.ColumnHandle;
-import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
-import io.airlift.slice.Slice;
 import io.delta.kernel.data.FilteredColumnarBatch;
 import io.delta.kernel.data.Row;
 import io.delta.kernel.internal.InternalScanFileUtils;
 import io.delta.kernel.utils.CloseableIterator;
 
 import java.io.IOException;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
+import java.time.ZoneId;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -44,17 +38,9 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
-import static com.facebook.presto.delta.DeltaErrorCode.DELTA_INVALID_PARTITION_VALUE;
-import static com.facebook.presto.delta.DeltaErrorCode.DELTA_UNSUPPORTED_COLUMN_TYPE;
+import static com.facebook.presto.delta.DeltaTypeUtils.convertPartitionValue;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.airlift.slice.Slices.utf8Slice;
-import static java.lang.Double.doubleToRawLongBits;
-import static java.lang.Double.parseDouble;
-import static java.lang.Float.floatToRawIntBits;
-import static java.lang.Float.parseFloat;
-import static java.lang.Long.parseLong;
-import static java.lang.String.format;
 
 public final class DeltaExpressionUtils
 {
@@ -95,7 +81,9 @@ public final class DeltaExpressionUtils
     public static CloseableIterator<Row> iterateWithPartitionPruning(
             CloseableIterator<FilteredColumnarBatch> inputIterator,
             TupleDomain<DeltaColumnHandle> predicate,
-            TypeManager typeManager)
+            TypeManager typeManager,
+            boolean legacyTimestamp,
+            ZoneId sessionZone)
     {
         TupleDomain<String> partitionPredicate = extractPartitionColumnsPredicate(predicate);
         if (partitionPredicate.isAll()) {
@@ -113,7 +101,7 @@ public final class DeltaExpressionUtils
                 .map(TupleDomain.ColumnDomain::getColumn)
                 .collect(toImmutableList())).orElse(ImmutableList.of());
 
-        return new FilteredByPredicateIterator(inputIterator, partitionPredicate, partitionColumns, typeManager);
+        return new FilteredByPredicateIterator(inputIterator, partitionPredicate, partitionColumns, typeManager, legacyTimestamp, sessionZone);
     }
 
     private static TupleDomain<String> extractPartitionColumnsPredicate(TupleDomain<DeltaColumnHandle> predicate)
@@ -225,16 +213,21 @@ public final class DeltaExpressionUtils
         public FilteredByPredicateIterator(CloseableIterator<FilteredColumnarBatch> inputIterator,
                 TupleDomain<String> partitionPredicate,
                 List<DeltaColumnHandle> partitionColumns,
-                TypeManager typeManager)
+                TypeManager typeManager,
+                boolean legacyTimestamp,
+                ZoneId sessionZone)
         {
             super(inputIterator,
-                    Optional.of(row -> evaluatePartitionPredicate(partitionPredicate, partitionColumns, typeManager, row)));
+                    Optional.of(row -> evaluatePartitionPredicate(
+                            partitionPredicate, partitionColumns, typeManager, legacyTimestamp, sessionZone, row)));
         }
 
         private static boolean evaluatePartitionPredicate(
                 TupleDomain<String> partitionPredicate,
                 List<DeltaColumnHandle> partitionColumns,
                 TypeManager typeManager,
+                boolean legacyTimestamp,
+                ZoneId sessionZone,
                 Row row)
         {
             checkArgument(!partitionPredicate.isNone(), "Expecting a predicate with at least one expression");
@@ -243,7 +236,7 @@ public final class DeltaExpressionUtils
                 String partitionValue = InternalScanFileUtils.getPartitionValues(row).get(columnName);
                 String filePath = InternalScanFileUtils.getAddFileStatus(row).getPath();
                 logger.debug("Obtaining domain of file: " + filePath);
-                Domain domain = getDomain(partitionColumn, partitionValue, typeManager, filePath);
+                Domain domain = getDomain(partitionColumn, partitionValue, typeManager, legacyTimestamp, sessionZone);
                 Optional<Map<String, Domain>> domains = partitionPredicate.getDomains();
                 if (!domains.isPresent()) {
                     logger.debug("Domain is not present in file: " + filePath);
@@ -264,58 +257,37 @@ public final class DeltaExpressionUtils
             return true;
         }
 
-        private static Domain getDomain(DeltaColumnHandle columnHandle, String partitionValue, TypeManager typeManager, String filePath)
+        /**
+         * Returns the domain a file's partition value stands for. It is
+         * intersected with the query's predicate to decide whether the file can
+         * be skipped, so the value has to be in the same internal representation
+         * the column is read as -- days for DATE, a wall clock for TIMESTAMP, a
+         * packed value for TIMESTAMP WITH TIME ZONE. Converting it the way
+         * DeltaPageSource materializes the column is what keeps the two in step;
+         * a second conversion here drifted from it three times over.
+         */
+        private static Domain getDomain(
+                DeltaColumnHandle columnHandle,
+                String partitionValue,
+                TypeManager typeManager,
+                boolean legacyTimestamp,
+                ZoneId sessionZone)
         {
             Type type = typeManager.getType(columnHandle.getDataType());
             if (partitionValue == null) {
                 return Domain.onlyNull(type);
             }
 
-            String typeBase = columnHandle.getDataType().getBase();
-            try {
-                switch (typeBase) {
-                    case StandardTypes.TINYINT:
-                    case StandardTypes.SMALLINT:
-                    case StandardTypes.INTEGER:
-                    case StandardTypes.BIGINT:
-                        Long intValue = parseLong(partitionValue);
-                        return Domain.create(ValueSet.of(type, intValue), false);
-                    case StandardTypes.REAL:
-                        Long realValue = (long) floatToRawIntBits(parseFloat(partitionValue));
-                        return Domain.create(ValueSet.of(type, realValue), false);
-                    case StandardTypes.DOUBLE:
-                        Long doubleValue = doubleToRawLongBits(parseDouble(partitionValue));
-                        return Domain.create(ValueSet.of(type, doubleValue), false);
-                    case StandardTypes.VARCHAR:
-                    case StandardTypes.VARBINARY:
-                        Slice sliceValue = utf8Slice(partitionValue);
-                        return Domain.create(ValueSet.of(type, sliceValue), false);
-                    case StandardTypes.DATE:
-                        // The domain is intersected with the query's predicate to
-                        // decide whether a file can be skipped, so the value has to
-                        // be in the representation the column is read as: days
-                        // since the epoch, as DeltaPageSource materializes it.
-                        // Milliseconds would never intersect a date predicate, and
-                        // every file would be skipped.
-                        Long dateValue = LocalDate.parse(partitionValue, DateTimeFormatter.ISO_LOCAL_DATE).toEpochDay();
-                        return Domain.create(ValueSet.of(type, dateValue), false);
-                    case StandardTypes.TIMESTAMP:
-                        Long timestampValue = Timestamp.valueOf(partitionValue).getTime(); // convert to millis
-                        return Domain.create(ValueSet.of(type, timestampValue), false);
-                    case StandardTypes.BOOLEAN:
-                        Boolean booleanValue = Boolean.valueOf(partitionValue);
-                        return Domain.create(ValueSet.of(type, booleanValue), false);
-                    default:
-                        throw new PrestoException(DELTA_UNSUPPORTED_COLUMN_TYPE,
-                                format("Unsupported data type '%s' for partition column %s", columnHandle.getDataType(), columnHandle.getLogicalName()));
-                }
-            }
-            catch (IllegalArgumentException | DateTimeParseException exception) {
-                throw new PrestoException(DELTA_INVALID_PARTITION_VALUE,
-                        format("Can not parse partition value '%s' of type '%s' for partition column '%s' in file '%s'",
-                                partitionValue, columnHandle.getDataType(), columnHandle.getLogicalName(), filePath),
-                        exception);
-            }
+            return Domain.create(
+                    ValueSet.of(
+                            type,
+                            convertPartitionValue(
+                                    columnHandle.getLogicalName(),
+                                    partitionValue,
+                                    type,
+                                    legacyTimestamp,
+                                    sessionZone)),
+                    false);
         }
     }
 }

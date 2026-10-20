@@ -31,6 +31,7 @@ import jakarta.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -81,7 +82,9 @@ public class DeltaSplitManager
             this.rowIterator = DeltaExpressionUtils.iterateWithPartitionPruning(
                     deltaClient.listFiles(session, deltaTable),
                     deltaTableHandle.getPredicate(),
-                    typeManager);
+                    typeManager,
+                    session.getSqlFunctionProperties().isLegacyTimestamp(),
+                    ZoneId.of(session.getSqlFunctionProperties().getTimeZoneKey().getId()));
             this.maxBatchSize = deltaConfig.getMaxSplitsBatchSize();
         }
 
