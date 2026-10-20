@@ -15,6 +15,7 @@ package com.facebook.presto.sql.planner.optimizations;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.plan.SemiJoinNode;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.Plan;
 import com.facebook.presto.sql.planner.RuleStatsRecorder;
@@ -28,8 +29,10 @@ import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -49,6 +52,7 @@ import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_STR
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestAddLocalExchanges
         extends BasePlanTest
@@ -267,5 +271,83 @@ public class TestAddLocalExchanges
                 8,
                 1,
                 ImmutableList.of());
+    }
+
+    @DataProvider
+    public Object[][] rpcParentPreferences()
+    {
+        List<Object[]> cases = new ArrayList<>();
+        for (boolean[] environment : new boolean[][] {{false, false}, {true, false}, {true, true}}) {
+            for (int parallelism : new int[] {0, 8}) {
+                for (RPCNode.StreamingMode mode : new RPCNode.StreamingMode[] {RPCNode.StreamingMode.BATCH, RPCNode.StreamingMode.PER_ROW}) {
+                    cases.add(new Object[] {environment[0], environment[1], parallelism, mode});
+                }
+            }
+        }
+        return cases.toArray(new Object[0][]);
+    }
+
+    @Test(dataProvider = "rpcParentPreferences")
+    public void testGroupByRpcResultOverUnion(boolean nativeExecution, boolean sparkExecution, int parallelism, RPCNode.StreamingMode mode)
+    {
+        assertRpcParentPreferences(
+                "SELECT lower(x), count(*) FROM (" +
+                        "SELECT comment x FROM orders UNION ALL SELECT comment x FROM orders) u GROUP BY 1",
+                nativeExecution, sparkExecution, parallelism, mode);
+    }
+
+    @Test(dataProvider = "rpcParentPreferences")
+    public void testGroupByRpcResultWithoutUnion(boolean nativeExecution, boolean sparkExecution, int parallelism, RPCNode.StreamingMode mode)
+    {
+        assertRpcParentPreferences("SELECT lower(comment), count(*) FROM orders GROUP BY 1",
+                nativeExecution, sparkExecution, parallelism, mode);
+    }
+
+    @Test(dataProvider = "rpcParentPreferences")
+    public void testPartitionedSemiJoinOverRpcUnion(boolean nativeExecution, boolean sparkExecution, int parallelism, RPCNode.StreamingMode mode)
+    {
+        Plan plan = assertRpcParentPreferences(
+                "SELECT orderkey FROM orders WHERE orderkey IN (" +
+                        "SELECT id FROM (SELECT id, lower(x) v FROM (" +
+                        "SELECT orderkey id, comment x FROM orders UNION ALL " +
+                        "SELECT orderkey id, comment x FROM orders) u) r WHERE v = 'yes')",
+                nativeExecution, sparkExecution, parallelism, mode);
+        assertTrue(searchFrom(plan.getRoot()).where(SemiJoinNode.class::isInstance).findFirst().isPresent());
+    }
+
+    @Test(dataProvider = "rpcParentPreferences")
+    public void testCountRpcResultOverUnion(boolean nativeExecution, boolean sparkExecution, int parallelism, RPCNode.StreamingMode mode)
+    {
+        assertRpcParentPreferences(
+                "SELECT count(v) FROM (SELECT lower(x) v FROM (" +
+                        "SELECT comment x FROM orders UNION ALL SELECT comment x FROM orders) u) r",
+                nativeExecution, sparkExecution, parallelism, mode);
+    }
+
+    private Plan assertRpcParentPreferences(@Language("SQL") String sql, boolean nativeExecution, boolean sparkExecution, int parallelism, RPCNode.StreamingMode mode)
+    {
+        RpcExecutionPolicy policy = intent -> RpcExecutionProperties.builder()
+                .setStreamingMode(mode)
+                .setRecommendedTaskCount(1)
+                .build();
+        ImmutableList.Builder<PlanOptimizer> optimizers = ImmutableList.builder();
+        optimizers.add(new RpcFunctionOptimizer(() -> ImmutableSet.of("lower"), null, policy));
+        for (PlanOptimizer optimizer : getQueryRunner().getPlanOptimizers(false, nativeExecution)) {
+            if (optimizer instanceof StatsRecordingPlanOptimizer && ((StatsRecordingPlanOptimizer) optimizer).getDelegate() instanceof AddExchanges) {
+                optimizer = new AddExchanges(getMetadata(), new PartitioningProviderManager(), nativeExecution, sparkExecution);
+            }
+            optimizers.add(optimizer);
+        }
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(RPC_FUNCTION_OPTIMIZER_ENABLED, "true")
+                .setSystemProperty(RPC_FUNCTION_PARALLELISM, Integer.toString(parallelism))
+                .setSystemProperty("join_distribution_type", "PARTITIONED")
+                .build();
+        Plan plan = getQueryRunner().inTransaction(session, transactionSession -> getQueryRunner().createPlan(
+                transactionSession, sql, optimizers.build(), OPTIMIZED, WarningCollector.NOOP));
+        assertEquals(searchFrom(plan.getRoot()).where(RPCNode.class::isInstance).count(), 1);
+        RPCNode rpc = (RPCNode) searchFrom(plan.getRoot()).where(RPCNode.class::isInstance).findOnlyElement();
+        assertEquals(rpc.getStreamingMode(), mode);
+        return plan;
     }
 }
