@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.presto.common.Page;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.io.DataOutput;
 import com.facebook.presto.common.io.DataSink;
 import com.facebook.presto.common.type.Type;
@@ -36,6 +38,9 @@ import com.facebook.presto.orc.metadata.StripeFooter;
 import com.facebook.presto.orc.metadata.StripeInformation;
 import com.facebook.presto.orc.metadata.statistics.ColumnStatistics;
 import com.facebook.presto.orc.metadata.statistics.StripeStatistics;
+import com.facebook.presto.orc.metadata.statistics.hll.HyperLogLog;
+import com.facebook.presto.orc.metadata.statistics.hll.HyperLogLogSerde;
+import com.facebook.presto.orc.metadata.statistics.hll.XxHash64;
 import com.facebook.presto.orc.proto.DwrfProto;
 import com.facebook.presto.orc.stream.StreamDataOutput;
 import com.facebook.presto.orc.writer.ColumnWriter;
@@ -64,6 +69,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -91,6 +97,8 @@ import static com.facebook.presto.orc.metadata.OrcType.createNodeIdToColumnMap;
 import static com.facebook.presto.orc.metadata.OrcType.mapColumnToNode;
 import static com.facebook.presto.orc.metadata.PostScript.MAGIC;
 import static com.facebook.presto.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
+import static com.facebook.presto.orc.metadata.statistics.hll.HyperLogLogSerde.DEFAULT_NUMBER_OF_BUCKETS;
+import static com.facebook.presto.orc.metadata.statistics.hll.HyperLogLogSerde.HLL_USER_METADATA_KEY;
 import static com.facebook.presto.orc.writer.ColumnWriters.createColumnWriter;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -98,15 +106,28 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.floatToIntBits;
+import static java.lang.Float.intBitsToFloat;
 import static java.lang.Integer.min;
 import static java.lang.Math.toIntExact;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class OrcWriter
         implements Closeable
 {
+    private static final Logger log = Logger.get(OrcWriter.class);
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcWriter.class).instanceSize();
+
+    // Per-column NDV (HyperLogLog) hashing kinds, selected from the top-level
+    // OrcType kind. Numeric and string columns collect; everything else does not.
+    private static final int HLL_HASH_NONE = 0;
+    private static final int HLL_HASH_LONG = 1;
+    private static final int HLL_HASH_DOUBLE = 2;
+    private static final int HLL_HASH_FLOAT = 3;
+    private static final int HLL_HASH_SLICE = 4;
+    private static final int HLL_HASH_TIMESTAMP = 5;
 
     static final String PRESTO_ORC_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
     static final String PRESTO_ORC_WRITER_VERSION;
@@ -136,6 +157,14 @@ public class OrcWriter
     private final List<OrcType> orcTypes;
 
     private final List<ColumnWriter> columnWriters;
+    // Per top-level column NDV sketch (null when HLL collection is disabled or
+    // the column kind is not eligible), and the hashing kind for each. Indexed
+    // by write channel (== top-level column index).
+    private final HyperLogLog[] columnHyperLogLogs;
+    private final int[] columnHllHashKinds;
+    // Cleared if HLL collection fails, so the file is written without sketches
+    // rather than failing the write.
+    private boolean hllCollectionEnabled;
     private final Optional<DwrfStripeCacheWriter> dwrfStripeCacheWriter;
     private final int dictionaryMaxMemoryBytes;
     private final DictionaryCompressionOptimizer dictionaryCompressionOptimizer;
@@ -339,6 +368,24 @@ public class OrcWriter
             }
         }
         this.columnWriters = columnWriters.build();
+
+        // Set up per-top-level-column NDV (HyperLogLog) collection. Mirrors the
+        // legacy DWRF TreeWriter opt-in: only child-of-root numeric and string
+        // columns collect a sketch; the sketches are serialized into the footer
+        // user-metadata at close (see bufferFileFooter).
+        this.columnHyperLogLogs = new HyperLogLog[types.size()];
+        this.columnHllHashKinds = new int[types.size()];
+        this.hllCollectionEnabled = options.isHllCollectionEnabled();
+        if (options.isHllCollectionEnabled()) {
+            for (int columnIndex = 0; columnIndex < types.size(); columnIndex++) {
+                int nodeIndex = rootType.getFieldTypeIndex(columnIndex);
+                int hashKind = hllHashKind(orcTypes.get(nodeIndex).getOrcTypeKind());
+                columnHllHashKinds[columnIndex] = hashKind;
+                if (hashKind != HLL_HASH_NONE) {
+                    columnHyperLogLogs[columnIndex] = HyperLogLog.newInstance(DEFAULT_NUMBER_OF_BUCKETS);
+                }
+            }
+        }
         this.dictionaryMaxMemoryBytes = toIntExact(options.getDictionaryMaxMemory().toBytes());
         int dictionaryMemoryAlmostFullRangeBytes = toIntExact(options.getDictionaryMemoryAlmostFullRange().toBytes());
         int dictionaryUsefulCheckColumnSizeBytes = toIntExact(options.getDictionaryUsefulCheckColumnSize().toBytes());
@@ -395,7 +442,22 @@ public class OrcWriter
                 closedStripesRetainedBytes +
                 dataSink.getRetainedSizeInBytes() +
                 compressionBufferPool.getRetainedBytes() +
-                (validationBuilder == null ? 0 : validationBuilder.getRetainedSize());
+                (validationBuilder == null ? 0 : validationBuilder.getRetainedSize()) +
+                getHyperLogLogRetainedBytes();
+    }
+
+    private long getHyperLogLogRetainedBytes()
+    {
+        if (!hllCollectionEnabled) {
+            return 0;
+        }
+        long retainedBytes = 0;
+        for (HyperLogLog hyperLogLog : columnHyperLogLogs) {
+            if (hyperLogLog != null) {
+                retainedBytes += hyperLogLog.estimatedInMemorySize();
+            }
+        }
+        return retainedBytes;
     }
 
     public void write(Page page)
@@ -448,8 +510,17 @@ public class OrcWriter
         bufferedBytes = 0;
         for (int channel = 0; channel < chunk.getChannelCount(); channel++) {
             ColumnWriter writer = columnWriters.get(channel);
-            stripeRawSize += writer.writeBlock(chunk.getBlock(channel));
+            Block block = chunk.getBlock(channel);
+            stripeRawSize += writer.writeBlock(block);
             bufferedBytes += writer.getBufferedBytes();
+            if (hllCollectionEnabled && columnHyperLogLogs[channel] != null) {
+                try {
+                    addBlockToHyperLogLog(columnHyperLogLogs[channel], columnHllHashKinds[channel], types.get(channel), block);
+                }
+                catch (RuntimeException e) {
+                    disableHllCollection(e);
+                }
+            }
         }
 
         // update stats
@@ -705,6 +776,97 @@ public class OrcWriter
         dataSink.close();
     }
 
+    private static int hllHashKind(OrcType.OrcTypeKind kind)
+    {
+        switch (kind) {
+            case BYTE:
+            case SHORT:
+            case INT:
+            case LONG:
+            case DATE:
+                return HLL_HASH_LONG;
+            case DOUBLE:
+                return HLL_HASH_DOUBLE;
+            case FLOAT:
+                return HLL_HASH_FLOAT;
+            case TIMESTAMP:
+                // Mirror bbio's TimestampTreeWriter, which hashes Hive's
+                // (millis, sub-second-nanos) pair. Only millisecond-precision
+                // TIMESTAMP matches that contract; TIMESTAMP_MICROSECONDS has no
+                // corresponding bbio path, so it is intentionally not collected.
+                return HLL_HASH_TIMESTAMP;
+            case STRING:
+            case VARCHAR:
+            case CHAR:
+                return HLL_HASH_SLICE;
+            default:
+                return HLL_HASH_NONE;
+        }
+    }
+
+    // Sketches are optional statistics: on failure, write the file without them.
+    // Readers already treat a file without the footer key as having no NDV.
+    private void disableHllCollection(RuntimeException e)
+    {
+        log.warn(e, "Disabling HLL collection for this file after an error");
+        hllCollectionEnabled = false;
+        Arrays.fill(columnHyperLogLogs, null);
+    }
+
+    private static void addBlockToHyperLogLog(HyperLogLog hyperLogLog, int hashKind, Type type, Block block)
+    {
+        int positionCount = block.getPositionCount();
+        switch (hashKind) {
+            case HLL_HASH_LONG:
+                for (int position = 0; position < positionCount; position++) {
+                    if (!block.isNull(position)) {
+                        hyperLogLog.add(XxHash64.hash(type.getLong(block, position)));
+                    }
+                }
+                return;
+            case HLL_HASH_FLOAT:
+                // REAL is stored as raw int bits. Canonicalize NaN the way bbio's
+                // floatToIntBits does so sketches from both writers merge.
+                for (int position = 0; position < positionCount; position++) {
+                    if (!block.isNull(position)) {
+                        float value = intBitsToFloat((int) type.getLong(block, position));
+                        hyperLogLog.add(XxHash64.hash(floatToIntBits(value)));
+                    }
+                }
+                return;
+            case HLL_HASH_DOUBLE:
+                for (int position = 0; position < positionCount; position++) {
+                    if (!block.isNull(position)) {
+                        hyperLogLog.add(XxHash64.hash(Double.doubleToLongBits(type.getDouble(block, position))));
+                    }
+                }
+                return;
+            case HLL_HASH_SLICE:
+                for (int position = 0; position < positionCount; position++) {
+                    if (!block.isNull(position)) {
+                        Slice slice = type.getSlice(block, position);
+                        hyperLogLog.add(XxHash64.hash(slice, 0, slice.length()));
+                    }
+                }
+                return;
+            case HLL_HASH_TIMESTAMP:
+                // bbio hashes XxHash64.hash(time, nanos) where time is the full
+                // epoch-millis and nanos is the sub-second component in
+                // nanoseconds. floorMod keeps nanos in [0, 1e9) for pre-epoch
+                // (negative) millis, matching java.sql.Timestamp semantics.
+                for (int position = 0; position < positionCount; position++) {
+                    if (!block.isNull(position)) {
+                        long millis = type.getLong(block, position);
+                        long nanos = Math.floorMod(millis, 1000L) * 1_000_000L;
+                        hyperLogLog.add(XxHash64.hash(millis, nanos));
+                    }
+                }
+                return;
+            default:
+                // HLL_HASH_NONE: this column does not collect a sketch.
+        }
+    }
+
     /**
      * Collect the data for the file footer.  This is not the actual data, but
      * instead are functions that know how to write the data.
@@ -735,6 +897,29 @@ public class OrcWriter
 
         Map<String, Slice> userMetadata = this.userMetadata.entrySet().stream()
                 .collect(Collectors.toMap(Entry::getKey, entry -> utf8Slice(entry.getValue())));
+
+        // Serialize the per-column NDV (HyperLogLog) snapshots into the footer
+        // user-metadata, byte-compatible with the Spectrum stats publisher
+        // reader. The snapshot list is indexed by OrcType node (pre-order,
+        // index 0 = root struct = empty); each collected top-level column is
+        // placed at its node index.
+        if (hllCollectionEnabled) {
+            List<Optional<HyperLogLog>> hyperLogLogSnapshots =
+                    new ArrayList<>(nCopies(orcTypes.size(), Optional.<HyperLogLog>empty()));
+            OrcType rootType = orcTypes.get(0);
+            for (int columnIndex = 0; columnIndex < columnHyperLogLogs.length; columnIndex++) {
+                HyperLogLog hyperLogLog = columnHyperLogLogs[columnIndex];
+                if (hyperLogLog != null) {
+                    hyperLogLogSnapshots.set(rootType.getFieldTypeIndex(columnIndex), Optional.of(hyperLogLog));
+                }
+            }
+            try {
+                userMetadata.put(HLL_USER_METADATA_KEY, Slices.wrappedBuffer(HyperLogLogSerde.serialize(hyperLogLogSnapshots)));
+            }
+            catch (RuntimeException e) {
+                disableHllCollection(e);
+            }
+        }
 
         unencryptedStats = new ArrayList<>();
         Map<Integer, Map<Integer, Slice>> encryptedStats = new HashMap<>();

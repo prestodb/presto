@@ -52,6 +52,7 @@ public class OrcWriterOptions
     public static final boolean DEFAULT_RESET_OUTPUT_BUFFER = false;
     public static final boolean DEFAULT_LAZY_OUTPUT_BUFFER = false;
     public static final boolean DEFAULT_VERIFY_COMPRESSION = false;
+    public static final boolean DEFAULT_HLL_COLLECTION_ENABLED = false;
     private final OrcWriterFlushPolicy flushPolicy;
     private final int rowGroupMaxRowCount;
     private final DataSize dictionaryMaxMemory;
@@ -79,6 +80,7 @@ public class OrcWriterOptions
     private final boolean resetOutputBuffer;
     private final boolean lazyOutputBuffer;
     private final boolean verifyCompression;
+    private final boolean hllCollectionEnabled;
 
     /**
      * Contains indexes of columns (not nodes!) for which writer should use flattened encoding, e.g. flat maps.
@@ -109,7 +111,8 @@ public class OrcWriterOptions
             int maxFlattenedMapKeyCount,
             boolean resetOutputBuffer,
             boolean lazyOutputBuffer,
-            boolean verifyCompression)
+            boolean verifyCompression,
+            boolean hllCollectionEnabled)
     {
         requireNonNull(flushPolicy, "flushPolicy is null");
         checkArgument(rowGroupMaxRowCount >= 1, "rowGroupMaxRowCount must be at least 1");
@@ -150,6 +153,7 @@ public class OrcWriterOptions
         this.resetOutputBuffer = resetOutputBuffer;
         this.lazyOutputBuffer = lazyOutputBuffer;
         this.verifyCompression = verifyCompression;
+        this.hllCollectionEnabled = hllCollectionEnabled;
     }
 
     public OrcWriterFlushPolicy getFlushPolicy()
@@ -272,6 +276,11 @@ public class OrcWriterOptions
         return verifyCompression;
     }
 
+    public boolean isHllCollectionEnabled()
+    {
+        return hllCollectionEnabled;
+    }
+
     @Override
     public String toString()
     {
@@ -298,6 +307,7 @@ public class OrcWriterOptions
                 .add("resetOutputBuffer", resetOutputBuffer)
                 .add("lazyOutputBuffer", lazyOutputBuffer)
                 .add("verifyCompression", verifyCompression)
+                .add("hllCollectionEnabled", hllCollectionEnabled)
                 .toString();
     }
 
@@ -339,6 +349,7 @@ public class OrcWriterOptions
         private boolean resetOutputBuffer = DEFAULT_RESET_OUTPUT_BUFFER;
         private boolean lazyOutputBuffer = DEFAULT_LAZY_OUTPUT_BUFFER;
         private boolean verifyCompression = DEFAULT_VERIFY_COMPRESSION;
+        private boolean hllCollectionEnabled = DEFAULT_HLL_COLLECTION_ENABLED;
 
         public Builder withFlushPolicy(OrcWriterFlushPolicy flushPolicy)
         {
@@ -498,6 +509,12 @@ public class OrcWriterOptions
             return this;
         }
 
+        public Builder withHllCollectionEnabled(boolean hllCollectionEnabled)
+        {
+            this.hllCollectionEnabled = hllCollectionEnabled;
+            return this;
+        }
+
         public OrcWriterOptions build()
         {
             Optional<DwrfStripeCacheOptions> dwrfWriterOptions;
@@ -532,7 +549,8 @@ public class OrcWriterOptions
                     maxFlattenedMapKeyCount,
                     resetOutputBuffer,
                     lazyOutputBuffer,
-                    verifyCompression);
+                    verifyCompression,
+                    hllCollectionEnabled);
         }
     }
 }
