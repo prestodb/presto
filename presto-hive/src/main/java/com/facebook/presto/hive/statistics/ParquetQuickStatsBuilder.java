@@ -112,10 +112,10 @@ public class ParquetQuickStatsBuilder
 
     private static long processColumnMetadata(ParquetMetadata parquetMetadata, Map<ColumnPath, ColumnQuickStats<?>> rolledUpColStats)
     {
-        long totalRowCount = 0L;
+        long fileRowCount = 0L;
         List<BlockMetaData> rowGroups = parquetMetadata.getBlocks();
         for (BlockMetaData rowGroup : rowGroups) {
-            totalRowCount += rowGroup.getRowCount();
+            fileRowCount += rowGroup.getRowCount();
 
             for (ColumnChunkMetaData columnChunkMetaData : rowGroup.getColumns()) {
                 ColumnPath columnKey = columnChunkMetaData.getPath();
@@ -246,7 +246,7 @@ public class ParquetQuickStatsBuilder
                 }
             }
         }
-        return totalRowCount;
+        return fileRowCount;
     }
 
     @Managed
