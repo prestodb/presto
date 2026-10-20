@@ -16,6 +16,7 @@
 #include <folly/executors/ThreadedExecutor.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <chrono>
 #include <string_view>
 #include "folly/synchronization/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
@@ -1514,7 +1515,8 @@ TEST_P(TaskManagerTest, getResultsFromFailedTask) {
       taskId, std::make_exception_ptr(e), true, 0);
 
   // We expect to get empty results, rather than an exception.
-  const uint64_t startTimeUs = velox::getCurrentTimeMicro();
+  const uint64_t startTimeUs =
+      velox::EpochTime::now<std::chrono::microseconds>();
   auto results = taskManager_
                      ->getResults(
                          taskId,
@@ -1524,7 +1526,8 @@ TEST_P(TaskManagerTest, getResultsFromFailedTask) {
                          protocol::Duration("1s"),
                          http::CallbackRequestHandlerState::create())
                      .get();
-  const uint64_t finishTimeUs = velox::getCurrentTimeMicro();
+  const uint64_t finishTimeUs =
+      velox::EpochTime::now<std::chrono::microseconds>();
 
   {
     // ensure response is returned with a delay
@@ -1741,7 +1744,8 @@ TEST_P(TaskManagerTest, getResultsFromAbortedTask) {
   taskManager_->deleteTask(taskId, true, true, /*shouldDropTask=*/false);
 
   // We expect to get empty results, rather than an exception.
-  const uint64_t startTimeUs = velox::getCurrentTimeMicro();
+  const uint64_t startTimeUs =
+      velox::EpochTime::now<std::chrono::microseconds>();
   auto results = taskManager_
                      ->getResults(
                          taskId,
@@ -1751,7 +1755,8 @@ TEST_P(TaskManagerTest, getResultsFromAbortedTask) {
                          protocol::Duration("1s"),
                          http::CallbackRequestHandlerState::create())
                      .get();
-  const uint64_t finishTimeUs = velox::getCurrentTimeMicro();
+  const uint64_t finishTimeUs =
+      velox::EpochTime::now<std::chrono::microseconds>();
 
   {
     // ensure response is returned with a delay
@@ -1781,7 +1786,8 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
       std::move(queryCtx),
       Task::ExecutionMode::kParallel);
 
-  const uint64_t startTimeMs = velox::getCurrentTimeMs();
+  const uint64_t startTimeMs =
+      velox::EpochTime::now<std::chrono::milliseconds>();
   auto prestoTask = std::make_unique<PrestoTask>(taskId, "fakeId");
   prestoTask->task = veloxTask;
   veloxTask->start(1);
@@ -1801,7 +1807,8 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   const auto memoryUsage = veloxTask->queryCtx()->pool()->usedBytes();
   ASSERT_GT(memoryUsage, 0);
 
-  const uint64_t lastTimeMs = velox::getCurrentTimeMs();
+  const uint64_t lastTimeMs =
+      velox::EpochTime::now<std::chrono::milliseconds>();
   protocol::TaskInfo prestoTaskInfo = prestoTask->updateInfo(true);
   ASSERT_EQ(prestoTaskInfo.stats.userMemoryReservationInBytes, memoryUsage);
   ASSERT_EQ(prestoTaskInfo.stats.systemMemoryReservationInBytes, 0);
@@ -1824,7 +1831,8 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   prestoTaskInfo = prestoTask->updateInfo(true);
   // Wait a bit to avoid the timing related flakiness in test check below.
   std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  const uint64_t currentTimeMs = velox::getCurrentTimeMs();
+  const uint64_t currentTimeMs =
+      velox::EpochTime::now<std::chrono::milliseconds>();
   // There won't be any task memory usage change as we don't consume any output
   // buffers.
   ASSERT_EQ(memoryUsage, prestoTaskInfo.stats.userMemoryReservationInBytes);

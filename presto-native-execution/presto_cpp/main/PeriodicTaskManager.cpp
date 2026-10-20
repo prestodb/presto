@@ -15,6 +15,7 @@
 #include "presto_cpp/main/PeriodicTaskManager.h"
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/stop_watch.h>
+#include <chrono>
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/common/Counters.h"
@@ -541,7 +542,7 @@ void PeriodicTaskManager::addWatchdogTask() {
 
         // Detach worker from the cluster if it has been overloaded for too
         // long.
-        const auto now = velox::getCurrentTimeSec();
+        const auto now = velox::EpochTime::now<std::chrono::seconds>();
         const auto lastNotOverloadedTime =
             taskManager_->lastNotOverloadedTimeInSecs();
         const auto overloadedDurationSec =

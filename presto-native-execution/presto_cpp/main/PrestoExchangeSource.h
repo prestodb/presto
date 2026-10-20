@@ -33,7 +33,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   class RetryState {
    public:
     RetryState(int64_t maxWaitMs = 1'000)
-        : maxWaitMs_(maxWaitMs), startMs_(velox::getCurrentTimeMs()) {}
+        : maxWaitMs_(maxWaitMs),
+          startMs_(velox::EpochTime::now<std::chrono::milliseconds>()) {}
 
     // Returns the delay in millis to wait before next try. This is an
     // exponential backoff delay with jitter. The first call to this always
@@ -53,7 +54,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     }
 
     int64_t durationMs() const {
-      return velox::getCurrentTimeMs() - startMs_;
+      return velox::EpochTime::now<std::chrono::milliseconds>() - startMs_;
     }
 
     size_t numTries() const {

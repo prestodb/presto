@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/PrestoTask.h"
 #include <sys/resource.h>
+#include <chrono>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -540,7 +541,7 @@ PrestoTask::PrestoTask(
                                    : util::getProcessCpuTimeNs()} {
   info.taskId = taskId;
   info.nodeId = nodeId;
-  createTimeMs = getCurrentTimeMs();
+  createTimeMs = EpochTime::now<std::chrono::milliseconds>();
 }
 
 PrestoTaskState PrestoTask::taskState() const {
@@ -559,7 +560,7 @@ PrestoTaskState PrestoTask::taskState() const {
 }
 
 void PrestoTask::updateHeartbeatLocked() {
-  lastHeartbeatMs = velox::getCurrentTimeMs();
+  lastHeartbeatMs = velox::EpochTime::now<std::chrono::milliseconds>();
   info.lastHeartbeatInMillis = lastHeartbeatMs;
 }
 
@@ -569,7 +570,8 @@ void PrestoTask::updateCoordinatorHeartbeat() {
 }
 
 void PrestoTask::updateCoordinatorHeartbeatLocked() {
-  lastCoordinatorHeartbeatMs = velox::getCurrentTimeMs();
+  lastCoordinatorHeartbeatMs =
+      velox::EpochTime::now<std::chrono::milliseconds>();
 }
 
 uint64_t PrestoTask::timeSinceLastHeartbeatMs() const {
@@ -577,7 +579,7 @@ uint64_t PrestoTask::timeSinceLastHeartbeatMs() const {
   if (lastHeartbeatMs == 0UL) {
     return 0UL;
   }
-  return getCurrentTimeMs() - lastHeartbeatMs;
+  return EpochTime::now<std::chrono::milliseconds>() - lastHeartbeatMs;
 }
 
 uint64_t PrestoTask::timeSinceLastCoordinatorHeartbeatMs() const {
@@ -585,7 +587,8 @@ uint64_t PrestoTask::timeSinceLastCoordinatorHeartbeatMs() const {
   if (lastCoordinatorHeartbeatMs == 0UL) {
     return 0UL;
   }
-  return getCurrentTimeMs() - lastCoordinatorHeartbeatMs;
+  return EpochTime::now<std::chrono::milliseconds>() -
+      lastCoordinatorHeartbeatMs;
 }
 
 void PrestoTask::recordProcessCpuTime() {
@@ -701,7 +704,8 @@ protocol::TaskInfo PrestoTask::updateInfoLocked(bool summarize) {
     return info;
   }
   const velox::exec::TaskStats veloxTaskStats = task->taskStats();
-  const uint64_t currentTimeMs = velox::getCurrentTimeMs();
+  const uint64_t currentTimeMs =
+      velox::EpochTime::now<std::chrono::milliseconds>();
   // Set 'lastTaskStatsUpdateMs' to execution start time if it is 0.
   if (lastTaskStatsUpdateMs == 0) {
     lastTaskStatsUpdateMs = veloxTaskStats.executionStartTimeMs;
