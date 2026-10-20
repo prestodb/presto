@@ -16,6 +16,11 @@ Release 0.300
 * Add an optional ``FIRST`` or ``AFTER <column>`` clause to ``ALTER TABLE ... ADD COLUMN`` to control where the new column is placed. Omitting the clause appends the column, which is the previous behavior. ``FIRST`` and ``AFTER`` require connector support. `#28328 <https://github.com/prestodb/presto/pull/28328>`_
 * Add ``ALTER TABLE ... ALTER COLUMN <column> FIRST | AFTER <column>`` to move an existing column within a table's column order. Reordering columns requires connector support. `#28349 <https://github.com/prestodb/presto/pull/28349>`_
 * Add support for reading Iceberg ``VARIANT`` columns as ``JSON`` columns. `#28469 <https://github.com/prestodb/presto/pull/28469>`_
+* Add support for the ``WINDOW`` clause, so a window specification can be named once and reused, for example ``SELECT rank() OVER w FROM t WINDOW w AS (PARTITION BY a ORDER BY b)``. `#28471 <https://github.com/prestodb/presto/pull/28471>`_
+* Add support for declaring field names in a row constructor, for example ``ROW(1 AS a, 2 AS b)``. ``VALUES`` derives column names from the declared field names, so ``SELECT a FROM (VALUES ROW(1 AS a))`` resolves. `#28298 <https://github.com/prestodb/presto/pull/28298>`_
+* Add an optional ``FIRST`` or ``AFTER <column>`` clause to ``ALTER TABLE ... ADD COLUMN`` to control where the new column is placed. Omitting the clause appends the column, which is the previous behavior. ``FIRST`` and ``AFTER`` require connector support. `#28328 <https://github.com/prestodb/presto/pull/28328>`_
+* Add ``ALTER TABLE ... ALTER COLUMN <column> FIRST | AFTER <column>`` to move an existing column within a table's column order. Reordering columns requires connector support. `#28349 <https://github.com/prestodb/presto/pull/28349>`_
+* Add support for reading Iceberg ``VARIANT`` columns as ``JSON`` columns. `#28469 <https://github.com/prestodb/presto/pull/28469>`_
 
 **Details**
 ===========
