@@ -6,6 +6,8 @@ Release 0.300
 ====================
 * Remove support for the ANSI SQL syntax of the ``trim`` function, such as ``TRIM(BOTH ' ' FROM x)``, which was added in 0.299 and made ``TRIM``, ``BOTH``, ``LEADING``, and ``TRAILING`` reserved keywords. Use the ``trim``, ``ltrim``, and ``rtrim`` functions instead. ANSI SQL support for TRIM will be introduced in a future release. `#28334 <https://github.com/prestodb/presto/pull/28334>`_
 * Upgrade hudi-presto-bundle to version 1.1.0. **NOTE**: Partitioned Hudi 1.x tables require ``hive.parquet.use-column-names=true`` for correct column resolution. Without this setting, columns are read positionally and may return incorrect data. `#27274 <https://github.com/prestodb/presto/pull/27274>`_
+* Remove support for the ANSI SQL syntax of the ``trim`` function, such as ``TRIM(BOTH ' ' FROM x)``, which was added in 0.299 and made ``TRIM``, ``BOTH``, ``LEADING``, and ``TRAILING`` reserved keywords. Use the ``trim``, ``ltrim``, and ``rtrim`` functions instead. ANSI SQL support for TRIM will be introduced in a future release. `#28334 <https://github.com/prestodb/presto/pull/28334>`_
+* Upgrade hudi-presto-bundle to version 1.1.0. **NOTE**: Partitioned Hudi 1.x tables require ``hive.parquet.use-column-names=true`` for correct column resolution. Without this setting, columns are read positionally and may return incorrect data. `#27274 <https://github.com/prestodb/presto/pull/27274>`_
 
 **Highlights**
 ==============
