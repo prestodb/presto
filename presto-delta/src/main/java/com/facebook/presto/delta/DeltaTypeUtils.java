@@ -53,6 +53,8 @@ import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -202,10 +204,21 @@ public class DeltaTypeUtils
         return path.build();
     }
 
+    /**
+     * Converts a partition value from the Delta transaction log into the internal
+     * representation Presto reads the column as.
+     *
+     * @param legacyTimestamp whether the session uses legacy TIMESTAMP semantics,
+     * under which a TIMESTAMP is an instant the engine renders in
+     * {@code sessionZone} rather than a zone-less wall clock
+     * @param sessionZone the session timezone, used only for the legacy case
+     */
     public static Object convertPartitionValue(
             String columnName,
             String valueString,
-            Type type)
+            Type type,
+            boolean legacyTimestamp,
+            ZoneId sessionZone)
     {
         if (valueString == null) {
             return null;
@@ -250,8 +263,16 @@ public class DeltaTypeUtils
                 return LocalDate.parse(valueString, DateTimeFormatter.ISO_LOCAL_DATE).toEpochDay();
             }
             if (type.equals(TIMESTAMP)) {
-                // Delta partition serialized value contains up to the second precision
-                return Timestamp.valueOf(valueString).toLocalDateTime().toEpochSecond(UTC) * 1_000;
+                // Delta serializes a TIMESTAMP_NTZ partition value as a zone-less
+                // wall clock, up to the second precision. It is the same wall clock
+                // in every zone, so under legacy semantics -- where the engine
+                // renders a TIMESTAMP as an instant in the session timezone -- it
+                // has to be read in that zone to come back unchanged. Without them
+                // the value is the wall clock itself.
+                LocalDateTime wallClock = Timestamp.valueOf(valueString).toLocalDateTime();
+                return legacyTimestamp
+                        ? wallClock.atZone(sessionZone).toInstant().toEpochMilli()
+                        : wallClock.toEpochSecond(UTC) * 1_000;
             }
             if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
                 return DateTimeEncoding.packDateTimeWithZone((Timestamp.valueOf(valueString).toLocalDateTime().toEpochSecond(UTC) * 1_000), UTC_KEY);

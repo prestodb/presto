@@ -30,6 +30,7 @@ import io.delta.kernel.types.StructType;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
+import java.time.ZoneOffset;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -110,14 +111,14 @@ public class TestDeltaTypeUtils
 
     private void assertPartitionValue(String value, Type type, Object expected)
     {
-        Object actual = convertPartitionValue("p1", value, type);
+        Object actual = convertPartitionValue("p1", value, type, false, ZoneOffset.UTC);
         assertEquals(actual, expected);
     }
 
     private void invalidPartitionValue(String value, Type type)
     {
         try {
-            convertPartitionValue("p1", value, type);
+            convertPartitionValue("p1", value, type, false, ZoneOffset.UTC);
             fail("expected to fail");
         }
         catch (PrestoException e) {
