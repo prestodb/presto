@@ -9,21 +9,23 @@ Aggregate Functions
 
 reduce_agg
 ^^^^^^^^^^
-In C++ based Presto, ``reduce_agg`` is not permitted to return ``null`` in either the
-``inputFunction`` or the ``combineFunction``. In Presto (Java), this is permitted
+In Presto C++, ``reduce_agg`` is not permitted to return ``null`` in either the
+``inputFunction`` or the ``combineFunction``. In Presto, this is permitted
 but undefined behavior. For more information about ``reduce_agg`` in Presto,
 see :doc:`/functions/aggregate`.
 
 reduce lambda
 ^^^^^^^^^^^^^
-For the reduce lambda function, the array size is controlled by the session property
+The array size of the reduce lambda function is controlled in Presto C++ by the session property
 ``native_expression_max_array_size_in_reduce``, as it is inefficient to support such
 cases for arbitrarily large arrays. This property is set at ``100K``. Queries that
 fail due to this limit must be revised to meet this limit.
 
 spatial_partitioning
 ^^^^^^^^^^^^^^^^^^^^
-The ``spatial_partitioning`` aggregate function is not supported in Presto C++.
+The ``spatial_partitioning`` aggregate function is not supported in Presto C++. Standard 
+spatial join operations using :doc:`/functions/geospatial` functions such as 
+:func:`!ST_Contains` or :func:`!ST_Intersects` should be used instead.
 
 This function was an internal utility for spatial join optimization and was never
 fully documented or publicly supported. It generated a KD-tree representation in
@@ -32,17 +34,15 @@ JSON format that could be used with the ``spatial_partitions`` scalar function
 
 Due to its internal nature, lack of documentation, limited usage, and incompatibility
 with Presto's streaming architecture, this function was not implemented in Presto C++.
-Standard spatial join operations using :doc:`/functions/geospatial` functions such as
-:func:`!ST_Contains` or :func:`!ST_Intersects` should be used instead.
-
 
 Array Functions
 ---------------
 
 Array sort with lambda comparator
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-``Case`` is not supported for the lambda comparator. Use ``If`` Instead. The following
-example is not supported in Presto C++:
+``Case`` is not supported for the lambda comparator in Presto C++. Use ``If`` Instead. 
+
+The following example is not supported in Presto C++:
 
 .. code-block:: sql
 
@@ -80,6 +80,7 @@ When using ``If``, follow these rules when using a lambda in array sort:
 * Any additional nesting other than the two ``if`` uses shown above will fail.
 
 ``Array_sort`` can support any transformation lambda that returns a comparable type.
+
 This example is not supported in Presto C++:
 
 .. code-block:: sql
@@ -100,7 +101,8 @@ To run in Presto C++, rewrite the query as shown in this example:
 Casting
 -------
 
-Casting of Unicode strings to digits is not supported. The following example is not supported in Presto C++:
+Casting of Unicode strings to digits is not supported in Presto C++. The following example is not 
+supported in Presto C++:
 
 .. code-block:: sql
 
@@ -113,18 +115,18 @@ The maximum date range supported by ``from_unixtime`` is between (292 Million BC
 The exact values corresponding to this are [292,275,055-05-16 08:54:06.192 BC, +292,278,994-08-17 00:12:55.807 CE],
 corresponding to a UNIX time between [-9223372036854775, 9223372036854775].
 
-Presto and Presto C++ both support the same range but Presto queries succeed because Presto silently
-truncates. Presto C++ throws an error if the values exceed this range.
+Presto queries succeed because Presto silently truncates. Presto C++ throws an error 
+if the values exceed this range.
 
 
 Geospatial Differences
 ----------------------
-There are cosmetic representation changes as well as numerical precision differences.
+There are both cosmetic representation changes and numerical precision differences.
 Some of these differences result in different output for spatial predicates such
 as ST_Intersects. Differences include:
 
 * Equivalent but different representations for geometries. Polygons may have their rings
-  rotated, EMPTY geometries may be of a different type, MULTI-types and
+  rotated, ``EMPTY`` geometries may be of a different type, MULTI-types and
   GEOMETRYCOLLECTIONs may have their elements in a different order. In general,
   WKTs/WKBs may be different.
 * Numerical precision: Differences in numerical techniques may result in different
@@ -135,7 +137,9 @@ as ST_Intersects. Differences include:
 
 spatial_partitions
 ^^^^^^^^^^^^^^^^^^
-The ``spatial_partitions`` scalar function is not supported in Presto C++.
+The ``spatial_partitions`` scalar function is not supported in Presto C++. Standard 
+spatial join operations using :doc:`/functions/geospatial` functions such as
+:func:`!ST_Contains`, :func:`!ST_Intersects` should be used instead.
 
 This function was an internal utility for spatial join optimization and was never
 fully documented or publicly supported. It worked with the ``spatial_partitioning``
@@ -145,23 +149,20 @@ function to partition data for spatial joins.
 
 Due to its internal nature, lack of documentation, limited usage, and incompatibility
 with Presto's streaming architecture, this function was not implemented in Presto C++.
-Standard spatial join operations using :doc:`/functions/geospatial` functions such as
-:func:`!ST_Contains`, :func:`!ST_Intersects` should be used instead.
-
 
 JSON Functions
 --------------
-``json_extract`` has several topics to consider when rewriting Presto queries to run successfully in Presto C++.
+``json_extract`` has several considerations when rewriting Presto queries to run 
+successfully in Presto C++.
 
 Use of functions in JSON path
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Using functions inside a JSON path is not supported.
+Using functions inside a JSON path is not supported. Functions should be 
+extracted from the JSON path for better portability.
 
 To run queries with functions inside a JSON path in Presto C++, rewrite paths to
 use equivalent and often faster UDFs (User-Defined Functions) outside the JSON
 path, improving job portability and efficiency. Aggregates might be necessary.
-
-Generally, functions should be extracted from the JSON path for better portability.
 
 For example, this Presto query:
 
@@ -170,7 +171,7 @@ For example, this Presto query:
    CAST(JSON_EXTRACT(config, '$.table_name_to_properties.keys()'
      ) AS ARRAY(ARRAY(VARCHAR)))
 
-can be revised to work in both Presto and Presto C++ as the following:
+can be revised as follows to work in both Presto and Presto C++:
 
 .. code-block:: sql
 
@@ -201,7 +202,7 @@ The same query rewritten to run in Presto C++:
 Erroring on Invalid JSON
 ^^^^^^^^^^^^^^^^^^^^^^^^
 Presto can successfully run ``json_extract`` on certain invalid JSON, but Presto C++
-always fails. Extracting data from invalid JSON is indeterminate and relying on
+this always fails. Extracting data from invalid JSON is indeterminate and relying on
 that behavior can have unintended consequences.
 
 Because Presto C++ takes the safe approach to always throw an error on invalid
@@ -276,7 +277,7 @@ Named time zones may still work when the Presto coordinator handles the query.
 To run queries involving ``TIME`` and ``TIME WITH TIME ZONE``, migrate to fixed-offset
 time zones as soon as possible.
 
-These queries will fail in Presto C++, but may still work in Presto:
+These following queries fail in Presto C++, but may work in Presto:
 
 .. code-block:: sql
 
@@ -285,7 +286,7 @@ These queries will fail in Presto C++, but may still work in Presto:
    cast('14:00:01 America/New_York' as TIME WITH TIME ZONE)
    cast('14:00:01 Asia/Kolkata' as TIME WITH TIME ZONE)
 
-These queries using fixed offsets will run successfully in Presto C++:
+These queries using fixed offsets run successfully in Presto C++:
 
 .. code-block:: sql
 
@@ -373,7 +374,7 @@ Recommendations
 * Confirm that your Presto C++ usage does not depend on legacy timestamp behavior. If your workload
   depends on legacy ``TIME`` behavior, including support of IANA timezones, handle this outside
   Presto or reach out so that we can discuss alternative solutions.
-* Test: Try your most critical workflows with these settings.
+* Test your most critical workflows with these settings.
 
 
 URL Functions
@@ -391,6 +392,7 @@ Aggregate window functions do not support ``IGNORE NULLS``, returning the follow
 
 ``!ignoreNulls Aggregate window functions do not support IGNORE NULLS.``
 
-For Presto C++, remove the ``IGNORE NULLS`` clause. This clause is only defined for value functions
-and does not apply to aggregate window functions. In Presto the results obtained with and without
-the clause are similar, Presto C++ includes this clause whereas Presto just warns.
+For Presto C++, remove the ``IGNORE NULLS`` clause from window functions. This clause is 
+only defined for value functions and does not apply to aggregate window functions. 
+In Presto the results obtained with and without the clause are similar: Presto C++ 
+includes this clause whereas Presto just warns.
