@@ -128,6 +128,24 @@ public class TestIcebergAlterColumnNotNull
     }
 
     @Test
+    public void testUpdateNullIntoNotNullColumn()
+    {
+        String tableName = "alter_not_null_update_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (a BIGINT, b BIGINT NOT NULL, c BIGINT)", tableName));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2, 3), (4, 5, 6)", tableName), 2);
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c SET NOT NULL", tableName));
+
+            assertQueryFails(format("UPDATE %s SET b = NULL WHERE a = 1", tableName), updateNullError(tableName, "b"));
+            assertQueryFails(format("UPDATE %s SET c = IF(a = 4, NULL, c)", tableName), updateNullError(tableName, "c"));
+            assertQuery(format("SELECT a, b, c FROM %s", tableName), "VALUES (1, 2, 3), (4, 5, 6)");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
+        }
+    }
+
+    @Test
     public void testReadAcrossRequiredAndOptionalDataFiles()
     {
         // Files written while c2 is NOT NULL store it as required in Parquet; the rest store it as optional.
@@ -242,5 +260,10 @@ public class TestIcebergAlterColumnNotNull
     private static String writerNullError(String column)
     {
         return ".*NULL value not allowed for NOT NULL column: " + column;
+    }
+
+    private static String updateNullError(String tableName, String column)
+    {
+        return ".*NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: " + column + "\\b.*";
     }
 }

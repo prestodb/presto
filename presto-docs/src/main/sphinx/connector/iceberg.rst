@@ -2350,17 +2350,11 @@ that Iceberg keeps in the manifests for the head of every branch, and fails if a
   ``set_current_snapshot``, ``fast_forward``, and ``CREATE [OR REPLACE] BRANCH ... FOR SYSTEM_VERSION | SYSTEM_TIME AS OF``
   fail if the data files of the target snapshot can hold ``NULL`` values in a column that is now
   ``NOT NULL``. Drop the constraint before moving the branch.
-* After the constraint is set, an ``INSERT`` or ``MERGE`` that stores ``NULL`` in the column fails.
+* After the constraint is set, an ``INSERT``, ``UPDATE`` or ``MERGE`` that stores ``NULL`` in the column fails.
 * In an explicit transaction, if another query commits a write to the table after ``SET NOT NULL``,
   ``COMMIT`` fails with ``Table metadata refresh is required`` and discards every change in the
   transaction, as it does after ``ADD COLUMN``.
 * Setting ``NOT NULL`` on a column that already has the constraint succeeds and does not change the schema.
-
-Limitations:
-
-* ``UPDATE`` does not check ``NOT NULL`` constraints, whether they were set by ``SET NOT NULL`` or by
-  ``CREATE TABLE``. An ``UPDATE`` that sets a ``NOT NULL`` column to ``NULL`` can store the ``NULL``.
-  In a Parquet table, reading the column can then fail. In other tables, ``IS NULL`` can miss the row.
 
 .. warning::
 
