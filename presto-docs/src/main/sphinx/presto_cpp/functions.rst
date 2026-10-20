@@ -395,4 +395,4 @@ Aggregate window functions do not support ``IGNORE NULLS``, returning the follow
 For Presto C++, remove the ``IGNORE NULLS`` clause from window functions. This clause is 
 only defined for value functions and does not apply to aggregate window functions. 
 In Presto the results obtained with and without the clause are similar: Presto C++ 
-includes this clause whereas Presto just warns.
+throws an error, whereas Presto just warns.
