@@ -40,6 +40,7 @@ import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.ResultWithQueryId;
+import com.facebook.presto.tests.sql.TestTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.FileSystem;
@@ -1748,9 +1749,8 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testAlterColumnSetAndDropNotNull()
     {
-        String tableName = "test_alter_column_set_and_drop_not_null_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT, c3 VARCHAR NOT NULL)", tableName));
+        try (TestTable table = newTable("test_alter_column_set_and_drop_not_null", "(c1 BIGINT, c2 BIGINT, c3 VARCHAR NOT NULL)")) {
+            String tableName = table.getName();
             assertUpdate(format("INSERT INTO %s VALUES (1, 2, 'a')", tableName), 1);
 
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
@@ -1774,25 +1774,18 @@ public abstract class IcebergDistributedSmokeTestBase
             assertQueryFails(format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName), "Not Null constraint not found on column c2");
             assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES'), ('c3', 'NO')");
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     @Test
     public void testDropNamedConstraint()
     {
-        String tableName = "test_drop_named_constraint_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT)", tableName));
+        try (TestTable table = newTable("test_drop_named_constraint", "(c1 BIGINT)")) {
+            String tableName = table.getName();
 
             // Iceberg has no named constraints, so DROP CONSTRAINT <name> is rejected.
             assertQueryFails(
                     format("ALTER TABLE %s DROP CONSTRAINT some_constraint", tableName),
                     ".*Iceberg does not support named constraints.*");
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -1803,9 +1796,8 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testAlterColumnNotNullOnMetadataColumns()
     {
-        String tableName = "test_not_null_metadata_columns_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, \"_pos\" BIGINT)", tableName));
+        try (TestTable table = newTable("test_not_null_metadata_columns", "(c1 BIGINT, \"_pos\" BIGINT)")) {
+            String tableName = table.getName();
             for (String column : ImmutableList.of("_row_id", "_last_updated_sequence_number")) {
                 assertQueryFails(
                         format("ALTER TABLE %s ALTER COLUMN \"%s\" SET NOT NULL", tableName, column),
@@ -1821,18 +1813,14 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN \"_pos\" DROP NOT NULL", tableName));
             assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     @Test
     public void testAlterColumnNotNullInTransaction()
     {
         // Like ADD COLUMN, the change is staged in the transaction: later statements see it and ROLLBACK discards it.
-        String tableName = "test_alter_column_not_null_txn_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT NOT NULL)", tableName));
+        try (TestTable table = newTable("test_alter_column_not_null_txn", "(c1 BIGINT, c2 BIGINT NOT NULL)")) {
+            String tableName = table.getName();
 
             Session session = getSession();
             Session txnSession = assertStartTransaction(session, "START TRANSACTION");
@@ -1853,18 +1841,14 @@ public abstract class IcebergDistributedSmokeTestBase
 
             assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (NULL, 2), (1, NULL)");
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     @Test
     public void testAlterColumnNotNullOnMixedCaseColumn()
     {
         // Other engines can write mixed-case field names, but Presto passes the column name lowercased.
-        String tableName = "test_not_null_mixed_case_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
+        try (TestTable table = newTable("test_not_null_mixed_case", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
             Table icebergTable = loadTable(tableName);
             icebergTable.updateSchema().renameColumn("c2", "MixedCase").commit();
             assertUpdate(format("INSERT INTO %s VALUES (1, NULL), (2, 5)", tableName), 2);
@@ -1876,9 +1860,7 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN mixedcase SET NOT NULL", tableName));
             assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('mixedcase', 'NO')");
             assertQuery(format("SELECT c1 FROM %s WHERE mixedcase IS NOT NULL", tableName), "VALUES 2");
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (1, NULL)", tableName),
-                    "NULL value not allowed for NOT NULL column: mixedcase");
+            assertQueryFails(format("INSERT INTO %s VALUES (1, NULL)", tableName), "NULL value not allowed for NOT NULL column: mixedcase");
 
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN mixedcase DROP NOT NULL", tableName));
             assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('mixedcase', 'YES')");
@@ -1887,18 +1869,14 @@ public abstract class IcebergDistributedSmokeTestBase
             icebergTable.refresh();
             assertEquals(icebergTable.schema().findField(2).name(), "MixedCase");
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     @Test
     public void testDropNotNullOnIdentifierField()
     {
         // Iceberg requires identifier fields, which engines like Flink set, to be NOT NULL.
-        String tableName = "test_drop_not_null_identifier_field_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (id BIGINT NOT NULL, c BIGINT)", tableName));
+        try (TestTable table = newTable("test_drop_not_null_identifier_field", "(id BIGINT NOT NULL, c BIGINT)")) {
+            String tableName = table.getName();
             Table icebergTable = loadTable(tableName);
             icebergTable.updateSchema().setIdentifierFields("id").commit();
 
@@ -1907,26 +1885,19 @@ public abstract class IcebergDistributedSmokeTestBase
                     format("Cannot drop NOT NULL on column 'id': it is an identifier field of table '.*%s'", tableName));
             assertColumnNullability(tableName, "VALUES ('id', 'NO'), ('c', 'YES')");
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     @Test
     public void testSetNotNullWithExistingNullData()
     {
         for (String fileFormat : ImmutableList.of("PARQUET", "ORC")) {
-            String tableName = "test_set_not_null_existing_nulls_" + randomTableSuffix();
-            try {
-                assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT) WITH (format = '%s')", tableName, fileFormat));
+            try (TestTable table = newTable("test_set_not_null_existing_nulls", format("(c1 BIGINT, c2 BIGINT) WITH (format = '%s')", fileFormat))) {
+                String tableName = table.getName();
                 assertUpdate(format("INSERT INTO %s VALUES (1, NULL), (2, 5)", tableName), 2);
 
                 assertQueryFails(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName), nullValuesError("c2", "main"));
                 assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES')");
                 assertUpdate(format("INSERT INTO %s VALUES (3, NULL)", tableName), 1);
-            }
-            finally {
-                assertUpdate("DROP TABLE IF EXISTS " + tableName);
             }
         }
     }
@@ -1937,9 +1908,8 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testSetNotNullOnPartitionColumnWithExistingNullData()
     {
-        String tableName = "test_set_not_null_existing_null_partition_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])", tableName));
+        try (TestTable table = newTable("test_set_not_null_existing_null_partition", "(id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])")) {
+            String tableName = table.getName();
             assertUpdate(format("INSERT INTO %s VALUES (1, NULL), (2, 'us'), (3, NULL)", tableName), 3);
             assertQueryFails(format("ALTER TABLE %s ALTER COLUMN region SET NOT NULL", tableName), nullValuesError("region", "main"));
 
@@ -1947,9 +1917,6 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN region SET NOT NULL", tableName));
             assertColumnNullability(tableName, "VALUES ('id', 'YES'), ('region', 'NO')");
             assertQuery(format("SELECT id, region FROM %s", tableName), "VALUES (2, 'us')");
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -1965,9 +1932,8 @@ public abstract class IcebergDistributedSmokeTestBase
 
     private void assertSetNotNullAfterRemovingNullRows(String removeNulls, long remainingRows, String expectedRows)
     {
-        String tableName = "test_set_not_null_after_removing_nulls_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
+        try (TestTable table = newTable("test_set_not_null_after_removing_nulls", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
             assertUpdate(format("INSERT INTO %s VALUES (1, NULL), (2, 5)", tableName), 2);
             assertUpdate(format(removeNulls, tableName), 1);
             assertQueryFails(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName), nullValuesError("c2", "main"));
@@ -1975,9 +1941,6 @@ public abstract class IcebergDistributedSmokeTestBase
             rewriteAllDataFiles(tableName, remainingRows);
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
             assertQuery(format("SELECT c1, c2 FROM %s", tableName), expectedRows);
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -1987,34 +1950,26 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testSetNotNullOnColumnAddedAfterData()
     {
-        String tableName = "test_set_not_null_added_column_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT)", tableName));
+        try (TestTable table = newTable("test_set_not_null_added_column", "(c1 BIGINT)")) {
+            String tableName = table.getName();
             assertUpdate(format("INSERT INTO %s VALUES 1", tableName), 1);
             assertUpdate(format("ALTER TABLE %s ADD COLUMN c2 BIGINT", tableName));
 
             assertQueryFails(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName), noNullCountError("c2"));
             assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES')");
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     @Test
     public void testSetNotNullWithoutNullCountStatistics()
     {
-        String tableName = "test_set_not_null_without_null_counts_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT) WITH (\"write.metadata.metrics.max-inferred-column-defaults\" = 1)", tableName));
+        try (TestTable table = newTable("test_set_not_null_without_null_counts", "(c1 BIGINT, c2 BIGINT) WITH (\"write.metadata.metrics.max-inferred-column-defaults\" = 1)")) {
+            String tableName = table.getName();
             assertUpdate(format("INSERT INTO %s VALUES (1, 2)", tableName), 1);
 
             assertQueryFails(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName), noNullCountError("c2"));
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c1 SET NOT NULL", tableName));
             assertColumnNullability(tableName, "VALUES ('c1', 'NO'), ('c2', 'YES')");
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -2024,9 +1979,8 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testSetNotNullWithNullOnBranch()
     {
-        String tableName = "test_set_not_null_null_on_branch_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
+        try (TestTable table = newTable("test_set_not_null_null_on_branch", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
             assertUpdate(format("INSERT INTO %s VALUES (1, NULL), (2, 5)", tableName), 2);
             assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'br1'", tableName));
             assertUpdate(format("ALTER TABLE %s CREATE TAG 'tag1'", tableName));
@@ -2038,18 +1992,15 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
             assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'NO')");
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     @Test
     public void testSetNotNullOnRequiredColumnKeepsMetadata()
     {
-        String tableName = "test_set_not_null_required_column_" + randomTableSuffix();
-        String otherTableName = "test_set_not_null_required_column_other_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT NOT NULL, c2 BIGINT)", tableName));
+        try (TestTable table = newTable("test_set_not_null_required_column", "(c1 BIGINT NOT NULL, c2 BIGINT)");
+                TestTable otherTable = newTable("test_set_not_null_required_column_other", "(c BIGINT)")) {
+            String tableName = table.getName();
+            String otherTableName = otherTable.getName();
             assertUpdate(format("INSERT INTO %s VALUES (1, 2)", tableName), 1);
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
             Table icebergTable = loadTable(tableName);
@@ -2062,25 +2013,19 @@ public abstract class IcebergDistributedSmokeTestBase
             assertColumnNullability(tableName, "VALUES ('c1', 'NO'), ('c2', 'NO')");
 
             // A transaction writes to one table, so a no-op SET NOT NULL must not claim this one.
-            assertUpdate(format("CREATE TABLE %s (c BIGINT)", otherTableName));
             Session txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
             assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c1 SET NOT NULL", tableName));
             assertUpdate(txnSession, format("INSERT INTO %s VALUES 1", otherTableName), 1);
             assertEndTransaction(txnSession, "COMMIT");
             assertQuery(format("SELECT c FROM %s", otherTableName), "VALUES 1");
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-            assertUpdate("DROP TABLE IF EXISTS " + otherTableName);
-        }
     }
 
     @Test
     public void testSetNotNullWithNullStagedInTransaction()
     {
-        String tableName = "test_set_not_null_staged_nulls_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
+        try (TestTable table = newTable("test_set_not_null_staged_nulls", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
 
             Session txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
             assertUpdate(txnSession, format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
@@ -2089,9 +2034,6 @@ public abstract class IcebergDistributedSmokeTestBase
 
             assertQuery(format("SELECT count(*) FROM %s", tableName), "VALUES 0");
             assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES')");
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 
@@ -2104,9 +2046,8 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testSetNotNullWithNullCommittedAfterTransactionRead()
     {
-        String tableName = "test_set_not_null_null_after_read_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT, c3 BIGINT)", tableName));
+        try (TestTable table = newTable("test_set_not_null_null_after_read", "(c1 BIGINT, c2 BIGINT, c3 BIGINT)")) {
+            String tableName = table.getName();
             assertUpdate(format("INSERT INTO %s VALUES (1, 2, 3)", tableName), 1);
 
             Session txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
@@ -2129,17 +2070,13 @@ public abstract class IcebergDistributedSmokeTestBase
             assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES'), ('c3', 'YES')");
             assertQuery(format("SELECT c1 FROM %s WHERE c2 IS NULL OR c3 IS NULL", tableName), "VALUES 2, 3");
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     @Test
     public void testSetNotNullAndMoveBranchInTransaction()
     {
-        String tableName = "test_set_not_null_move_branch_txn_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])", tableName));
+        try (TestTable table = newTable("test_set_not_null_move_branch_txn", "(id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])")) {
+            String tableName = table.getName();
             assertUpdate(format("INSERT INTO %s VALUES (1, NULL), (2, 'us')", tableName), 2);
             long withNulls = latestSnapshotId(tableName);
             assertUpdate(format("DELETE FROM %s WHERE region IS NULL", tableName), 1);
@@ -2157,17 +2094,13 @@ public abstract class IcebergDistributedSmokeTestBase
             assertQuery(format("SELECT name FROM \"%s$refs\"", tableName), "VALUES 'main'");
             assertColumnNullability(tableName, "VALUES ('id', 'YES'), ('region', 'YES')");
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     @Test
     public void testSetAndDropNotNullInTransaction()
     {
-        String tableName = "test_set_and_drop_not_null_txn_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
+        try (TestTable table = newTable("test_set_and_drop_not_null_txn", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
             Session txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
             assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
             assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName));
@@ -2177,17 +2110,13 @@ public abstract class IcebergDistributedSmokeTestBase
             assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES')");
             assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, NULL)");
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     @Test
     public void testSetNotNullOnColumnDroppedAfterTransactionRead()
     {
-        String tableName = "test_set_not_null_dropped_after_read_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
+        try (TestTable table = newTable("test_set_not_null_dropped_after_read", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
             Session txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
             assertQuery(txnSession, format("SELECT count(*) FROM %s", tableName), "VALUES 0");
             loadTable(tableName).updateSchema().deleteColumn("c2").commit();
@@ -2202,9 +2131,6 @@ public abstract class IcebergDistributedSmokeTestBase
                 assertEndTransaction(txnSession, "ROLLBACK");
             }
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     /**
@@ -2214,12 +2140,13 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testMoveBranchToSnapshotWithNullValues()
     {
-        String tableName = "test_move_branch_null_values_" + randomTableSuffix();
-        String addedColumnTableName = "test_move_branch_added_column_" + randomTableSuffix();
-        String requiredColumnTableName = "test_move_branch_required_column_" + randomTableSuffix();
         String schemaName = getSession().getSchema().get();
-        try {
-            assertUpdate(format("CREATE TABLE %s (id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])", tableName));
+        try (TestTable table = newTable("test_move_branch_null_values", "(id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])");
+                TestTable addedColumnTable = newTable("test_move_branch_added_column", "(c1 BIGINT)");
+                TestTable requiredColumnTable = newTable("test_move_branch_required_column", "(c1 BIGINT, c2 BIGINT NOT NULL) WITH (\"write.metadata.metrics.max-inferred-column-defaults\" = 1)")) {
+            String tableName = table.getName();
+            String addedColumnTableName = addedColumnTable.getName();
+            String requiredColumnTableName = requiredColumnTable.getName();
             assertUpdate(format("INSERT INTO %s VALUES (2, 'us')", tableName), 1);
             assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'existing'", tableName));
             assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
@@ -2252,8 +2179,6 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN region DROP NOT NULL", tableName));
             assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, tableName, withNulls));
             assertQuery(format("SELECT id FROM %s WHERE region IS NULL", tableName), "VALUES 1");
-
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT)", addedColumnTableName));
             assertUpdate(format("INSERT INTO %s VALUES 1", addedColumnTableName), 1);
             long beforeColumnAdded = latestSnapshotId(addedColumnTableName);
             assertUpdate(format("ALTER TABLE %s ADD COLUMN c2 BIGINT", addedColumnTableName));
@@ -2265,17 +2190,11 @@ public abstract class IcebergDistributedSmokeTestBase
                     moveBranchError("c2"));
 
             // Without NULL counts, only the snapshot's schema shows that c2 holds no NULLs.
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT NOT NULL) WITH (\"write.metadata.metrics.max-inferred-column-defaults\" = 1)", requiredColumnTableName));
             assertUpdate(format("INSERT INTO %s VALUES (1, 2)", requiredColumnTableName), 1);
             long requiredColumnSnapshot = latestSnapshotId(requiredColumnTableName);
             assertUpdate(format("INSERT INTO %s VALUES (3, 4)", requiredColumnTableName), 1);
             assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, requiredColumnTableName, requiredColumnSnapshot));
             assertQuery(format("SELECT c1, c2 FROM %s", requiredColumnTableName), "VALUES (1, 2)");
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-            assertUpdate("DROP TABLE IF EXISTS " + addedColumnTableName);
-            assertUpdate("DROP TABLE IF EXISTS " + requiredColumnTableName);
         }
     }
 
@@ -2285,11 +2204,11 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testMoveBranchToSnapshotAfterColumnRename()
     {
-        String renamedTableName = "test_move_branch_renamed_" + randomTableSuffix();
-        String swappedTableName = "test_move_branch_swapped_" + randomTableSuffix();
         String schemaName = getSession().getSchema().get();
-        try {
-            assertUpdate(format("CREATE TABLE %s (a BIGINT, b BIGINT)", renamedTableName));
+        try (TestTable renamedTable = newTable("test_move_branch_renamed", "(a BIGINT, b BIGINT)");
+                TestTable swappedTable = newTable("test_move_branch_swapped", "(a BIGINT NOT NULL, b BIGINT)")) {
+            String renamedTableName = renamedTable.getName();
+            String swappedTableName = swappedTable.getName();
             assertUpdate(format("INSERT INTO %s VALUES (1, 2)", renamedTableName), 1);
             long beforeRename = latestSnapshotId(renamedTableName);
             assertUpdate(format("ALTER TABLE %s RENAME COLUMN b TO c", renamedTableName));
@@ -2300,8 +2219,6 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate(format("INSERT INTO %s VALUES (3, 4)", renamedTableName), 1);
             assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, renamedTableName, beforeRename));
             assertQuery(format("SELECT a, c FROM %s", renamedTableName), "VALUES (1, 2)");
-
-            assertUpdate(format("CREATE TABLE %s (a BIGINT NOT NULL, b BIGINT)", swappedTableName));
             assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", swappedTableName), 1);
             long withNulls = latestSnapshotId(swappedTableName);
             assertUpdate(format("ALTER TABLE %s RENAME COLUMN b TO tmp", swappedTableName));
@@ -2314,10 +2231,6 @@ public abstract class IcebergDistributedSmokeTestBase
                     format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, swappedTableName, withNulls),
                     moveBranchError("a"));
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + renamedTableName);
-            assertUpdate("DROP TABLE IF EXISTS " + swappedTableName);
-        }
     }
 
     /**
@@ -2326,25 +2239,19 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testSetNotNullOnComplexTypeColumn()
     {
-        String tableName = "test_set_not_null_complex_types_" + randomTableSuffix();
-        String requiredRowTableName = "test_set_not_null_required_row_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (id BIGINT, r ROW(x BIGINT), a ARRAY(BIGINT), m MAP(VARCHAR, BIGINT))", tableName));
+        try (TestTable table = newTable("test_set_not_null_complex_types", "(id BIGINT, r ROW(x BIGINT), a ARRAY(BIGINT), m MAP(VARCHAR, BIGINT))");
+                TestTable requiredRowTable = newTable("test_set_not_null_required_row", "(id BIGINT, r ROW(x BIGINT) NOT NULL)")) {
+            String tableName = table.getName();
+            String requiredRowTableName = requiredRowTable.getName();
             for (String column : ImmutableList.of("r", "a", "m")) {
                 assertQueryFails(
                         format("ALTER TABLE %s ALTER COLUMN %s SET NOT NULL", tableName, column),
                         format(".*Cannot set NOT NULL on column '%s': only columns of primitive types are supported", column));
             }
-
-            assertUpdate(format("CREATE TABLE %s (id BIGINT, r ROW(x BIGINT) NOT NULL)", requiredRowTableName));
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN r SET NOT NULL", requiredRowTableName));
             assertColumnNullability(requiredRowTableName, "VALUES ('id', 'YES'), ('r', 'NO')");
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN r DROP NOT NULL", requiredRowTableName));
             assertColumnNullability(requiredRowTableName, "VALUES ('id', 'YES'), ('r', 'YES')");
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-            assertUpdate("DROP TABLE IF EXISTS " + requiredRowTableName);
         }
     }
 
@@ -2352,18 +2259,15 @@ public abstract class IcebergDistributedSmokeTestBase
     public void testAlterColumnNotNullAndReorderInTransaction()
     {
         // Both schema changes commit together with the transaction.
-        String tableName = "test_not_null_reorder_txn_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (a BIGINT, b BIGINT, c BIGINT)", tableName));
+        try (TestTable table = newTable("test_not_null_reorder_txn", "(a BIGINT, b BIGINT, c BIGINT)")) {
+            String tableName = table.getName();
 
             Session txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
             assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c FIRST", tableName));
             assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c SET NOT NULL", tableName));
             assertEndTransaction(txnSession, "COMMIT");
             assertColumnNullability(tableName, "VALUES ('c', 'NO'), ('a', 'YES'), ('b', 'YES')");
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (NULL, 1, 2)", tableName),
-                    "NULL value not allowed for NOT NULL column: c");
+            assertQueryFails(format("INSERT INTO %s VALUES (NULL, 1, 2)", tableName), "NULL value not allowed for NOT NULL column: c");
             assertUpdate(format("INSERT INTO %s VALUES (3, 1, NULL)", tableName), 1);
             assertQuery(format("SELECT a, b, c FROM %s", tableName), "VALUES (1, NULL, 3)");
 
@@ -2375,17 +2279,13 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate(format("INSERT INTO %s VALUES (4, 5, NULL)", tableName), 1);
             assertQuery(format("SELECT a, b, c FROM %s", tableName), "VALUES (1, NULL, 3), (4, 5, NULL)");
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
     }
 
     @Test
     public void testAlterColumnNotNullOnBranch()
     {
-        String tableName = "test_alter_column_not_null_branch_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT NOT NULL, c2 BIGINT)", tableName));
+        try (TestTable table = newTable("test_alter_column_not_null_branch", "(c1 BIGINT NOT NULL, c2 BIGINT)")) {
+            String tableName = table.getName();
             assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'br1'", tableName));
 
             assertQueryFails(
@@ -2395,9 +2295,11 @@ public abstract class IcebergDistributedSmokeTestBase
                     format("ALTER TABLE \"%s.branch_br1\" ALTER COLUMN c1 DROP NOT NULL", tableName),
                     ".*ALTER COLUMN DROP NOT NULL is not supported on branch-specific tables.*");
         }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
+    }
+
+    private TestTable newTable(String namePrefix, String tableDefinition)
+    {
+        return new TestTable(getQueryRunner()::execute, namePrefix, "CREATE TABLE {TABLE_NAME} " + tableDefinition);
     }
 
     private Table loadTable(String tableName)

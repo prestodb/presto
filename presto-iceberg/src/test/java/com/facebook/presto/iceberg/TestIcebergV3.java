@@ -20,6 +20,7 @@ import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.facebook.presto.tests.sql.TestTable;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
@@ -817,9 +818,8 @@ public class TestIcebergV3
     @Test
     public void testSetNotNullOnColumnAddedWithDefaultAfterOlderSnapshotsExpire()
     {
-        String tableName = "test_set_not_null_default_after_older_snapshots_expire";
-        try {
-            createV3TableWithColumnAddedWithDefault(tableName);
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_set_not_null_default_after_older_snapshots_expire")) {
+            String tableName = table.getName();
             long beforeColumnAdded = loadTable(tableName).currentSnapshot().snapshotId();
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 7)", 1);
             assertUpdate(format("CALL system.expire_snapshots(schema => '%s', table_name => '%s', snapshot_ids => ARRAY[%d])", TEST_SCHEMA, tableName, beforeColumnAdded));
@@ -829,9 +829,6 @@ public class TestIcebergV3
             assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
             assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5), (2, 7)");
         }
-        finally {
-            dropTable(tableName);
-        }
     }
 
     /**
@@ -840,9 +837,8 @@ public class TestIcebergV3
     @Test
     public void testRollbackToSnapshotBeforeRequiredColumnWithDefaultWasAdded()
     {
-        String tableName = "test_rollback_before_required_column_with_default";
-        try {
-            createV3TableWithColumnAddedWithDefault(tableName);
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_rollback_before_required_column_with_default")) {
+            String tableName = table.getName();
             long beforeColumnAdded = loadTable(tableName).currentSnapshot().snapshotId();
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, 7)", 1);
             // Made required via the Iceberg API, so only the rollback's check runs
@@ -851,22 +847,15 @@ public class TestIcebergV3
             assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %d)", TEST_SCHEMA, tableName, beforeColumnAdded));
             assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5)");
         }
-        finally {
-            dropTable(tableName);
-        }
     }
 
     @Test
     public void testSetNotNullOnColumnWithDefaultAndNullValues()
     {
-        String tableName = "test_set_not_null_default_with_null";
-        try {
-            createV3TableWithColumnAddedWithDefault(tableName);
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_set_not_null_default_with_null")) {
+            String tableName = table.getName();
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, NULL)", 1);
             assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", nullValuesError("c2", "main"));
-        }
-        finally {
-            dropTable(tableName);
         }
     }
 
@@ -876,14 +865,10 @@ public class TestIcebergV3
     @Test
     public void testSetNotNullOnColumnWithDefaultWithoutNullCount()
     {
-        String tableName = "test_set_not_null_default_without_null_count";
-        try {
-            createV3TableWithColumnAddedWithDefault(tableName, "\"write.metadata.metrics.max-inferred-column-defaults\" = 1");
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_set_not_null_default_without_null_count", "\"write.metadata.metrics.max-inferred-column-defaults\" = 1")) {
+            String tableName = table.getName();
             assertUpdate("INSERT INTO " + tableName + " VALUES (2, NULL)", 1);
             assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", noNullCountError("c2"));
-        }
-        finally {
-            dropTable(tableName);
         }
     }
 
@@ -893,25 +878,20 @@ public class TestIcebergV3
     @Test
     public void testSetNotNullOnColumnWithWriteDefaultOnly()
     {
-        String tableName = "test_set_not_null_write_default_only";
-        try {
-            assertUpdate("CREATE TABLE " + tableName + " (c1 BIGINT) WITH (\"format-version\" = '3')");
+        try (TestTable table = createV3Table("test_set_not_null_write_default_only")) {
+            String tableName = table.getName();
             assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
             assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c2 BIGINT");
             assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET DEFAULT 5");
             assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", noNullCountError("c2"));
-        }
-        finally {
-            dropTable(tableName);
         }
     }
 
     @Test
     public void testInsertOmittingNotNullColumnWithDefault()
     {
-        String tableName = "test_insert_omitting_not_null_column_with_default";
-        try {
-            createV3TableWithColumnAddedWithDefault(tableName);
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_insert_omitting_not_null_column_with_default")) {
+            String tableName = table.getName();
             assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
 
             assertUpdate("INSERT INTO " + tableName + " (c1) VALUES (2)", 1);
@@ -920,9 +900,6 @@ public class TestIcebergV3
 
             assertFalse(((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("default_value"));
             assertUpdate("CREATE TABLE " + tableName + "_like (LIKE " + tableName + ") WITH (\"format-version\" = '3')");
-        }
-        finally {
-            dropTable(tableName);
             dropTable(tableName + "_like");
         }
     }
@@ -930,11 +907,10 @@ public class TestIcebergV3
     @Test
     public void testColumnMetadataWithBinaryTimestampWithTimeZoneAndUuidWriteDefaults()
     {
-        String tableName = "test_column_metadata_with_write_defaults";
         UUID uuid = UUID.fromString("f79c3e09-677c-4bbd-a479-3f349cb785e7");
         long timestampMicros = 1_672_531_200_123_000L;
-        try {
-            assertUpdate("CREATE TABLE " + tableName + " (c1 BIGINT) WITH (\"format-version\" = '3')");
+        try (TestTable table = createV3Table("test_column_metadata_with_write_defaults")) {
+            String tableName = table.getName();
             loadTable(tableName).updateSchema()
                     .addColumn("c_varbinary", Types.BinaryType.get(), Literal.of(ByteBuffer.wrap(new byte[] {1, 2})))
                     .addColumn("c_fixed", Types.FixedType.ofLength(2), Literal.of(ByteBuffer.wrap(new byte[] {3, 4})).to(Types.FixedType.ofLength(2)))
@@ -952,9 +928,6 @@ public class TestIcebergV3
                     "c_timestamptz", packDateTimeWithZone(MICROSECONDS.toMillis(timestampMicros), UTC_KEY),
                     "c_uuid", javaUuidToPrestoUuid(uuid)));
         }
-        finally {
-            dropTable(tableName);
-        }
     }
 
     private Map<String, Object> getWriteDefaults(String tableName)
@@ -969,15 +942,21 @@ public class TestIcebergV3
                 });
     }
 
+    private TestTable createV3Table(String namePrefix, String... tableProperties)
+    {
+        String properties = Stream.concat(Stream.of("\"format-version\" = '3'"), Arrays.stream(tableProperties)).collect(joining(", "));
+        return new TestTable(getQueryRunner()::execute, namePrefix, "CREATE TABLE {TABLE_NAME} (c1 BIGINT) WITH (" + properties + ")");
+    }
+
     /**
      * Creates a V3 table with a row in {@code c1}, then adds {@code c2} with a default of 5.
      */
-    private void createV3TableWithColumnAddedWithDefault(String tableName, String... tableProperties)
+    private TestTable createV3TableWithColumnAddedWithDefault(String namePrefix, String... tableProperties)
     {
-        String properties = Stream.concat(Stream.of("\"format-version\" = '3'"), Arrays.stream(tableProperties)).collect(joining(", "));
-        assertUpdate("CREATE TABLE " + tableName + " (c1 BIGINT) WITH (" + properties + ")");
-        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
-        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c2 BIGINT DEFAULT 5");
+        TestTable table = createV3Table(namePrefix, tableProperties);
+        assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+        assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN c2 BIGINT DEFAULT 5");
+        return table;
     }
 
     private Table loadTable(String tableName)

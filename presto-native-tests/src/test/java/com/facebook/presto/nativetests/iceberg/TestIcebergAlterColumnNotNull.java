@@ -18,6 +18,7 @@ import com.facebook.presto.iceberg.CatalogType;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.facebook.presto.tests.sql.TestTable;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -27,7 +28,6 @@ import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEB
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
-import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 
@@ -75,9 +75,8 @@ public class TestIcebergAlterColumnNotNull
     @Test
     public void testAlterColumnSetAndDropNotNull()
     {
-        String tableName = "alter_column_set_and_drop_not_null_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT, c3 BIGINT)", tableName));
+        try (TestTable table = newTable("alter_column_set_and_drop_not_null", "(c1 BIGINT, c2 BIGINT, c3 BIGINT)")) {
+            String tableName = table.getName();
             assertUpdate(format("INSERT INTO %s VALUES (1, 2, 3)", tableName), 1);
 
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
@@ -104,35 +103,27 @@ public class TestIcebergAlterColumnNotNull
             assertQueryFails(format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName), "Not Null constraint not found on column c2");
             assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES'), ('c3', 'NO')");
         }
-        finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
-        }
     }
 
     @Test
     public void testSetNotNullWithExistingNullData()
     {
         // The native writer records NULL counts, so SET NOT NULL rejects the column.
-        String tableName = "alter_not_null_existing_nulls_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
+        try (TestTable table = newTable("alter_not_null_existing_nulls", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
             assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
 
             assertQueryFails(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName), nullValuesError("c2", "main"));
             assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES')");
             assertUpdate(format("INSERT INTO %s VALUES (2, NULL)", tableName), 1);
         }
-        finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
-        }
     }
 
     @Test
     public void testUpdateNullIntoNotNullColumn()
     {
-        String tableName = "alter_not_null_update_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (a BIGINT, b BIGINT NOT NULL, c BIGINT)", tableName));
+        try (TestTable table = newTable("alter_not_null_update", "(a BIGINT, b BIGINT NOT NULL, c BIGINT)")) {
+            String tableName = table.getName();
             assertUpdate(format("INSERT INTO %s VALUES (1, 2, 3), (4, 5, 6)", tableName), 2);
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c SET NOT NULL", tableName));
 
@@ -140,21 +131,17 @@ public class TestIcebergAlterColumnNotNull
             assertQueryFails(format("UPDATE %s SET c = IF(a = 4, NULL, c)", tableName), updateNullError(tableName, "c"));
             assertQuery(format("SELECT a, b, c FROM %s", tableName), "VALUES (1, 2, 3), (4, 5, 6)");
         }
-        finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
-        }
     }
 
     @Test
     public void testReadAcrossRequiredAndOptionalDataFiles()
     {
         // Files written while c2 is NOT NULL store it as required in Parquet; the rest store it as optional.
-        String tableName = "alter_not_null_mixed_files_" + randomTableSuffix();
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("iceberg", PUSHDOWN_FILTER_ENABLED, "true")
                 .build();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
+        try (TestTable table = newTable("alter_not_null_mixed_files", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
             assertUpdate(format("INSERT INTO %s VALUES (1, 10)", tableName), 1);
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
             assertUpdate(format("INSERT INTO %s VALUES (2, 20)", tableName), 1);
@@ -167,18 +154,14 @@ public class TestIcebergAlterColumnNotNull
             assertQuery(session, format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, 10), (2, 20), (3, NULL)");
             assertQuery(session, format("SELECT c1 FROM %s WHERE c2 IS NULL", tableName), "VALUES 3");
         }
-        finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
-        }
     }
 
     @Test
     public void testAlterColumnNotNullAfterColumnReorder()
     {
         // The native writer checks a positional INSERT against the current column order.
-        String tableName = "alter_column_not_null_reorder_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (a BIGINT, b BIGINT NOT NULL, c VARCHAR)", tableName));
+        try (TestTable table = newTable("alter_column_not_null_reorder", "(a BIGINT, b BIGINT NOT NULL, c VARCHAR)")) {
+            String tableName = table.getName();
             assertUpdate(format("INSERT INTO %s VALUES (1, 2, 'x')", tableName), 1);
 
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN b FIRST", tableName));
@@ -202,17 +185,13 @@ public class TestIcebergAlterColumnNotNull
 
             assertQuery(format("SELECT a, b, c FROM %s", tableName), "VALUES (1, 2, 'x'), (NULL, 3, 'y'), (5, NULL, NULL)");
         }
-        finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
-        }
     }
 
     @Test
     public void testAlterColumnNotNullOnPartitionColumn()
     {
-        String tableName = "alter_column_not_null_partition_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])", tableName));
+        try (TestTable table = newTable("alter_column_not_null_partition", "(id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])")) {
+            String tableName = table.getName();
 
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN region SET NOT NULL", tableName));
             assertColumnNullability(tableName, "VALUES ('id', 'YES'), ('region', 'NO')");
@@ -222,17 +201,13 @@ public class TestIcebergAlterColumnNotNull
                     format("INSERT INTO %s VALUES (2, NULL)", tableName),
                     writerNullError("region"));
         }
-        finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
-        }
     }
 
     @Test
     public void testInsertOmittingNotNullColumnWithDefault()
     {
-        String tableName = "insert_omitting_not_null_default_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT) WITH (\"format-version\" = '3')", tableName));
+        try (TestTable table = newTable("insert_omitting_not_null_default", "(c1 BIGINT) WITH (\"format-version\" = '3')")) {
+            String tableName = table.getName();
             assertUpdate(format("INSERT INTO %s VALUES 1", tableName), 1);
             assertUpdate(format("ALTER TABLE %s ADD COLUMN c2 BIGINT DEFAULT 5", tableName));
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
@@ -243,9 +218,11 @@ public class TestIcebergAlterColumnNotNull
                     writerNullError("c2"));
             assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, 5), (2, 5)");
         }
-        finally {
-            assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
-        }
+    }
+
+    private TestTable newTable(String namePrefix, String tableDefinition)
+    {
+        return new TestTable(getQueryRunner()::execute, namePrefix, "CREATE TABLE {TABLE_NAME} " + tableDefinition);
     }
 
     private void assertColumnNullability(String tableName, String expectedValues)
