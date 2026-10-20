@@ -32,8 +32,10 @@ import io.delta.kernel.internal.InternalScanFileUtils;
 import io.delta.kernel.utils.CloseableIterator;
 
 import java.io.IOException;
-import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -289,7 +291,13 @@ public final class DeltaExpressionUtils
                         Slice sliceValue = utf8Slice(partitionValue);
                         return Domain.create(ValueSet.of(type, sliceValue), false);
                     case StandardTypes.DATE:
-                        Long dateValue = Date.valueOf(partitionValue).getTime(); // convert to millis
+                        // The domain is intersected with the query's predicate to
+                        // decide whether a file can be skipped, so the value has to
+                        // be in the representation the column is read as: days
+                        // since the epoch, as DeltaPageSource materializes it.
+                        // Milliseconds would never intersect a date predicate, and
+                        // every file would be skipped.
+                        Long dateValue = LocalDate.parse(partitionValue, DateTimeFormatter.ISO_LOCAL_DATE).toEpochDay();
                         return Domain.create(ValueSet.of(type, dateValue), false);
                     case StandardTypes.TIMESTAMP:
                         Long timestampValue = Timestamp.valueOf(partitionValue).getTime(); // convert to millis
@@ -302,7 +310,7 @@ public final class DeltaExpressionUtils
                                 format("Unsupported data type '%s' for partition column %s", columnHandle.getDataType(), columnHandle.getLogicalName()));
                 }
             }
-            catch (IllegalArgumentException exception) {
+            catch (IllegalArgumentException | DateTimeParseException exception) {
                 throw new PrestoException(DELTA_INVALID_PARTITION_VALUE,
                         format("Can not parse partition value '%s' of type '%s' for partition column '%s' in file '%s'",
                                 partitionValue, columnHandle.getDataType(), columnHandle.getLogicalName(), filePath),
