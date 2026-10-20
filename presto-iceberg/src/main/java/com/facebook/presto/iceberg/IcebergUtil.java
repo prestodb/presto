@@ -72,6 +72,7 @@ import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
+import org.apache.iceberg.ManageSnapshots;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.PartitionField;
@@ -129,7 +130,9 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
+import java.util.function.ToLongFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -226,6 +229,7 @@ import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_B
 import static org.apache.iceberg.LocationProviders.locationsFor;
 import static org.apache.iceberg.MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER;
 import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
+import static org.apache.iceberg.SnapshotRef.MAIN_BRANCH;
 import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
@@ -677,6 +681,22 @@ public final class IcebergUtil
                         branchName, tableName, snapshotId, file.get().location(), field.name()));
             }
         }
+    }
+
+    /**
+     * Moves the main branch to the snapshot that {@code targetSnapshotId} picks. The move is opened first, so the target
+     * and its NULL check read the metadata the move commits on.
+     */
+    public static void moveMainBranch(
+            Table icebergTable,
+            SchemaTableName tableName,
+            ToLongFunction<Table> targetSnapshotId,
+            BiFunction<ManageSnapshots, Long, ManageSnapshots> move)
+    {
+        ManageSnapshots manageSnapshots = icebergTable.manageSnapshots();
+        long snapshotId = targetSnapshotId.applyAsLong(icebergTable);
+        verifyNoNullValuesInRequiredColumns(icebergTable, tableName, MAIN_BRANCH, snapshotId);
+        move.apply(manageSnapshots, snapshotId).commit();
     }
 
     /**

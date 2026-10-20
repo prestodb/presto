@@ -53,6 +53,8 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -78,6 +80,9 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.METADATA_PREVIO
 import static com.facebook.presto.iceberg.IcebergTableProperties.METRICS_MAX_INFERRED_COLUMN;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
 import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_TABLE_PROPERTY;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.moveBranchError;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.noNullCountError;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.nullValuesError;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.METADATA_FOLDER_NAME;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.getFileSystem;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.resolveLatestMetadataLocation;
@@ -88,6 +93,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
+import static java.time.format.DateTimeFormatter.ofPattern;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -1740,45 +1746,33 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
-    public void testAlterColumnNotNull()
+    public void testAlterColumnSetAndDropNotNull()
     {
-        String tableName = "test_alter_column_not_null_" + randomTableSuffix();
-        String catalog = getSession().getCatalog().get();
-        String schema = getSession().getSchema().get();
+        String tableName = "test_alter_column_set_and_drop_not_null_" + randomTableSuffix();
         try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT, c3 VARCHAR, c4 BIGINT)", tableName));
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT, c3 VARCHAR NOT NULL)", tableName));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2, 'a')", tableName), 1);
 
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
-            validateShowCreateTable(catalog, schema, tableName,
-                    ImmutableList.of(
-                            columnDefinition("c1", "bigint"),
-                            columnDefinitionNotNull("c2", "bigint"),
-                            columnDefinition("c3", "varchar"),
-                            columnDefinition("c4", "bigint")),
-                    null, null);
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'NO'), ('c3', 'NO')");
+            assertQueryFails(format("INSERT INTO %s VALUES (2, NULL, 'b')", tableName), "NULL value not allowed for NOT NULL column: c2");
+            assertQueryFails(format("INSERT INTO %s (c1, c3) VALUES (2, 'b')", tableName), "NULL value not allowed for NOT NULL column: c2");
+            assertQueryFails(
+                    format("MERGE INTO %s t USING (VALUES 1) s(c1) ON t.c1 = s.c1 WHEN MATCHED THEN UPDATE SET c2 = NULL", tableName),
+                    "NULL value not allowed for NOT NULL column. Table: .* Column: c2");
+            assertQueryFails(
+                    format("MERGE INTO %s t USING (VALUES 2) s(c1) ON t.c1 = s.c1 WHEN NOT MATCHED THEN INSERT VALUES (s.c1, NULL, 'b')", tableName),
+                    "NULL value not allowed for NOT NULL column. Table: .* Column: c2");
 
-            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c4 SET NOT NULL", tableName));
-            validateShowCreateTable(catalog, schema, tableName,
-                    ImmutableList.of(
-                            columnDefinition("c1", "bigint"),
-                            columnDefinitionNotNull("c2", "bigint"),
-                            columnDefinition("c3", "varchar"),
-                            columnDefinitionNotNull("c4", "bigint")),
-                    null, null);
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName));
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES'), ('c3', 'NO')");
+            assertUpdate(format("INSERT INTO %s VALUES (2, NULL, 'b')", tableName), 1);
+            assertQueryFails(format("INSERT INTO %s VALUES (3, 4, NULL)", tableName), "NULL value not allowed for NOT NULL column: c3");
+            assertQuery(format("SELECT c1, c2, c3 FROM %s", tableName), "VALUES (1, 2, 'a'), (2, NULL, 'b')");
 
-            // explicit NULL in c4
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (1, 2, 'a', NULL)", tableName),
-                    "NULL value not allowed for NOT NULL column: c4");
-            // explicit NULL in c2
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (1, NULL, 'a', 4)", tableName),
-                    "NULL value not allowed for NOT NULL column: c2");
-            // omitting a NOT NULL column inserts NULL too
-            assertQueryFails(
-                    format("INSERT INTO %s (c1, c2, c3) VALUES (1, 2, 'a')", tableName),
-                    "NULL value not allowed for NOT NULL column: c4");
-            assertUpdate(format("INSERT INTO %s VALUES (1, 2, 'a', 4)", tableName), 1);
+            // DROP NOT NULL on a nullable column fails, as in Hive, and changes nothing
+            assertQueryFails(format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName), "Not Null constraint not found on column c2");
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES'), ('c3', 'NO')");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
@@ -1802,63 +1796,16 @@ public abstract class IcebergDistributedSmokeTestBase
         }
     }
 
-    @Test
-    public void testDropNotNull()
-    {
-        String tableName = "test_drop_not_null_" + randomTableSuffix();
-        String catalog = getSession().getCatalog().get();
-        String schema = getSession().getSchema().get();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT NOT NULL, c3 VARCHAR NOT NULL)", tableName));
-            assertUpdate(format("INSERT INTO %s VALUES (1, 2, 'a')", tableName), 1);
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (2, NULL, 'b')", tableName),
-                    "NULL value not allowed for NOT NULL column: c2");
-
-            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName));
-            validateShowCreateTable(catalog, schema, tableName,
-                    ImmutableList.of(
-                            columnDefinition("c1", "bigint"),
-                            columnDefinition("c2", "bigint"),
-                            columnDefinitionNotNull("c3", "varchar")),
-                    null, null);
-
-            // c2 no longer rejects NULL, c3 still does
-            assertUpdate(format("INSERT INTO %s VALUES (2, NULL, 'b')", tableName), 1);
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (3, 4, NULL)", tableName),
-                    "NULL value not allowed for NOT NULL column: c3");
-            assertQuery(format("SELECT c1, c2, c3 FROM %s", tableName), "VALUES (1, 2, 'a'), (2, NULL, 'b')");
-
-            // DROP NOT NULL on a nullable column fails, as in Hive, and changes nothing
-            assertQueryFails(
-                    format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName),
-                    "Not Null constraint not found on column c2");
-            validateShowCreateTable(catalog, schema, tableName,
-                    ImmutableList.of(
-                            columnDefinition("c1", "bigint"),
-                            columnDefinition("c2", "bigint"),
-                            columnDefinitionNotNull("c3", "varchar")),
-                    null, null);
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
-    }
-
     /**
-     * {@code _row_id} and {@code _last_updated_sequence_number} reach the connector as regular column handles
-     * and are rejected for both SET and DROP NOT NULL.
+     * {@code _row_id} and {@code _last_updated_sequence_number} reach the connector as regular column handles and are
+     * rejected. Iceberg doesn't reserve metadata column names, so a real {@code _pos} column is a regular column.
      */
     @Test
-    public void testAlterColumnNotNullDoesNotTamperWithMetadataColumns()
+    public void testAlterColumnNotNullOnMetadataColumns()
     {
         String tableName = "test_not_null_metadata_columns_" + randomTableSuffix();
         try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT NOT NULL)", tableName));
-            assertUpdate(format("INSERT INTO %s VALUES (1, 2)", tableName), 1);
-            String createTableBefore = showCreateTable(tableName);
-
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, \"_pos\" BIGINT)", tableName));
             for (String column : ImmutableList.of("_row_id", "_last_updated_sequence_number")) {
                 assertQueryFails(
                         format("ALTER TABLE %s ALTER COLUMN \"%s\" SET NOT NULL", tableName, column),
@@ -1867,9 +1814,12 @@ public abstract class IcebergDistributedSmokeTestBase
                         format("ALTER TABLE %s ALTER COLUMN \"%s\" DROP NOT NULL", tableName, column),
                         format(".*Cannot drop NOT NULL on metadata column '%s'.*", column));
             }
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('_pos', 'YES')");
 
-            assertEquals(showCreateTable(tableName), createTableBefore);
-            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, 2)");
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN \"_pos\" SET NOT NULL", tableName));
+            assertQueryFails(format("INSERT INTO %s VALUES (1, NULL)", tableName), "NULL value not allowed for NOT NULL column: _pos");
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN \"_pos\" DROP NOT NULL", tableName));
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
@@ -1909,34 +1859,13 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
-    public void testAlterColumnNotNullOnColumnNamedLikeMetadataColumn()
-    {
-        // Iceberg doesn't reserve metadata column names, so a real _pos column is just a regular column.
-        String tableName = "test_not_null_metadata_column_name_" + randomTableSuffix();
-        try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, \"_pos\" BIGINT)", tableName));
-            assertUpdate(format("ALTER TABLE %s ALTER COLUMN \"_pos\" SET NOT NULL", tableName));
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (1, NULL)", tableName),
-                    "NULL value not allowed for NOT NULL column: _pos");
-            assertUpdate(format("ALTER TABLE %s ALTER COLUMN \"_pos\" DROP NOT NULL", tableName));
-            assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
-        }
-        finally {
-            assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        }
-    }
-
-    @Test
     public void testAlterColumnNotNullOnMixedCaseColumn()
     {
         // Other engines can write mixed-case field names, but Presto passes the column name lowercased.
         String tableName = "test_not_null_mixed_case_" + randomTableSuffix();
         try {
             assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
-            Session session = getSession();
-            ConnectorId connectorId = getDistributedQueryRunner().getCoordinator().getCatalogManager().getCatalog(ICEBERG_CATALOG).get().getConnectorId();
-            Table icebergTable = getIcebergTable(session.toConnectorSession(connectorId), session.getSchema().get(), tableName);
+            Table icebergTable = loadTable(tableName);
             icebergTable.updateSchema().renameColumn("c2", "MixedCase").commit();
             assertUpdate(format("INSERT INTO %s VALUES (1, NULL), (2, 5)", tableName), 2);
 
@@ -1970,9 +1899,7 @@ public abstract class IcebergDistributedSmokeTestBase
         String tableName = "test_drop_not_null_identifier_field_" + randomTableSuffix();
         try {
             assertUpdate(format("CREATE TABLE %s (id BIGINT NOT NULL, c BIGINT)", tableName));
-            Session session = getSession();
-            ConnectorId connectorId = getDistributedQueryRunner().getCoordinator().getCatalogManager().getCatalog(ICEBERG_CATALOG).get().getConnectorId();
-            Table icebergTable = getIcebergTable(session.toConnectorSession(connectorId), session.getSchema().get(), tableName);
+            Table icebergTable = loadTable(tableName);
             icebergTable.updateSchema().setIdentifierFields("id").commit();
 
             assertQueryFails(
@@ -2125,9 +2052,7 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate(format("CREATE TABLE %s (c1 BIGINT NOT NULL, c2 BIGINT)", tableName));
             assertUpdate(format("INSERT INTO %s VALUES (1, 2)", tableName), 1);
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
-            Session session = getSession();
-            ConnectorId connectorId = getDistributedQueryRunner().getCoordinator().getCatalogManager().getCatalog(ICEBERG_CATALOG).get().getConnectorId();
-            Table icebergTable = getIcebergTable(session.toConnectorSession(connectorId), session.getSchema().get(), tableName);
+            Table icebergTable = loadTable(tableName);
             String metadataLocation = ((HasTableOperations) icebergTable).operations().current().metadataFileLocation();
 
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
@@ -2138,7 +2063,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
             // A transaction writes to one table, so a no-op SET NOT NULL must not claim this one.
             assertUpdate(format("CREATE TABLE %s (c BIGINT)", otherTableName));
-            Session txnSession = assertStartTransaction(session, "START TRANSACTION");
+            Session txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
             assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c1 SET NOT NULL", tableName));
             assertUpdate(txnSession, format("INSERT INTO %s VALUES 1", otherTableName), 1);
             assertEndTransaction(txnSession, "COMMIT");
@@ -2171,21 +2096,28 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     /**
-     * SET NOT NULL checks the metadata it commits on, so it sees a NULL committed after the table was first read.
+     * A NULL committed outside the transaction after SET NOT NULL makes COMMIT fail. A NULL committed after the
+     * transaction first read the table, but before SET NOT NULL, fails SET NOT NULL, because the check reads the
+     * metadata it commits on. The Hive catalog caches the table location per transaction, so there the check sees the
+     * stale table and COMMIT fails instead.
      */
     @Test
     public void testSetNotNullWithNullCommittedAfterTransactionRead()
     {
         String tableName = "test_set_not_null_null_after_read_" + randomTableSuffix();
         try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
-            assertUpdate(format("INSERT INTO %s VALUES (1, 2)", tableName), 1);
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT, c3 BIGINT)", tableName));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2, 3)", tableName), 1);
 
             Session txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
-            assertQuery(txnSession, format("SELECT count(*) FROM %s", tableName), "VALUES 1");
-            assertUpdate(format("INSERT INTO %s VALUES (2, NULL)", tableName), 1);
+            assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c3 SET NOT NULL", tableName));
+            assertUpdate(format("INSERT INTO %s VALUES (2, 2, NULL)", tableName), 1);
+            assertQueryFails(txnSession, "COMMIT", "Table metadata refresh is required");
+
+            txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
+            assertQuery(txnSession, format("SELECT count(*) FROM %s", tableName), "VALUES 2");
+            assertUpdate(format("INSERT INTO %s VALUES (3, NULL, 3)", tableName), 1);
             if (catalogType == HIVE) {
-                // Hive caches the table location per transaction, so the check sees the stale table and the commit fails instead.
                 assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
                 assertQueryFails(txnSession, "COMMIT", "Table metadata refresh is required");
             }
@@ -2194,8 +2126,81 @@ public abstract class IcebergDistributedSmokeTestBase
                 assertEndTransaction(txnSession, "ROLLBACK");
             }
 
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES'), ('c3', 'YES')");
+            assertQuery(format("SELECT c1 FROM %s WHERE c2 IS NULL OR c3 IS NULL", tableName), "VALUES 2, 3");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testSetNotNullAndMoveBranchInTransaction()
+    {
+        String tableName = "test_set_not_null_move_branch_txn_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])", tableName));
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL), (2, 'us')", tableName), 2);
+            long withNulls = latestSnapshotId(tableName);
+            assertUpdate(format("DELETE FROM %s WHERE region IS NULL", tableName), 1);
+
+            Session txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
+            assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN region SET NOT NULL", tableName));
+            assertQueryFails(txnSession, format("ALTER TABLE %s CREATE BRANCH 'b1' FOR SYSTEM_VERSION AS OF %d", tableName, withNulls), moveBranchError("region"));
+            assertEndTransaction(txnSession, "ROLLBACK");
+
+            txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
+            assertUpdate(txnSession, format("ALTER TABLE %s CREATE BRANCH 'b2' FOR SYSTEM_VERSION AS OF %d", tableName, withNulls));
+            assertQueryFails(txnSession, format("ALTER TABLE %s ALTER COLUMN region SET NOT NULL", tableName), nullValuesError("region", "b2"));
+            assertEndTransaction(txnSession, "ROLLBACK");
+
+            assertQuery(format("SELECT name FROM \"%s$refs\"", tableName), "VALUES 'main'");
+            assertColumnNullability(tableName, "VALUES ('id', 'YES'), ('region', 'YES')");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testSetAndDropNotNullInTransaction()
+    {
+        String tableName = "test_set_and_drop_not_null_txn_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
+            Session txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
+            assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
+            assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName));
+            assertUpdate(txnSession, format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
+            assertEndTransaction(txnSession, "COMMIT");
+
             assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES')");
-            assertQuery(format("SELECT c1 FROM %s WHERE c2 IS NULL", tableName), "VALUES 2");
+            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, NULL)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testSetNotNullOnColumnDroppedAfterTransactionRead()
+    {
+        String tableName = "test_set_not_null_dropped_after_read_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
+            Session txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
+            assertQuery(txnSession, format("SELECT count(*) FROM %s", tableName), "VALUES 0");
+            loadTable(tableName).updateSchema().deleteColumn("c2").commit();
+
+            if (catalogType == HIVE) {
+                assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
+                assertQueryFails(txnSession, "COMMIT", "Table metadata refresh is required");
+            }
+            else {
+                assertQueryFails(txnSession, format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName),
+                        format("Cannot set NOT NULL: column 'c2' does not exist in table '.*%s'", tableName));
+                assertEndTransaction(txnSession, "ROLLBACK");
+            }
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
@@ -2203,32 +2208,44 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     /**
-     * Branches use the current schema, so moving one to a snapshot from before SET NOT NULL is checked too.
+     * Branches use the current schema, so moving one to a snapshot from before SET NOT NULL is checked too, unless the
+     * column was already required in that snapshot.
      */
     @Test
     public void testMoveBranchToSnapshotWithNullValues()
     {
         String tableName = "test_move_branch_null_values_" + randomTableSuffix();
         String addedColumnTableName = "test_move_branch_added_column_" + randomTableSuffix();
+        String requiredColumnTableName = "test_move_branch_required_column_" + randomTableSuffix();
         String schemaName = getSession().getSchema().get();
         try {
             assertUpdate(format("CREATE TABLE %s (id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])", tableName));
-            assertUpdate(format("INSERT INTO %s VALUES (1, NULL), (2, 'us')", tableName), 2);
+            assertUpdate(format("INSERT INTO %s VALUES (2, 'us')", tableName), 1);
+            assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'existing'", tableName));
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
             long withNulls = latestSnapshotId(tableName);
             assertUpdate(format("ALTER TABLE %s CREATE TAG 'with_nulls'", tableName));
             assertUpdate(format("DELETE FROM %s WHERE region IS NULL", tableName), 1);
             long withoutNulls = latestSnapshotId(tableName);
-            assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'existing'", tableName));
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN region SET NOT NULL", tableName));
+            // The newest snapshot strictly older than this one is withNulls. Without legacy timestamps, the literal is in UTC.
+            Session session = Session.builder(getSession()).setSystemProperty(LEGACY_TIMESTAMP, "false").build();
+            String withoutNullsTimestamp = Instant.ofEpochMilli(loadTable(tableName).snapshot(withoutNulls).timestampMillis())
+                    .atZone(ZoneOffset.UTC)
+                    .format(ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
 
             for (String moveToNulls : ImmutableList.of(
                     format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, tableName, withNulls),
+                    format("CALL system.rollback_to_timestamp('%s', '%s', TIMESTAMP '%s')", schemaName, tableName, withoutNullsTimestamp),
                     format("CALL system.set_current_snapshot('%s', '%s', %d)", schemaName, tableName, withNulls),
                     format("CALL system.set_current_snapshot(schema => '%s', table_name => '%s', ref => 'with_nulls')", schemaName, tableName),
+                    format("CALL system.fast_forward('%s', '%s', 'existing', 'with_nulls')", schemaName, tableName),
+                    format("CALL system.fast_forward('%s', '%s', 'new', 'with_nulls')", schemaName, tableName),
                     format("ALTER TABLE %s CREATE BRANCH 'new' FOR SYSTEM_VERSION AS OF %d", tableName, withNulls),
                     format("ALTER TABLE %s CREATE OR REPLACE BRANCH 'existing' FOR SYSTEM_VERSION AS OF %d", tableName, withNulls))) {
-                assertQueryFails(moveToNulls, moveBranchError("region"));
+                assertQueryFails(session, moveToNulls, moveBranchError("region"));
             }
+            assertQuery(format("SELECT name FROM \"%s$refs\"", tableName), "VALUES 'main', 'existing', 'with_nulls'");
             assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'new' FOR SYSTEM_VERSION AS OF %d", tableName, withoutNulls));
             assertQuery(format("SELECT id, region FROM %s", tableName), "VALUES (2, 'us')");
 
@@ -2246,10 +2263,19 @@ public abstract class IcebergDistributedSmokeTestBase
             assertQueryFails(
                     format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, addedColumnTableName, beforeColumnAdded),
                     moveBranchError("c2"));
+
+            // Without NULL counts, only the snapshot's schema shows that c2 holds no NULLs.
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT NOT NULL) WITH (\"write.metadata.metrics.max-inferred-column-defaults\" = 1)", requiredColumnTableName));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2)", requiredColumnTableName), 1);
+            long requiredColumnSnapshot = latestSnapshotId(requiredColumnTableName);
+            assertUpdate(format("INSERT INTO %s VALUES (3, 4)", requiredColumnTableName), 1);
+            assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, requiredColumnTableName, requiredColumnSnapshot));
+            assertQuery(format("SELECT c1, c2 FROM %s", requiredColumnTableName), "VALUES (1, 2)");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
             assertUpdate("DROP TABLE IF EXISTS " + addedColumnTableName);
+            assertUpdate("DROP TABLE IF EXISTS " + requiredColumnTableName);
         }
     }
 
@@ -2333,12 +2359,6 @@ public abstract class IcebergDistributedSmokeTestBase
             Session txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
             assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c FIRST", tableName));
             assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c SET NOT NULL", tableName));
-            Session session = assertEndTransaction(txnSession, "ROLLBACK");
-            assertColumnNullability(tableName, "VALUES ('a', 'YES'), ('b', 'YES'), ('c', 'YES')");
-
-            txnSession = assertStartTransaction(session, "START TRANSACTION");
-            assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c FIRST", tableName));
-            assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c SET NOT NULL", tableName));
             assertEndTransaction(txnSession, "COMMIT");
             assertColumnNullability(tableName, "VALUES ('c', 'NO'), ('a', 'YES'), ('b', 'YES')");
             assertQueryFails(
@@ -2347,13 +2367,7 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate(format("INSERT INTO %s VALUES (3, 1, NULL)", tableName), 1);
             assertQuery(format("SELECT a, b, c FROM %s", tableName), "VALUES (1, NULL, 3)");
 
-            txnSession = assertStartTransaction(session, "START TRANSACTION");
-            assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c AFTER b", tableName));
-            assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c DROP NOT NULL", tableName));
-            session = assertEndTransaction(txnSession, "ROLLBACK");
-            assertColumnNullability(tableName, "VALUES ('c', 'NO'), ('a', 'YES'), ('b', 'YES')");
-
-            txnSession = assertStartTransaction(session, "START TRANSACTION");
+            txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
             assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c AFTER b", tableName));
             assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c DROP NOT NULL", tableName));
             assertEndTransaction(txnSession, "COMMIT");
@@ -2386,6 +2400,13 @@ public abstract class IcebergDistributedSmokeTestBase
         }
     }
 
+    private Table loadTable(String tableName)
+    {
+        Session session = getSession();
+        ConnectorId connectorId = getDistributedQueryRunner().getCoordinator().getCatalogManager().getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+        return getIcebergTable(session.toConnectorSession(connectorId), session.getSchema().get(), tableName);
+    }
+
     private void assertColumnNullability(String tableName, String expectedValues)
     {
         assertQueryOrdered(
@@ -2403,26 +2424,6 @@ public abstract class IcebergDistributedSmokeTestBase
     private long latestSnapshotId(String tableName)
     {
         return (long) computeActual(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", tableName)).getOnlyValue();
-    }
-
-    private static String nullValuesError(String column, String branch)
-    {
-        String remedy = branch.equals("main")
-                ? "Update or delete those rows, then run rewrite_data_files with the rewrite-all option"
-                : "Drop or replace the branch";
-        return ".*Cannot set NOT NULL on column '" + column + "' of table '.*': data file '.*' on branch '" + branch +
-                "' has NULL values in the column\\. " + remedy;
-    }
-
-    private static String moveBranchError(String column)
-    {
-        return ".*Cannot move branch '.*' of table '.*' to snapshot [0-9]+: data file '.*' of that snapshot can hold NULL values in NOT NULL column '" +
-                column + "'\\. Drop the NOT NULL constraint first";
-    }
-
-    private static String noNullCountError(String column)
-    {
-        return ".*Cannot set NOT NULL on column '" + column + "' of table '.*': data file '.*' on branch '.*' has no NULL count for the column";
     }
 
     @Test
@@ -3987,16 +3988,6 @@ public abstract class IcebergDistributedSmokeTestBase
     protected ColumnDefinition columnDefinition(String name, String type)
     {
         return new ColumnDefinition(QualifiedName.of(ImmutableList.of(new Identifier(name, true))), type, true, ImmutableList.of(), Optional.empty());
-    }
-
-    protected ColumnDefinition columnDefinitionNotNull(String name, String type)
-    {
-        return new ColumnDefinition(QualifiedName.of(ImmutableList.of(new Identifier(name, true))), type, false, ImmutableList.of(), Optional.empty());
-    }
-
-    protected String showCreateTable(String table)
-    {
-        return (String) getOnlyElement(computeActual("SHOW CREATE TABLE " + table).getOnlyColumnAsSet());
     }
 
     private void validateShowCreateTableInner(String catalog, String schema, String table,

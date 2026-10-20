@@ -40,6 +40,7 @@ import java.util.Map;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.moveBranchError;
 import static java.lang.String.format;
 import static java.util.regex.Pattern.quote;
 
@@ -199,8 +200,7 @@ public class TestSetCurrentSnapshotProcedure
 
             assertQueryFails(
                     format("CALL system.set_current_snapshot('%s', '%s', %d)", TEST_SCHEMA, tableName, withNulls),
-                    ".*Cannot move branch 'main' of table '.*' to snapshot [0-9]+: data file '.*' of that snapshot can hold NULL values in NOT NULL column 'value'\\. " +
-                            "Drop the NOT NULL constraint first");
+                    moveBranchError("value"));
             assertQuery("SELECT * FROM " + tableName, "VALUES (2, 'b')");
         }
         finally {

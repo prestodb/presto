@@ -3647,35 +3647,39 @@ public abstract class IcebergAbstractMetadata
         SchemaTableName tableName = handle.getSchemaTableName();
         String operation = required ? "set" : "drop";
         Table icebergTable = getIcebergTable(session, tableName);
-        Optional<NestedField> field = findTopLevelColumnIfPresent(icebergTable.schema(), columnName);
-        if (!field.isPresent()) {
-            if (MetadataColumns.isMetadataColumn(columnName)) {
-                throw new PrestoException(NOT_SUPPORTED, format("Cannot %s NOT NULL on metadata column '%s'", operation, columnName));
-            }
-            throw new PrestoException(COLUMN_NOT_FOUND, format("Cannot %s NOT NULL: column '%s' does not exist in table '%s'", operation, columnName, tableName));
+        Optional<NestedField> loadedField = findTopLevelColumnIfPresent(icebergTable.schema(), columnName);
+        if (!loadedField.isPresent()) {
+            // The engine has already resolved the column against this schema, so only a metadata column is missing from it.
+            verify(MetadataColumns.isMetadataColumn(columnName), "column %s is neither in the schema nor a metadata column", columnName);
+            throw new PrestoException(NOT_SUPPORTED, format("Cannot %s NOT NULL on metadata column '%s'", operation, columnName));
         }
-        if (!required && field.get().isOptional()) {
-            throw new PrestoException(NOT_FOUND, format("Not Null constraint not found on column %s", columnName));
-        }
-        if (!required && icebergTable.schema().identifierFieldIds().contains(field.get().fieldId())) {
-            throw new PrestoException(NOT_SUPPORTED, format("Cannot drop NOT NULL on column '%s': it is an identifier field of table '%s'", columnName, tableName));
-        }
-        if (required && field.get().isRequired()) {
+        if (required && loadedField.get().isRequired()) {
             return;
         }
-        if (required && !field.get().type().isPrimitiveType()) {
+        // Open the update first so the checks below read the metadata this change commits on. A failed check leaves the
+        // update uncommitted in the Iceberg transaction, which can then never commit; Presto fails its transaction on any
+        // statement error, so it is never committed.
+        UpdateSchema updateSchema = icebergTable.updateSchema();
+        NestedField field = icebergTable.schema().findField(loadedField.get().fieldId());
+        if (field == null) {
+            throw new PrestoException(COLUMN_NOT_FOUND, format("Cannot %s NOT NULL: column '%s' does not exist in table '%s'", operation, columnName, tableName));
+        }
+        if (!required && field.isOptional()) {
+            throw new PrestoException(NOT_FOUND, format("Not Null constraint not found on column %s", columnName));
+        }
+        if (!required && icebergTable.schema().identifierFieldIds().contains(field.fieldId())) {
+            throw new PrestoException(NOT_SUPPORTED, format("Cannot drop NOT NULL on column '%s': it is an identifier field of table '%s'", columnName, tableName));
+        }
+        if (required && !field.type().isPrimitiveType()) {
             throw new PrestoException(NOT_SUPPORTED, format("Cannot set NOT NULL on column '%s': only columns of primitive types are supported", columnName));
         }
-        String fieldName = field.get().name();
-        // Open the update first so the NULL check reads the metadata this change commits on.
-        UpdateSchema updateSchema = icebergTable.updateSchema();
         if (required) {
-            verifyNoNullValues(icebergTable, field.get(), columnName, tableName);
+            verifyNoNullValues(icebergTable, field, columnName, tableName);
             // Iceberg treats optional -> required as an incompatible change.
-            updateSchema.allowIncompatibleChanges().requireColumn(fieldName);
+            updateSchema.allowIncompatibleChanges().requireColumn(field.name());
         }
         else {
-            updateSchema.makeColumnOptional(fieldName);
+            updateSchema.makeColumnOptional(field.name());
         }
         updateSchema.commit();
     }

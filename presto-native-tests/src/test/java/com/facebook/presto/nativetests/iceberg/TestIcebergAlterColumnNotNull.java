@@ -22,6 +22,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.nullValuesError;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder;
@@ -75,46 +76,33 @@ public class TestIcebergAlterColumnNotNull
     public void testAlterColumnSetAndDropNotNull()
     {
         String tableName = "alter_column_set_and_drop_not_null_" + randomTableSuffix();
-        String schema = getSession().getSchema().get();
         try {
-            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT, c3 VARCHAR, c4 BIGINT)", tableName));
-            assertUpdate(format("INSERT INTO %s VALUES (1, 2, 'a', 4)", tableName), 1);
+            assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT, c3 BIGINT)", tableName));
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2, 3)", tableName), 1);
 
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
-            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c4 SET NOT NULL", tableName));
-            assertQuery(
-                    format("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = '%s' AND table_schema = '%s' ORDER BY ordinal_position", tableName, schema),
-                    "VALUES ('c1', 'YES'), ('c2', 'NO'), ('c3', 'YES'), ('c4', 'NO')");
-
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (2, NULL, 'b', 5)", tableName),
-                    "(?s).*NULL value not allowed for NOT NULL column: c2.*");
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (2, 3, 'b', NULL)", tableName),
-                    "(?s).*NULL value not allowed for NOT NULL column: c4.*");
-
-            assertUpdate(format("INSERT INTO %s VALUES (2, 3, 'b', 5)", tableName), 1);
-            assertUpdate(format("INSERT INTO %s VALUES (NULL, 6, NULL, 7)", tableName), 1);
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c3 SET NOT NULL", tableName));
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'NO'), ('c3', 'NO')");
+            assertQueryFails(format("INSERT INTO %s VALUES (2, NULL, 3)", tableName), writerNullError("c2"));
+            // MERGE checks NOT NULL with presto.default.fail, which the sidecar does not register.
+            if (!sidecarEnabled) {
+                assertQueryFails(
+                        format("MERGE INTO %s t USING (VALUES 1) s(c1) ON t.c1 = s.c1 WHEN MATCHED THEN UPDATE SET c2 = NULL", tableName),
+                        ".*NULL value not allowed for NOT NULL column\\. Table: .* Column: c2 .*");
+                assertQueryFails(
+                        format("MERGE INTO %s t USING (VALUES 2) s(c1) ON t.c1 = s.c1 WHEN NOT MATCHED THEN INSERT VALUES (s.c1, 2, NULL)", tableName),
+                        ".*NULL value not allowed for NOT NULL column\\. Table: .* Column: c3 .*");
+            }
 
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName));
-            assertQuery(
-                    format("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = '%s' AND table_schema = '%s' ORDER BY ordinal_position", tableName, schema),
-                    "VALUES ('c1', 'YES'), ('c2', 'YES'), ('c3', 'YES'), ('c4', 'NO')");
-
-            assertUpdate(format("INSERT INTO %s VALUES (3, NULL, 'c', 8)", tableName), 1);
-            assertQueryFails(
-                    format("INSERT INTO %s VALUES (3, 9, 'c', NULL)", tableName),
-                    "(?s).*NULL value not allowed for NOT NULL column: c4.*");
-
-            assertQuery(format("SELECT count(*) FROM %s", tableName), "VALUES 4");
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES'), ('c3', 'NO')");
+            assertUpdate(format("INSERT INTO %s VALUES (2, NULL, 3)", tableName), 1);
+            assertQueryFails(format("INSERT INTO %s VALUES (3, 2, NULL)", tableName), writerNullError("c3"));
+            assertQuery(format("SELECT c1, c2, c3 FROM %s", tableName), "VALUES (1, 2, 3), (2, NULL, 3)");
 
             // DROP NOT NULL on a nullable column fails, as in Hive, and changes nothing.
-            assertQueryFails(
-                    format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName),
-                    "(?s).*Not Null constraint not found on column c2.*");
-            assertQuery(
-                    format("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = '%s' AND table_schema = '%s' ORDER BY ordinal_position", tableName, schema),
-                    "VALUES ('c1', 'YES'), ('c2', 'YES'), ('c3', 'YES'), ('c4', 'NO')");
+            assertQueryFails(format("ALTER TABLE %s ALTER COLUMN c2 DROP NOT NULL", tableName), "Not Null constraint not found on column c2");
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES'), ('c3', 'NO')");
         }
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
@@ -126,18 +114,12 @@ public class TestIcebergAlterColumnNotNull
     {
         // The native writer records NULL counts, so SET NOT NULL rejects the column.
         String tableName = "alter_not_null_existing_nulls_" + randomTableSuffix();
-        String schema = getSession().getSchema().get();
         try {
             assertUpdate(format("CREATE TABLE %s (c1 BIGINT, c2 BIGINT)", tableName));
             assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
 
-            assertQueryFails(
-                    format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName),
-                    "(?s).*Cannot set NOT NULL on column 'c2' of table .* has NULL values in the column.*");
-
-            assertQuery(
-                    format("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = '%s' AND table_schema = '%s' ORDER BY ordinal_position", tableName, schema),
-                    "VALUES ('c1', 'YES'), ('c2', 'YES')");
+            assertQueryFails(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName), nullValuesError("c2", "main"));
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES')");
             assertUpdate(format("INSERT INTO %s VALUES (2, NULL)", tableName), 1);
         }
         finally {
@@ -177,7 +159,6 @@ public class TestIcebergAlterColumnNotNull
     {
         // The native writer checks a positional INSERT against the current column order.
         String tableName = "alter_column_not_null_reorder_" + randomTableSuffix();
-        String schema = getSession().getSchema().get();
         try {
             assertUpdate(format("CREATE TABLE %s (a BIGINT, b BIGINT NOT NULL, c VARCHAR)", tableName));
             assertUpdate(format("INSERT INTO %s VALUES (1, 2, 'x')", tableName), 1);
@@ -185,24 +166,20 @@ public class TestIcebergAlterColumnNotNull
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN b FIRST", tableName));
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c SET NOT NULL", tableName));
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c AFTER b", tableName));
-            assertQueryOrdered(
-                    format("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = '%s' AND table_schema = '%s' ORDER BY ordinal_position", tableName, schema),
-                    "VALUES ('b', 'NO'), ('c', 'NO'), ('a', 'YES')");
+            assertColumnNullability(tableName, "VALUES ('b', 'NO'), ('c', 'NO'), ('a', 'YES')");
 
             assertQueryFails(
                     format("INSERT INTO %s VALUES (NULL, 'y', 3)", tableName),
-                    "(?s).*NULL value not allowed for NOT NULL column: b.*");
+                    writerNullError("b"));
             assertQueryFails(
                     format("INSERT INTO %s VALUES (3, NULL, 4)", tableName),
-                    "(?s).*NULL value not allowed for NOT NULL column: c.*");
+                    writerNullError("c"));
             assertUpdate(format("INSERT INTO %s VALUES (3, 'y', NULL)", tableName), 1);
 
             // DROP NOT NULL finds the moved columns by name, including b, which was NOT NULL from CREATE TABLE.
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN b DROP NOT NULL", tableName));
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN c DROP NOT NULL", tableName));
-            assertQueryOrdered(
-                    format("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = '%s' AND table_schema = '%s' ORDER BY ordinal_position", tableName, schema),
-                    "VALUES ('b', 'YES'), ('c', 'YES'), ('a', 'YES')");
+            assertColumnNullability(tableName, "VALUES ('b', 'YES'), ('c', 'YES'), ('a', 'YES')");
             assertUpdate(format("INSERT INTO %s VALUES (NULL, NULL, 5)", tableName), 1);
 
             assertQuery(format("SELECT a, b, c FROM %s", tableName), "VALUES (1, 2, 'x'), (NULL, 3, 'y'), (5, NULL, NULL)");
@@ -216,19 +193,16 @@ public class TestIcebergAlterColumnNotNull
     public void testAlterColumnNotNullOnPartitionColumn()
     {
         String tableName = "alter_column_not_null_partition_" + randomTableSuffix();
-        String schema = getSession().getSchema().get();
         try {
             assertUpdate(format("CREATE TABLE %s (id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])", tableName));
 
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN region SET NOT NULL", tableName));
-            assertQuery(
-                    format("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name = '%s' AND table_schema = '%s' ORDER BY ordinal_position", tableName, schema),
-                    "VALUES ('id', 'YES'), ('region', 'NO')");
+            assertColumnNullability(tableName, "VALUES ('id', 'YES'), ('region', 'NO')");
 
             assertUpdate(format("INSERT INTO %s VALUES (1, 'us-east')", tableName), 1);
             assertQueryFails(
                     format("INSERT INTO %s VALUES (2, NULL)", tableName),
-                    "(?s).*NULL value not allowed for NOT NULL column: region.*");
+                    writerNullError("region"));
         }
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
@@ -248,11 +222,25 @@ public class TestIcebergAlterColumnNotNull
             assertUpdate(format("INSERT INTO %s (c1) VALUES (2)", tableName), 1);
             assertQueryFails(
                     format("INSERT INTO %s VALUES (3, NULL)", tableName),
-                    "(?s).*NULL value not allowed for NOT NULL column: c2.*");
+                    writerNullError("c2"));
             assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, 5), (2, 5)");
         }
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", tableName));
         }
+    }
+
+    private void assertColumnNullability(String tableName, String expectedValues)
+    {
+        assertQueryOrdered(
+                format("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' ORDER BY ordinal_position",
+                        getSession().getSchema().get(), tableName),
+                expectedValues);
+    }
+
+    // The native writer's message starts with the Velox check that failed.
+    private static String writerNullError(String column)
+    {
+        return ".*NULL value not allowed for NOT NULL column: " + column;
     }
 }

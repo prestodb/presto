@@ -43,6 +43,7 @@ import java.util.Map;
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.moveBranchError;
 import static java.lang.String.format;
 import static org.testng.Assert.assertTrue;
 
@@ -244,8 +245,7 @@ public class TestRollbackToTimestampProcedure
                 assertQueryFails(
                         session,
                         format("CALL %s.system.rollback_to_timestamp('%s', '%s', TIMESTAMP '%s')", ICEBERG_CATALOG, TEST_SCHEMA, tableName, getTimestampString(timestampMillis, "UTC")),
-                        ".*Cannot move branch 'main' of table '.*' to snapshot [0-9]+: data file '.*' of that snapshot can hold NULL values in NOT NULL column 'value'\\. " +
-                                "Drop the NOT NULL constraint first");
+                        moveBranchError("value"));
             }
             assertQuery(session, "SELECT id, value FROM " + qualifiedTableName, "VALUES (2, 'a')");
         }

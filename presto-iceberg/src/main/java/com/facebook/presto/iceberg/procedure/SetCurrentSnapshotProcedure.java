@@ -34,10 +34,9 @@ import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
-import static com.facebook.presto.iceberg.IcebergUtil.verifyNoNullValuesInRequiredColumns;
+import static com.facebook.presto.iceberg.IcebergUtil.moveMainBranch;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
-import static org.apache.iceberg.SnapshotRef.MAIN_BRANCH;
 
 public class SetCurrentSnapshotProcedure
         implements Provider<Procedure>
@@ -80,12 +79,11 @@ public class SetCurrentSnapshotProcedure
                     "Either snapshot_id or reference must be provided, not both");
             SchemaTableName schemaTableName = new SchemaTableName(schema, table);
             IcebergTransactionMetadata metadata = metadataFactory.create();
-            Table icebergTable = getIcebergTable(metadata, clientSession, schemaTableName);
-            // Open the transaction first so the NULL check reads the metadata this move commits on.
-            ManageSnapshots manageSnapshots = icebergTable.manageSnapshots();
-            long targetSnapshotId = snapshotId != null ? snapshotId : getSnapshotIdFromReference(icebergTable, reference);
-            verifyNoNullValuesInRequiredColumns(icebergTable, schemaTableName, MAIN_BRANCH, targetSnapshotId);
-            manageSnapshots.setCurrentSnapshot(targetSnapshotId).commit();
+            moveMainBranch(
+                    getIcebergTable(metadata, clientSession, schemaTableName),
+                    schemaTableName,
+                    icebergTable -> snapshotId != null ? snapshotId : getSnapshotIdFromReference(icebergTable, reference),
+                    ManageSnapshots::setCurrentSnapshot);
             metadata.commit();
         }
     }
