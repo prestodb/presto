@@ -520,6 +520,10 @@ public interface ConnectorMetadata
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
 
+    /**
+     * Set the type of a nested field within a struct column.
+     * {@code fieldPath} is the sequence of field names below the top-level column (e.g. {@code ["nested"]} or {@code ["nested", "inner"]}).
+     */
     default void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting field types");
