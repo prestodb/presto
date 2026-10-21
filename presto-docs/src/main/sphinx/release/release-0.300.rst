@@ -4,7 +4,7 @@ Release 0.300
 
 **Breaking Changes**
 ====================
-* Remove support for the ANSI SQL syntax of the ``trim`` function, such as ``TRIM(BOTH ' ' FROM x)``, which was added in 0.299 and made ``TRIM``, ``BOTH``, ``LEADING``, and ``TRAILING`` reserved keywords. Use the ``trim``, ``ltrim``, and ``rtrim`` functions instead. ANSI SQL support for TRIM will be introduced in a future release. `#28334 <https://github.com/prestodb/presto/pull/28334>`_
+* Remove support for the ANSI SQL syntax of the ``trim`` function, such as ``TRIM(BOTH ' ' FROM x)``, which was added in 0.299 and made ``TRIM``, ``BOTH``, ``LEADING``, and ``TRAILING`` reserved keywords. Use the ``trim``, ``ltrim``, and ``rtrim`` functions instead.  `#28334 <https://github.com/prestodb/presto/pull/28334>`_
 * Upgrade hudi-presto-bundle to version 1.1.0. **NOTE**: Partitioned Hudi 1.x tables require ``hive.parquet.use-column-names=true`` for correct column resolution. Without this setting, columns are read positionally and may return incorrect data. `#27274 <https://github.com/prestodb/presto/pull/27274>`_
 
 **Highlights**
@@ -45,7 +45,7 @@ _______________
 * Add support for declaring field names in a row constructor, for example ``ROW(1 AS a, 2 AS b)``. ``VALUES`` derives column names from the declared field names, so ``SELECT a FROM (VALUES ROW(1 AS a))`` resolves. `#28298 <https://github.com/prestodb/presto/pull/28298>`_
 * Add support for loading expression optimizers on the Presto on Spark driver from configuration supplied at startup, for deployments that have no ``etc/expression-manager/`` directory on local disk. Previously such deployments could register an expression optimizer factory but never instantiate it. `#28393 <https://github.com/prestodb/presto/pull/28393>`_
 * Add support for the ``WINDOW`` clause, so a window specification can be named once and reused, for example ``SELECT rank() OVER w FROM t WINDOW w AS (PARTITION BY a ORDER BY b)``. `#28471 <https://github.com/prestodb/presto/pull/28471>`_
-* Remove support for the ANSI SQL syntax of the ``trim`` function, such as ``TRIM(BOTH ' ' FROM x)``, which was added in 0.299 and made ``TRIM``, ``BOTH``, ``LEADING``, and ``TRAILING`` reserved keywords. Use the ``trim``, ``ltrim``, and ``rtrim`` functions instead. ANSI SQL support for TRIM will be introduced in a future release. `#28334 <https://github.com/prestodb/presto/pull/28334>`_
+* Remove support for the ANSI SQL syntax of the ``trim`` function, such as ``TRIM(BOTH ' ' FROM x)``, which was added in 0.299 and made ``TRIM``, ``BOTH``, ``LEADING``, and ``TRAILING`` reserved keywords. Use the ``trim``, ``ltrim``, and ``rtrim`` functions instead. `#28334 <https://github.com/prestodb/presto/pull/28334>`_
 
 Prestissimo (Native Execution) Changes
 ______________________________________
@@ -62,19 +62,19 @@ Security Changes
 ________________
 * Remove the ``kotlin-stdlib-jdk8`` dependency, which reached end-of-life as of Kotlin 1.8.0 and has been merged into ``kotlin-stdlib``. See `Kotlin 1.8.0 release notes <https://kotlinlang.org/docs/whatsnew18.html#updated-jvm-compilation-target>`_. `#28504 <https://github.com/prestodb/presto/pull/28504>`_
 * Upgrade Netty to 4.2.17.Final to address `CVE-2026-59902 <https://github.com/advisories/GHSA-2qj4-mmr9-4v2f>`_ and `CVE-2026-59903 <https://github.com/advisories/GHSA-8c42-7qj2-3j46>`_ . `#28419 <https://github.com/prestodb/presto/pull/28419>`_
-* Upgrade ``httpclient5`` to 5.6.4 in response to `CVE-2026-64607 <https://github.com/advisories/GHSA-hjcp-jmpx-g3qm>`_. `#28472 <https://github.com/prestodb/presto/pull/28472>`_
-* Upgrade async-http-client to 3.0.13 to address `CVE-2026-85716 <https://github.com/advisories/GHSA-fj9w-c36g-h5x8>`_ , `CVE-2026-85717 <https://github.com/advisories/GHSA-f8m2-889x-vw4x>`_ , `CVE-2026-85718 <https://www.cve.org/CVERecord?id=CVE-2026-85718>`_ , `CVE-2026-85719 <https://www.cve.org/CVERecord?id=CVE-2026-85719>`_ , `CVE-2026-85720 <https://github.com/advisories/GHSA-xr57-gcx8-52hf>`_ , `CVE-2026-85721 <https://github.com/advisories/GHSA-7grg-jcf7-rpmx>`_. `#28521 <https://github.com/prestodb/presto/pull/28521>`_
-* Upgrade bouncycastle version to 1.85 to address multiple CVEs. `#28436 <https://github.com/prestodb/presto/pull/28436>`_
-* Upgrade jetty to 12.0.38 to address `CVE-2026-10050 <https://github.com/advisories/GHSA-2fvj-hgj9-j2gr>`_ , `CVE-2026-10051 <https://github.com/advisories/GHSA-f4v5-65jj-pcr2>`_ , `CVE-2026-6790 <https://github.com/advisories/GHSA-7p3p-8qv8-m2vh>`_ ,  `CVE-2026-8384 <https://github.com/advisories/GHSA-w7x5-g22v-xqhr>`_. `#28320 <https://github.com/prestodb/presto/pull/28320>`_
+* Upgrade ``httpclient5`` to 5.6.4 to address `CVE-2026-64607 <https://github.com/advisories/GHSA-hjcp-jmpx-g3qm>`_. `#28472 <https://github.com/prestodb/presto/pull/28472>`_
+* Upgrade async-http-client to 3.0.13 to address `CVE-2026-85716 <https://github.com/advisories/GHSA-fj9w-c36g-h5x8>`_, `CVE-2026-85717 <https://github.com/advisories/GHSA-f8m2-889x-vw4x>`_, `CVE-2026-85718 <https://www.cve.org/CVERecord?id=CVE-2026-85718>`_, `CVE-2026-85719 <https://www.cve.org/CVERecord?id=CVE-2026-85719>`_, `CVE-2026-85720 <https://github.com/advisories/GHSA-xr57-gcx8-52hf>`_, and `CVE-2026-85721 <https://github.com/advisories/GHSA-7grg-jcf7-rpmx>`_. `#28521 <https://github.com/prestodb/presto/pull/28521>`_
+* Upgrade Bouncy Castle to 1.85 to address multiple CVEs. `#28436 <https://github.com/prestodb/presto/pull/28436>`_
+* Upgrade Jetty to 12.0.38 to address `CVE-2026-10050 <https://github.com/advisories/GHSA-2fvj-hgj9-j2gr>`_, `CVE-2026-10051 <https://github.com/advisories/GHSA-f4v5-65jj-pcr2>`_, `CVE-2026-6790 <https://github.com/advisories/GHSA-7p3p-8qv8-m2vh>`_, and `CVE-2026-8384 <https://github.com/advisories/GHSA-w7x5-g22v-xqhr>`_. `#28320 <https://github.com/prestodb/presto/pull/28320>`_
 * Upgrade libthrift to 0.24.0 to address `CVE-2026-41608 <https://github.com/advisories/GHSA-6pjx-3pjc-mrj8>`_ , `CVE-2026-43871 <https://github.com/advisories/GHSA-8wv5-x4w7-5gww>`_ , `CVE-2026-45112 <https://github.com/advisories/GHSA-g9fj-fh28-776p>`_ , `CVE-2026-48144 <https://github.com/advisories/GHSA-367h-9jj5-w29f>`_ , `CVE-2026-48145 <https://github.com/advisories/GHSA-p2c7-c4gw-678h>`_ , `CVE-2026-48586 <https://github.com/advisories/GHSA-6h9h-5c4r-fqgf>`_ , `CVE-2026-49158 <https://github.com/advisories/GHSA-jcj7-w43p-gjh8>`_ , `CVE-2026-55968 <https://github.com/advisories/GHSA-8cj2-994r-9fpq>`_ , `CVE-2026-55969 <https://github.com/advisories/GHSA-x8jh-qfcv-fp29>`_ , `CVE-2026-55970 <https://github.com/advisories/GHSA-g7xp-pggm-c7w2>`_ , `CVE-2026-55971 <https://github.com/advisories/GHSA-gwj4-q93m-wwqc>`_ , `CVE-2026-58023 <https://github.com/advisories/GHSA-7rjc-4234-rgwm>`_ , `CVE-2026-58389 <https://github.com/advisories/GHSA-jx7g-767m-86hp>`_ , `CVE-2026-58662 <https://github.com/advisories/GHSA-x4w6-p6f8-24qw>`_ , `CVE-2026-66053 <https://github.com/advisories/GHSA-hwrj-9rr4-24xh>`_. `#28242 <https://github.com/prestodb/presto/pull/28242>`_
 * Upgrade mariadb-java-client to 3.5.9 to address `CVE-2026-55856 <https://github.com/advisories/GHSA-g9jj-cgmh-9f38>`_, `CVE-2026-55857 <https://github.com/advisories/GHSA-qxvw-fvwx-5cp7>`_, and `CVE-2026-55858 <https://github.com/advisories/GHSA-xvr9-35cr-46v9>`_. `#28406 <https://github.com/prestodb/presto/pull/28406>`_
-* Upgrade postgresql to 42.7.12 to address `CVE-2026-54291  <https://github.com/advisories/GHSA-j92g-9f8w-j867>`_. `#28203 <https://github.com/prestodb/presto/pull/28203>`_
+* Upgrade the PostgreSQL JDBC driver to 42.7.12 to address `CVE-2026-54291 <https://github.com/advisories/GHSA-j92g-9f8w-j867>`_. `#28203 <https://github.com/prestodb/presto/pull/28203>`_
 * Upgrade the MongoDB Java driver to 5.12.0 to address `CVE-2026-88033 <https://nvd.nist.gov/vuln/detail/CVE-2026-88033>`_ and `CVE-2026-18710 <https://nvd.nist.gov/vuln/detail/CVE-2026-18710>`_. `#28537 <https://github.com/prestodb/presto/pull/28537>`_
-* Upgrade the ZooKeeper dependency to 3.9.6 to remediate `CVE-2026-59969 <https://github.com/advisories/GHSA-4pv3-cr63-m4ph>`_ , `CVE-2026-59739 <https://github.com/advisories/GHSA-wrgg-c9rw-j78f>`_ , `CVE-2026-79993 <https://github.com/advisories/GHSA-9x9g-5r48-3wvg>`_ , `CVE-2026-84439 <https://github.com/advisories/GHSA-mxvw-9w3g-hmrq>`_ , and `CVE-2026-84501 <https://github.com/advisories/GHSA-mm24-r27q-hxg5>`_ . `#28558 <https://github.com/prestodb/presto/pull/28558>`_
+* Upgrade ZooKeeper to 3.9.6 to address `CVE-2026-59969 <https://github.com/advisories/GHSA-4pv3-cr63-m4ph>`_, `CVE-2026-59739 <https://github.com/advisories/GHSA-wrgg-c9rw-j78f>`_, `CVE-2026-79993 <https://github.com/advisories/GHSA-9x9g-5r48-3wvg>`_, `CVE-2026-84439 <https://github.com/advisories/GHSA-mxvw-9w3g-hmrq>`_, and `CVE-2026-84501 <https://github.com/advisories/GHSA-mm24-r27q-hxg5>`_. `#28558 <https://github.com/prestodb/presto/pull/28558>`_
 
-JDBC Driver Changes
-___________________
-* Add JDBC metadata cache within transactions. `#28402 <https://github.com/prestodb/presto/pull/28402>`_
+JDBC Connector Changes
+______________________
+* Add caching of table and column metadata within a transaction for JDBC-based connectors, which reduces query planning latency. Enabled by default, and controlled by the ``metadata-transaction-cache-enabled`` and ``metadata-transaction-cache-maximum-size`` configuration properties. `#28402 <https://github.com/prestodb/presto/pull/28402>`_
 
 Elasticsearch Connector Changes
 _______________________________
@@ -91,16 +91,16 @@ ______________________
 
 Iceberg Connector Changes
 _________________________
-* Fix Iceberg Parquet nested dereference pushdown for types that are unsupported or lossy in Hive. `#28512 <https://github.com/prestodb/presto/pull/28512>`_
-* Fix Invalid view JSON error when listing or querying views in an Iceberg REST catalog that were created by a non-Presto engine such as Netezza, Spark, or Trino. `#28321 <https://github.com/prestodb/presto/pull/28321>`_
+* Fix reading nested fields of ``TIMESTAMP WITH TIME ZONE``, ``TIME``, and ``UUID`` types from Iceberg Parquet tables when nested dereference pushdown is enabled. `#28512 <https://github.com/prestodb/presto/pull/28512>`_
+* Fix ``Invalid view JSON`` error when listing or querying views in an Iceberg REST catalog that were created by a non-Presto engine such as Netezza, Spark, or Trino. `#28321 <https://github.com/prestodb/presto/pull/28321>`_
 * Fix ``Class com.facebook.presto.hive.s3.PrestoS3FileSystem not found`` failure when reading a newly registered Iceberg table stored in S3 with ``iceberg.pushdown-filter-enabled`` enabled. `#28486 <https://github.com/prestodb/presto/pull/28486>`_
 * Fix table statistics ignoring a filter that was pushed into the table scan, which made the estimated row count that of the whole table and could lead to a worse plan. `#28549 <https://github.com/prestodb/presto/pull/28549>`_
-* Fix: users can now create materialized views with the same name in different schemas when ``iceberg.materialized-view-default-storage-schema`` is configured, without hitting a ``Table already exists`` error. See :ref:`connector/iceberg:storage`. `#28438 <https://github.com/prestodb/presto/pull/28438>`_
+* Fix ``Table already exists`` error when creating materialized views with the same name in different schemas while ``iceberg.materialized-view-default-storage-schema`` is configured. See :ref:`connector/iceberg:storage`. `#28438 <https://github.com/prestodb/presto/pull/28438>`_
 * Add ``presto.derived-columns.spec.json`` table property, to store derived column specs as embedded json. `#28123 <https://github.com/prestodb/presto/pull/28123>`_
 * Add support for ``ALTER TABLE ... ALTER COLUMN <column> FIRST | AFTER <column>``, which moves an existing column within the table's column order. `#28349 <https://github.com/prestodb/presto/pull/28349>`_
-* Add support for reading Variant columns as JSON columns. `#28469 <https://github.com/prestodb/presto/pull/28469>`_
+* Add support for reading Iceberg ``VARIANT`` columns as ``JSON`` columns. `#28469 <https://github.com/prestodb/presto/pull/28469>`_
 * Add support for the ``FIRST`` and ``AFTER <column>`` clauses of ``ALTER TABLE ... ADD COLUMN``, which control where the new column is placed in the table's column order. `#28328 <https://github.com/prestodb/presto/pull/28328>`_
-* Add that when add, delete, rename or set type is performed on a column that Presto maintains the derived column information in sync. `#28123 <https://github.com/prestodb/presto/pull/28123>`_
+* Add support for keeping derived column metadata in sync when columns are added, dropped, renamed, or have their type changed. `#28123 <https://github.com/prestodb/presto/pull/28123>`_
 
 Lance Connector Changes
 _______________________
@@ -114,9 +114,13 @@ Prometheus Connector Changes
 ____________________________
 * Add support for :ref:`connector/prometheus:authentication` with basic authentication. `#28391 <https://github.com/prestodb/presto/pull/28391>`_
 
+Prometheus Connector Changes
+____________________________
+* Add support for :ref:`connector/prometheus:authentication` with basic authentication. `#28391 <https://github.com/prestodb/presto/pull/28391>`_
+
 Verifier Changes
 ________________
-* Fix function call substitution failing when the substitute declares more window fields than the call it matched. This is now treated as a non match. `#28473 <https://github.com/prestodb/presto/pull/28473>`_
+* Fix function call substitution failing when the substitute declares more window fields than the call it matched. This is now treated as a non-match. `#28473 <https://github.com/prestodb/presto/pull/28473>`_
 * Fix function call substitution silently dropping a named window. A substitution is no longer applied to a call whose window refers to a name declared in a ``WINDOW`` clause, because the substitution cannot see the partitioning, ordering or frame that name carries. `#28473 <https://github.com/prestodb/presto/pull/28473>`_
 * Improve ``SCHEMA_MISMATCH`` failure reports to identify the columns that differ. `#28440 <https://github.com/prestodb/presto/pull/28440>`_
 * Add validation rejecting a function call substitute whose window refers to a named window, for example ``rank() over w``. A substitute is parsed on its own, so the name has nothing to resolve against. `#28473 <https://github.com/prestodb/presto/pull/28473>`_
