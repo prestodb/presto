@@ -427,6 +427,7 @@ public class QueryPlanner
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columns = ImmutableMap.builder();
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
+        ImmutableList.Builder<String> orderedColumnNamesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Expression> orderedColumnValuesBuilder = ImmutableList.builder();
         for (Field field : descriptor.getAllFields()) {
             String name = field.getName().get();
@@ -436,9 +437,11 @@ public class QueryPlanner
             fields.add(field);
             int index = targetColumnNames.indexOf(name);
             if (index >= 0) {
+                orderedColumnNamesBuilder.add(name);
                 orderedColumnValuesBuilder.add(node.getAssignments().get(index).getValue());
             }
         }
+        List<String> orderedColumnNames = orderedColumnNamesBuilder.build();
         List<Expression> orderedColumnValues = orderedColumnValuesBuilder.build();
 
         // add rowId column
@@ -492,7 +495,12 @@ public class QueryPlanner
 
         builder = builder.appendProjections(orderedColumnValues, variableAllocator, idAllocator, session, metadata, sqlParser, analysis, sqlPlannerContext);
 
-        PlanAndMappings planAndMappings = coerce(builder, orderedColumnValues, analysis, idAllocator, variableAllocator, metadata);
+        PlanAndMappings planAndMappings = checkNotNullUpdatedColumns(
+                node,
+                coerce(builder, orderedColumnValues, analysis, idAllocator, variableAllocator, metadata),
+                orderedColumnNames,
+                orderedColumnValues,
+                updatedColumnMetadata);
         builder = planAndMappings.getSubPlan();
 
         ImmutableList.Builder<VariableReferenceExpression> updatedColumnValuesBuilder = ImmutableList.builder();
@@ -964,13 +972,14 @@ public class QueryPlanner
                 ImmutableList.of(targetUniqueIdColumnVariable, caseNumberVariable), Optional.empty());
 
         // Raise an error if unique_id variable is non-null and the unique_id/case_number combination was not distinct
+        CatalogSchemaName defaultNamespace = metadata.getFunctionAndTypeManager().getDefaultNamespace();
         Expression multipleMatchesExpression = new IfExpression(
                 LogicalBinaryExpression.and(
                         new NotExpression(createSymbolReference(isDistinctVariable)),
                         new IsNotNullPredicate(createSymbolReference(targetUniqueIdColumnVariable))),
                 new Cast(
                         new FunctionCall(
-                                QualifiedName.of("presto", "default", "fail"),
+                                QualifiedName.of(defaultNamespace.getCatalogName(), defaultNamespace.getSchemaName(), "fail"),
                                 ImmutableList.of(new Cast(new StringLiteral(
                                         "MERGE INTO operation failed for target table '" + targetTable.getName() + "'. " +
                                         "One or more rows in the target table matched multiple source rows. " +
@@ -1070,7 +1079,7 @@ public class QueryPlanner
      * @return The same expression if the column allows null values; otherwise, a CoalesceExpression that
      * prevents inserting NULL values into non-nullable columns.
      */
-    private static Expression checkNotNullColumns(
+    private Expression checkNotNullColumns(
             ColumnHandle targetColumnHandle,
             Expression expression,
             int fieldNumber,
@@ -1081,18 +1090,66 @@ public class QueryPlanner
             return expression;
         }
 
-        ColumnMetadata columnMetadata = mergeAnalysis.getTargetColumnsMetadata().get(fieldNumber);
+        return failIfNull(
+                expression,
+                mergeAnalysis.getTargetTable().getName(),
+                mergeAnalysis.getTargetColumnsMetadata().get(fieldNumber),
+                metadata.getFunctionAndTypeManager().getDefaultNamespace());
+    }
 
-        // Build a coalesce expression that returns an error when the original expression value is NULL.
+    /**
+     * Wraps the SET value of each NOT NULL column in {@link #failIfNull}.
+     */
+    private PlanAndMappings checkNotNullUpdatedColumns(
+            Update node,
+            PlanAndMappings planAndMappings,
+            List<String> columnNames,
+            List<Expression> columnValues,
+            List<ColumnMetadata> updatedColumns)
+    {
+        Map<String, ColumnMetadata> notNullColumns = updatedColumns.stream()
+                .filter(column -> !column.isNullable())
+                .collect(toImmutableMap(ColumnMetadata::getName, Function.identity()));
+        if (notNullColumns.isEmpty()) {
+            return planAndMappings;
+        }
+
+        PlanBuilder subPlan = planAndMappings.getSubPlan();
+        Assignments.Builder assignments = Assignments.builder();
+        assignments.putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())));
+        ImmutableMap.Builder<NodeRef<Expression>, VariableReferenceExpression> mappings = ImmutableMap.builder();
+        CatalogSchemaName defaultNamespace = metadata.getFunctionAndTypeManager().getDefaultNamespace();
+        for (int i = 0; i < columnValues.size(); i++) {
+            Expression columnValue = columnValues.get(i);
+            VariableReferenceExpression variable = planAndMappings.get(columnValue);
+            ColumnMetadata column = notNullColumns.get(columnNames.get(i));
+            if (column != null) {
+                VariableReferenceExpression checkedVariable = variableAllocator.newVariable(variable);
+                Expression checkedValue = failIfNull(createSymbolReference(variable), node.getTable().getName(), column, defaultNamespace);
+                assignments.put(checkedVariable, rowExpression(checkedValue, sqlPlannerContext));
+                variable = checkedVariable;
+            }
+            mappings.put(NodeRef.of(columnValue), variable);
+        }
+        return new PlanAndMappings(
+                subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build())),
+                mappings.build());
+    }
+
+    /**
+     * Returns a CoalesceExpression that raises an error when {@code expression} is NULL.
+     */
+    private static Expression failIfNull(Expression expression, QualifiedName tableName, ColumnMetadata column, CatalogSchemaName functionNamespace)
+    {
         return new CoalesceExpression(expression,
                 new Cast(
                         new FunctionCall(
-                                QualifiedName.of("presto", "default", "fail"),
+                                QualifiedName.of(functionNamespace.getCatalogName(), functionNamespace.getSchemaName(), "fail"),
                                 ImmutableList.of(new Cast(new StringLiteral(
-                                        "NULL value not allowed for NOT NULL column. Table: " + mergeAnalysis.getTargetTable().getName() +
-                                                " Column: " + columnMetadata.getName()),
+                                        "NULL value not allowed for NOT NULL column. Table: " + tableName +
+                                                " Column: " + column.getName()),
                                         VARCHAR.getTypeSignature().toString()))),
-                        columnMetadata.getType().getTypeSignature().toString()));
+                        column.getType().getTypeSignature().toString()));
     }
 
     private static int getMergeCaseOperationNumber(MergeCase mergeCase)
