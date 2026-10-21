@@ -14,6 +14,7 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -25,8 +26,11 @@ import org.testng.annotations.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
@@ -229,6 +233,55 @@ public class TestMySqlIntegrationMixedCaseTest
         finally {
             for (String viewName : new String[] {"Test_View", "TEST_VIEW", "Test_View_Renamed"}) {
                 execute("DROP VIEW IF EXISTS Mixed_Test_Database.`" + viewName + "`");
+            }
+        }
+    }
+
+    @Test
+    public void testCreateViewOnUppercaseTableWithoutSessionCatalog()
+            throws SQLException
+    {
+        // lakehouse/tracker#96633: with no session catalog, CREATE VIEW over a fully qualified
+        // uppercase table sent the catalog on to MySQL, and querying the view as another user
+        // failed because MySQL had recorded its connection user, not the Presto user, as DEFINER
+        Session noCatalog = Session.builder(getSession())
+                .setCatalog(null)
+                .setSchema(null)
+                .setIdentity(new Identity("alice", Optional.empty()))
+                .build();
+        Session otherUser = Session.builder(noCatalog)
+                .setIdentity(new Identity("dave", Optional.empty()))
+                .build();
+        String view = "mysql.Mixed_Test_Database.EMPLOYEE_TMP_VIEW";
+
+        try {
+            execute("CREATE TABLE Mixed_Test_Database.EMPLOYEE_TMP (id INT, name VARCHAR(50))");
+            execute("INSERT INTO Mixed_Test_Database.EMPLOYEE_TMP VALUES (1, 'a'), (2, 'b')");
+
+            assertUpdate(noCatalog, "CREATE VIEW " + view + " AS SELECT id, name FROM mysql.Mixed_Test_Database.EMPLOYEE_TMP WHERE id > 1");
+            assertEquals(mySqlViewDefiner("EMPLOYEE_TMP_VIEW"), "alice@%");
+            assertQuery(otherUser, "SELECT id, name FROM " + view, "VALUES (2, 'b')");
+            assertTrue(((String) computeActual(otherUser, "SHOW CREATE VIEW " + view).getOnlyValue()).contains("SECURITY DEFINER"));
+        }
+        finally {
+            execute("DROP VIEW IF EXISTS Mixed_Test_Database.EMPLOYEE_TMP_VIEW");
+            execute("DROP TABLE IF EXISTS Mixed_Test_Database.EMPLOYEE_TMP");
+        }
+    }
+
+    private String mySqlViewDefiner(String viewName)
+            throws SQLException
+    {
+        try (Connection connection = DriverManager.getConnection(
+                mysqlContainer.getJdbcUrl(),
+                mysqlContainer.getUsername(),
+                mysqlContainer.getPassword());
+                PreparedStatement statement = connection.prepareStatement(
+                        "SELECT DEFINER FROM information_schema.views WHERE table_schema = 'Mixed_Test_Database' AND table_name = ?")) {
+            statement.setString(1, viewName);
+            try (ResultSet rs = statement.executeQuery()) {
+                assertTrue(rs.next(), "View " + viewName + " should exist in MySQL");
+                return rs.getString("DEFINER");
             }
         }
     }
