@@ -125,7 +125,7 @@ public class ClickHousePushdownUtils
             return decodeDecimal(decodeUnscaledValue(value), decimalType).toString();
         }
         if (type instanceof VarcharType || type instanceof CharType) {
-            return "'" + ((Slice) node.getValue()).toStringUtf8() + "'";
+            return "'" + ((Slice) node.getValue()).toStringUtf8().replace("\\", "\\\\").replace("'", "\\'") + "'";
         }
         if (type instanceof TimestampType) {
             return getTimestampLiteralAsString(session, (long) node.getValue());

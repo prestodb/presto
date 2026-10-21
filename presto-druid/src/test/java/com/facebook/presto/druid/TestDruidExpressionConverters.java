@@ -55,6 +55,7 @@ public class TestDruidExpressionConverters
         testFilter("\"region.id\" = 20", "(\"region.Id\" = 20)", sessionHolder);
         testFilter("\"region.id\" >= 20", "(\"region.Id\" >= 20)", sessionHolder);
         testFilter("city = 'Campbell'", "(\"city\" = 'Campbell')", sessionHolder);
+        testFilter("city = 'x'' OR 1 = 1 --'", "(\"city\" = 'x'' OR 1 = 1 --')", sessionHolder);
 
         // between
         testFilter("totalfare between 20 and 30", "((fare + trip) BETWEEN 20 AND 30)", sessionHolder);
