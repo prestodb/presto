@@ -126,6 +126,14 @@ class SessionProperties : public SessionPropertiesProvider {
   static constexpr const char* kRpcCongestionMaxWindow =
       "native_rpc_congestion_max_window";
 
+  /// Initial per-driver BATCH RPC congestion window (0 = default of 2).
+  static constexpr const char* kRpcCongestionBatchStartWindow =
+      "native_rpc_congestion_batch_start_window";
+
+  /// Cap for BATCH window growth on clean no-latency completions (0 = off).
+  static constexpr const char* kRpcCongestionAsyncGrowthMaxWindow =
+      "native_rpc_congestion_async_growth_max_window";
+
   /// Enable row number spilling on native engine.
   static constexpr const char* kRowNumberSpillEnabled =
       "native_row_number_spill_enabled";

@@ -22,6 +22,7 @@ import com.google.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
@@ -111,6 +112,8 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_RPC_RATELIMITER_DECREASE_FACTOR = "native_rpc_ratelimiter_decrease_factor";
     public static final String NATIVE_RPC_RATELIMITER_MAX_LIMIT = "native_rpc_ratelimiter_max_limit";
     public static final String NATIVE_RPC_RATELIMITER_HARD_LIMIT = "native_rpc_ratelimiter_hard_limit";
+    public static final String NATIVE_RPC_CONGESTION_BATCH_START_WINDOW = "native_rpc_congestion_batch_start_window";
+    public static final String NATIVE_RPC_CONGESTION_ASYNC_GROWTH_MAX_WINDOW = "native_rpc_congestion_async_growth_max_window";
     public static final String NATIVE_RPC_CONGESTION_MAX_WINDOW = "native_rpc_congestion_max_window";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -598,6 +601,29 @@ public class NativeWorkerSessionPropertyProvider
                                 "Zero adds no session ceiling; a positive value combines with the function ceiling.",
                         -1L,
                         !nativeExecution),
+                new PropertyMetadata<>(
+                        NATIVE_RPC_CONGESTION_BATCH_START_WINDOW,
+                        "Native Execution only. Initial per-driver BATCH RPC congestion window. " +
+                                "Zero preserves the default of 2; positive values are clamped to the window bounds. " +
+                                "Must be non-negative.",
+                        BIGINT,
+                        Long.class,
+                        0L,
+                        !nativeExecution,
+                        value -> validateNonNegativeLong(value, NATIVE_RPC_CONGESTION_BATCH_START_WINDOW),
+                        object -> object),
+                new PropertyMetadata<>(
+                        NATIVE_RPC_CONGESTION_ASYNC_GROWTH_MAX_WINDOW,
+                        "Native Execution only. Cap for per-driver BATCH window growth on clean " +
+                                "completions that carry no usable latency sample. Zero disables the growth; " +
+                                "positive values let the window discover capacity additively up to the cap. " +
+                                "Must be non-negative.",
+                        BIGINT,
+                        Long.class,
+                        0L,
+                        !nativeExecution,
+                        value -> validateNonNegativeLong(value, NATIVE_RPC_CONGESTION_ASYNC_GROWTH_MAX_WINDOW),
+                        object -> object),
                 longProperty(
                         NATIVE_RPC_CONGESTION_MAX_WINDOW,
                         "Native Execution only. Ceiling for the per-driver RPC congestion window " +
@@ -619,6 +645,21 @@ public class NativeWorkerSessionPropertyProvider
                     format("%s must be between %s and %s: %s", property, lowerBoundIncluded, upperBoundIncluded, intValue));
         }
         return intValue;
+    }
+
+    private static Long validateNonNegativeLong(Object value, String property)
+    {
+        if (value == null) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be non-null", property));
+        }
+
+        long longValue = ((Number) value).longValue();
+        if (longValue < 0) {
+            throw new PrestoException(
+                    INVALID_SESSION_PROPERTY,
+                    format("%s must be non-negative: %s", property, longValue));
+        }
+        return longValue;
     }
 
     @Override

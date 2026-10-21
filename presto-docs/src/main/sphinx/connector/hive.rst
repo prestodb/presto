@@ -1210,6 +1210,19 @@ The following properties can be used to control how these quick stats are built:
       - ``hive.quick-stats.enabled``
       - Enable stats collection through quick stats providers. Also
         toggleable through the ``quick_stats_enabled`` session property.
+
+        A partition with no data files, or whose data files hold no rows, is
+        reported as having zero rows. That row count can still be served
+        after data is written, until ``hive.quick-stats.cache-expiry``
+        elapses.
+      - ``false``
+   -
+
+      - ``hive.quick-stats.estimate-ndv-stat``
+      - When enabled, estimate a conservative distinct-values-count (NDV)
+        bound computed from the min/max range of existing stats. Without this
+        set, NDV estimates are not set. Also toggleable through the
+        ``quick_stats_estimate_ndv_stat`` session property.
       - ``false``
    -
 
