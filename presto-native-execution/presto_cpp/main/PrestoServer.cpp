@@ -229,8 +229,17 @@ void startUcxCommunicator() {
       communicator,
       "Failed to initialize the UCX exchange Communicator on port {}",
       port);
-  ucxCommunicatorThread = std::make_unique<std::thread>(
-      &velox::ucx_exchange::Communicator::run, communicator.get());
+  // An error in run(), such as the port already being in use, would otherwise
+  // escape the thread and std::terminate() the worker without saying why.
+  // Fail with the port and the cause instead.
+  ucxCommunicatorThread = std::make_unique<std::thread>([communicator, port]() {
+    try {
+      communicator->run();
+    } catch (const std::exception& e) {
+      LOG(FATAL) << "UCX exchange Communicator on port " << port
+                 << " failed: " << e.what();
+    }
+  });
   if (ready.valid()) {
     std::move(ready).wait();
   }
