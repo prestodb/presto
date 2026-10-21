@@ -887,7 +887,7 @@ public final class IcebergUtil
         if (valueCount != null && (nullCount == null || nullCount < valueCount)) {
             return true;
         }
-        if (valueCount == null && !appendSequenceNumbers.get().contains(fileSequenceNumber)) {
+        if (valueCount == null && (fileSequenceNumber == null || !appendSequenceNumbers.get().contains(fileSequenceNumber))) {
             return true;
         }
         return domain.includesNullableValue(dataSequenceNumber);

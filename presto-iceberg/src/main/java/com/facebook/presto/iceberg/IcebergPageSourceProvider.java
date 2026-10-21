@@ -625,8 +625,8 @@ public class IcebergPageSourceProvider
                 }
             }
 
-            // Skip the time type columns in predicate, converted on page source level, and the row
-            // lineage columns, whose stored values exclude inherited ones
+            // Skip the time type columns in predicate, converted on page source level.
+            // Stored row lineage values exclude inherited ones, so their statistics cannot prune.
             ImmutableMap.Builder<IcebergColumnHandle, Domain> predicateExcludeTimeType = ImmutableMap.builder();
             effectivePredicate.getDomains().get().forEach((columnHandle, domain) -> {
                 if (!(columnHandle.getType() instanceof TimeType) && !columnHandle.isRowLineageColumn()) {

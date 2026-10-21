@@ -182,6 +182,8 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     const protocol::TableHandle& tableHandle,
     const std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>&
         columnHandles,
+    // Row lineage columns the scan filters on or projects; a superset of the
+    // lineage entries in columnHandles.
     const std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>&
         lineageColumnHandles,
     const std::unordered_map<std::string, int32_t>& fieldIdsByName,
