@@ -260,6 +260,11 @@ public interface Metadata
     void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type);
 
     /**
+     * Set the type of a nested field within a struct column.
+     */
+    void setFieldType(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type);
+
+    /**
      * Move the specified column to the specified position within the table's column order.
      */
     void setColumnPosition(Session session, TableHandle tableHandle, ColumnHandle column, ColumnPosition position);

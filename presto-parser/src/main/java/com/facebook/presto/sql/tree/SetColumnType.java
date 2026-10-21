@@ -26,11 +26,11 @@ public class SetColumnType
         extends Statement
 {
     private final QualifiedName tableName;
-    private final Identifier columnName;
+    private final QualifiedName columnName;
     private final String type;
     private final boolean tableExists;
 
-    public SetColumnType(NodeLocation location, QualifiedName tableName, Identifier columnName, String type, boolean tableExists)
+    public SetColumnType(NodeLocation location, QualifiedName tableName, QualifiedName columnName, String type, boolean tableExists)
     {
         super(Optional.of(location));
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -44,7 +44,7 @@ public class SetColumnType
         return tableName;
     }
 
-    public Identifier getColumnName()
+    public QualifiedName getColumnName()
     {
         return columnName;
     }
