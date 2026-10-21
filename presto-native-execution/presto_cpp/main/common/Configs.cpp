@@ -334,9 +334,17 @@ int SystemConfig::httpServerHttpPort() const {
 }
 
 int SystemConfig::cudfExchangeServerPort() const {
-  // UcxExchangeSource derives a peer's UCX port from its advertised HTTP port
-  // using the same offset.
-  return httpServerHttpPort() + kUcxPortOffset;
+  // UcxExchangeSource derives a peer's UCX port from the port in its task URL
+  // using the same offset. The worker puts its HTTPS port there when HTTPS is
+  // enabled, and its HTTP port otherwise.
+  const int advertisedPort =
+      httpServerHttpsEnabled() ? httpServerHttpsPort() : httpServerHttpPort();
+  VELOX_USER_CHECK_GT(
+      advertisedPort,
+      0,
+      "The cuDF UCX exchange needs a fixed server port: the UCX listener "
+      "starts before the HTTP server picks one");
+  return advertisedPort + kUcxPortOffset;
 }
 
 bool SystemConfig::httpServerReusePort() const {

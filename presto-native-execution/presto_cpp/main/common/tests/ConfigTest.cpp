@@ -242,6 +242,28 @@ TEST_F(ConfigTest, cudfExchangeServerPort) {
   ASSERT_EQ(config.cudfExchangeServerPort(), 7780);
 }
 
+// With HTTPS enabled, the worker advertises its HTTPS port and peers derive the
+// UCX port from that, so the listener must use the same base.
+TEST_F(ConfigTest, cudfExchangeServerPortHttps) {
+  SystemConfig config;
+  init(
+      config,
+      {{std::string(SystemConfig::kHttpServerHttpPort), "7777"},
+       {std::string(SystemConfig::kHttpServerHttpsEnabled), "true"},
+       {std::string(SystemConfig::kHttpServerHttpsPort), "7778"}});
+  ASSERT_EQ(config.cudfExchangeServerPort(), 7781);
+}
+
+// Port 0 lets the HTTP server pick its port only after the UCX listener has
+// started, so no UCX port can be derived from it.
+TEST_F(ConfigTest, cudfExchangeServerPortEphemeral) {
+  SystemConfig config;
+  init(config, {{std::string(SystemConfig::kHttpServerHttpPort), "0"}});
+  VELOX_ASSERT_USER_THROW(
+      config.cudfExchangeServerPort(),
+      "The cuDF UCX exchange needs a fixed server port");
+}
+
 TEST_F(ConfigTest, asyncCacheNumShards) {
   SystemConfig config;
   init(config, {});

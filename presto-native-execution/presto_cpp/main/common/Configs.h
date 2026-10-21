@@ -1026,7 +1026,9 @@ class SystemConfig : public ConfigBase {
 
   int httpServerHttpPort() const;
 
-  /// Returns the UCX listener port derived from the HTTP server port.
+  /// Returns the UCX listener port derived from the port the worker advertises
+  /// in its task URLs: the HTTPS port when HTTPS is enabled, else the HTTP
+  /// port. Throws if that port is 0, since it is then unknown at startup.
   int cudfExchangeServerPort() const;
 
   bool httpServerReusePort() const;
