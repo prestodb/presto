@@ -1836,16 +1836,14 @@ void PrestoServer::checkOverload() {
   // Determine if the server is overloaded. We require both memory and CPU to be
   // not overloaded for some time (continuous period) to consider the server as
   // not overloaded.
-  const uint64_t currentTimeSecs =
-      velox::EpochTime::now<std::chrono::seconds>();
   if (memOverloaded_ || cpuOverloaded_) {
-    lastOverloadedTimeInSecs_ = currentTimeSecs;
+    lastOverloadedTime_ = std::chrono::steady_clock::now();
   }
-  VELOX_CHECK_GE(currentTimeSecs, lastOverloadedTimeInSecs_);
-  const bool serverOverloaded =
-      ((cpuOverloaded_ || memOverloaded_) ||
-       ((currentTimeSecs - lastOverloadedTimeInSecs_) <
-        systemConfig->workerOverloadedCooldownPeriodSec()));
+  const bool serverOverloaded = (cpuOverloaded_ || memOverloaded_) ||
+      (lastOverloadedTime_.has_value() &&
+       std::chrono::steady_clock::now() - lastOverloadedTime_.value() <
+           std::chrono::seconds(
+               systemConfig->workerOverloadedCooldownPeriodSec()));
 
   if (serverOverloaded && !serverOverloaded_) {
     LOG(WARNING) << "OVERLOAD: Server is overloaded.";
