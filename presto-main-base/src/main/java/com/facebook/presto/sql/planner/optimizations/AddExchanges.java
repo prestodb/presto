@@ -110,6 +110,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -237,6 +238,7 @@ public class AddExchanges
         private final boolean redistributeWrites;
         private final boolean scaleWriters;
         private final boolean preferDistributedUnion;
+        private final boolean reconcileUnionPartitionCounts;
         private final PartialMergePushdownStrategy partialMergePushdownStrategy;
         private final String partitioningProviderCatalog;
         private final int hashPartitionCount;
@@ -262,6 +264,7 @@ public class AddExchanges
             this.redistributeWrites = isRedistributeWrites(session);
             this.scaleWriters = isScaleWriters(session);
             this.preferDistributedUnion = isPreferDistributedUnion(session);
+            this.reconcileUnionPartitionCounts = prestoSparkExecutionEnvironment && getRpcFunctionParallelism(session) > 0;
             this.partialMergePushdownStrategy = getPartialMergePushdownStrategy(session);
             this.preferStreamingOperators = preferStreamingOperators(session);
             this.partitioningProviderCatalog = getPartitioningProviderCatalog(session);
@@ -1609,6 +1612,9 @@ public class AddExchanges
                         // No source distributed child, we can use insert LOCAL exchange
                         // TODO: if all children have the same partitioning, pass this partitioning to the parent
                         // instead of "arbitraryPartition".
+                        if (reconcileUnionPartitionCounts) {
+                            distributedChildren = reconcileUnionPartitionCounts(distributedChildren);
+                        }
                         return new PlanWithProperties(node.replaceChildren(distributedChildren));
                     }
                     else if (preferDistributedUnion) {
@@ -1789,6 +1795,49 @@ public class AddExchanges
                 }
                 throw e;
             }
+        }
+
+        private List<PlanNode> reconcileUnionPartitionCounts(List<PlanNode> sources)
+        {
+            // Spark requires every non-broadcast input to have the same number of partitions.
+            // When inputs disagree, bring them all back to hash_partition_count so that
+            // rpc_function_parallelism stays confined to the RPC stage.
+            long distinctPartitionCounts = extractRemoteExchangePartitioningHandles(sources).stream()
+                    .map(this::getSystemPartitionCount)
+                    .filter(OptionalInt::isPresent)
+                    .mapToInt(OptionalInt::getAsInt)
+                    .distinct()
+                    .count();
+            if (distinctPartitionCounts <= 1) {
+                return sources;
+            }
+
+            return sources.stream()
+                    .map(source -> hasPartitionCountOtherThan(source, hashPartitionCount)
+                            ? roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, source)
+                            : source)
+                    .collect(toImmutableList());
+        }
+
+        private boolean hasPartitionCountOtherThan(PlanNode source, int partitionCount)
+        {
+            return extractRemoteExchangePartitioningHandles(ImmutableList.of(source)).stream()
+                    .map(this::getSystemPartitionCount)
+                    .anyMatch(count -> count.isPresent() && count.getAsInt() != partitionCount);
+        }
+
+        private OptionalInt getSystemPartitionCount(PartitioningHandle handle)
+        {
+            if (!(handle.getConnectorHandle() instanceof SystemPartitioningHandle)) {
+                return OptionalInt.empty();
+            }
+            SystemPartitioningHandle systemHandle = (SystemPartitioningHandle) handle.getConnectorHandle();
+            if (systemHandle.getPartitioning() != SystemPartitioningHandle.SystemPartitioning.FIXED ||
+                    (systemHandle.getFunction() != SystemPartitioningHandle.SystemPartitionFunction.HASH &&
+                            systemHandle.getFunction() != SystemPartitioningHandle.SystemPartitionFunction.ROUND_ROBIN)) {
+                return OptionalInt.empty();
+            }
+            return OptionalInt.of(systemHandle.getPartitionCount().orElse(hashPartitionCount));
         }
 
         // TODO: refactor this method into ExchangeNode#partitionedExchange once

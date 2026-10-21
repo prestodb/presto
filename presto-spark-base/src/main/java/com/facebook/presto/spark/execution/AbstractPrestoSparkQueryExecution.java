@@ -149,16 +149,18 @@ import static com.facebook.presto.spark.util.PrestoSparkFailureUtils.toPrestoSpa
 import static com.facebook.presto.spark.util.PrestoSparkUtils.classTag;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.computeNextTimeout;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.getPartitionCountFromBucketToPartition;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toSerializedPage;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
 import static com.facebook.presto.spi.storage.StorageCapabilities.REMOTELY_ACCESSIBLE;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isRootFragment;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.getSystemPartitionCount;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedRoundRobin;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -329,15 +331,11 @@ public abstract class AbstractPrestoSparkQueryExecution
             return new PrestoSparkPartitioner(1);
         }
         if (partitioning.equals(FIXED_HASH_DISTRIBUTION)
-                || partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)
+                || isFixedRoundRobin(partitioning)
                 || partitioning.getConnectorId().isPresent()) {
             int[] bucketToPartition = partitioningScheme.getBucketToPartition().orElseThrow(
                     () -> new IllegalArgumentException("bucketToPartition is expected to be assigned at this point"));
-            checkArgument(bucketToPartition.length > 0, "bucketToPartition is expected to be non empty");
-            int numberOfPartitions = IntStream.of(bucketToPartition)
-                    .max()
-                    .getAsInt() + 1;
-            return new PrestoSparkPartitioner(numberOfPartitions);
+            return new PrestoSparkPartitioner(getPartitionCountFromBucketToPartition(bucketToPartition));
         }
         throw new IllegalArgumentException("Unexpected partitioning: " + partitioning);
     }
@@ -802,20 +800,27 @@ public abstract class AbstractPrestoSparkQueryExecution
 
     protected Optional<int[]> getBucketToPartition(Session session, PartitioningHandle partitioningHandle, int hashPartitionCount)
     {
-        if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
-            return Optional.of(IntStream.range(0, hashPartitionCount).toArray());
-        }
-        //  FIXED_ARBITRARY_DISTRIBUTION is used for UNION ALL
-        //  UNION ALL inputs could be source inputs or shuffle inputs
-        if (partitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
-            // given modular hash function, partition count could be arbitrary size
-            // simply reuse hash_partition_count for convenience
-            // it can also be set by a separate session property if needed
-            return Optional.of(IntStream.range(0, hashPartitionCount).toArray());
+        Optional<int[]> systemBucketToPartition = getSystemBucketToPartition(partitioningHandle, hashPartitionCount);
+        if (systemBucketToPartition.isPresent()) {
+            return systemBucketToPartition;
         }
         if (partitioningHandle.getConnectorId().isPresent()) {
             int connectorPartitionCount = getPartitionCount(session, partitioningHandle);
             return Optional.of(IntStream.range(0, connectorPartitionCount).toArray());
+        }
+        return Optional.empty();
+    }
+
+    @VisibleForTesting
+    static Optional<int[]> getSystemBucketToPartition(PartitioningHandle partitioningHandle, int hashPartitionCount)
+    {
+        if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
+            return Optional.of(IntStream.range(0, hashPartitionCount).toArray());
+        }
+        // Count-less round-robin handles are used by UNION ALL.
+        if (isFixedRoundRobin(partitioningHandle)) {
+            int partitionCount = getSystemPartitionCount(partitioningHandle).orElse(hashPartitionCount);
+            return Optional.of(IntStream.range(0, partitionCount).toArray());
         }
         return Optional.empty();
     }
