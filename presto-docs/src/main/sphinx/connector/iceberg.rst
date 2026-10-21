@@ -941,7 +941,7 @@ See the `Iceberg spec — Row Lineage <https://iceberg.apache.org/spec/#row-line
 
 ``_row_id`` column
 ~~~~~~~~~~~~~~~~~~
-A globally unique, monotonically increasing ``BIGINT`` identifier for each row.
+A globally unique ``BIGINT`` identifier for each row.
 If the data file stores a ``_row_id`` for the row, that value is returned.
 Otherwise the value is derived from the data file's ``firstRowId`` (stored in
 the Iceberg manifest) plus the row's ordinal position within that file
@@ -1004,6 +1004,15 @@ committed first (sequence number 1) and ``id = 2`` was committed next (sequence
 number 2).
 
 For V1/V2 tables, the column returns ``NULL``.
+
+A filter on ``_last_updated_sequence_number`` skips data files that cannot hold
+a matching value.  A data file that has no statistics for the column and was
+added by an ``APPEND`` snapshot the table still retains is assumed to store no
+values, so it is skipped when its data sequence number does not match.  A writer
+that adds files with stored values in an ``APPEND`` commit, such as a procedure
+that registers existing data files, breaks this assumption, and the filter can
+miss rows from those files.  Files that record value and null counts for the
+column are not affected.
 
 .. rubric:: Presto C++ Support
 
