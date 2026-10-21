@@ -536,7 +536,6 @@ public class QueryPlanner
                     outputVariables,
                     rowId,
                     targetColumnNames,
-                    orderedColumnValues,
                     planAndMappings,
                     outputs);
         }
@@ -580,7 +579,6 @@ public class QueryPlanner
             List<VariableReferenceExpression> outputVariables,
             Optional<VariableReferenceExpression> rowId,
             List<String> targetColumnNames,
-            List<Expression> orderedColumnValues,
             PlanAndMappings planAndMappings,
             List<VariableReferenceExpression> outputs)
     {
@@ -629,7 +627,7 @@ public class QueryPlanner
             String columnName = column.getName();
             int setIndex = targetColumnNames.indexOf(columnName);
             if (setIndex >= 0) {
-                Expression setExpression = orderedColumnValues.get(setIndex);
+                Expression setExpression = node.getAssignments().get(setIndex).getValue();
                 VariableReferenceExpression projectedVariable = planAndMappings.get(setExpression);
                 mergeRowFields.add(createSymbolReference(projectedVariable));
             }
