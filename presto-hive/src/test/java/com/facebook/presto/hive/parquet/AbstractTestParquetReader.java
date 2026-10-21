@@ -55,6 +55,8 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -123,8 +125,10 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.apache.parquet.schema.MessageTypeParser.parseMessageType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public abstract class AbstractTestParquetReader
 {
@@ -1800,9 +1804,128 @@ public abstract class AbstractTestParquetReader
     {
         PrimitiveType primitiveType = new PrimitiveType(OPTIONAL, BINARY, "testColumn");
         Statistics statistics = new Statistics();
-        assertEquals(MetadataReader.readStats(statistics, primitiveType.getPrimitiveTypeName()).getNumNulls(), -1);
+        assertEquals(MetadataReader.readStats(statistics, primitiveType).getNumNulls(), -1);
         statistics.setNull_count(10);
-        assertEquals(MetadataReader.readStats(statistics, primitiveType.getPrimitiveTypeName()).getNumNulls(), 10);
+        assertEquals(MetadataReader.readStats(statistics, primitiveType).getNumNulls(), 10);
+    }
+
+    @Test
+    public void testReadStatsMinMaxFields()
+    {
+        PrimitiveType type = Types.optional(INT32).named("testColumn");
+
+        // No min/max set
+        assertFalse(MetadataReader.readStats(new Statistics(), type).hasNonNullValue());
+
+        // Only the deprecated min/max fields are set (older writers)
+        Statistics deprecatedOnly = intStatistics(1, 100, false);
+        assertIntMinMax(MetadataReader.readStats(deprecatedOnly, type), 1, 100);
+
+        // Only min_value/max_value are set
+        Statistics newOnly = intStatistics(2, 99, true);
+        assertIntMinMax(MetadataReader.readStats(newOnly, type), 2, 99);
+
+        // Both are set: min_value/max_value take precedence
+        Statistics both = intStatistics(1, 100, false);
+        both.setMin_value(intBytes(2));
+        both.setMax_value(intBytes(99));
+        assertIntMinMax(MetadataReader.readStats(both, type), 2, 99);
+
+        // Only one of min_value/max_value set: falls back to the deprecated fields
+        Statistics partial = intStatistics(1, 100, false);
+        partial.setMin_value(intBytes(2));
+        assertIntMinMax(MetadataReader.readStats(partial, type), 1, 100);
+    }
+
+    @Test
+    public void testDeprecatedMinMaxStatsReadOnlyForSignedTypes()
+    {
+        PrimitiveType unsignedType = Types.optional(INT32).as(LogicalTypeAnnotation.intType(32, false)).named("testColumn");
+
+        // The deprecated min/max fields are not trusted for unsigned integers
+        Statistics deprecatedOnly = intStatistics(1, 100, false);
+        org.apache.parquet.column.statistics.Statistics<?> statistics = MetadataReader.readStats(deprecatedOnly, unsignedType);
+        assertFalse(statistics.hasNonNullValue()); // No stats are built
+
+        // Only if new stats fields are read for unsigned integers
+        Statistics newOnly = intStatistics(1, 100, true);
+        assertIntMinMax(MetadataReader.readStats(newOnly, unsignedType), 1, 100);
+
+        // BINARY types are unsigned as well
+        PrimitiveType binaryType = Types.optional(BINARY).named("testColumn");
+        Statistics binaryStatistics = new Statistics();
+        binaryStatistics.setMin("a".getBytes(UTF_8));
+        binaryStatistics.setMax("z".getBytes(UTF_8));
+        assertFalse(MetadataReader.readStats(binaryStatistics, binaryType).hasNonNullValue()); // No stats are built
+        binaryStatistics.setMin_value("b".getBytes(UTF_8));
+        binaryStatistics.setMax_value("y".getBytes(UTF_8));
+        org.apache.parquet.column.statistics.Statistics<?> stats = MetadataReader.readStats(binaryStatistics, binaryType);
+        assertEquals(stats.getMinBytes(), "b".getBytes(UTF_8));
+        assertEquals(stats.getMaxBytes(), "y".getBytes(UTF_8));
+    }
+
+    @Test
+    public void testReadStatsDeprecatedMinMaxSortOrderAndWriterVersion()
+    {
+        String goodWriter = "parquet-mr version 1.10.0 (build abc)";
+        String oldWriter = "parquet-mr version 1.6.0 (build abc)";
+
+        // FLOAT/DOUBLE and DATE have a signed sort order
+        PrimitiveType dateType = Types.optional(INT32).as(LogicalTypeAnnotation.dateType()).named("testColumn");
+        assertIntMinMax(MetadataReader.readStats(intStatistics(1, 100, false), dateType, goodWriter), 1, 100);
+        PrimitiveType floatType = Types.optional(PrimitiveType.PrimitiveTypeName.FLOAT).named("testColumn");
+        Statistics floatStatistics = new Statistics();
+        floatStatistics.setMin(intBytes(Float.floatToIntBits(1.5f)));
+        floatStatistics.setMax(intBytes(Float.floatToIntBits(2.5f)));
+        assertIntMinMax(MetadataReader.readStats(floatStatistics, floatType), Float.floatToIntBits(1.5f), Float.floatToIntBits(2.5f));
+
+        // Decimals have an unknown sort order
+        PrimitiveType decimalType = Types.optional(INT32).as(LogicalTypeAnnotation.decimalType(2, 9)).named("testColumn");
+        assertFalse(MetadataReader.readStats(intStatistics(1, 100, false), decimalType, goodWriter).hasNonNullValue());
+
+        // Binary stats are only used if min == max and the writer is not affected by PARQUET-251
+        PrimitiveType binaryType = Types.optional(BINARY).named("testColumn");
+        Statistics equalMinMax = new Statistics();
+        equalMinMax.setMin("a".getBytes(UTF_8));
+        equalMinMax.setMax("a".getBytes(UTF_8));
+        assertEquals(MetadataReader.readStats(equalMinMax, binaryType, goodWriter).getMinBytes(), "a".getBytes(UTF_8));
+        assertFalse(MetadataReader.readStats(equalMinMax, binaryType, oldWriter).hasNonNullValue());
+        assertFalse(MetadataReader.readStats(equalMinMax, binaryType, null).hasNonNullValue());
+
+        // min_value/max_value are ignored for types with an undefined column order, unless min == max
+        PrimitiveType int96Type = Types.optional(PrimitiveType.PrimitiveTypeName.INT96).named("testColumn");
+        Statistics int96Statistics = new Statistics();
+        int96Statistics.setMin_value(new byte[12]);
+        int96Statistics.setMax_value(new byte[12]);
+        assertEquals(MetadataReader.readStats(int96Statistics, int96Type).getMinBytes(), new byte[12]);
+        int96Statistics.setMax_value(new byte[] {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+        assertFalse(MetadataReader.readStats(int96Statistics, int96Type).hasNonNullValue());
+    }
+
+    private static byte[] intBytes(int value)
+    {
+        return ByteBuffer.allocate(Integer.BYTES).order(ByteOrder.LITTLE_ENDIAN).putInt(value).array();
+    }
+
+    private static Statistics intStatistics(int min, int max, boolean setNewMinMaxValueFields)
+    {
+        Statistics statistics = new Statistics();
+        // Set only one of the stats min/max fields as per the passed
+        if (setNewMinMaxValueFields) {
+            statistics.setMin_value(intBytes(min));
+            statistics.setMax_value(intBytes(max));
+        }
+        else {
+            statistics.setMin(intBytes(min));
+            statistics.setMax(intBytes(max));
+        }
+        return statistics;
+    }
+
+    private static void assertIntMinMax(org.apache.parquet.column.statistics.Statistics<?> stats, int min, int max)
+    {
+        assertEquals(stats.getMinBytes(), intBytes(min));
+        assertEquals(stats.getMaxBytes(), intBytes(max));
     }
 
     @Test
