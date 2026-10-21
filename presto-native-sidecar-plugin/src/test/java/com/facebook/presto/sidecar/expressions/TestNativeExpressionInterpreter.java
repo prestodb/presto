@@ -297,6 +297,11 @@ public class TestNativeExpressionInterpreter
     @Test(enabled = false)
     public void testInvalidLike() {}
 
+    /// TODO: Velox's BETWEEN returns NULL when any argument is NULL, see https://github.com/facebookincubator/velox/issues/19697.
+    @Override
+    @Test(enabled = false)
+    public void testBetweenWithNullBound() {}
+
     /// TODO: NULL_IF special form is unsupported in Presto C++.
     @Override
     @Test(enabled = false)
