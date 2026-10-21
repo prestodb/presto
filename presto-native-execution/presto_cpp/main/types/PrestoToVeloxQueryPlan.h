@@ -294,7 +294,7 @@ class VeloxQueryPlanConverterBase {
   ///   property false  -> in-memory, whatever is registered
   ///   property true   -> UCX, or a user error naming the property where the
   ///                      transport is not registered
-  std::string toVeloxTransportType(
+  virtual std::string toVeloxTransportType(
       const std::shared_ptr<protocol::TransportType>& transportType) const;
 
   velox::memory::MemoryPool* const pool_;
@@ -348,6 +348,12 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
       const protocol::TaskId& taskId) override;
 
   velox::connector::CommitStrategy getCommitStrategy() const override;
+
+  /// Batch exchanges go through the shuffle interface or storage, never a
+  /// worker-to-worker transport, so every edge stays in-memory.
+  std::string toVeloxTransportType(
+      const std::shared_ptr<protocol::TransportType>& transportType)
+      const override;
 
  private:
   const std::string shuffleName_;

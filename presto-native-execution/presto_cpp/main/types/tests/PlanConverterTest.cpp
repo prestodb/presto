@@ -165,6 +165,33 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
           prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3")
       .planNode;
 }
+
+// Converts a batch plan fragment from already parsed JSON, like
+// toVeloxFragment(), so that a test can annotate transport types and set
+// session properties.
+core::PlanFragment toBatchVeloxFragment(
+    const json& fragmentJson,
+    std::shared_ptr<std::string>&& serializedShuffleWriteInfo,
+    std::unordered_map<std::string, std::string> queryConfigs = {}) {
+  const protocol::PlanFragment prestoPlan = fragmentJson;
+  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
+  auto queryCtx = core::QueryCtx::create(
+      nullptr, core::QueryConfig{std::move(queryConfigs)});
+  VeloxBatchQueryPlanConverter converter(
+      std::string(operators::LocalPersistentShuffleFactory::kShuffleName),
+      std::move(serializedShuffleWriteInfo),
+      std::make_shared<std::string>("/tmp"),
+      queryCtx.get(),
+      pool.get());
+  return converter.toVeloxQueryPlan(
+      prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3");
+}
+
+std::shared_ptr<std::string> shuffleWriteInfo() {
+  return std::make_shared<std::string>(fmt::format(
+      "{{\"rootPath\": \"{}\", \"numPartitions\": 10}}",
+      exec::test::TempDirectoryPath::create()->getPath()));
+}
 } // namespace
 
 class PlanConverterTest : public ::testing::Test {
@@ -603,4 +630,42 @@ TEST_F(PlanConverterTest, batchPlanConversionExchangeWrite) {
       std::dynamic_pointer_cast<const operators::MaterializedExchangeNode>(
           curNode);
   ASSERT_NE(materializedExchangeNode, nullptr);
+}
+
+// Batch exchanges go through the shuffle interface or storage, never a
+// worker-to-worker transport, so asking for UCX on a worker without it does not
+// fail a batch shuffle or broadcast.
+TEST_F(PlanConverterTest, batchTransportIgnoresCudfExchangeEnabled) {
+  filesystems::registerLocalFileSystem();
+  for (const auto* function : {"HASH", "BROADCAST"}) {
+    SCOPED_TRACE(function);
+    auto fragmentJson = parseFragmentJson("ScanAggBatch.json");
+    fragmentJson["outputTransportType"] = "ANY";
+    fragmentJson["partitioningScheme"]["partitioning"]["handle"]
+                ["connectorHandle"]["function"] = function;
+
+    const auto fragment = toBatchVeloxFragment(
+        fragmentJson,
+        shuffleWriteInfo(),
+        {{SessionProperties::kCudfExchangeEnabledConfig, "true"}});
+    ASSERT_NE(fragment.planNode, nullptr);
+  }
+}
+
+// A batch fragment without shuffle write info keeps its PartitionedOutputNode.
+// It must stay on the in-memory transport even where UCX is registered, because
+// the batch consumer always reads it over the in-memory transport.
+TEST_F(PlanConverterTest, batchTransportStaysInMemoryWithUcxRegistered) {
+  ScopedUcxTransports ucxTransports;
+
+  auto fragmentJson = parseFragmentJson("FinalAgg.json");
+  fragmentJson["outputTransportType"] = "ANY";
+  annotateRemoteSources(fragmentJson["root"], "ANY");
+
+  const auto fragment = toBatchVeloxFragment(fragmentJson, nullptr);
+
+  const auto* partitionedOutput =
+      dynamic_cast<const core::PartitionedOutputNode*>(fragment.planNode.get());
+  ASSERT_NE(partitionedOutput, nullptr);
+  ASSERT_EQ(partitionedOutput->transportKind(), core::TransportKind::kInMemory);
 }

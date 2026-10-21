@@ -3278,6 +3278,11 @@ connector::CommitStrategy VeloxBatchQueryPlanConverter::getCommitStrategy()
   return connector::CommitStrategy::kTaskCommit;
 }
 
+std::string VeloxBatchQueryPlanConverter::toVeloxTransportType(
+    const std::shared_ptr<protocol::TransportType>& /*transportType*/) const {
+  return std::string{core::TransportKind::kInMemory};
+}
+
 void registerPrestoPlanNodeSerDe() {
   auto& registry = DeserializationWithContextRegistryForSharedPtr();
 
