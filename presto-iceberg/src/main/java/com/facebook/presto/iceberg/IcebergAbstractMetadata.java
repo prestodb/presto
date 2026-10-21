@@ -258,6 +258,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getPartitions;
 import static com.facebook.presto.iceberg.IcebergUtil.getSnapshotIdTimeOperator;
 import static com.facebook.presto.iceberg.IcebergUtil.getSortFields;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
+import static com.facebook.presto.iceberg.IcebergUtil.lastSequenceNumbersWithoutFields;
 import static com.facebook.presto.iceberg.IcebergUtil.opsFromTable;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
 import static com.facebook.presto.iceberg.IcebergUtil.supportsRowLineage;
@@ -3656,22 +3657,22 @@ public abstract class IcebergAbstractMetadata
         if (required && loadedField.get().isRequired()) {
             return;
         }
-        // Open the update first so the checks below read the metadata this change commits on. A failed check leaves the
-        // update uncommitted in the Iceberg transaction, which can then never commit; Presto fails its transaction on any
-        // statement error, so it is never committed.
+        if (!required && loadedField.get().isOptional()) {
+            throw new PrestoException(NOT_FOUND, format("Not Null constraint not found on column %s", columnName));
+        }
+        if (!required && icebergTable.schema().identifierFieldIds().contains(loadedField.get().fieldId())) {
+            throw new PrestoException(NOT_SUPPORTED, format("Cannot drop NOT NULL on column '%s': it is an identifier field of table '%s'", columnName, tableName));
+        }
+        if (required && !loadedField.get().type().isPrimitiveType()) {
+            throw new PrestoException(NOT_SUPPORTED, format("Cannot set NOT NULL on column '%s': only columns of primitive types are supported", columnName));
+        }
+        // Open the update so the NULL check reads the metadata this change commits on. A failure after this point leaves
+        // the update uncommitted in the Iceberg transaction, which can then never commit; Presto fails its transaction on
+        // any statement error, so it is never committed.
         UpdateSchema updateSchema = icebergTable.updateSchema();
         NestedField field = icebergTable.schema().findField(loadedField.get().fieldId());
         if (field == null) {
             throw new PrestoException(COLUMN_NOT_FOUND, format("Cannot %s NOT NULL: column '%s' does not exist in table '%s'", operation, columnName, tableName));
-        }
-        if (!required && field.isOptional()) {
-            throw new PrestoException(NOT_FOUND, format("Not Null constraint not found on column %s", columnName));
-        }
-        if (!required && icebergTable.schema().identifierFieldIds().contains(field.fieldId())) {
-            throw new PrestoException(NOT_SUPPORTED, format("Cannot drop NOT NULL on column '%s': it is an identifier field of table '%s'", columnName, tableName));
-        }
-        if (required && !field.type().isPrimitiveType()) {
-            throw new PrestoException(NOT_SUPPORTED, format("Cannot set NOT NULL on column '%s': only columns of primitive types are supported", columnName));
         }
         if (required) {
             verifyNoNullValues(icebergTable, field, columnName, tableName);
@@ -3690,13 +3691,16 @@ public abstract class IcebergAbstractMetadata
      */
     private static void verifyNoNullValues(Table icebergTable, NestedField field, String columnName, SchemaTableName tableName)
     {
+        List<NestedField> fields = ImmutableList.of(field);
+        Map<Integer, Long> lastSequenceNumbersWithoutFields = lastSequenceNumbersWithoutFields(icebergTable, fields);
         Set<Long> checkedSnapshotIds = new HashSet<>();
         for (Map.Entry<String, SnapshotRef> ref : icebergTable.refs().entrySet()) {
             if (!ref.getValue().isBranch() || !checkedSnapshotIds.add(ref.getValue().snapshotId())) {
                 continue;
             }
             String branchName = ref.getKey();
-            Optional<DataFile> file = findDataFileWithNullValues(icebergTable.newScan().useRef(branchName).filter(Expressions.isNull(field.name())), field);
+            Optional<DataFile> file = findDataFileWithNullValues(icebergTable.newScan().useRef(branchName), fields, ImmutableSet.of(field.fieldId()), lastSequenceNumbersWithoutFields)
+                    .map(Map.Entry::getValue);
             if (!file.isPresent()) {
                 continue;
             }

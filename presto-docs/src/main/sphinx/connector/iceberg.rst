@@ -2330,7 +2330,9 @@ Only top-level columns of primitive types can be altered, and the statement is n
 
 ``SET NOT NULL`` checks existing data before it changes the schema. It reads the ``NULL`` counts
 that Iceberg keeps in the manifests for the head of every branch, and fails if a data file has
-``NULL`` values in the column or has no ``NULL`` count for it. No data file is read.
+``NULL`` values in the column or has no ``NULL`` count for it. No data file is read, but the
+coordinator reads the manifests of every branch, so on a table with many branches or large
+manifests the check takes longer.
 
 * ``NULL`` counts are recorded when a data file is written and do not reflect later row-level
   deletes. After ``UPDATE`` or ``DELETE`` removes the ``NULL`` values, run ``rewrite_data_files``
@@ -2349,7 +2351,8 @@ that Iceberg keeps in the manifests for the head of every branch, and fails if a
 * Branches are read with the current schema. So ``rollback_to_snapshot``, ``rollback_to_timestamp``,
   ``set_current_snapshot``, ``fast_forward``, and ``CREATE [OR REPLACE] BRANCH ... FOR SYSTEM_VERSION | SYSTEM_TIME AS OF``
   fail if the data files of the target snapshot can hold ``NULL`` values in a column that is now
-  ``NOT NULL``. Drop the constraint before moving the branch.
+  ``NOT NULL``. Drop the constraint before moving the branch. The check reads the manifests of the
+  target snapshot.
 * After the constraint is set, an ``INSERT``, ``UPDATE`` or ``MERGE`` that stores ``NULL`` in the column fails.
 * In an explicit transaction, if another query commits a write to the table after ``SET NOT NULL``,
   ``COMMIT`` fails with ``Table metadata refresh is required`` and discards every change in the

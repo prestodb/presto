@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogUtil;
+import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
@@ -62,6 +63,7 @@ import static com.facebook.presto.iceberg.NotNullConstraintErrors.noNullCountErr
 import static com.facebook.presto.iceberg.NotNullConstraintErrors.nullValuesError;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
@@ -899,8 +901,44 @@ public class TestIcebergV3
             assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5), (2, 5)");
 
             assertFalse(((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("default_value"));
-            assertUpdate("CREATE TABLE " + tableName + "_like (LIKE " + tableName + ") WITH (\"format-version\" = '3')");
-            dropTable(tableName + "_like");
+            try (TestTable likeTable = new TestTable(getQueryRunner()::execute, tableName + "_like", "CREATE TABLE {TABLE_NAME} (LIKE " + tableName + ") WITH (\"format-version\" = '3')")) {
+                assertQuery(
+                        "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + likeTable.getName() + "'",
+                        "VALUES ('c1', 'YES'), ('c2', 'NO')");
+            }
+        }
+    }
+
+    @Test
+    public void testInsertOmittingNotNullPartitionColumnWithDefault()
+    {
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_insert_omitting_not_null_partition_column")) {
+            String tableName = table.getName();
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
+            loadTable(tableName).updateSpec().addField("c2").commit();
+
+            assertUpdate("INSERT INTO " + tableName + " (c1) VALUES (2)", 1);
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5), (2, 5)");
+            Table icebergTable = loadTable(tableName);
+            DataFile file = getOnlyElement(icebergTable.currentSnapshot().addedDataFiles(icebergTable.io()));
+            assertEquals(file.partition().get(0, Long.class), Long.valueOf(5));
+        }
+    }
+
+    /**
+     * MERGE rejects V3 tables, and write defaults exist only in V3, so a MERGE never omits a column with a write default.
+     */
+    @Test
+    public void testMergeOmittingNotNullColumnWithDefault()
+    {
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_merge_omitting_not_null_column_with_default")) {
+            String tableName = table.getName();
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
+
+            assertQueryFails(
+                    "MERGE INTO " + tableName + " t USING (VALUES 2) s(c1) ON t.c1 = s.c1 WHEN NOT MATCHED THEN INSERT (c1) VALUES (s.c1)",
+                    "Iceberg table updates for format version 3 are not supported yet");
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5)");
         }
     }
 

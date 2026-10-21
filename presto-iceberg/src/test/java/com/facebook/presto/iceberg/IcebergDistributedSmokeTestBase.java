@@ -2097,6 +2097,24 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testFailedSetNotNullAbortsTransaction()
+    {
+        try (TestTable table = newTable("test_failed_set_not_null_txn", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
+
+            Session txnSession = assertStartTransaction(getSession(), "START TRANSACTION");
+            assertUpdate(txnSession, format("INSERT INTO %s VALUES (2, 2)", tableName), 1);
+            assertQueryFails(txnSession, format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName), nullValuesError("c2", "main"));
+            assertQueryFails(txnSession, format("INSERT INTO %s VALUES (3, 3)", tableName), "Current transaction is aborted, commands ignored until end of transaction block");
+            assertQueryFails(txnSession, "COMMIT", "Current transaction has already been aborted");
+
+            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, NULL)");
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES')");
+        }
+    }
+
+    @Test
     public void testSetAndDropNotNullInTransaction()
     {
         try (TestTable table = newTable("test_set_and_drop_not_null_txn", "(c1 BIGINT, c2 BIGINT)")) {
@@ -2134,32 +2152,28 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     /**
-     * Branches use the current schema, so moving one to a snapshot from before SET NOT NULL is checked too, unless the
-     * column was already required in that snapshot.
+     * Branches use the current schema, so moving one to a snapshot from before SET NOT NULL is checked too.
      */
     @Test
     public void testMoveBranchToSnapshotWithNullValues()
     {
         String schemaName = getSession().getSchema().get();
-        try (TestTable table = newTable("test_move_branch_null_values", "(id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])");
-                TestTable addedColumnTable = newTable("test_move_branch_added_column", "(c1 BIGINT)");
-                TestTable requiredColumnTable = newTable("test_move_branch_required_column", "(c1 BIGINT, c2 BIGINT NOT NULL) WITH (\"write.metadata.metrics.max-inferred-column-defaults\" = 1)")) {
+        try (TestTable table = newTable("test_move_branch_null_values", "(id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])")) {
             String tableName = table.getName();
-            String addedColumnTableName = addedColumnTable.getName();
-            String requiredColumnTableName = requiredColumnTable.getName();
             assertUpdate(format("INSERT INTO %s VALUES (2, 'us')", tableName), 1);
             assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'existing'", tableName));
             assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
             long withNulls = latestSnapshotId(tableName);
             assertUpdate(format("ALTER TABLE %s CREATE TAG 'with_nulls'", tableName));
+            long withNullsMillis = loadTable(tableName).snapshot(withNulls).timestampMillis();
+            waitUntilAfter(withNullsMillis);
             assertUpdate(format("DELETE FROM %s WHERE region IS NULL", tableName), 1);
             long withoutNulls = latestSnapshotId(tableName);
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN region SET NOT NULL", tableName));
-            // The newest snapshot strictly older than this one is withNulls. Without legacy timestamps, the literal is in UTC.
+            // Without legacy timestamps, the literals are in UTC. The newest snapshot strictly older than withoutNulls is withNulls.
             Session session = Session.builder(getSession()).setSystemProperty(LEGACY_TIMESTAMP, "false").build();
-            String withoutNullsTimestamp = Instant.ofEpochMilli(loadTable(tableName).snapshot(withoutNulls).timestampMillis())
-                    .atZone(ZoneOffset.UTC)
-                    .format(ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+            String withNullsTimestamp = utcTimestamp(withNullsMillis);
+            String withoutNullsTimestamp = utcTimestamp(loadTable(tableName).snapshot(withoutNulls).timestampMillis());
 
             for (String moveToNulls : ImmutableList.of(
                     format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, tableName, withNulls),
@@ -2169,6 +2183,7 @@ public abstract class IcebergDistributedSmokeTestBase
                     format("CALL system.fast_forward('%s', '%s', 'existing', 'with_nulls')", schemaName, tableName),
                     format("CALL system.fast_forward('%s', '%s', 'new', 'with_nulls')", schemaName, tableName),
                     format("ALTER TABLE %s CREATE BRANCH 'new' FOR SYSTEM_VERSION AS OF %d", tableName, withNulls),
+                    format("ALTER TABLE %s CREATE BRANCH 'new' FOR SYSTEM_TIME AS OF TIMESTAMP '%s UTC'", tableName, withNullsTimestamp),
                     format("ALTER TABLE %s CREATE OR REPLACE BRANCH 'existing' FOR SYSTEM_VERSION AS OF %d", tableName, withNulls))) {
                 assertQueryFails(session, moveToNulls, moveBranchError("region"));
             }
@@ -2179,22 +2194,41 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate(format("ALTER TABLE %s ALTER COLUMN region DROP NOT NULL", tableName));
             assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, tableName, withNulls));
             assertQuery(format("SELECT id FROM %s WHERE region IS NULL", tableName), "VALUES 1");
-            assertUpdate(format("INSERT INTO %s VALUES 1", addedColumnTableName), 1);
-            long beforeColumnAdded = latestSnapshotId(addedColumnTableName);
-            assertUpdate(format("ALTER TABLE %s ADD COLUMN c2 BIGINT", addedColumnTableName));
-            assertUpdate(format("DELETE FROM %s", addedColumnTableName), 1);
-            assertUpdate(format("INSERT INTO %s VALUES (2, 5)", addedColumnTableName), 1);
-            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", addedColumnTableName));
-            assertQueryFails(
-                    format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, addedColumnTableName, beforeColumnAdded),
-                    moveBranchError("c2"));
+        }
+    }
 
-            // Without NULL counts, only the snapshot's schema shows that c2 holds no NULLs.
-            assertUpdate(format("INSERT INTO %s VALUES (1, 2)", requiredColumnTableName), 1);
-            long requiredColumnSnapshot = latestSnapshotId(requiredColumnTableName);
-            assertUpdate(format("INSERT INTO %s VALUES (3, 4)", requiredColumnTableName), 1);
-            assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, requiredColumnTableName, requiredColumnSnapshot));
-            assertQuery(format("SELECT c1, c2 FROM %s", requiredColumnTableName), "VALUES (1, 2)");
+    @Test
+    public void testMoveBranchToSnapshotFromBeforeColumnAdded()
+    {
+        String schemaName = getSession().getSchema().get();
+        try (TestTable table = newTable("test_move_branch_added_column", "(c1 BIGINT)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES 1", tableName), 1);
+            long beforeColumnAdded = latestSnapshotId(tableName);
+            assertUpdate(format("ALTER TABLE %s ADD COLUMN c2 BIGINT", tableName));
+            assertUpdate(format("DELETE FROM %s", tableName), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (2, 5)", tableName), 1);
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
+            assertQueryFails(
+                    format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, tableName, beforeColumnAdded),
+                    moveBranchError("c2"));
+        }
+    }
+
+    /**
+     * Without NULL counts, only the snapshot's schema shows that the column holds no NULLs.
+     */
+    @Test
+    public void testMoveBranchToSnapshotWithColumnAlreadyRequired()
+    {
+        String schemaName = getSession().getSchema().get();
+        try (TestTable table = newTable("test_move_branch_required_column", "(c1 BIGINT, c2 BIGINT NOT NULL) WITH (\"write.metadata.metrics.max-inferred-column-defaults\" = 1)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2)", tableName), 1);
+            long requiredColumnSnapshot = latestSnapshotId(tableName);
+            assertUpdate(format("INSERT INTO %s VALUES (3, 4)", tableName), 1);
+            assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, tableName, requiredColumnSnapshot));
+            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, 2)");
         }
     }
 
@@ -2230,6 +2264,30 @@ public abstract class IcebergDistributedSmokeTestBase
             assertQueryFails(
                     format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, swappedTableName, withNulls),
                     moveBranchError("a"));
+        }
+    }
+
+    /**
+     * A partition column without NULL counts is shown to hold no NULLs by its partition values, also when a renamed
+     * column makes the snapshot scan run without a filter.
+     */
+    @Test
+    public void testMoveBranchToSnapshotWithPartitionColumnWithoutNullCounts()
+    {
+        String schemaName = getSession().getSchema().get();
+        try (TestTable table = newTable(
+                "test_move_branch_partition_no_counts",
+                "(c BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'], \"write.metadata.metrics.max-inferred-column-defaults\" = 1)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, 'us')", tableName), 1);
+            long snapshot = latestSnapshotId(tableName);
+            assertUpdate(format("ALTER TABLE %s RENAME COLUMN c TO d", tableName));
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN d SET NOT NULL", tableName));
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN region SET NOT NULL", tableName));
+            assertUpdate(format("INSERT INTO %s VALUES (2, 'eu')", tableName), 1);
+
+            assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %d)", schemaName, tableName, snapshot));
+            assertQuery(format("SELECT d, region FROM %s", tableName), "VALUES (1, 'us')");
         }
     }
 
@@ -2321,6 +2379,18 @@ public abstract class IcebergDistributedSmokeTestBase
     {
         assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['rewrite-all'], array['true']))",
                 tableName, getSession().getSchema().get()), expectedRows);
+    }
+
+    private static String utcTimestamp(long epochMillis)
+    {
+        return Instant.ofEpochMilli(epochMillis).atZone(ZoneOffset.UTC).format(ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+    }
+
+    private static void waitUntilAfter(long epochMillis)
+    {
+        while (System.currentTimeMillis() <= epochMillis) {
+            Thread.onSpinWait();
+        }
     }
 
     private long latestSnapshotId(String tableName)

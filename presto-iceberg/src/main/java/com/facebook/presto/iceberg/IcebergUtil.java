@@ -94,6 +94,7 @@ import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.InclusiveMetricsEvaluator;
 import org.apache.iceberg.expressions.Literal;
+import org.apache.iceberg.expressions.ResidualEvaluator;
 import org.apache.iceberg.hive.HiveSchemaUtil;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
@@ -127,7 +128,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
@@ -661,25 +661,36 @@ public final class IcebergUtil
         }
         // Older Iceberg versions wrote snapshots without a schema ID, so every required field of such a snapshot is checked.
         Optional<Schema> snapshotSchema = Optional.ofNullable(snapshot.schemaId()).map(icebergTable.schemas()::get);
+        ImmutableList.Builder<NestedField> fields = ImmutableList.builder();
+        ImmutableSet.Builder<Integer> filterFieldIds = ImmutableSet.builder();
         for (NestedField field : icebergTable.schema().columns()) {
             NestedField snapshotField = snapshotSchema.map(schema -> schema.findField(field.fieldId())).orElse(null);
+            // A snapshot whose schema already required the field was written under the constraint, so its files are trusted.
             if (field.isOptional() || (snapshotField != null && snapshotField.isRequired())) {
                 continue;
             }
-            TableScan scan = icebergTable.newScan().useSnapshot(snapshotId);
+            fields.add(field);
             // A snapshot from before the field was added has no column to filter on: every row reads the initial default, or NULL.
             // Iceberg binds the filter to the current schema for the current snapshot and to the snapshot's schema otherwise,
             // so a renamed field skips the filter and is checked by field ID.
             if (snapshotField != null && snapshotField.name().equals(field.name())) {
-                scan = scan.filter(Expressions.isNull(field.name()));
+                filterFieldIds.add(field.fieldId());
             }
-            Optional<DataFile> file = findDataFileWithNullValues(scan, field);
-            if (file.isPresent()) {
-                throw new PrestoException(CONSTRAINT_VIOLATION, format(
-                        "Cannot move branch '%s' of table '%s' to snapshot %d: data file '%s' of that snapshot can hold NULL values in NOT NULL column '%s'. " +
-                                "Drop the NOT NULL constraint first",
-                        branchName, tableName, snapshotId, file.get().location(), field.name()));
-            }
+        }
+        List<NestedField> checkedFields = fields.build();
+        if (checkedFields.isEmpty()) {
+            return;
+        }
+        Optional<Map.Entry<NestedField, DataFile>> nullValues = findDataFileWithNullValues(
+                icebergTable.newScan().useSnapshot(snapshotId),
+                checkedFields,
+                filterFieldIds.build(),
+                lastSequenceNumbersWithoutFields(icebergTable, checkedFields));
+        if (nullValues.isPresent()) {
+            throw new PrestoException(CONSTRAINT_VIOLATION, format(
+                    "Cannot move branch '%s' of table '%s' to snapshot %d: data file '%s' of that snapshot can hold NULL values in NOT NULL column '%s'. " +
+                            "Drop the NOT NULL constraint first",
+                    branchName, tableName, snapshotId, nullValues.get().getValue().location(), nullValues.get().getKey().name()));
         }
     }
 
@@ -700,26 +711,52 @@ public final class IcebergUtil
     }
 
     /**
-     * Returns a data file that may hold NULLs in {@code field}: one with a positive NULL count, or one with no count
-     * that is not known to read the field's initial default.
+     * Returns a data file that may hold NULLs in one of {@code fields}, with that field: one with a positive NULL count,
+     * or one with no count that is not known to read the field's initial default. The fields in {@code filterFieldIds}
+     * are matched by name in the scan, which prunes files by partition and NULL count.
      */
-    public static Optional<DataFile> findDataFileWithNullValues(TableScan scan, NestedField field)
+    public static Optional<Map.Entry<NestedField, DataFile>> findDataFileWithNullValues(
+            TableScan scan,
+            List<NestedField> fields,
+            Set<Integer> filterFieldIds,
+            Map<Integer, Long> lastSequenceNumbersWithoutFields)
     {
-        // Data files written without the field read its initial default in every row.
-        OptionalLong lastSequenceNumberWithoutField = field.initialDefault() == null ? OptionalLong.empty() : lastSequenceNumberWithoutField(scan.table(), field.fieldId());
-        // Planning copies the requested stats into every data file, so only this field's are requested, by its name in the scan's schema.
-        NestedField scanField = scan.schema().findField(field.fieldId());
-        TableScan statsScan = scanField == null ? scan.includeColumnStats() : scan.includeColumnStats(ImmutableSet.of(scanField.name()));
+        if (fields.stream().allMatch(field -> filterFieldIds.contains(field.fieldId()))) {
+            scan = scan.filter(fields.stream()
+                    .<Expression>map(field -> Expressions.isNull(field.name()))
+                    .reduce(Expressions::or)
+                    .orElseThrow(() -> new IllegalArgumentException("no fields to check")));
+        }
+        // Planning copies the requested stats into every data file, so only these fields' are requested, by their names in the scan's schema.
+        Schema scanSchema = scan.schema();
+        Set<String> statsColumns = fields.stream()
+                .map(field -> scanSchema.findField(field.fieldId()))
+                .filter(Objects::nonNull)
+                .map(NestedField::name)
+                .collect(toImmutableSet());
+        TableScan statsScan = statsColumns.size() < fields.size() ? scan.includeColumnStats() : scan.includeColumnStats(statsColumns);
+        // A file returned for one field's filter can still be outside another field's: its partition shows the field holds no NULLs.
+        Map<Integer, Map<Integer, ResidualEvaluator>> partitionFilters = new HashMap<>();
         try (CloseableIterable<FileScanTask> tasks = statsScan.planFiles()) {
             for (FileScanTask task : tasks) {
                 DataFile file = task.file();
                 Map<Integer, Long> nullCounts = file.nullValueCounts();
-                Long nullCount = nullCounts == null ? null : nullCounts.get(field.fieldId());
-                boolean writtenWithoutField = lastSequenceNumberWithoutField.isPresent()
-                        && file.fileSequenceNumber() != null
-                        && file.fileSequenceNumber() <= lastSequenceNumberWithoutField.getAsLong();
-                if (nullCount == null ? !writtenWithoutField : nullCount > 0) {
-                    return Optional.of(file);
+                Map<Integer, ResidualEvaluator> specFilters = partitionFilters.computeIfAbsent(task.spec().specId(), specId -> new HashMap<>());
+                for (NestedField field : fields) {
+                    if (filterFieldIds.contains(field.fieldId())
+                            && specFilters.computeIfAbsent(field.fieldId(), fieldId -> ResidualEvaluator.of(task.spec(), Expressions.isNull(field.name()), true))
+                                    .residualFor(file.partition()).op() == Expression.Operation.FALSE) {
+                        continue;
+                    }
+                    Long nullCount = nullCounts == null ? null : nullCounts.get(field.fieldId());
+                    // Data files written without the field read its initial default in every row.
+                    Long lastSequenceNumberWithoutField = lastSequenceNumbersWithoutFields.get(field.fieldId());
+                    boolean writtenWithoutField = lastSequenceNumberWithoutField != null
+                            && file.fileSequenceNumber() != null
+                            && file.fileSequenceNumber() <= lastSequenceNumberWithoutField;
+                    if (nullCount == null ? !writtenWithoutField : nullCount > 0) {
+                        return Optional.of(immutableEntry(field, file));
+                    }
                 }
             }
         }
@@ -730,15 +767,29 @@ public final class IcebergUtil
     }
 
     /**
-     * Once a field of the current schema is added, every later snapshot's schema has it, so every data file up to the
-     * returned sequence number was written without it.
+     * Maps each of {@code fields} that has an initial default to the last sequence number of a snapshot whose schema
+     * lacks it. Once a field of the current schema is added, every later snapshot's schema has it, so every data file
+     * up to that sequence number was written without it.
      */
-    private static OptionalLong lastSequenceNumberWithoutField(Table icebergTable, int fieldId)
+    public static Map<Integer, Long> lastSequenceNumbersWithoutFields(Table icebergTable, List<NestedField> fields)
     {
-        return stream(icebergTable.snapshots())
-                .filter(snapshot -> SnapshotUtil.schemaFor(icebergTable, snapshot.snapshotId()).findField(fieldId) == null)
-                .mapToLong(Snapshot::sequenceNumber)
-                .max();
+        Set<Integer> fieldIds = fields.stream()
+                .filter(field -> field.initialDefault() != null)
+                .map(NestedField::fieldId)
+                .collect(toImmutableSet());
+        Map<Integer, Long> sequenceNumbers = new HashMap<>();
+        if (fieldIds.isEmpty()) {
+            return sequenceNumbers;
+        }
+        for (Snapshot snapshot : icebergTable.snapshots()) {
+            Schema schema = SnapshotUtil.schemaFor(icebergTable, snapshot.snapshotId());
+            for (int fieldId : fieldIds) {
+                if (schema.findField(fieldId) == null) {
+                    sequenceNumbers.merge(fieldId, snapshot.sequenceNumber(), Math::max);
+                }
+            }
+        }
+        return sequenceNumbers;
     }
 
     /**

@@ -217,6 +217,25 @@ public class TestIcebergAlterColumnNotNull
                     format("INSERT INTO %s VALUES (3, NULL)", tableName),
                     writerNullError("c2"));
             assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, 5), (2, 5)");
+            // MERGE rejects V3 tables, so it never omits a column with a write default.
+            assertQueryFails(
+                    format("MERGE INTO %s t USING (VALUES 3) s(c1) ON t.c1 = s.c1 WHEN NOT MATCHED THEN INSERT (c1) VALUES (s.c1)", tableName),
+                    "Iceberg table updates for format version 3 are not supported yet");
+        }
+    }
+
+    @Test
+    public void testInsertOmittingNotNullPartitionColumnWithDefault()
+    {
+        try (TestTable table = newTable("insert_omitting_not_null_partition_default", "(c1 BIGINT) WITH (\"format-version\" = '3')")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES 1", tableName), 1);
+            assertUpdate(format("ALTER TABLE %s ADD COLUMN c2 BIGINT DEFAULT 5 WITH (partitioning = 'identity')", tableName));
+            assertUpdate(format("ALTER TABLE %s ALTER COLUMN c2 SET NOT NULL", tableName));
+
+            assertUpdate(format("INSERT INTO %s (c1) VALUES (2)", tableName), 1);
+            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, 5), (2, 5)");
+            assertQuery(format("SELECT c1 FROM %s WHERE \"$path\" LIKE '%%/c2=5/%%'", tableName), "VALUES 2");
         }
     }
 
