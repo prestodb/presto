@@ -689,10 +689,10 @@ public class TestIcebergV3DefaultColumnValues
         String tableName = "orders_v3_write_default_unsupported_types";
         try {
             createTableWithRows(getSession(), tableName, "(id BIGINT)", "VALUES (1)", 1);
-            assertQueryFails(format("ALTER TABLE %s ADD COLUMN u UUID DEFAULT UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'", tableName),
-                    "Default values not supported for type: UUID");
-            assertQueryFails(format("ALTER TABLE %s ADD COLUMN t TIME DEFAULT TIME '10:30:00'", tableName),
-                    "Default values not supported for type: TIME");
+            assertQueryFails(format("ALTER TABLE %s ADD COLUMN a ARRAY(INTEGER) DEFAULT ARRAY[1]", tableName),
+                    "Default values are not supported for columns of type array\\(integer\\)");
+            assertQueryFails(format("ALTER TABLE %s ADD COLUMN r ROW(x INTEGER) DEFAULT CAST(ROW(1) AS ROW(x INTEGER))", tableName),
+                    "Default values are not supported for columns of type row\\(\"x\" integer\\)");
         }
         finally {
             dropTableIfExists(getSession(), tableName);

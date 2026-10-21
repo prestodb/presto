@@ -28,12 +28,16 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.types.Types;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.OptionalInt;
@@ -43,7 +47,9 @@ import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_METADATA_TABLES;
+import static com.facebook.presto.tests.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -758,6 +764,197 @@ public class TestIcebergV3
 
             assertQuery("SELECT id, ds, region FROM " + tableName + " ORDER BY id",
                     "VALUES (1, DATE '2023-01-01', 'US'), (2, DATE '2023-01-02', 'US'), (3, DATE '2023-01-03', 'EU')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @DataProvider(name = "icebergDefaultValues")
+    public Object[][] icebergDefaultValues()
+    {
+        ByteBuffer bytes = ByteBuffer.wrap(new byte[] {0x0A, (byte) 0xFF});
+        return new Object[][] {
+                {Types.BooleanType.get(), Literal.of(true), "true"},
+                {Types.IntegerType.get(), Literal.of(5), "5"},
+                {Types.LongType.get(), Literal.of(10000000000L), "10000000000"},
+                {Types.FloatType.get(), Literal.of(2.5f), "REAL '2.5'"},
+                {Types.DoubleType.get(), Literal.of(1.5d), "DOUBLE '1.5'"},
+                {Types.DecimalType.of(10, 2), Literal.of(new BigDecimal("12.34")), "DECIMAL '12.34'"},
+                {Types.DecimalType.of(30, 2), Literal.of(new BigDecimal("12.34")), "DECIMAL '12.34'"},
+                {Types.StringType.get(), Literal.of("it's"), "'it''s'"},
+                {Types.DateType.get(), Literal.of("2023-01-01").to(Types.DateType.get()), "DATE '2023-01-01'"},
+                {Types.TimeType.get(), Literal.of("11:00:00.123").to(Types.TimeType.get()), "TIME '11:00:00.123'"},
+                {Types.TimestampType.withoutZone(), Literal.of("2023-01-01T11:00:00.123").to(Types.TimestampType.withoutZone()), "TIMESTAMP '2023-01-01 11:00:00.123'"},
+                {Types.TimestampType.withZone(), Literal.of("2023-01-01T11:00:00.123+00:00").to(Types.TimestampType.withZone()), "TIMESTAMP '2023-01-01 11:00:00.123 UTC'"},
+                {Types.BinaryType.get(), Literal.of(bytes), "X'0AFF'"},
+                {Types.FixedType.ofLength(2), Literal.of(bytes).to(Types.FixedType.ofLength(2)), "X'0AFF'"},
+                {Types.UUIDType.get(), Literal.of(java.util.UUID.fromString("12151fd2-7586-11e9-8f9e-2a86e4085a59")), "UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'"},
+        };
+    }
+
+    @Test(dataProvider = "icebergDefaultValues")
+    public void testDefaultValueRoundTrip(org.apache.iceberg.types.Type type, Literal<?> defaultValue, String expectedValue)
+    {
+        // Defaults set by other engines, such as Spark, through the Iceberg API
+        String tableName = "test_default_round_trip_" + type.typeId().name().toLowerCase(ENGLISH) + "_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            loadTable(tableName).updateSchema()
+                    .addColumn("c", type, "doc", defaultValue)
+                    .commit();
+
+            // Rows written before the column was added read the initial-default
+            assertQuery("SELECT c = " + expectedValue + " FROM " + tableName, "VALUES true");
+            // Omitted columns are written with the write-default
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES 2", 1);
+            assertQuery("SELECT id, c = " + expectedValue + " FROM " + tableName + " ORDER BY id", "VALUES (1, true), (2, true)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @DataProvider(name = "prestoDefaultValues")
+    public Object[][] prestoDefaultValues()
+    {
+        return new Object[][] {
+                {"boolean", "true", "false"},
+                {"tinyint", "TINYINT '5'", "TINYINT '6'"},
+                {"smallint", "SMALLINT '5'", "SMALLINT '6'"},
+                {"integer", "5", "6"},
+                {"bigint", "10000000000", "10000000001"},
+                {"real", "REAL '2.5'", "REAL '3.5'"},
+                {"double", "DOUBLE '1.5'", "DOUBLE '2.5'"},
+                {"decimal(10,2)", "DECIMAL '12.34'", "DECIMAL '56.78'"},
+                {"decimal(30,2)", "DECIMAL '12.34'", "DECIMAL '56.78'"},
+                {"varchar", "'US'", "'UK'"},
+                {"varchar(10)", "'US'", "'UK'"},
+                {"varbinary", "X'0AFF'", "X'0BFF'"},
+                {"date", "DATE '2023-01-01'", "DATE '2024-01-01'"},
+                {"time", "TIME '11:00:00.123'", "TIME '12:00:00.123'"},
+                {"timestamp", "TIMESTAMP '2023-01-01 11:00:00.123'", "TIMESTAMP '2024-01-01 11:00:00.123'"},
+                {"timestamp with time zone", "TIMESTAMP '2023-01-01 11:00:00.123 UTC'", "TIMESTAMP '2024-01-01 11:00:00.123 UTC'"},
+                {"uuid", "UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'", "UUID '22151fd2-7586-11e9-8f9e-2a86e4085a59'"},
+        };
+    }
+
+    @Test(dataProvider = "prestoDefaultValues")
+    public void testColumnDefaultDdl(String type, String initialDefault, String writeDefault)
+    {
+        String tableName = "test_column_default_ddl_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c " + type + " DEFAULT " + initialDefault);
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES 2", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c SET DEFAULT " + writeDefault);
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES 3", 1);
+
+            // Row 1 predates the column and keeps the initial-default; rows 2 and 3 were written with the write-default at the time
+            assertQuery("SELECT id, c = " + initialDefault + ", c = " + writeDefault + " FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, true, false), (2, true, false), (3, false, true)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testColumnDefaultNotSupportedTypes()
+    {
+        String tableName = "test_column_default_not_supported_types";
+        String point = "to_spherical_geography(ST_GeometryFromText('POINT (1 2)'))";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, g SphericalGeography) WITH (\"format-version\" = '3')");
+            // Columns added by another engine; Presto reads variant as json and geometry as Geometry
+            loadTable(tableName).updateSchema()
+                    .addColumn("v", Types.VariantType.get())
+                    .addColumn("gm", Types.GeometryType.crs84())
+                    .commit();
+
+            assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN a ARRAY(INTEGER) DEFAULT ARRAY[1]", "Default values are not supported for columns of type array\\(integer\\)");
+            assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN m MAP(VARCHAR, INTEGER) DEFAULT MAP(ARRAY['a'], ARRAY[1])", "Default values are not supported for columns of type map\\(varchar, integer\\)");
+            assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN r ROW(x INTEGER) DEFAULT CAST(ROW(1) AS ROW(x INTEGER))", "Default values are not supported for columns of type row\\(\"x\" integer\\)");
+
+            // The Iceberg spec requires geospatial and variant columns to default to null
+            assertQueryFails("ALTER TABLE " + tableName + " ADD COLUMN g2 SphericalGeography DEFAULT " + point, "Iceberg does not allow non-null default values for columns of type SphericalGeography \\(Iceberg type geography\\)");
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN g SET DEFAULT " + point, "Iceberg does not allow non-null default values for columns of type SphericalGeography \\(Iceberg type geography\\)");
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN v SET DEFAULT JSON '1'", "Iceberg does not allow non-null default values for columns of type json \\(Iceberg type variant\\)");
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN gm SET DEFAULT ST_GeometryFromText('POINT (1 2)')", "Iceberg does not allow non-null default values for columns of type Geometry \\(Iceberg type geometry\\)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testNullDefaultForGeospatialAndVariantColumns()
+    {
+        String tableName = "test_null_default_geospatial_variant";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN g SphericalGeography DEFAULT NULL");
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN g SET DEFAULT NULL");
+            loadTable(tableName).updateSchema()
+                    .addColumn("v", Types.VariantType.get())
+                    .addColumn("gm", Types.GeometryType.crs84())
+                    .commit();
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN v SET DEFAULT NULL");
+            assertNull(loadTable(tableName).schema().findField("g").writeDefault());
+
+            // Rows written before the columns were added read null
+            assertQuery("SELECT id, g IS NULL, v IS NULL, gm IS NULL FROM " + tableName, "VALUES (1, true, true, true)");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testSetDefaultOnFixedColumnWithWrongLength()
+    {
+        String tableName = "test_set_default_fixed_wrong_length";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            // Presto cannot create fixed columns, but can set the default of one created by another engine
+            loadTable(tableName).updateSchema()
+                    .addColumn("f", Types.FixedType.ofLength(2))
+                    .commit();
+
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN f SET DEFAULT X'010203'",
+                    "Default value for fixed\\[2\\] column must be 2 bytes long, but was 3 bytes");
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN f SET DEFAULT X'0AFF'");
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES 1", 1);
+            assertQuery("SELECT f = X'0AFF' FROM " + tableName, "VALUES true");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testMicrosecondTimestampDefaultIsTruncated()
+    {
+        String tableName = "test_microsecond_timestamp_default";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            // Another engine, such as Spark, can set a microsecond default
+            loadTable(tableName).updateSchema()
+                    .addColumn("ts", Types.TimestampType.withoutZone(), "doc",
+                            Literal.of("2023-01-01T11:00:00.123456").to(Types.TimestampType.withoutZone()))
+                    .commit();
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES 2", 1);
+
+            // Presto TIMESTAMP has millisecond precision, so both the initial-default and the written write-default are truncated
+            assertQuery("SELECT id, CAST(ts AS varchar) FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, '2023-01-01 11:00:00.123'), (2, '2023-01-01 11:00:00.123')");
+            // The write-default in the table metadata is not modified
+            assertEquals(loadTable(tableName).schema().findField("ts").writeDefault(), 1672570800123456L);
         }
         finally {
             dropTable(tableName);
