@@ -142,7 +142,9 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_CONSTRAINT;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_SCHEMA;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_CONSTRAINT;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -7240,6 +7242,26 @@ public class TestHiveIntegrationSmokeTest
 
         String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
         assertUpdate(getSession(), dropTableStmt);
+    }
+
+    @Test
+    public void testAlterColumnNotNullAccessControl()
+    {
+        String tableName = "test_alter_column_not_null_access_control";
+        assertUpdate("CREATE TABLE " + tableName + " (c1 bigint) WITH (format = 'ORC')");
+        try {
+            @Language("SQL") String setNotNull = "ALTER TABLE " + tableName + " ALTER COLUMN c1 SET NOT NULL";
+            @Language("SQL") String dropNotNull = "ALTER TABLE " + tableName + " ALTER COLUMN c1 DROP NOT NULL";
+
+            assertAccessDenied(setNotNull, "Cannot add a constraint to table .*" + tableName + ".*", privilege(tableName, ADD_CONSTRAINT));
+            assertAccessAllowed(setNotNull, privilege(tableName, DROP_CONSTRAINT));
+
+            assertAccessDenied(dropNotNull, "Cannot drop a constraint from table .*" + tableName + ".*", privilege(tableName, DROP_CONSTRAINT));
+            assertAccessAllowed(dropNotNull, privilege(tableName, ADD_CONSTRAINT));
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     private void testCreateTableWithHeaderAndFooter(String format)
