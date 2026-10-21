@@ -80,13 +80,13 @@ import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompr
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedRoundRobin;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -156,7 +156,7 @@ public class PrestoSparkRddFactory
 
         if (partitioning.equals(SINGLE_DISTRIBUTION) ||
                 partitioning.equals(FIXED_HASH_DISTRIBUTION) ||
-                partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION) ||
+                isFixedRoundRobin(partitioning) ||
                 partitioning.equals(SOURCE_DISTRIBUTION) ||
                 partitioning.getConnectorId().isPresent()) {
             return createRdd(

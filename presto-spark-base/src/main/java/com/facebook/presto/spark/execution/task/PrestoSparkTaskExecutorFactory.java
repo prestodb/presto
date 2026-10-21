@@ -82,6 +82,7 @@ import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleInput;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleReadInfo;
 import com.facebook.presto.spark.execution.shuffle.PrestoSparkShuffleWriteInfo;
 import com.facebook.presto.spark.util.PrestoSparkStatsCollectionUtils;
+import com.facebook.presto.spark.util.PrestoSparkUtils;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.WarningCollector;
@@ -170,7 +171,7 @@ import static com.facebook.presto.spark.util.PrestoSparkUtils.getNullifyingItera
 import static com.facebook.presto.spark.util.PrestoSparkUtils.serializeZstdCompressed;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toPrestoSparkSerializedPage;
 import static com.facebook.presto.spi.ErrorCause.UNKNOWN;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedRoundRobin;
 import static com.facebook.presto.util.Failures.toFailures;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -537,8 +538,8 @@ public class PrestoSparkTaskExecutorFactory
                 notificationExecutor);
 
         Optional<OutputPartitioning> preDeterminedPartition = Optional.empty();
-        if (fragment.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION)) {
-            int partitionCount = getHashPartitionCount(session);
+        if (isFixedRoundRobin(fragment.getPartitioningScheme().getPartitioning().getHandle())) {
+            int partitionCount = getPreDeterminedPartitionCount(session, fragment);
             preDeterminedPartition = Optional.of(new OutputPartitioning(
                     new PreDeterminedPartitionFunction(partitionId % partitionCount, partitionCount),
                     ImmutableList.of(),
@@ -625,6 +626,13 @@ public class PrestoSparkTaskExecutorFactory
                 outputBuffer,
                 tempStorage,
                 tempDataOperationContext);
+    }
+
+    private static int getPreDeterminedPartitionCount(Session session, PlanFragment fragment)
+    {
+        return fragment.getPartitioningScheme().getBucketToPartition()
+                .map(PrestoSparkUtils::getPartitionCountFromBucketToPartition)
+                .orElseGet(() -> getHashPartitionCount(session));
     }
 
     private DataSize getDynamicallyComputedMemory(Session session, DataSize memory, int attemptNumber)
