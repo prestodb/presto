@@ -14,8 +14,12 @@
 
 package com.facebook.presto.hive.statistics;
 
+import io.airlift.slice.Slice;
+
 import java.lang.reflect.Type;
+import java.time.chrono.ChronoLocalDate;
 import java.util.Objects;
+import java.util.OptionalLong;
 
 import static java.util.Objects.hash;
 
@@ -26,7 +30,6 @@ public class ColumnQuickStats<T extends Comparable<T>>
 {
     private final String columnName;
     private final Type statType;
-    private long rowCount;
     private long nullsCount;
 
     private T minValue;
@@ -68,16 +71,6 @@ public class ColumnQuickStats<T extends Comparable<T>>
         this.maxValue = this.maxValue == null ? maxValue : this.maxValue.compareTo(maxValue) > 0 ? this.maxValue : maxValue;
     }
 
-    public long getRowCount()
-    {
-        return rowCount;
-    }
-
-    public void addToRowCount(long rowCount)
-    {
-        this.rowCount = this.rowCount + rowCount;
-    }
-
     public long getNullsCount()
     {
         return nullsCount;
@@ -88,13 +81,75 @@ public class ColumnQuickStats<T extends Comparable<T>>
         this.nullsCount = this.nullsCount + nullsCount;
     }
 
+    /**
+     * @param nonNullCount an upper bound on the number of non-null values of this column in the partition
+     */
+    public OptionalLong getDistinctValuesCount(long nonNullCount)
+    {
+        // No non-null values means no distinct values, for every type.
+        if (nonNullCount <= 0) {
+            return OptionalLong.of(0);
+        }
+
+        if (statType.equals(Boolean.class)) {
+            return OptionalLong.of(Math.min(nonNullCount, 2));
+        }
+        if (statType.equals(Slice.class)) {
+            // No min/max is collected for VARCHAR/VARBINARY, so there is nothing to bound by.
+            return OptionalLong.empty();
+        }
+        if (statType.equals(Float.class)) {
+            // PartitionQuickStats#convertToPartitionStatistics does not emit NDV for FLOAT.
+            return OptionalLong.empty();
+        }
+        if (minValue == null || maxValue == null) {
+            return OptionalLong.empty();
+        }
+
+        // Bound NDV by the size of the observed [min, max] range, capped at the non-null row count.
+        // This avoids an unknown NDV, which leaves the optimizer to fall back to default selectivity.
+        OptionalLong rangeCardinality = estimateRangeCardinality();
+        long bound = rangeCardinality.isPresent() ? Math.min(nonNullCount, rangeCardinality.getAsLong()) : nonNullCount;
+        return OptionalLong.of(bound);
+    }
+
+    /**
+     * {@code maxValue - minValue + 1} for integral and date types; empty for continuous types such as
+     * DOUBLE, or when the range overflows a {@code long}.
+     */
+    private OptionalLong estimateRangeCardinality()
+    {
+        long min;
+        long max;
+        if (statType.equals(Integer.class)) {
+            min = (Integer) minValue;
+            max = (Integer) maxValue;
+        }
+        else if (statType.equals(Long.class)) {
+            min = (Long) minValue;
+            max = (Long) maxValue;
+        }
+        else if (statType.equals(ChronoLocalDate.class)) {
+            min = ((ChronoLocalDate) minValue).toEpochDay();
+            max = ((ChronoLocalDate) maxValue).toEpochDay();
+        }
+        else {
+            return OptionalLong.empty();
+        }
+        try {
+            return OptionalLong.of(Math.addExact(Math.subtractExact(max, min), 1));
+        }
+        catch (ArithmeticException e) {
+            return OptionalLong.empty();
+        }
+    }
+
     @Override
     public String toString()
     {
         return "ColumnQuickStats{" +
                 "columnName='" + columnName + '\'' +
                 ", statType=" + statType +
-                ", rowCount=" + rowCount +
                 ", nullsCount=" + nullsCount +
                 ", minValue=" + minValue +
                 ", maxValue=" + maxValue +
@@ -111,7 +166,7 @@ public class ColumnQuickStats<T extends Comparable<T>>
             return false;
         }
         ColumnQuickStats<?> that = (ColumnQuickStats<?>) o;
-        return rowCount == that.rowCount && nullsCount == that.nullsCount &&
+        return nullsCount == that.nullsCount &&
                 Objects.equals(columnName, that.columnName) &&
                 Objects.equals(statType, that.statType) &&
                 Objects.equals(minValue, that.minValue) &&
@@ -121,6 +176,6 @@ public class ColumnQuickStats<T extends Comparable<T>>
     @Override
     public int hashCode()
     {
-        return hash(columnName, statType, rowCount, nullsCount, minValue, maxValue);
+        return hash(columnName, statType, nullsCount, minValue, maxValue);
     }
 }
