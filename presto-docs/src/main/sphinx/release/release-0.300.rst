@@ -114,10 +114,6 @@ Prometheus Connector Changes
 ____________________________
 * Add support for :ref:`connector/prometheus:authentication` with basic authentication. `#28391 <https://github.com/prestodb/presto/pull/28391>`_
 
-Prometheus Connector Changes
-____________________________
-* Add support for :ref:`connector/prometheus:authentication` with basic authentication. `#28391 <https://github.com/prestodb/presto/pull/28391>`_
-
 Verifier Changes
 ________________
 * Fix function call substitution failing when the substitute declares more window fields than the call it matched. This is now treated as a non-match. `#28473 <https://github.com/prestodb/presto/pull/28473>`_
