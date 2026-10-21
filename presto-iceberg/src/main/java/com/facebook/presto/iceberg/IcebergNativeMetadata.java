@@ -213,7 +213,17 @@ public class IcebergNativeMetadata
 
     private List<String> listNestedNamespaces(SupportsNamespaces supportsNamespaces, Namespace parentNamespace)
     {
-        return supportsNamespaces.listNamespaces(parentNamespace)
+        List<Namespace> childNamespaces;
+        try {
+            childNamespaces = supportsNamespaces.listNamespaces(parentNamespace);
+        }
+        catch (NoSuchNamespaceException e) {
+            // The namespace was dropped concurrently (e.g. another session cleaning up
+            // schemas mid-listing); treat a vanished namespace as empty, mirroring
+            // listTables below.
+            return ImmutableList.of();
+        }
+        return childNamespaces
                 .stream()
                 .flatMap(childNamespace -> Stream.concat(
                         Stream.of(toPrestoSchemaName(childNamespace)),
