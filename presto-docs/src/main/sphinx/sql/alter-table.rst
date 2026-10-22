@@ -59,7 +59,7 @@ column. Only widening conversions are supported: ``INTEGER`` to ``BIGINT``, ``RE
 Narrowing conversions are rejected. The path must refer to a field inside a struct; paths
 into arrays or maps are not supported.
 
-When ``column_name`` contains a dot (e.g. ``address.zip``) in a ``DROP COLUMN`` statement, the nested field
+When ``column_name`` contains a dot (for example ``address.zip``) in a ``DROP COLUMN`` statement, the nested field
 is dropped from the named ``ROW`` column. Dropping a nested field requires ``ALTER COLUMN`` permission on the table,
 not ``DROP COLUMN`` permission.
 

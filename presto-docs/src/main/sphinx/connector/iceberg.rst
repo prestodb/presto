@@ -2327,7 +2327,7 @@ The optional ``IF EXISTS`` clause suppresses the error if the field or any paren
      ALTER TABLE iceberg.web.orders DROP COLUMN IF EXISTS address.zip;
 
 The dotted path may traverse arbitrarily nested structs, list elements (pseudo-step ``.element``,
-e.g. ``items.element.name``), and map values (pseudo-step ``.value``, e.g. ``m.value.name``).
+such as ``items.element.name``), and map values (pseudo-step ``.value``, such as ``m.value.name``).
 Dropping list elements, map keys, or map value containers directly is not supported.
 
 ALTER VIEW
