@@ -427,6 +427,7 @@ public class QueryPlanner
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columns = ImmutableMap.builder();
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
+        ImmutableList.Builder<String> orderedColumnNamesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Expression> orderedColumnValuesBuilder = ImmutableList.builder();
         for (Field field : descriptor.getAllFields()) {
             String name = field.getName().get();
@@ -436,9 +437,11 @@ public class QueryPlanner
             fields.add(field);
             int index = targetColumnNames.indexOf(name);
             if (index >= 0) {
+                orderedColumnNamesBuilder.add(name);
                 orderedColumnValuesBuilder.add(node.getAssignments().get(index).getValue());
             }
         }
+        List<String> orderedColumnNames = orderedColumnNamesBuilder.build();
         List<Expression> orderedColumnValues = orderedColumnValuesBuilder.build();
 
         // add rowId column
@@ -541,7 +544,7 @@ public class QueryPlanner
                     finalBuilder,
                     outputVariables,
                     rowId,
-                    targetColumnNames,
+                    orderedColumnNames,
                     orderedColumnValues,
                     planAndMappings,
                     outputs);
@@ -585,7 +588,7 @@ public class QueryPlanner
             PlanBuilder finalBuilder,
             List<VariableReferenceExpression> outputVariables,
             Optional<VariableReferenceExpression> rowId,
-            List<String> targetColumnNames,
+            List<String> orderedColumnNames,
             List<Expression> orderedColumnValues,
             PlanAndMappings planAndMappings,
             List<VariableReferenceExpression> outputs)
@@ -633,7 +636,7 @@ public class QueryPlanner
             mergeColumnVariablesBuilder.add(originalColumnVariable);
 
             String columnName = column.getName();
-            int setIndex = targetColumnNames.indexOf(columnName);
+            int setIndex = orderedColumnNames.indexOf(columnName);
             if (setIndex >= 0) {
                 Expression setExpression = orderedColumnValues.get(setIndex);
                 VariableReferenceExpression projectedVariable = planAndMappings.get(setExpression);
