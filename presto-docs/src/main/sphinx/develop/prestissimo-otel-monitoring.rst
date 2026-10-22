@@ -8,7 +8,7 @@ their metrics in completely different ways.
 
 The Presto coordinator runs as a Java process and exposes runtime
 information through JMX. The Prestissimo worker, on the other hand,
-runs the Velox C++ execution engine and already provides a
+runs the Velox C++ execution engine and provides a
 Prometheus-compatible metrics endpoint.
 
 This means that collecting metrics from the entire Prestissimo cluster
