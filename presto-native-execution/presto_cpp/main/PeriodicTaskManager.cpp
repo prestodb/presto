@@ -542,7 +542,7 @@ void PeriodicTaskManager::addWatchdogTask() {
 
         // Detach worker from the cluster if it has been overloaded for too
         // long.
-        const auto now = velox::EpochTime::now<std::chrono::seconds>();
+        const auto now = velox::SteadyTime::now<std::chrono::seconds>();
         const auto lastNotOverloadedTime =
             taskManager_->lastNotOverloadedTimeInSecs();
         const auto overloadedDurationSec =

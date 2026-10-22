@@ -14,6 +14,7 @@
 #include "presto_cpp/main/TaskManager.h"
 #include <folly/ScopeGuard.h>
 #include <folly/executors/ThreadedExecutor.h>
+#include <folly/stop_watch.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <chrono>
@@ -32,6 +33,7 @@
 #include "velox/common/base/Fs.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/testutil/ScopedTestTime.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/dwio/common/FileSink.h"
 #include "velox/dwio/common/WriterFactory.h"
@@ -904,6 +906,101 @@ DEBUG_ONLY_TEST_P(TaskManagerTest, fecthFromArbitraryOutput) {
       prestoTask->task.get(), TaskState::kFinished, 3'000'000));
 }
 
+// Verifies that a system clock step does not make a running task look
+// abandoned. ScopedTestTime moves only the system clock (EpochTime) while the
+// steady clock keeps running.
+TEST_P(TaskManagerTest, abandonedTaskIgnoresSystemClockSteps) {
+#ifdef NDEBUG
+  GTEST_SKIP() << "ScopedTestTime overrides EpochTime only in debug builds";
+#endif
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto filePaths = makeFilePaths(tableDir, 1);
+  const auto vectors = makeVectors(filePaths.size(), 100);
+  writeToFile(filePaths[0], vectors[0]);
+
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .tableScan(rowType_)
+          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+          .planFragment();
+
+  // Without 'no more splits' the task keeps running.
+  long splitSequenceId{0};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource("0", filePaths, false, splitSequenceId));
+  const protocol::TaskId taskId = "scan.0.0.1.0";
+  createOrUpdateTask(taskId, updateRequest, planFragment);
+  const auto prestoTask = taskManager_->tasks().at(taskId);
+  ASSERT_TRUE(prestoTask->task->isRunning());
+
+  taskManager_->setOldTaskCleanUpMs(60'000);
+  constexpr int64_t kOneHourMs = 3'600'000;
+  const uint64_t startMs = velox::EpochTime::now<std::chrono::milliseconds>();
+  common::testutil::ScopedTestTime scopedTestTime;
+  for (const int64_t offsetMs : {-kOneHourMs, kOneHourMs}) {
+    SCOPED_TRACE(fmt::format("System clock moved by {} ms", offsetMs));
+    scopedTestTime.setCurrentTestTimeMs(startMs + offsetMs);
+    taskManager_->cleanOldTasks();
+    ASSERT_TRUE(prestoTask->task->isRunning());
+  }
+
+  // The task is still cancelled once its coordinator heartbeat is old enough.
+  taskManager_->setOldTaskCleanUpMs(0);
+  taskManager_->cleanOldTasks();
+  ASSERT_TRUE(waitForTaskStateChange(
+      prestoTask->task.get(), TaskState::kCanceled, 3'000'000));
+}
+
+// Verifies that a system clock step during execution does not change the
+// elapsed time reported for a finished task. ScopedTestTime moves only the
+// system clock (EpochTime) while the steady clock keeps running.
+TEST_P(TaskManagerTest, elapsedTimeIgnoresSystemClockSteps) {
+#ifdef NDEBUG
+  GTEST_SKIP() << "ScopedTestTime overrides EpochTime only in debug builds";
+#endif
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto filePaths = makeFilePaths(tableDir, 1);
+  const auto vectors = makeVectors(filePaths.size(), 100);
+  writeToFile(filePaths[0], vectors[0]);
+
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .tableScan(rowType_)
+          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+          .planFragment();
+
+  const folly::stop_watch<std::chrono::milliseconds> watch;
+  long splitSequenceId{0};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource("0", filePaths, false, splitSequenceId));
+  const protocol::TaskId taskId = "scan.0.0.1.0";
+  createOrUpdateTask(taskId, updateRequest, planFragment);
+  const auto prestoTask = taskManager_->tasks().at(taskId);
+
+  // Move the system clock forward, then let the task finish.
+  common::testutil::ScopedTestTime scopedTestTime;
+  scopedTestTime.setCurrentTestTimeMs(
+      velox::EpochTime::now<std::chrono::milliseconds>() + 3'600'000);
+  protocol::TaskUpdateRequest noMoreSplitsRequest;
+  noMoreSplitsRequest.sources.push_back(
+      makeSource("0", {}, true, splitSequenceId));
+  taskManager_->createOrUpdateTask(
+      taskId, noMoreSplitsRequest, {}, true, nullptr, 0);
+
+  for (int i = 0; prestoTask->task->taskStats().executionEndTimeMs == 0; ++i) {
+    ASSERT_LT(i, 300) << "Task execution did not finish";
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  const auto taskInfo = prestoTask->updateInfo(true);
+  ASSERT_LE(
+      taskInfo.stats.elapsedTimeInNanos,
+      (watch.elapsed().count() + 1) * 1'000'000);
+
+  taskManager_->deleteTask(taskId, true, true, /*shouldDropTask=*/false);
+}
+
 TEST_P(TaskManagerTest, taskCleanupWithPendingResultData) {
   // Trigger old task cleanup immediately.
   taskManager_->setOldTaskCleanUpMs(0);
@@ -1515,8 +1612,7 @@ TEST_P(TaskManagerTest, getResultsFromFailedTask) {
       taskId, std::make_exception_ptr(e), true, 0);
 
   // We expect to get empty results, rather than an exception.
-  const uint64_t startTimeUs =
-      velox::EpochTime::now<std::chrono::microseconds>();
+  const folly::stop_watch<std::chrono::milliseconds> watch;
   auto results = taskManager_
                      ->getResults(
                          taskId,
@@ -1526,16 +1622,9 @@ TEST_P(TaskManagerTest, getResultsFromFailedTask) {
                          protocol::Duration("1s"),
                          http::CallbackRequestHandlerState::create())
                      .get();
-  const uint64_t finishTimeUs =
-      velox::EpochTime::now<std::chrono::microseconds>();
 
-  {
-    // ensure response is returned with a delay
-    using namespace std::chrono;
-    ASSERT_GE(
-        finishTimeUs - startTimeUs,
-        duration_cast<microseconds>(milliseconds{500}).count());
-  }
+  // Ensure response is returned with a delay.
+  ASSERT_GE(watch.elapsed(), std::chrono::milliseconds{500});
 
   ASSERT_FALSE(results->complete);
   ASSERT_EQ(results->data->capacity(), 0);
@@ -1744,8 +1833,7 @@ TEST_P(TaskManagerTest, getResultsFromAbortedTask) {
   taskManager_->deleteTask(taskId, true, true, /*shouldDropTask=*/false);
 
   // We expect to get empty results, rather than an exception.
-  const uint64_t startTimeUs =
-      velox::EpochTime::now<std::chrono::microseconds>();
+  const folly::stop_watch<std::chrono::milliseconds> watch;
   auto results = taskManager_
                      ->getResults(
                          taskId,
@@ -1755,16 +1843,9 @@ TEST_P(TaskManagerTest, getResultsFromAbortedTask) {
                          protocol::Duration("1s"),
                          http::CallbackRequestHandlerState::create())
                      .get();
-  const uint64_t finishTimeUs =
-      velox::EpochTime::now<std::chrono::microseconds>();
 
-  {
-    // ensure response is returned with a delay
-    using namespace std::chrono;
-    ASSERT_GE(
-        finishTimeUs - startTimeUs,
-        duration_cast<microseconds>(milliseconds{500}).count());
-  }
+  // Ensure response is returned with a delay.
+  ASSERT_GE(watch.elapsed(), std::chrono::milliseconds{500});
 
   ASSERT_FALSE(results->complete);
   ASSERT_EQ(results->data->capacity(), 0);
@@ -1786,8 +1867,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
       std::move(queryCtx),
       Task::ExecutionMode::kParallel);
 
-  const uint64_t startTimeMs =
-      velox::EpochTime::now<std::chrono::milliseconds>();
+  const folly::stop_watch<std::chrono::microseconds> sinceStartWatch;
   auto prestoTask = std::make_unique<PrestoTask>(taskId, "fakeId");
   prestoTask->task = veloxTask;
   veloxTask->start(1);
@@ -1807,8 +1887,15 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   const auto memoryUsage = veloxTask->queryCtx()->pool()->usedBytes();
   ASSERT_GT(memoryUsage, 0);
 
-  const uint64_t lastTimeMs =
-      velox::EpochTime::now<std::chrono::milliseconds>();
+#ifndef NDEBUG
+  // A system clock step must not change the cumulative memory. ScopedTestTime
+  // moves only the system clock (EpochTime) while the steady clock keeps
+  // running.
+  common::testutil::ScopedTestTime scopedTestTime;
+  scopedTestTime.setCurrentTestTimeMs(
+      velox::EpochTime::now<std::chrono::milliseconds>() + 3'600'000);
+#endif
+  const folly::stop_watch<std::chrono::microseconds> sinceLastUpdateWatch;
   protocol::TaskInfo prestoTaskInfo = prestoTask->updateInfo(true);
   ASSERT_EQ(prestoTaskInfo.stats.userMemoryReservationInBytes, memoryUsage);
   ASSERT_EQ(prestoTaskInfo.stats.systemMemoryReservationInBytes, 0);
@@ -1819,7 +1906,8 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   // The initial reported cumulative memory must be less than the expected value
   // below.
   ASSERT_LE(
-      lastCumulativeTotalMemory, memoryUsage * (lastTimeMs - startTimeMs));
+      lastCumulativeTotalMemory,
+      memoryUsage * (sinceStartWatch.elapsed().count() / 1'000.0));
   // Presto native doesn't differentiate user and system memory.
   ASSERT_EQ(
       lastCumulativeTotalMemory, prestoTaskInfo.stats.cumulativeUserMemory);
@@ -1829,17 +1917,15 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   std::this_thread::sleep_for(std::chrono::milliseconds(1'000));
 
   prestoTaskInfo = prestoTask->updateInfo(true);
-  // Wait a bit to avoid the timing related flakiness in test check below.
-  std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  const uint64_t currentTimeMs =
-      velox::EpochTime::now<std::chrono::milliseconds>();
+  const double sinceLastUpdateMs =
+      sinceLastUpdateWatch.elapsed().count() / 1'000.0;
   // There won't be any task memory usage change as we don't consume any output
   // buffers.
   ASSERT_EQ(memoryUsage, prestoTaskInfo.stats.userMemoryReservationInBytes);
   ASSERT_EQ(prestoTaskInfo.stats.systemMemoryReservationInBytes, 0);
   ASSERT_LE(
       prestoTaskInfo.stats.cumulativeTotalMemory,
-      lastCumulativeTotalMemory + memoryUsage * (currentTimeMs - lastTimeMs));
+      lastCumulativeTotalMemory + memoryUsage * sinceLastUpdateMs);
   ASSERT_LT(
       lastCumulativeTotalMemory, prestoTaskInfo.stats.cumulativeTotalMemory);
   ASSERT_EQ(

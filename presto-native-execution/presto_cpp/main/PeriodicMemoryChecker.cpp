@@ -155,11 +155,13 @@ std::string PeriodicMemoryChecker::createHeapDumpFilePath() const {
 }
 
 void PeriodicMemoryChecker::maybeDumpHeap() {
-  const auto now = velox::EpochTime::now<std::chrono::milliseconds>() / 1000;
+  const auto now = std::chrono::steady_clock::now();
   const auto allocatedSize = mallocBytes();
   if (allocatedSize >= config_.mallocBytesUsageDumpThreshold &&
-      now - lastHeapDumpAttemptTimestamp_ >= config_.minHeapDumpIntervalSec) {
-    lastHeapDumpAttemptTimestamp_ = now;
+      (!lastHeapDumpAttemptTime_.has_value() ||
+       now - lastHeapDumpAttemptTime_.value() >=
+           std::chrono::seconds(config_.minHeapDumpIntervalSec))) {
+    lastHeapDumpAttemptTime_ = now;
     LOG(INFO) << fmt::format(
         "Memory usage allocated via malloc exceeded threshold of {}, current "
         "allocation: {}",
