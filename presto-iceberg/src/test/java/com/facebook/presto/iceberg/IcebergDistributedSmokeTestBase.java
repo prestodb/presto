@@ -1493,25 +1493,28 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate(session, "DROP TABLE IF EXISTS test_nested_drop_array");
         }
 
-        // --- Drop then re-add: drop a field, verify existing row can be read, re-add, and verify existing/new values ---
-        // Note: In Presto-Iceberg, nested ROW fields are mapped by name/index within the struct at the reader level
-        // rather than using Iceberg's unique field IDs through the engine. Thus, re-adding a nested field with the
-        // same name allows reading the old physical data for existing rows (which reads 30 instead of NULL).
-        assertUpdate(session, "CREATE TABLE test_nested_drop_readd (" +
-                "id BIGINT, " +
-                "info ROW(name VARCHAR, age INTEGER)" +
-                ") WITH (" + format + ")");
-        assertUpdate(session, "INSERT INTO test_nested_drop_readd VALUES (1, ROW('alice', 30))", 1);
-        assertUpdate(session, "ALTER TABLE test_nested_drop_readd DROP COLUMN info.age");
-        assertQuery(session, "SELECT id, info.name FROM test_nested_drop_readd", "VALUES (1, 'alice')");
+        // Re-adding a previously dropped nested field name must be rejected to avoid stale reads.
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_readd (" +
+                    "id BIGINT, " +
+                    "info ROW(name VARCHAR, age INTEGER)" +
+                    ") WITH (" + format + ")");
+            assertUpdate(session, "INSERT INTO test_nested_drop_readd VALUES (1, ROW('alice', 30))", 1);
+            assertUpdate(session, "ALTER TABLE test_nested_drop_readd DROP COLUMN info.age");
+            assertQuery(session, "SELECT id, info.name FROM test_nested_drop_readd", "VALUES (1, 'alice')");
 
-        assertUpdate(session, "ALTER TABLE test_nested_drop_readd ADD COLUMN info.age INTEGER");
-        assertQuery(session, "SELECT id, info.name, info.age FROM test_nested_drop_readd", "VALUES (1, 'alice', 30)");
+            assertQueryFails(session,
+                    "ALTER TABLE test_nested_drop_readd ADD COLUMN info.age INTEGER",
+                    "Cannot add field 'age' to 'info': that name was previously used by another field.*");
 
-        assertUpdate(session, "INSERT INTO test_nested_drop_readd VALUES (2, ROW('bob', 40))", 1);
-        assertQuery(session, "SELECT id, info.name, info.age FROM test_nested_drop_readd ORDER BY id",
-                "VALUES (1, 'alice', 30), (2, 'bob', 40)");
-        dropTable(session, "test_nested_drop_readd");
+            assertUpdate(session, "ALTER TABLE test_nested_drop_readd ADD COLUMN info.years INTEGER");
+            assertUpdate(session, "INSERT INTO test_nested_drop_readd VALUES (2, ROW('bob', 40))", 1);
+            assertQuery(session, "SELECT id, info.name, info.years FROM test_nested_drop_readd ORDER BY id",
+                    "VALUES (1, 'alice', NULL), (2, 'bob', 40)");
+        }
+        finally {
+            dropTable(session, "test_nested_drop_readd");
+        }
     }
 
     @Test

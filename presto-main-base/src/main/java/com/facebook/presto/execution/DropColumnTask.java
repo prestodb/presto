@@ -98,8 +98,7 @@ public class DropColumnTask
             metadata.dropColumn(session, tableHandle, columnHandle);
         }
         else {
-            // Nested field: no ColumnHandle exists for sub-fields; delegate path-based drop.
-            // Dropping a nested field alters the schema of an existing column, so it requires ALTER COLUMN.
+            // Nested field: alters an existing column's schema, so requires ALTER COLUMN permission.
             accessControl.checkCanAlterColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
             metadata.dropField(session, tableHandle, normalizedParts, statement.isColumnExists());

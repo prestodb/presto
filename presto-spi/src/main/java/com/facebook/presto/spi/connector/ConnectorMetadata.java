@@ -484,7 +484,18 @@ public interface ConnectorMetadata
 
     /**
      * Drop a field from a nested struct column.
-     * {@code fieldPath} is the full dotted path to the field being dropped (e.g. ["info", "age"]).
+     *
+     * <p>{@code fieldPath} is the full dotted path to the field being dropped (e.g. {@code ["info", "age"]}).
+     * It always contains at least 2 elements (enforced by the caller), and all elements have already been
+     * normalized by the engine via the connector's own {@code normalizeIdentifier} before this method is invoked.
+     *
+     * <p>Path steps may traverse struct fields, list elements (using the pseudo-step {@code element}),
+     * or map values (using the pseudo-step {@code value}). Whether those collection steps are supported
+     * is connector-specific.
+     *
+     * <p>When {@code ignoreNonExistent} is {@code true}, the connector must silently return if the target
+     * field or any parent step in the path does not exist. When {@code false}, the connector must throw
+     * a {@code COLUMN_NOT_FOUND} error for a missing field.
      */
     default void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
     {

@@ -300,6 +300,7 @@ import static com.facebook.presto.spi.connector.RowChangeParadigm.DELETE_ROW_AND
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
@@ -1726,8 +1727,6 @@ public abstract class IcebergAbstractMetadata
         validateNoBranchSpecified(handle, "ADD COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
-        // Resolve parent using step-by-step traversal (exact-then-case-insensitive), avoiding Schema.caseInsensitiveFindField
-        // which builds a whole-schema lowercase index and fails on case-colliding fields elsewhere in the table.
         String parentName = String.join(".", parentPath);
         NestedField parentField = findNestedField(icebergTable.schema(), parentPath)
                 .orElseThrow(() -> new PrestoException(COLUMN_NOT_FOUND,
@@ -1740,7 +1739,6 @@ public abstract class IcebergAbstractMetadata
 
         String canonicalParentName = icebergTable.schema().findColumnName(parentField.fieldId());
 
-        // Check child existence within the parent struct's field list.
         Types.StructType parentStruct = parentField.type().asStructType();
         Optional<NestedField> existingField = findFieldInStruct(parentStruct, fieldName);
         if (existingField.isPresent()) {
@@ -1748,6 +1746,29 @@ public abstract class IcebergAbstractMetadata
                 return;
             }
             throw new PrestoException(ALREADY_EXISTS, format("Field '%s' already exists in '%s'", fieldName, canonicalParentName));
+        }
+
+        // Reject re-using a name that was previously used in this struct (dropped or renamed away).
+        // Readers match nested fields by name, not field ID, so existing rows would return stale data.
+        Types.StructType currentParentStruct = parentField.type().asStructType();
+        boolean nameWasPreviouslyUsed = icebergTable.schemas().values().stream()
+                .anyMatch(historicalSchema -> {
+                    NestedField historicalParent = historicalSchema.findField(parentField.fieldId());
+                    if (historicalParent == null || !historicalParent.type().isStructType()) {
+                        return false;
+                    }
+                    return historicalParent.type().asStructType().fields().stream()
+                            .anyMatch(child -> child.name().equalsIgnoreCase(fieldName)
+                                    && currentParentStruct.fields().stream().noneMatch(
+                                            current -> current.fieldId() == child.fieldId()
+                                                    && current.name().equalsIgnoreCase(fieldName)));
+                });
+        if (nameWasPreviouslyUsed) {
+            throw new PrestoException(NOT_SUPPORTED, format(
+                    "Cannot add field '%s' to '%s': that name was previously used by another field " +
+                            "(dropped or renamed). Re-using a name from a prior field is not supported " +
+                            "because existing rows would return stale data for the new field.",
+                    fieldName, canonicalParentName));
         }
 
         org.apache.iceberg.types.Type icebergType = toIcebergType(type);
@@ -1816,12 +1837,13 @@ public abstract class IcebergAbstractMetadata
     @Override
     public void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
     {
+        checkArgument(fieldPath.size() >= 2, "fieldPath must have at least 2 elements, got: %s", fieldPath);
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have fields dropped");
         validateNoBranchSpecified(handle, "DROP COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
-        // Iceberg's deleteColumn() is case-sensitive, so resolve the field first and use its canonical name
+        // Iceberg's deleteColumn() is case-sensitive; resolve the field first to get its canonical name.
         Optional<NestedField> resolvedField = resolveFieldToDrop(icebergTable.schema(), fieldPath, ignoreNonExistent, handle.getSchemaTableName());
         if (!resolvedField.isPresent()) {
             return;
@@ -1831,11 +1853,8 @@ public abstract class IcebergAbstractMetadata
         String canonicalPath = icebergTable.schema().findColumnName(field.fieldId());
 
         // Reject dropping a field referenced by any partition spec (current or historical).
-        // This must cover the field's own ID AND all descendant IDs: a partition spec references
-        // leaf fields by sourceId, so dropping a struct whose child is a partition source must
-        // also be rejected. TypeUtil.getProjectedIds returns the IDs of all nested fields inside
-        // the type (empty for primitives), but does NOT include the field's own ID, so we add it.
-        // See https://github.com/apache/iceberg/issues/4563
+        // Cover the field's own ID and all descendant IDs: a leaf partition field (sourceId)
+        // inside a struct being dropped must also be rejected. See apache/iceberg#4563.
         Set<Integer> droppedFieldIds = ImmutableSet.<Integer>builder()
                 .add(field.fieldId())
                 .addAll(TypeUtil.getProjectedIds(field.type()))
@@ -1924,9 +1943,7 @@ public abstract class IcebergAbstractMetadata
             }
         }
 
-        // Reject dropping the last field from a nested struct. Iceberg permits empty structs but
-        // Presto's RowType requires at least one field, so the table would become permanently
-        // unreadable (DESCRIBE and SELECT both throw) after such a drop.
+        // Reject dropping the only field of a nested struct: Presto's RowType requires at least one field.
         if (fieldPath.size() > 1 && containingStruct.fields().size() == 1) {
             String canonicalPath = schema.findColumnName(field.fieldId());
             int lastDot = canonicalPath.lastIndexOf('.');
@@ -1945,7 +1962,7 @@ public abstract class IcebergAbstractMetadata
         if (exactMatch.isPresent()) {
             return exactMatch;
         }
-        // Dropping is destructive, so never guess between fields that differ only by case
+        // Never guess between fields that differ only by case — dropping is destructive.
         List<NestedField> caseInsensitiveMatches = structType.fields().stream()
                 .filter(field -> field.name().equalsIgnoreCase(fieldName))
                 .collect(toImmutableList());

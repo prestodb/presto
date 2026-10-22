@@ -494,7 +494,6 @@ public class TestIcebergSmokeHive
                     .commit();
 
             // Dropping the immediate parent struct whose child is the partition source must be rejected.
-            // Before the fix this would silently succeed because only the struct's own ID was checked.
             assertQueryFails(session,
                     "ALTER TABLE " + tableName + " DROP COLUMN outer_col.inner_col",
                     "Cannot drop field 'outer_col.inner_col' which is used by a partition spec");
@@ -503,6 +502,15 @@ public class TestIcebergSmokeHive
             assertQueryFails(session,
                     "ALTER TABLE " + tableName + " DROP COLUMN outer_col.inner_col.city",
                     "Cannot drop field 'outer_col.inner_col.city' which is used by a partition spec");
+
+            // Guard must still apply when the field is only in a historical spec.
+            icebergTable.updateSpec()
+                    .removeField("outer_col.inner_col.city")
+                    .commit();
+            icebergTable = getIcebergTable(session, tableName);
+            assertQueryFails(session,
+                    "ALTER TABLE " + tableName + " DROP COLUMN outer_col.inner_col",
+                    "Cannot drop field 'outer_col.inner_col' which is used by a partition spec");
 
             // Dropping an unrelated field from inner_col (not the partition source) must succeed.
             assertUpdate(session,
@@ -514,6 +522,66 @@ public class TestIcebergSmokeHive
         }
         finally {
             assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    /**
+     * Re-using a previously dropped or renamed nested field name must be rejected.
+     * Readers match nested fields by name rather than field ID, so existing rows would
+     * return stale data for the new field. Renames are injected via the Iceberg API
+     * since Presto SQL has no nested-field RENAME syntax.
+     */
+    @Test
+    public void testAddFieldNameReuseIsRejected()
+    {
+        Session session = getSession();
+        String dropTableName = "test_nested_name_reuse_drop";
+        String renameTableName = "test_nested_name_reuse_rename";
+        try {
+            // Drop case: drop info.age, then attempt to re-add it.
+            assertUpdate(session,
+                    "CREATE TABLE " + dropTableName + " (" +
+                            "id BIGINT, " +
+                            "info ROW(name VARCHAR, age INTEGER)" +
+                            ")");
+            assertUpdate(session, "INSERT INTO " + dropTableName + " VALUES (1, ROW('alice', 30))", 1);
+            assertUpdate(session, "ALTER TABLE " + dropTableName + " DROP COLUMN info.age");
+
+            assertQueryFails(session,
+                    "ALTER TABLE " + dropTableName + " ADD COLUMN info.age INTEGER",
+                    "Cannot add field 'age' to 'info': that name was previously used by another field.*");
+
+            // A new name must still be addable after the drop.
+            assertUpdate(session, "ALTER TABLE " + dropTableName + " ADD COLUMN info.score INTEGER");
+            assertUpdate(session, "INSERT INTO " + dropTableName + " VALUES (2, ROW('bob', 99))", 1);
+            assertQuery(session, "SELECT id, info.name, info.score FROM " + dropTableName + " ORDER BY id",
+                    "VALUES (1, 'alice', NULL), (2, 'bob', 99)");
+
+            // Rename case: rename info.age → info.years, then attempt to re-add info.age.
+            assertUpdate(session,
+                    "CREATE TABLE " + renameTableName + " (" +
+                            "id BIGINT, " +
+                            "info ROW(name VARCHAR, age INTEGER)" +
+                            ")");
+            assertUpdate(session, "INSERT INTO " + renameTableName + " VALUES (1, ROW('alice', 30))", 1);
+
+            getIcebergTable(session, renameTableName).updateSchema()
+                    .renameColumn("info.age", "years")
+                    .commit();
+
+            assertQueryFails(session,
+                    "ALTER TABLE " + renameTableName + " ADD COLUMN info.age INTEGER",
+                    "Cannot add field 'age' to 'info': that name was previously used by another field.*");
+
+            // A new name must still be addable after the rename.
+            assertUpdate(session, "ALTER TABLE " + renameTableName + " ADD COLUMN info.score INTEGER");
+            assertUpdate(session, "INSERT INTO " + renameTableName + " VALUES (2, ROW('bob', 40, 99))", 1);
+            assertQuery(session, "SELECT id, info.name, info.years, info.score FROM " + renameTableName + " ORDER BY id",
+                    "VALUES (1, 'alice', NULL, NULL), (2, 'bob', 40, 99)");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS " + dropTableName);
+            assertUpdate(session, "DROP TABLE IF EXISTS " + renameTableName);
         }
     }
 

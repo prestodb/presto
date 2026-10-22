@@ -275,8 +275,9 @@ public interface Metadata
     void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column);
 
     /**
-     * Drop a field from a nested struct column.
-     * {@code fieldPath} is the full dotted path to the field being dropped (e.g. ["info", "age"]).
+     * Drop a field from a nested struct column by dotted field path (e.g. {@code ["info", "age"]}).
+     * {@code fieldPath} has at least 2 elements; all elements are normalized via the connector's
+     * {@code normalizeIdentifier} before this method is called.
      */
     void dropField(Session session, TableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent);
 

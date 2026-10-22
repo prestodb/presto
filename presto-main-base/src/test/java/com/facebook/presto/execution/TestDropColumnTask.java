@@ -151,7 +151,7 @@ public class TestDropColumnTask
     @Test
     public void testNestedDropColumnPassesCorrectArgumentsToDropField()
     {
-        // Original casing in the statement must be normalized before it reaches the connector
+        // MockMetadata.normalizeIdentifier returns identifiers unchanged, so dropField receives the original casing.
         QualifiedName nestedName = QualifiedName.of(ImmutableList.of(
                 new Identifier("Outer", true),
                 new Identifier("Inner", true),
@@ -159,12 +159,12 @@ public class TestDropColumnTask
 
         // isColumnExists=true so ignoreNonExistent must be forwarded as true
         execute(dropColumn(nestedName, true));
-        assertEquals(metadata.receivedFieldPath, ImmutableList.of("outer", "inner", "age"));
+        assertEquals(metadata.receivedFieldPath, ImmutableList.of("Outer", "Inner", "Age"));
         assertTrue(metadata.receivedFieldIgnoreNonExistent);
 
         // isColumnExists=false so ignoreNonExistent must be forwarded as false
         execute(dropColumn(nestedName, false));
-        assertEquals(metadata.receivedFieldPath, ImmutableList.of("outer", "inner", "age"));
+        assertEquals(metadata.receivedFieldPath, ImmutableList.of("Outer", "Inner", "Age"));
         assertFalse(metadata.receivedFieldIgnoreNonExistent);
 
         assertEquals(metadata.dropFieldCalls, 2);
@@ -204,6 +204,12 @@ public class TestDropColumnTask
         {
             this.droppedColumn = column;
             this.dropColumnCalls++;
+        }
+
+        @Override
+        public String normalizeIdentifier(Session session, String catalogName, String identifier)
+        {
+            return identifier;
         }
 
         @Override
