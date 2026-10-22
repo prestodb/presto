@@ -59,7 +59,7 @@ Prometheus-format metrics and exposes them over HTTP on port ``9483``.
 
 **Native worker pipeline**
 
-The Prestissimo worker runs the Velox C++ engine and already exposes a
+The Prestissimo worker runs the Velox C++ engine and exposes a
 Prometheus-compatible endpoint through its built-in HTTP server. No
 additional exporter is needed.
 
