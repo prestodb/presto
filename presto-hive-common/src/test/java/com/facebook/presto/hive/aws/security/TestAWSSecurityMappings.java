@@ -13,14 +13,21 @@
  */
 package com.facebook.presto.hive.aws.security;
 
+import com.facebook.presto.spi.security.AccessDeniedException;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.net.URI;
+import java.util.Optional;
 
 import static com.facebook.presto.plugin.base.JsonUtils.parseJson;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestAWSSecurityMappings
 {
@@ -29,10 +36,7 @@ public class TestAWSSecurityMappings
     @Test
     public void testValidAWSLakeFormationMapping()
     {
-        String lakeFormationSecurityMappingConfigPath =
-                this.getClass().getClassLoader().getResource("com.facebook.presto.hive.aws.security/aws-security-mapping-lakeformation-valid.json").getPath();
-
-        AWSSecurityMappings mappings = parseJson(new File(lakeFormationSecurityMappingConfigPath).toPath(), AWSSecurityMappings.class);
+        AWSSecurityMappings mappings = loadMappings("aws-security-mapping-lakeformation-valid.json");
 
         assertEquals(MappingResult.role("arn:aws:iam::123456789101:role/admin_role").getIamRole(),
                 mappings.getAWSLakeFormationSecurityMapping(MappingSelector.empty().withUser("admin").getUser()).getIamRole().get());
@@ -48,16 +52,305 @@ public class TestAWSSecurityMappings
                     "(iamRole is mandatory for AWS Lake Formation Security Mapping|Basic AWS Credentials are not supported for AWS Lake Formation Security Mapping)")
     public void testInvalidAWSLakeFormationMapping()
     {
-        String lakeFormationSecurityMappingConfigPath =
-                this.getClass().getClassLoader().getResource("com.facebook.presto.hive.aws.security/aws-security-mapping-lakeformation-invalid.json").getPath();
-
-        AWSSecurityMappings mappings = parseJson(new File(lakeFormationSecurityMappingConfigPath).toPath(), AWSSecurityMappings.class);
+        AWSSecurityMappings mappings = loadMappings("aws-security-mapping-lakeformation-invalid.json");
 
         // Fails with VerifyException: iamRole is mandatory for AWS Lake Formation Security Mapping
         mappings.getAWSLakeFormationSecurityMapping(MappingSelector.empty().withUser("admin").getUser());
 
         // Fails with VerifyException: Basic AWS Credentials are not supported for AWS Lake Formation Security Mapping
         mappings.getAWSLakeFormationSecurityMapping(MappingSelector.empty().withUser("analyst").getUser());
+    }
+
+    @Test(
+            expectedExceptions = VerifyException.class,
+            expectedExceptionsMessageRegExp = "s3Prefix is not supported for AWS Lake Formation Security Mapping")
+    public void testLakeFormationRejectsS3Prefix()
+    {
+        loadMappings("aws-security-mapping-lakeformation-with-s3prefix.json")
+                .getAWSLakeFormationSecurityMapping("admin");
+    }
+
+    /**
+     * Every criterion in an entry has to match, and the first entry that matches wins. The
+     * identity-and-prefix entry is listed ahead of the bucket-wide one, so the same location
+     * resolves differently depending on who is asking.
+     */
+    @Test
+    public void testAllCriteriaMustMatchAndFirstMatchWins()
+    {
+        AWSSecurityMappings mappings = s3PrefixMappings();
+        URI location = URI.create("s3a://bucket-a/sales/day=1/f.parquet");
+
+        AWSSecurityMapping analyst = mappings.getAWSS3SecurityMapping("analyst", location);
+        assertEquals(analyst.getCredentials().get().getAWSAccessKeyId(), "sales-access-key");
+        assertEquals(analyst.getCredentials().get().getAWSSecretKey(), "sales-secret-key");
+        assertFalse(analyst.getIamRole().isPresent());
+
+        AWSSecurityMapping other = mappings.getAWSS3SecurityMapping("someone-else", location);
+        assertEquals(other.getIamRole().get(), "arn:aws:iam::123456789101:role/bucket_a_role");
+    }
+
+    @Test
+    public void testMappingWithoutPrefixActsAsCatchAll()
+    {
+        assertEquals(
+                s3PrefixMappings().getAWSS3SecurityMapping(DEFAULT_USER, URI.create("s3a://unmapped-bucket/f.parquet"))
+                        .getIamRole().get(),
+                "arn:aws:iam::123456789101:role/default_role");
+    }
+
+    /**
+     * Security mapping is an access-control feature, so a location no entry covers is denied
+     * rather than silently falling back to the catalog-wide credentials.
+     */
+    @Test(
+            expectedExceptions = AccessDeniedException.class,
+            expectedExceptionsMessageRegExp =
+                    "Access Denied: No matching AWS S3 Security Mapping for user 'defaultUser' and location 's3a://bucket-z/f.parquet'")
+    public void testUnmatchedLocationIsDeniedWhenNoCatchAllExists()
+    {
+        loadMappings("aws-security-mapping-s3-prefix-no-catch-all.json")
+                .getAWSS3SecurityMapping(DEFAULT_USER, URI.create("s3a://bucket-z/f.parquet"));
+    }
+
+    /**
+     * A single entry may list several prefixes, covering multiple buckets or one bucket addressed
+     * through more than one scheme, without duplicating the credentials. All of them share one
+     * cache key qualifier, since they resolve to the same credentials.
+     */
+    @Test
+    public void testMultiplePrefixesInOneEntry()
+    {
+        AWSSecurityMappings mappings = s3PrefixMappings();
+
+        AWSSecurityMapping first = null;
+        for (String location : new String[] {
+                "s3a://shared-bucket/f.parquet",
+                "s3://shared-bucket/f.parquet",
+                "s3a://other-shared-bucket/nested/f.parquet"}) {
+            AWSSecurityMapping mapping = mappings.getAWSS3SecurityMapping(DEFAULT_USER, URI.create(location));
+            assertEquals(mapping.getCredentials().get().getAWSAccessKeyId(), "shared-access-key",
+                    "unexpected mapping for " + location);
+            if (first == null) {
+                first = mapping;
+            }
+            assertEquals(mapping.getS3CacheKeyQualifier(), first.getS3CacheKeyQualifier(),
+                    "unexpected cache key qualifier for " + location);
+        }
+    }
+
+    /**
+     * Prefixes may also be given as a bare string rather than a list. A scheme no prefix lists is
+     * not covered, so bucket-c, listed only under s3a://, falls through to the catch-all when
+     * addressed through s3://.
+     */
+    @Test
+    public void testSingleStringPrefixAndUnlistedSchemeAreNotCovered()
+    {
+        AWSSecurityMappings mappings = s3PrefixMappings();
+
+        assertEquals(
+                mappings.getAWSS3SecurityMapping(DEFAULT_USER, URI.create("s3a://bucket-c/f.parquet")).getIamRole().get(),
+                "arn:aws:iam::123456789101:role/bucket_c_role");
+        assertEquals(
+                mappings.getAWSS3SecurityMapping(DEFAULT_USER, URI.create("s3://bucket-c/f.parquet")).getIamRole().get(),
+                "arn:aws:iam::123456789101:role/default_role");
+    }
+
+    @Test
+    public void testCatchAllEntryHasNoCacheKeyQualifier()
+    {
+        assertFalse(
+                s3PrefixMappings().getAWSS3SecurityMapping(DEFAULT_USER, URI.create("s3a://unmapped-bucket/f.parquet"))
+                        .getS3CacheKeyQualifier().isPresent());
+    }
+
+    /**
+     * A staged write takes its location from {@code hive.temporary-staging-directory-path}, whose
+     * default is absolute and so resolves against the bucket root rather than beneath the table
+     * location. A table-scoped prefix does not cover it.
+     */
+    @Test(
+            expectedExceptions = AccessDeniedException.class,
+            expectedExceptionsMessageRegExp =
+                    "Access Denied: No matching AWS S3 Security Mapping for user 'defaultUser' and location 's3a://bucket-a/tmp/presto-defaultUser'")
+    public void testStagingLocationOutsideConfiguredPrefixesIsDenied()
+    {
+        loadMappings("aws-security-mapping-s3-prefix-table-scoped.json")
+                .getAWSS3SecurityMapping(DEFAULT_USER, URI.create("s3a://bucket-a/tmp/presto-defaultUser"));
+    }
+
+    @Test
+    public void testStagingLocationCanResolveToDifferentMappingThanTable()
+    {
+        AWSSecurityMappings mappings = s3PrefixMappings();
+
+        assertEquals(
+                mappings.getAWSS3SecurityMapping("analyst", URI.create("s3a://bucket-a/sales/day=1/f.parquet"))
+                        .getCredentials().get().getAWSAccessKeyId(),
+                "sales-access-key");
+
+        // The staging location for that same write falls outside the sales prefix and lands on the
+        // bucket-wide entry instead, whose credentials need not permit the write.
+        assertEquals(
+                mappings.getAWSS3SecurityMapping("analyst", URI.create("s3a://bucket-a/tmp/presto-analyst"))
+                        .getIamRole().get(),
+                "arn:aws:iam::123456789101:role/bucket_a_role");
+    }
+
+    /**
+     * An absent, empty and null {@code s3Prefix} all mean "any location". The entries elsewhere in
+     * these tests cover the absent form; these two reach the constructor by writing the property
+     * explicitly, which is easy to get wrong in a way that would scope a catch-all to nothing.
+     */
+    @Test
+    public void testEmptyAndNullPrefixActAsCatchAll()
+    {
+        AWSSecurityMappings mappings = loadMappings("aws-security-mapping-s3-prefix-empty.json");
+
+        for (String location : new String[] {"s3a://bucket-a/sales/f.parquet", "s3://other-bucket/nested/f.parquet"}) {
+            AWSSecurityMapping emptyPrefix = mappings.getAWSS3SecurityMapping("alice", URI.create(location));
+            assertEquals(emptyPrefix.getIamRole().get(), "arn:aws:iam::123456789101:role/empty_prefix_role",
+                    "unexpected mapping for " + location);
+            assertFalse(emptyPrefix.getS3CacheKeyQualifier().isPresent());
+
+            AWSSecurityMapping nullPrefix = mappings.getAWSS3SecurityMapping("bob", URI.create(location));
+            assertEquals(nullPrefix.getIamRole().get(), "arn:aws:iam::123456789101:role/null_prefix_role",
+                    "unexpected mapping for " + location);
+            assertFalse(nullPrefix.getS3CacheKeyQualifier().isPresent());
+        }
+    }
+
+    /**
+     * Jackson passes null for both an absent and an explicitly null property, so the null list has
+     * to reduce to the same empty list the no-prefix forms produce.
+     */
+    @Test
+    public void testNullPrefixListIsEquivalentToEmptyList()
+    {
+        AWSSecurityMapping nullPrefixes = new AWSSecurityMapping(
+                Optional.empty(),
+                null,
+                Optional.of("arn:aws:iam::123456789101:role/some_role"),
+                Optional.empty(),
+                Optional.empty());
+
+        assertEquals(nullPrefixes.getS3Prefixes(), mappingWithPrefixes().getS3Prefixes());
+        assertTrue(nullPrefixes.matchesS3(DEFAULT_USER, "s3a://any-bucket/any/key"));
+        assertFalse(nullPrefixes.getS3CacheKeyQualifier().isPresent());
+    }
+
+    /**
+     * Prefix matching happens on path-segment boundaries. Enumerated rather than spot-checked,
+     * because the same property has to hold at the bucket level and at any depth of key, for the
+     * prefix itself as well as for what lies beneath it, and with or without a trailing slash.
+     */
+    @Test(dataProvider = "pathSegmentBoundaryCases")
+    public void testPrefixMatchesOnPathSegmentBoundaries(String prefix, String location, boolean expected)
+    {
+        assertEquals(mappingWithPrefixes(prefix).matchesS3(DEFAULT_USER, location), expected);
+    }
+
+    @DataProvider(name = "pathSegmentBoundaryCases")
+    public Object[][] pathSegmentBoundaryCases()
+    {
+        return new Object[][] {
+                // prefix, location, expected
+                // the prefix itself, which is how a directory arrives once Path strips the slash
+                {"s3a://bucket/sales", "s3a://bucket/sales", true},
+                {"s3a://bucket/sales/", "s3a://bucket/sales", true},
+                {"s3a://bucket", "s3a://bucket", true},
+                {"s3a://bucket/", "s3a://bucket", true},
+                // Path keeps the slash for a bucket root, since the root path is itself "/"
+                {"s3a://bucket", "s3a://bucket/", true},
+                {"s3a://bucket/", "s3a://bucket/", true},
+                // anything beneath it
+                {"s3a://bucket/sales", "s3a://bucket/sales/day=1/f.parquet", true},
+                {"s3a://bucket/sales/", "s3a://bucket/sales/day=1/f.parquet", true},
+                {"s3a://bucket", "s3a://bucket/sales/f.parquet", true},
+                {"s3a://bucket/", "s3a://bucket/sales/f.parquet", true},
+                // a sibling sharing leading characters, at the key level
+                {"s3a://bucket/sales", "s3a://bucket/sales-archive/f.parquet", false},
+                {"s3a://bucket/sales/", "s3a://bucket/sales-archive/f.parquet", false},
+                {"s3a://bucket/sales", "s3a://bucket/salesX", false},
+                // a sibling sharing leading characters, at the bucket level
+                {"s3a://prod", "s3a://prod-secrets/creds.parquet", false},
+                {"s3a://prod/", "s3a://prod-secrets/creds.parquet", false},
+                // a partial key segment is not a boundary
+                {"s3a://bucket/data-2024", "s3a://bucket/data-2024-01/f.parquet", false},
+                // an unrelated location
+                {"s3a://bucket/sales", "s3a://other/sales/f.parquet", false},
+        };
+    }
+
+    /**
+     * Writing a prefix with or without a trailing slash makes no difference, so the two forms share
+     * one cache key qualifier rather than splitting one credential scope across two cache slots.
+     */
+    @Test
+    public void testTrailingSlashDoesNotAffectCacheKeyQualifier()
+    {
+        assertEquals(
+                mappingWithPrefixes("s3a://bucket/sales/").getS3CacheKeyQualifier(),
+                mappingWithPrefixes("s3a://bucket/sales").getS3CacheKeyQualifier());
+    }
+
+    @Test(
+            expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = "s3Prefix must include a bucket.*")
+    public void testPrefixWithoutBucketIsRejected()
+    {
+        mappingWithPrefixes("s3a:///");
+    }
+
+    @Test(
+            expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = "s3Prefix must include a scheme.*")
+    public void testPrefixWithoutSchemeIsRejected()
+    {
+        mappingWithPrefixes("just-a-bucket/path");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = "s3Prefix scheme must be one of .*")
+    public void testPrefixWithUnsupportedSchemeIsRejected()
+    {
+        mappingWithPrefixes("s4a://bucket/path");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = "s3Prefix scheme must be one of .*")
+    public void testPrefixWithUppercaseSchemeIsRejected()
+    {
+        mappingWithPrefixes("S3A://bucket/path");
+    }
+
+    @Test
+    public void testAllSupportedSchemesAreAccepted()
+    {
+        mappingWithPrefixes("s3://bucket/path", "s3a://bucket/path", "s3n://bucket/path");
+    }
+
+    private AWSSecurityMappings s3PrefixMappings()
+    {
+        return loadMappings("aws-security-mapping-s3-prefix-valid.json");
+    }
+
+    private AWSSecurityMappings loadMappings(String resourceName)
+    {
+        String path = this.getClass().getClassLoader()
+                .getResource("com.facebook.presto.hive.aws.security/" + resourceName).getPath();
+        return parseJson(new File(path).toPath(), AWSSecurityMappings.class);
+    }
+
+    private static AWSSecurityMapping mappingWithPrefixes(String... prefixes)
+    {
+        return new AWSSecurityMapping(
+                Optional.empty(),
+                ImmutableList.copyOf(prefixes),
+                Optional.of("arn:aws:iam::123456789101:role/some_role"),
+                Optional.empty(),
+                Optional.empty());
     }
 
     private static class MappingSelector
