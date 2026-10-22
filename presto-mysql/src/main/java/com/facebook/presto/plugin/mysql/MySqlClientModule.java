@@ -14,16 +14,27 @@
 package com.facebook.presto.plugin.mysql;
 
 import com.facebook.airlift.configuration.AbstractConfigurationAwareModule;
+import com.facebook.airlift.json.JsonModule;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcClient;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import com.mysql.cj.conf.ConnectionUrl;
 import com.mysql.cj.conf.ConnectionUrlParser;
 import com.mysql.cj.util.StringUtils;
+import jakarta.inject.Inject;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Objects.requireNonNull;
 
 public class MySqlClientModule
         extends AbstractConfigurationAwareModule
@@ -37,11 +48,37 @@ public class MySqlClientModule
         });
         ensureCatalogIsEmpty(buildConfigObject(BaseJdbcConfig.class).getConnectionUrl());
         configBinder(binder).bindConfig(MySqlConfig.class);
+        binder.install(new JsonModule());
+        jsonCodecBinder(binder).bindJsonCodec(ViewDefinition.class);
+        jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
     }
 
     private static void ensureCatalogIsEmpty(String connectionUrl)
     {
         checkArgument(ConnectionUrlParser.isConnectionStringSupported(connectionUrl), "Invalid JDBC URL for MySQL connector");
         checkArgument(StringUtils.isNullOrEmpty(ConnectionUrl.getConnectionUrlInstance(connectionUrl, null).getDatabase()), "Database (catalog) must not be specified in JDBC URL for MySQL connector");
+    }
+
+    private static final class TypeDeserializer
+            extends FromStringDeserializer<Type>
+    {
+        private static final long serialVersionUID = 1L;
+
+        private final TypeManager typeManager;
+
+        @Inject
+        public TypeDeserializer(TypeManager typeManager)
+        {
+            super(Type.class);
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        }
+
+        @Override
+        protected Type _deserialize(String value, DeserializationContext context)
+        {
+            Type type = typeManager.getType(parseTypeSignature(value));
+            checkArgument(type != null, "Unknown type %s", value);
+            return type;
+        }
     }
 }
