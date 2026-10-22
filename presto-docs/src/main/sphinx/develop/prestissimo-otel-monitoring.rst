@@ -11,7 +11,7 @@ information through JMX. The Prestissimo worker, on the other hand,
 runs the Velox C++ execution engine and provides a
 Prometheus-compatible metrics endpoint.
 
-This means that collecting metrics from the entire Prestissimo cluster
+Collecting metrics from the entire Prestissimo cluster
 requires two different approaches. In this article, we look at how to
 collect metrics from both components using the OpenTelemetry Collector,
 enrich those metrics with useful metadata, and export them to an
