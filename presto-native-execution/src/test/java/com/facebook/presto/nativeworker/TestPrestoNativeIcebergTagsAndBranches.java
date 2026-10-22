@@ -190,15 +190,22 @@ public class TestPrestoNativeIcebergTagsAndBranches
         assertQuery("SELECT id, product, price FROM test_branch_mutation ORDER BY id",
                 "VALUES (1, 'Product A', 100.00), (2, 'Product B', 200.00)");
 
-        // Re-insert data for testing unsupported operations
+        // Re-insert data for testing unsupported operations. Branch UPDATE/DELETE/MERGE
+        // via dot notation passes coordinator validation (the branch exists) and fails in
+        // native execution, which has no branch-aware write path and no branch-specific
+        // error string. Scope each pattern to the failing statement and verify the branch
+        // is untouched, proving the failure committed nothing.
         assertUpdate("INSERT INTO \"test_branch_mutation.branch_audit_branch\" VALUES (1, 'Product A', 100.00), (2, 'Product B', 200.00)", 2);
-        assertQueryFails("UPDATE \"test_branch_mutation.branch_audit_branch\" SET price = 120.00 WHERE id = 1", "(?s).*");
-        assertQueryFails("DELETE FROM \"test_branch_mutation.branch_audit_branch\" WHERE id = 2", "(?s).*");
+        assertQueryFails("UPDATE \"test_branch_mutation.branch_audit_branch\" SET price = 120.00 WHERE id = 1", "(?s).*test_branch_mutation.*");
+        assertQuery("SELECT count(*) FROM \"test_branch_mutation.branch_audit_branch\"", "VALUES 2");
+        assertQueryFails("DELETE FROM \"test_branch_mutation.branch_audit_branch\" WHERE id = 2", "(?s).*test_branch_mutation.*");
+        assertQuery("SELECT count(*) FROM \"test_branch_mutation.branch_audit_branch\"", "VALUES 2");
         assertUpdate("CREATE TABLE test_branch_mutation_source (id BIGINT, product VARCHAR, price DOUBLE)");
         assertUpdate("INSERT INTO test_branch_mutation_source VALUES (1, 'Product A Updated', 150.00)", 1);
         assertQueryFails("MERGE INTO \"test_branch_mutation.branch_audit_branch\" t " +
                 "USING test_branch_mutation_source s ON t.id = s.id " +
                 "WHEN MATCHED THEN UPDATE SET price = s.price " +
-                "WHEN NOT MATCHED THEN INSERT (id, product, price) VALUES (s.id, s.product, s.price)", "(?s).*");
+                "WHEN NOT MATCHED THEN INSERT (id, product, price) VALUES (s.id, s.product, s.price)", "(?s).*test_branch_mutation.*");
+        assertQuery("SELECT count(*) FROM \"test_branch_mutation.branch_audit_branch\"", "VALUES 2");
     }
 }

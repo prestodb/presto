@@ -144,6 +144,7 @@ import static com.facebook.presto.spi.ConnectorMergeSink.DELETE_OPERATION_NUMBER
 import static com.facebook.presto.spi.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
 import static com.facebook.presto.spi.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
@@ -408,6 +409,11 @@ public class QueryPlanner
         if (rewriteAsMerge && !isMergeSupportedFormatVersion(handle)) {
             rewriteAsMerge = false;
         }
+        // V3 row-level updates are committed as Puffin deletion vectors (via the
+        // UPDATE-as-MERGE rewrite on native, or not at all on Java). Reject
+        // Java-planned V3 UPDATEs with the connector's message. Native-planned
+        // UPDATEs reach beginMerge through the rewrite below and are unaffected.
+        checkV3DeletionVectorRequiresNative(handle, "UPDATE");
         if (!rewriteAsMerge) {
             handle = metadata.beginUpdate(session, handle, updatedColumns, analysis.getWritePredicateScope());
         }
@@ -729,6 +735,48 @@ public class QueryPlanner
     }
 
     /**
+     * Returns true iff the target table is an Iceberg format-version 3 table, whose
+     * row-level writes are committed as Puffin deletion vectors that only a native
+     * (Prestissimo) worker can produce. Like {@link #isMergeSupportedFormatVersion},
+     * the version is read from the {@code "format-version"} table property (no Iceberg
+     * dependency allowed here) and absent/unparseable means false.
+     */
+    private boolean isV3DeletionVectorTable(TableHandle handle)
+    {
+        Object formatVersion = metadata.getTableMetadata(session, handle)
+                .getMetadata()
+                .getProperties()
+                .get("format-version");
+        if (formatVersion == null) {
+            return false;
+        }
+        try {
+            return Integer.parseInt(formatVersion.toString()) == 3;
+        }
+        catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * Rejects Iceberg V3 row-level UPDATE/MERGE planned for Java execution with the same
+     * message the connector reports at commit time. Without this gate the failure surfaces
+     * from whichever engine-internal error the V3 row id hits first, which is
+     * version-fragile and differs between UPDATE/MERGE paths. DELETE is intentionally not
+     * gated here: full-table and partition-aligned deletes are rewritten to
+     * MetadataDeleteNode after planning and succeed on Java, and the planner cannot
+     * distinguish those from row-level deletes at plan time.
+     */
+    private void checkV3DeletionVectorRequiresNative(TableHandle handle, String operation)
+    {
+        if (!isNativeExecutionEnabled(session) && isV3DeletionVectorTable(handle)) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    "Iceberg V3 deletion-vector writes (" + operation + ") require the native (Prestissimo) worker. " +
+                            "The Java worker cannot produce Puffin deletion vectors.");
+        }
+    }
+
+    /**
      * Plan a MERGE statement. The MERGE statement is processed by creating a RIGHT JOIN between the target table and the source.
      * Example of converting a MERGE statement into a SELECT statement with a RIGHT JOIN:
      * Merge statement:
@@ -936,6 +984,11 @@ public class QueryPlanner
                 markDistinctNode, rowExpression(multipleMatchesExpression, sqlPlannerContext));
 
         TableHandle targetTableHandle = analysis.getTableHandle(targetTable);
+        // V3 row-level merges are committed as Puffin deletion vectors, which only the
+        // native worker can write. Reject Java-planned V3 MERGEs here with the same
+        // message the connector reports, instead of letting the failure surface from
+        // whichever engine-internal error the 4-field V3 row id hits first.
+        checkV3DeletionVectorRequiresNative(targetTableHandle, "MERGE");
         RowChangeParadigm rowChangeParadigm = metadata.getRowChangeParadigm(session, targetTableHandle);
         Type targetTableRowIdColumnType = analysis.getType(analysis.getRowIdField(targetTable));
         TableMetadata targetTableMetadata = metadata.getTableMetadata(session, targetTableHandle);

@@ -236,8 +236,10 @@ public class TestRewriteDataFilesProcedure
                     .planFiles().iterator();
             assertFilesPlan(fileScanTasks, 10, 0);
 
-            // do not support rewrite files filtered by non-identity columns
-            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, TEST_SCHEMA), ".*");
+            // do not support rewrite files filtered by non-identity columns: the filter
+            // cannot be enforced by the connector, so a FilterNode remains in the procedure
+            // plan and the plan sanity check rejects it.
+            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, TEST_SCHEMA), "Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
 
             String tableName1 = "my_table";
             String schema = "my_schema";
@@ -559,8 +561,10 @@ public class TestRewriteDataFilesProcedure
                     .planFiles().iterator();
             assertFilesPlan(fileScanTasks, 5, 0);
 
-            // do not support rewrite files filtered by non-identity columns
-            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, TEST_SCHEMA), ".*");
+            // do not support rewrite files filtered by non-identity columns: the filter
+            // cannot be enforced by the connector, so a FilterNode remains in the procedure
+            // plan and the plan sanity check rejects it.
+            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c1 > 3')", tableName, TEST_SCHEMA), "Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
 
             // the filter is `true` means select all files to rewrite
             assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', filter => '1 = 1', options => map(array['rewrite-all'], array['true']))", tableName, TEST_SCHEMA), 10);
@@ -663,8 +667,10 @@ public class TestRewriteDataFilesProcedure
             assertHasDataFiles(table.currentSnapshot(), 4);
             assertHasDeleteFiles(table.currentSnapshot(), 2);
 
-            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'a > 3')", tableName, TEST_SCHEMA), ".*");
-            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c > 3')", tableName, TEST_SCHEMA), ".*");
+            // Filters on non-identity columns cannot be enforced by the connector, so a
+            // FilterNode remains in the procedure plan and the plan sanity check rejects it.
+            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'a > 3')", tableName, TEST_SCHEMA), "Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
+            assertQueryFails(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', filter => 'c > 3')", tableName, TEST_SCHEMA), "Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
 
             assertUpdate(format("call system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['rewrite-all'], array['true']))", tableName, TEST_SCHEMA), 3);
             table.refresh();
