@@ -495,9 +495,10 @@ public class QueryPlanner
 
         builder = builder.appendProjections(orderedColumnValues, variableAllocator, idAllocator, session, metadata, sqlParser, analysis, sqlPlannerContext);
 
+        PlanAndMappings coerced = coerce(builder, orderedColumnValues, analysis, idAllocator, variableAllocator, metadata);
         PlanAndMappings planAndMappings = checkNotNullUpdatedColumns(
-                node,
-                coerce(builder, orderedColumnValues, analysis, idAllocator, variableAllocator, metadata),
+                node.getTable().getName(),
+                coerced,
                 orderedColumnNames,
                 orderedColumnValues,
                 updatedColumnMetadata);
@@ -1098,10 +1099,12 @@ public class QueryPlanner
     }
 
     /**
-     * Wraps the SET value of each NOT NULL column in {@link #failIfNull}.
+     * Adds a ProjectNode that wraps the SET value of each NOT NULL column in {@link #failIfNull},
+     * and returns mappings from each SET expression to its checked variable.
+     * {@code columnNames} and {@code columnValues} must be in the same (table column) order.
      */
     private PlanAndMappings checkNotNullUpdatedColumns(
-            Update node,
+            QualifiedName tableName,
             PlanAndMappings planAndMappings,
             List<String> columnNames,
             List<Expression> columnValues,
@@ -1125,7 +1128,7 @@ public class QueryPlanner
             ColumnMetadata column = notNullColumns.get(columnNames.get(i));
             if (column != null) {
                 VariableReferenceExpression checkedVariable = variableAllocator.newVariable(variable);
-                Expression checkedValue = failIfNull(createSymbolReference(variable), node.getTable().getName(), column, defaultNamespace);
+                Expression checkedValue = failIfNull(createSymbolReference(variable), tableName, column, defaultNamespace);
                 assignments.put(checkedVariable, rowExpression(checkedValue, sqlPlannerContext));
                 variable = checkedVariable;
             }

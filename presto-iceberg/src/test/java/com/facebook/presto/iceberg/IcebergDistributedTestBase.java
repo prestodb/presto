@@ -3592,6 +3592,8 @@ public abstract class IcebergDistributedTestBase
             assertQueryFails("UPDATE " + tableName + " SET b = NULL WHERE a = 1", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: b");
             assertQueryFails("UPDATE " + tableName + " SET c = NULL", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: c");
             assertQueryFails("UPDATE " + tableName + " SET c = IF(a = 4, NULL, c)", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: c");
+            assertQueryFails("UPDATE " + tableName + " SET c = NULL, b = 7 WHERE a = 1", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: c");
+            assertQueryFails("UPDATE " + tableName + " SET b = CAST(NULL AS INTEGER)", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: b");
             assertUpdate("UPDATE " + tableName + " SET b = NULL WHERE a = 999", 0);
             assertQuery("SELECT a, b, c FROM " + tableName, "VALUES (1, 2, 3), (4, 5, 6)");
 

@@ -96,9 +96,26 @@ public class TestIcebergUpdateAndMergeNotNull
             assertQueryFails(
                     format("MERGE INTO %s t USING (VALUES 2) s(a) ON t.a = s.a WHEN NOT MATCHED THEN INSERT VALUES (s.a, NULL)", tableName),
                     notNullError(tableName, "b"));
+            assertQueryFails(
+                    format("MERGE INTO %s t USING (VALUES 2) s(a) ON t.a = s.a WHEN NOT MATCHED THEN INSERT (a) VALUES (s.a)", tableName),
+                    notNullError(tableName, "b"));
             assertUpdate(format("MERGE INTO %s t USING (VALUES 999) s(a) ON t.a = s.a WHEN MATCHED THEN UPDATE SET b = NULL", tableName), 0);
             assertUpdate(format("MERGE INTO %s t USING (VALUES 3) s(a) ON t.a = s.a WHEN NOT MATCHED THEN INSERT VALUES (s.a, 4)", tableName), 1);
             assertQuery(format("SELECT a, b FROM %s", tableName), "VALUES (1, 2), (3, 4)");
+        }
+    }
+
+    @Test
+    public void testMergeMultipleSourceRowsMatch()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "merge_multiple_match", "CREATE TABLE {TABLE_NAME} (a BIGINT, b BIGINT)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2)", tableName), 1);
+
+            assertQueryFails(
+                    format("MERGE INTO %s t USING (VALUES 1, 1) s(a) ON t.a = s.a WHEN MATCHED THEN UPDATE SET b = 3", tableName),
+                    ".*One or more rows in the target table matched multiple source rows\\..*");
+            assertQuery(format("SELECT a, b FROM %s", tableName), "VALUES (1, 2)");
         }
     }
 
