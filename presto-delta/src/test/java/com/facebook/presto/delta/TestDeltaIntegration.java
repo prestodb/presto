@@ -18,6 +18,7 @@ import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.testing.MaterializedResult;
 import com.google.common.base.Joiner;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -207,6 +208,32 @@ public class TestDeltaIntegration
     }
 
     @Test(dataProvider = "deltaReaderVersions")
+    public void readSimplePartitionedTable(String version)
+    {
+        String testQuery = "SELECT * FROM \"" + getVersionPrefix(version) +
+                "simple-partitioned-table\"";
+        String expResultsQuery = "SELECT * FROM VALUES(1, 'test_value')";
+        assertQuery(testQuery, expResultsQuery);
+    }
+
+    @Test(dataProvider = "deltaReaderVersions")
+    public void readSimplePartitionedTableEndKeys(String version)
+    {
+        String testQuery = "SELECT * FROM \"" + getVersionPrefix(version) +
+                "simple-partitioned-table-end-keys\"";
+        String expResultsQuery = "SELECT * FROM VALUES('test_value', 1)";
+        assertQuery(testQuery, expResultsQuery);
+    }
+
+    @Test
+    public void readEmptyStringPartitionValue()
+    {
+        String table = goldenTablePathWithPrefix(DELTA_V1, "empty-string-partition");
+        String testQuery = format("SELECT value, part FROM \"%s\".\"%s\"", PATH_SCHEMA, table);
+        assertQuery(testQuery, "SELECT * FROM VALUES('0', '')");
+    }
+
+    @Test(dataProvider = "deltaReaderVersions")
     public void readPartitionedTableAllDataTypes(String version)
     {
         String testQuery = "SELECT * FROM \"" + getVersionPrefix(version) +
@@ -252,6 +279,135 @@ public class TestDeltaIntegration
                 "  '2'" + // regular column
                 ")";
         assertQuery(testQuery, expResultsQuery);
+    }
+
+    @Test(dataProvider = "deltaReaderVersions")
+    public void readPartitionedTableAllDataTypesEndKeys(String version)
+    {
+        String testQuery = "SELECT * FROM \"" + getVersionPrefix(version) +
+                "data-reader-partition-values-end-keys\"";
+        String expResultsQuery = "SELECT * FROM VALUES" +
+                "( '0'," + // regular column
+                "  0," +
+                "  cast(0 as bigint)," +
+                "  cast(0 as tinyint), " +
+                "  cast(0 as smallint), " +
+                "  true, " +
+                "  0.0, " +
+                "  cast(0.0 as double), " +
+                "  '0', " +
+                "  DATE '2021-09-08', " +
+                "  TIMESTAMP WITH TIME ZONE '2021-09-08 11:11:11 UTC', " +
+                "  cast(0 as decimal)" +
+                "), " +
+                "( '1'," + // regular column
+                "  1," +
+                "  cast(1 as bigint)," +
+                "  cast(1 as tinyint), " +
+                "  cast(1 as smallint), " +
+                "  false, " +
+                "  1.0, " +
+                "  cast(1.0 as double), " +
+                "  '1', " +
+                "  DATE '2021-09-08', " +
+                "  TIMESTAMP WITH TIME ZONE '2021-09-08 11:11:11 UTC', " +
+                "  cast(1 as decimal)" +
+                "), " +
+                "( '2'," + // regular column
+                "  null," +
+                "  null," +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null, " +
+                "  null" +
+                ")";
+        assertQuery(testQuery, expResultsQuery);
+    }
+
+    /**
+     * Reader version crossed with both timestamp semantics. A partition value is
+     * a string in the transaction log, and which value it stands for depends on
+     * the session: under legacy semantics a TIMESTAMP is an instant rendered in
+     * the session timezone, without them it is a zone-less wall clock. Both have
+     * to work, so every case below runs twice.
+     */
+    @DataProvider(name = "readerVersionsAndTimestampSemantics")
+    public static Object[][] readerVersionsAndTimestampSemantics()
+    {
+        return new Object[][] {
+                {DELTA_V1, true}, {DELTA_V1, false},
+                {DELTA_V3, true}, {DELTA_V3, false}};
+    }
+
+    @DataProvider(name = "timestampSemantics")
+    public static Object[][] timestampSemantics()
+    {
+        return new Object[][] {{true}, {false}};
+    }
+
+    /**
+     * A session in a zone other than UTC, so that a value read in the wrong zone
+     * is visibly off rather than accidentally right.
+     */
+    private Session sessionWithTimestampSemantics(boolean legacyTimestamp)
+    {
+        return Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("UTC+3"))
+                .setSystemProperty("legacy_timestamp", String.valueOf(legacyTimestamp))
+                .build();
+    }
+
+    @Test(dataProvider = "readerVersionsAndTimestampSemantics")
+    public void readPartitionedTableDatePredicate(String version, boolean legacyTimestamp)
+    {
+        // A predicate on a partition column is enforced by dropping non-matching
+        // files during split generation, so the domain built from the partition
+        // value has to use the representation the column is read as -- days since
+        // the epoch for DATE. Rows '0' and '1' carry the date below, row '2' has
+        // a null partition value.
+        String testQuery = "SELECT value FROM \"" + getVersionPrefix(version) +
+                "data-reader-partition-values\" WHERE as_date = DATE '2021-09-08'";
+        assertQuery(sessionWithTimestampSemantics(legacyTimestamp), testQuery,
+                "SELECT * FROM VALUES ('0'), ('1')");
+    }
+
+    @Test(dataProvider = "readerVersionsAndTimestampSemantics")
+    public void readPartitionedTableTimestampPredicate(String version, boolean legacyTimestamp)
+    {
+        // Same for a timestamp partition column. Reader version 1 types it as
+        // TIMESTAMP WITH TIME ZONE and stores the value in UTC; reader version 3
+        // types it as TIMESTAMP_NTZ and stores the wall clock 06:11:11, which is
+        // what a zone-less TIMESTAMP literal stands for under either semantics.
+        String literal = version.equals(DELTA_V3)
+                ? "TIMESTAMP '2021-09-08 06:11:11'"
+                : "TIMESTAMP '2021-09-08 11:11:11 UTC'";
+        String testQuery = "SELECT value FROM \"" + getVersionPrefix(version) +
+                "data-reader-partition-values\" WHERE as_timestamp = " + literal;
+        assertQuery(sessionWithTimestampSemantics(legacyTimestamp), testQuery,
+                "SELECT * FROM VALUES ('0'), ('1')");
+    }
+
+    @Test(dataProvider = "timestampSemantics")
+    public void readTimestampNtzPartitionValue(boolean legacyTimestamp)
+    {
+        // Delta's TIMESTAMP_NTZ is independent of time zones, so the wall clock
+        // stored in the log comes back unchanged however the session reads it.
+        // Under legacy semantics that means reading it in the session zone, since
+        // the engine renders the resulting instant in that same zone.
+        String testQuery = "SELECT as_timestamp FROM \"" + getVersionPrefix(DELTA_V3) +
+                "data-reader-partition-values\" WHERE value = '0'";
+
+        MaterializedResult actual = computeActual(sessionWithTimestampSemantics(legacyTimestamp), testQuery);
+
+        assertEquals(
+                actual.getMaterializedRows().get(0).getField(0).toString(),
+                "2021-09-08T06:11:11",
+                format("TIMESTAMP_NTZ partition value changed with legacy_timestamp=%s.", legacyTimestamp));
     }
 
     @Test(dataProvider = "deltaReaderVersions")

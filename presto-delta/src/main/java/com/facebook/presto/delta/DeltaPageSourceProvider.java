@@ -68,6 +68,7 @@ import org.joda.time.DateTimeZone;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -177,15 +178,17 @@ public class DeltaPageSourceProvider
 
         return new DeltaPageSource(
                 deltaColumnHandles,
-                convertPartitionValues(deltaColumnHandles, deltaSplit.getPartitionValues()),
+                convertPartitionValues(session, deltaColumnHandles, deltaSplit.getPartitionValues()),
                 dataPageSource);
     }
 
     /**
      * Go through all the output columns, identify the partition columns and convert the partition values to Presto internal format.
      */
-    private Map<String, Block> convertPartitionValues(List<DeltaColumnHandle> allColumns, Map<String, String> partitionValues)
+    private Map<String, Block> convertPartitionValues(ConnectorSession session, List<DeltaColumnHandle> allColumns, Map<String, String> partitionValues)
     {
+        boolean legacyTimestamp = session.getSqlFunctionProperties().isLegacyTimestamp();
+        ZoneId sessionZone = ZoneId.of(session.getSqlFunctionProperties().getTimeZoneKey().getId());
         return allColumns.stream()
                 .filter(columnHandle -> columnHandle.getColumnType() == PARTITION)
                 .collect(toMap(
@@ -197,7 +200,9 @@ public class DeltaPageSourceProvider
                                     convertPartitionValue(
                                             columnHandle.getLogicalName(),
                                             partitionValues.get(columnHandle.getLogicalName()),
-                                            columnType));
+                                            columnType,
+                                            legacyTimestamp,
+                                            sessionZone));
                         }));
     }
 
