@@ -1046,6 +1046,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         if (functionsConfig.getLimitNumberOfGroupsForKHyperLogLogAggregations()) {
             builder.function(new MergeKHyperLogLogWithLimitAggregationFunction(functionsConfig.getKHyperLogLogAggregationGroupNumberLimit()));
             builder.function(new KHyperLogLogWithLimitAggregationFunction(functionsConfig.getKHyperLogLogAggregationGroupNumberLimit()));
+            builder.function(new KHyperLogLogWithLimitAggregationFunction(KHyperLogLogWithLimitAggregationFunction.JAVA_COMPAT_NAME, functionsConfig.getKHyperLogLogAggregationGroupNumberLimit()));
         }
         else {
             builder.aggregates(MergeKHyperLogLogAggregationFunction.class);
