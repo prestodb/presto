@@ -3,7 +3,7 @@ Monitoring Prestissimo with OpenTelemetry
 ==================================================
 
 When monitoring a Presto deployment using the native execution engine,
-there is an interesting challenge: the coordinator and worker expose
+the coordinator and worker expose
 their metrics in completely different ways.
 
 The Presto coordinator runs as a Java process and exposes runtime
