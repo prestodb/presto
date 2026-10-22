@@ -190,6 +190,9 @@ public class QuickStatsProvider
             allOf(partitionQuickStatCompletableFutures).get(getQuickStatsInlineBuildTimeoutMillis(session), MILLISECONDS);
         }
         catch (InterruptedException | ExecutionException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             log.error(e);
             throw new RuntimeException(e);
         }
@@ -206,6 +209,9 @@ public class QuickStatsProvider
                     result.put(partitionId, future.get());
                 }
                 catch (InterruptedException | ExecutionException e) {
+                    if (e instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
                     // This should not happen because we checked that the future was completed successfully
                     log.error(e, "Failed to get value for a quick stats future which was completed successfully");
                     throw new RuntimeException(e);
@@ -290,6 +296,9 @@ public class QuickStatsProvider
                     return partitionStatistics;
                 }
                 catch (InterruptedException | ExecutionException e) {
+                    if (e instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
                     log.error(e, "Error while building quick stats for partition : %s", partitionId);
                     // Return empty PartitionStats for this partition
                     return empty();
@@ -320,6 +329,9 @@ public class QuickStatsProvider
             return inProgressBuilds.get(partitionKey).getQuickStatsBuildFuture().get(waitTimeMs, MILLISECONDS);
         }
         catch (InterruptedException | ExecutionException | TimeoutException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             // The failure or timeout of the future will be logged by the query that initiated the quick stats build
             // We simply return empty stats here
             return empty();
