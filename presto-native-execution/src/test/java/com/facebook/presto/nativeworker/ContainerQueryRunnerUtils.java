@@ -278,15 +278,6 @@ public class ContainerQueryRunnerUtils
         createScriptFile("testcontainers/function-server/entrypoint.sh", scriptContent);
     }
 
-    public static void createNativeWorkerEntryPointScript(String nodeId)
-            throws IOException
-    {
-        String scriptContent = "#!/bin/sh\n\n" +
-                "GLOG_logtostderr=1 presto_server \\\n" +
-                "    --etc-dir=/opt/presto-server/etc\n";
-        createScriptFile("testcontainers/" + nodeId + "/entrypoint.sh", scriptContent);
-    }
-
     public static void createJavaEntryPointScript(String nodeId)
             throws IOException
     {
