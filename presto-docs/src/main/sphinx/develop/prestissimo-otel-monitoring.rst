@@ -1,6 +1,6 @@
-==================================================
+=========================================
 Monitoring Prestissimo with OpenTelemetry
-==================================================
+=========================================
 
 When monitoring a Presto deployment using the native execution engine,
 the coordinator and worker expose
@@ -25,7 +25,7 @@ The setup described here was verified using Docker and Presto 0.298.1.
    :depth: 2
 
 Understanding the Architecture
--------------------------------
+------------------------------
 
 Before looking at configuration, it is worth understanding where the
 metrics actually come from.
@@ -87,7 +87,7 @@ For a broader view of the available Prestissimo worker metrics, see
 :doc:`/admin/jmx-metrics`.
 
 Why OpenTelemetry Collector?
------------------------------
+----------------------------
 
 Scraping both endpoints directly with Prometheus is possible, but using
 the OpenTelemetry Collector provides a useful abstraction layer. The
@@ -124,7 +124,7 @@ exporter configuration needs to change.
                  Remote Write Exporters
 
 Prerequisites
---------------
+-------------
 
 The verified setup uses the following components:
 
@@ -152,7 +152,7 @@ the setup also uses the ``httpcheck`` receiver. The worker should have
 approximately 8 GB or more of available memory for this configuration.
 
 Project Structure
-------------------
+-----------------
 
 A typical project layout looks like this:
 
@@ -184,10 +184,10 @@ This separates the configuration for the coordinator, native worker,
 JMX exporter, and OpenTelemetry Collector.
 
 Collecting Coordinator Metrics
--------------------------------
+------------------------------
 
 Downloading the JMX Prometheus Java Agent
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Create the directory and download version 0.20.0:
 
@@ -199,7 +199,7 @@ Create the directory and download version 0.20.0:
      "https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.20.0/jmx_prometheus_javaagent-0.20.0.jar"
 
 Configuring the JMX Exporter
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The JMX exporter configuration in ``jmx-exporter/jmx-config.yaml``
 determines how MBeans are converted into Prometheus metrics. For
@@ -245,7 +245,7 @@ To expose all available MBeans without selecting individual ones, use:
 The tested environment exposes approximately 355 JMX MBeans.
 
 Attaching the JMX Agent to the Coordinator JVM
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Add the following line to ``coordinator/jvm.config``:
 
@@ -279,7 +279,7 @@ Port ``9483`` is primarily used inside the Docker network. Mapping it
 to the host is useful for debugging and manual inspection.
 
 Collecting Native Worker Metrics
----------------------------------
+--------------------------------
 
 The Prestissimo worker runs the Velox C++ engine and already exposes
 Prometheus metrics through its built-in HTTP server. No additional
@@ -298,7 +298,7 @@ The endpoint is:
    scrape target.
 
 Configuring Worker Memory
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Native workers require an explicit memory limit. In
 ``worker/config.properties``, configure:
@@ -319,7 +319,7 @@ Setting it explicitly prevents the worker from attempting to map more
 memory than the environment can provide.
 
 Keeping Coordinator and Worker Versions Aligned
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The ``presto.version`` value in ``worker/config.properties`` must match
 the coordinator's version string exactly. The coordinator's
@@ -333,13 +333,13 @@ queries will fail with:
    No nodes available to run query
 
 Configuring the OpenTelemetry Collector
------------------------------------------
+---------------------------------------
 
 With both metric sources available, the OpenTelemetry Collector can
 scrape them using ``prometheus`` receivers.
 
 Receivers
-^^^^^^^^^^
+^^^^^^^^^
 
 **Coordinator receiver**
 
@@ -383,7 +383,7 @@ the Collector scrapes the wrong endpoint and Velox metrics do not
 appear.
 
 Health Checks
-^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 The ``httpcheck`` receiver monitors whether HTTP endpoints are
 reachable, independently of the metric content they return:
@@ -402,7 +402,7 @@ cluster availability, the coordinator information endpoint, and the
 native worker status endpoint.
 
 Processors
-^^^^^^^^^^^
+^^^^^^^^^^
 
 A memory limiter protects the Collector from unbounded memory growth:
 
@@ -436,7 +436,7 @@ Batching reduces export overhead:
        send_batch_size: 1000
 
 Exporters
-^^^^^^^^^^
+^^^^^^^^^
 
 One of the main benefits of the OpenTelemetry Collector is that the
 pipeline is not tied to a specific observability backend. The Collector
@@ -458,7 +458,7 @@ This is especially useful during development because it allows
 inspection of the metrics after they have passed through the Collector.
 
 Complete Pipeline
-^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^
 
 The two Prometheus receivers feed a common metrics pipeline:
 
@@ -492,7 +492,7 @@ Additional exporters can be added to any pipeline without changing the
 receivers or processors.
 
 Docker Networking
-^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^
 
 The OpenTelemetry Collector must be able to reach the coordinator, the
 native worker, and the telemetry backend. In a Docker Compose
@@ -517,7 +517,7 @@ Prestissimo network and the observability network:
          - "--config=/etc/otelcol-contrib/config.yaml"
 
 Starting the Stack
--------------------
+------------------
 
 Once the configuration is ready:
 
@@ -530,7 +530,7 @@ Once the configuration is ready:
      up -d
 
 Verifying the Setup
---------------------
+-------------------
 
 Each layer can be verified independently.
 
@@ -585,12 +585,12 @@ At this point, metrics have travelled through the complete pipeline:
    :8889/metrics
 
 Understanding the Metrics
---------------------------
+-------------------------
 
 Once the pipeline is working, the metrics fall into several categories.
 
 Coordinator metrics
-^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^
 
 These metrics reflect query activity, cluster memory, active nodes,
 and JVM behavior:
@@ -608,7 +608,7 @@ The documented setup identifies approximately 108 coordinator and JVM
 metrics.
 
 Velox memory metrics
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^
 
 Memory allocation is one of the most important areas to monitor in a
 native execution engine:
@@ -620,7 +620,7 @@ native execution engine:
    velox_memory_allocator_total_used_bytes
 
 Spill metrics
-^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 When queries cannot keep all required data in memory, spilling
 activity becomes visible through:
@@ -635,7 +635,7 @@ activity becomes visible through:
    velox_spill_files_count
 
 Cache metrics
-^^^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 Cache effectiveness can be measured with:
 
@@ -650,7 +650,7 @@ Cache effectiveness can be measured with:
    velox_ssd_cache_written_bytes
 
 Task and driver metrics
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^
 
 Execution activity on the native worker is reflected in:
 
@@ -664,7 +664,7 @@ Execution activity on the native worker is reflected in:
    velox_driver_yield_count
 
 Memory arbitration metrics
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Memory contention and arbitration activity can be observed through:
 
@@ -676,7 +676,7 @@ Memory contention and arbitration activity can be observed through:
    velox_arbitrator_global_arbitration_count
 
 CPU and operating-system metrics
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 OS-level resource usage by the native worker process:
 
@@ -695,10 +695,10 @@ or memory-constrained. For a complete list of native worker metrics,
 see :doc:`/presto_cpp/metrics`.
 
 Common Problems
-----------------
+---------------
 
 Worker crashes with MmapAllocator SIGABRT
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The native worker attempted to map more memory than is available.
 Set an explicit memory limit in ``worker/config.properties``:
@@ -710,14 +710,14 @@ Set an explicit memory limit in ``worker/config.properties``:
 Adjust the value to match the available memory in the environment.
 
 No nodes available to run query
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The worker's version string does not match the coordinator. Check
 ``presto.version`` in ``worker/config.properties`` and ensure it
 matches the value returned by the coordinator's ``/v1/info`` endpoint.
 
 No Velox metrics in OpenTelemetry Collector
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Prometheus receiver is using the wrong metrics path. The correct
 configuration is:
@@ -729,7 +729,7 @@ configuration is:
 Using ``/metrics`` will not return Velox metrics.
 
 Native TPCH column naming errors
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Java TPCH connector uses simplified column names while Velox
 expects standard names. Add the following to the TPCH catalog
@@ -740,7 +740,7 @@ configuration:
    tpch.column-naming=STANDARD
 
 TPC-DS configuration error
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Ensure the TPC-DS catalog contains:
 
@@ -749,7 +749,7 @@ Ensure the TPC-DS catalog contains:
    tpcds.use-varchar-type=true
 
 Useful Debugging Commands
---------------------------
+-------------------------
 
 Watch metric names flowing through the Collector:
 
@@ -800,7 +800,7 @@ Open OTel zPages in a browser:
    http://localhost:55679/debug/tracez
 
 See Also
----------
+--------
 
 * :doc:`/presto_cpp/metrics` — Prestissimo native worker metrics reference
 * :doc:`/admin/jmx-metrics` — Presto coordinator JMX metrics reference
