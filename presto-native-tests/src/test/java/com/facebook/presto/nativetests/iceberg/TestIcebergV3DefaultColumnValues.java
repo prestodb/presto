@@ -683,6 +683,72 @@ public class TestIcebergV3DefaultColumnValues
         }
     }
 
+    @DataProvider(name = "newlySupportedDefaultTypes")
+    public static Object[][] newlySupportedDefaultTypesProvider()
+    {
+        Object[][] types = {
+                {"varbinary", "X'0AFF'", "X'0BFF'"},
+                {"time", "TIME '10:30:00.123'", "TIME '12:00:00.456'"},
+                {"uuid", "UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'", "UUID '22151fd2-7586-11e9-8f9e-2a86e4085a59'"},
+                {"timestamp with time zone", "TIMESTAMP '2023-01-01 11:00:00.123 UTC'", "TIMESTAMP '2024-01-01 11:00:00.456 UTC'"},
+                {"decimal(30,2)", "DECIMAL '12.34'", "DECIMAL '56.78'"},
+        };
+        Object[][] cases = new Object[types.length * 2][];
+        for (int i = 0; i < types.length; i++) {
+            cases[2 * i] = new Object[] {types[i][0], types[i][1], types[i][2], true};
+            cases[2 * i + 1] = new Object[] {types[i][0], types[i][1], types[i][2], false};
+        }
+        return cases;
+    }
+
+    @Test(dataProvider = "newlySupportedDefaultTypes")
+    public void testNewlySupportedTypeInitialDefault(String type, String initialDefault, String writeDefault, boolean pushdownFilterEnabled)
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String tableName = newlySupportedTypeTableName("orders_v3_initial_default", type, pushdownFilterEnabled);
+        String expected = format("CAST(%s AS %s)", initialDefault, type);
+        try {
+            createTableWithRows(session, tableName, "(id BIGINT)", "VALUES (1), (2)", 2);
+            assertUpdate(session, format("ALTER TABLE %s ADD COLUMN c %s DEFAULT %s", tableName, type, initialDefault));
+
+            // Rows written before the column was added read the initial-default
+            assertQuery(session, format("SELECT id, c FROM %s ORDER BY id", tableName),
+                    format("VALUES (BIGINT '1', %1$s), (BIGINT '2', %1$s)", expected));
+            assertQuery(session, format("SELECT id FROM %s WHERE c = %s ORDER BY id", tableName, expected),
+                    "VALUES (BIGINT '1'), (BIGINT '2')");
+        }
+        finally {
+            dropTableIfExists(session, tableName);
+        }
+    }
+
+    @Test(dataProvider = "newlySupportedDefaultTypes")
+    public void testNewlySupportedTypeWriteDefault(String type, String initialDefault, String writeDefault, boolean pushdownFilterEnabled)
+    {
+        Session session = sessionWithPushdown(pushdownFilterEnabled);
+        String tableName = newlySupportedTypeTableName("orders_v3_write_default", type, pushdownFilterEnabled);
+        String expectedInitial = format("CAST(%s AS %s)", initialDefault, type);
+        String expectedWrite = format("CAST(%s AS %s)", writeDefault, type);
+        try {
+            createTableWithRows(session, tableName, "(id BIGINT)", "VALUES (1)", 1);
+            assertUpdate(session, format("ALTER TABLE %s ADD COLUMN c %s DEFAULT %s", tableName, type, initialDefault));
+
+            // Omitted columns are written with the write-default, which ADD COLUMN sets to the initial-default
+            assertUpdate(session, format("INSERT INTO %s (id) VALUES (2)", tableName), 1);
+            assertQuery(session, format("SELECT id, c FROM %s WHERE id = 2", tableName),
+                    format("VALUES (BIGINT '2', %s)", expectedInitial));
+
+            // SET DEFAULT changes the write-default for later inserts only
+            assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN c SET DEFAULT %s", tableName, writeDefault));
+            assertUpdate(session, format("INSERT INTO %s (id) VALUES (3)", tableName), 1);
+            assertQuery(session, format("SELECT id, c FROM %s ORDER BY id", tableName),
+                    format("VALUES (BIGINT '1', %1$s), (BIGINT '2', %1$s), (BIGINT '3', %2$s)", expectedInitial, expectedWrite));
+        }
+        finally {
+            dropTableIfExists(session, tableName);
+        }
+    }
+
     @Test
     public void testUnsupportedWriteDefaultTypes()
     {
@@ -715,5 +781,10 @@ public class TestIcebergV3DefaultColumnValues
     {
         assertUpdate(session, format("CREATE TABLE %s %s WITH (\"format-version\" = '3', format = 'PARQUET')", tableName, tableDefinition));
         assertUpdate(session, format("INSERT INTO %s %s", tableName, values), rowCount);
+    }
+
+    private static String newlySupportedTypeTableName(String prefix, String type, boolean pushdownFilterEnabled)
+    {
+        return format("%s_%s_%s", prefix, type.replaceAll("[^a-z0-9]+", "_"), pushdownFilterEnabled ? "pushdown" : "no_pushdown");
     }
 }
