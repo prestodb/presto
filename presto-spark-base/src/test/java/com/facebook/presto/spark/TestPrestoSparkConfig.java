@@ -16,6 +16,7 @@ package com.facebook.presto.spark;
 import com.facebook.airlift.configuration.testing.ConfigAssertions;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
+import com.facebook.presto.spark.execution.TaskInfoAggregationMode;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
@@ -26,7 +27,9 @@ import static com.facebook.airlift.configuration.testing.ConfigAssertions.assert
 import static com.facebook.airlift.units.DataSize.Unit.GIGABYTE;
 import static com.facebook.airlift.units.DataSize.Unit.KILOBYTE;
 import static com.facebook.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestPrestoSparkConfig
 {
@@ -57,6 +60,11 @@ public class TestPrestoSparkConfig
                 .setMaxExecutorCount(600)
                 .setMinExecutorCount(200)
                 .setMaxTaskInfosInQueryCompletedEvent(100000)
+                .setTaskInfoAggregationMode(TaskInfoAggregationMode.LEGACY)
+                .setTaskInfoAggregationDrainInterval(new Duration(250, MILLISECONDS))
+                .setTaskInfoAggregationSealTimeout(new Duration(2, MINUTES))
+                .setTaskInfoAggregationMaxBacklogSize(new DataSize(1, GIGABYTE))
+                .setTestingTaskInfoAggregationLockingCollectorEnabled(false)
                 .setAverageInputDataSizePerPartition(new DataSize(2, GIGABYTE))
                 .setMaxHashPartitionCount(4096)
                 .setMinHashPartitionCount(1024)
@@ -102,6 +110,11 @@ public class TestPrestoSparkConfig
                 .put("spark.max-executor-count", "29")
                 .put("spark.min-executor-count", "2")
                 .put("spark.max-task-infos-in-query-completed-event", "12345")
+                .put("spark.task-info-aggregation-mode", "INCREMENTAL")
+                .put("spark.task-info-aggregation-drain-interval", "1s")
+                .put("spark.task-info-aggregation-seal-timeout", "5m")
+                .put("spark.task-info-aggregation-max-backlog-size", "512MB")
+                .put("spark.task-info-aggregation-locking-collector-enabled-for-testing", "true")
                 .put("spark.average-input-datasize-per-partition", "1GB")
                 .put("spark.max-hash-partition-count", "333")
                 .put("spark.min-hash-partition-count", "30")
@@ -143,6 +156,11 @@ public class TestPrestoSparkConfig
                 .setMaxExecutorCount(29)
                 .setMinExecutorCount(2)
                 .setMaxTaskInfosInQueryCompletedEvent(12345)
+                .setTaskInfoAggregationMode(TaskInfoAggregationMode.INCREMENTAL)
+                .setTaskInfoAggregationDrainInterval(new Duration(1, SECONDS))
+                .setTaskInfoAggregationSealTimeout(new Duration(5, MINUTES))
+                .setTaskInfoAggregationMaxBacklogSize(new DataSize(512, MEGABYTE))
+                .setTestingTaskInfoAggregationLockingCollectorEnabled(true)
                 .setAverageInputDataSizePerPartition(new DataSize(1, GIGABYTE))
                 .setMaxHashPartitionCount(333)
                 .setMinHashPartitionCount(30)
