@@ -24,6 +24,7 @@
 
 #include <velox/common/base/Exceptions.h>
 #include "presto_cpp/main/common/Utils.h"
+#include "velox/connectors/hive/FileConfig.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/type/Type.h"
 
@@ -429,8 +430,8 @@ SessionProperties::SessionProperties() {
       "reader is fully rolled out.",
       BOOLEAN(),
       false,
-      QueryConfig::kSelectiveNimbleReaderEnabled,
-      util::boolToLowerCaseString(c.selectiveNimbleReaderEnabled()));
+      "selective_nimble_reader_enabled",
+      "true");
 
   addSessionProperty(
       kQueryTraceEnabled,
