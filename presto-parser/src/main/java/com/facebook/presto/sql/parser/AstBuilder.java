@@ -2226,7 +2226,7 @@ class AstBuilder
     @Override
     public Node visitTrim(SqlBaseParser.TrimContext context)
     {
-        if (context.FROM() != null && context.trimsSpecification() == null && context.trimChar == null) {
+        if (context.trimsSpecification() == null && context.trimChar == null) {
             throw parseError("The 'trim' function must have specification, char or both arguments when it takes FROM", context);
         }
 

@@ -1555,6 +1555,23 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testGroupByWithTrim()
+    {
+        // t6.b is VARCHAR, t6.a is BIGINT
+        analyze("SELECT TRIM(BOTH FROM b) FROM t6 GROUP BY b");
+        analyze("SELECT TRIM(LEADING 'x' FROM b) FROM t6 GROUP BY b");
+        analyze("SELECT TRIM(TRAILING b FROM 'xyz') FROM t6 GROUP BY b");
+        analyze("SELECT TRIM(BOTH b FROM CAST(a AS VARCHAR)) FROM t6 GROUP BY a, b");
+        analyze("SELECT TRIM(BOTH FROM b) FROM t6 GROUP BY TRIM(BOTH FROM b)");
+        analyze("SELECT TRIM(LEADING 'x' FROM b), count(*) FROM t6 GROUP BY 1");
+
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT TRIM(BOTH FROM b) FROM t6 GROUP BY a");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT TRIM(TRAILING b FROM 'xyz') FROM t6 GROUP BY a");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT TRIM(BOTH CAST(a AS VARCHAR) FROM b) FROM t6 GROUP BY b");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT TRIM(LEADING FROM b) FROM t6 GROUP BY TRIM(TRAILING FROM b)");
+    }
+
+    @Test
     public void testNonNumericTableSamplePercentage()
     {
         assertFails(NON_NUMERIC_SAMPLE_PERCENTAGE, "SELECT * FROM t1 TABLESAMPLE BERNOULLI ('a')");

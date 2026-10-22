@@ -793,6 +793,7 @@ public class MaterializedViewQueryOptimizer
         protected Node visitTrim(Trim node, Void context)
         {
             return new Trim(
+                    node.getLocation(),
                     node.getSpecification(),
                     (Expression) process(node.getTrimSource(), context),
                     node.getTrimCharacter().map(trimCharacter -> (Expression) process(trimCharacter, context)));

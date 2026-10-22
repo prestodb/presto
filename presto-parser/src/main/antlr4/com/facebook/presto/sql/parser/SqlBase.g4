@@ -463,9 +463,9 @@ primaryExpression
     | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                                   #specialDateTimeFunction
     | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                              #specialDateTimeFunction
     | name=CURRENT_USER                                                                   #currentUser
-    | TRIM '(' (trimsSpecification? trimChar=valueExpression? FROM)?
+    // trim(source) and trim(source, chars) are matched by #functionCall above since TRIM is nonReserved
+    | TRIM '(' trimsSpecification? trimChar=valueExpression? FROM
         trimSource=valueExpression ')'                                                    #trim
-    | TRIM '(' trimSource=valueExpression ',' trimChar=valueExpression ')'                #trim
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract

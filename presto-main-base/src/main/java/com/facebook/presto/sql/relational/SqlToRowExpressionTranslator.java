@@ -1180,12 +1180,15 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitTrim(Trim node, Context context)
         {
             String functionName = node.getSpecification().getFunctionName();
-            RowExpression trimSource = process(node.getTrimSource(), context);
-            if (node.getTrimCharacter().isPresent()) {
-                RowExpression trimChar = process(node.getTrimCharacter().get(), context);
-                return call(functionAndTypeResolver, functionName, getType(node), trimSource, trimChar);
-            }
-            return call(functionAndTypeResolver, functionName, getType(node), trimSource);
+            ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
+            arguments.add(process(node.getTrimSource(), context));
+            node.getTrimCharacter().ifPresent(trimCharacter -> arguments.add(process(trimCharacter, context)));
+            List<RowExpression> argumentList = arguments.build();
+
+            FunctionHandle functionHandle = functionAndTypeResolver.lookupFunction(
+                    functionName,
+                    fromTypes(argumentList.stream().map(RowExpression::getType).collect(toImmutableList())));
+            return call(getSourceLocation(node), functionName, functionHandle, getType(node), argumentList);
         }
 
         @Override

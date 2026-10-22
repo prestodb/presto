@@ -38,7 +38,7 @@ public class Trim
         this(Optional.of(location), specification, trimSource, trimCharacter);
     }
 
-    private Trim(Optional<NodeLocation> location, Specification specification, Expression trimSource, Optional<Expression> trimCharacter)
+    public Trim(Optional<NodeLocation> location, Specification specification, Expression trimSource, Optional<Expression> trimCharacter)
     {
         super(location);
         this.specification = requireNonNull(specification, "specification is null");

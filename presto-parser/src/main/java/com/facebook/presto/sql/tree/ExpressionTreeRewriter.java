@@ -837,7 +837,7 @@ public final class ExpressionTreeRewriter<C>
                     .map(trimCharacter -> rewrite(trimCharacter, context.get()));
 
             if (trimSource != node.getTrimSource() || !sameElements(trimChar, node.getTrimCharacter())) {
-                return new Trim(node.getSpecification(), trimSource, trimChar);
+                return new Trim(node.getLocation(), node.getSpecification(), trimSource, trimChar);
             }
 
             return node;
