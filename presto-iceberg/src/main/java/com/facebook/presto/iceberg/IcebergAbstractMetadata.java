@@ -1596,7 +1596,7 @@ public abstract class IcebergAbstractMetadata
             validateMinimumFormatVersion(icebergTable, 3, format("ADD COLUMN with DEFAULT values is only supported with Iceberg format version 3 or higher. " +
                     "Table '%s' is currently at format version %d. ", handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion()));
             Object defaultValue = column.getDefaultValue().get();
-            Literal<?> defaultLiteral = convertToIcebergLiteral(defaultValue, columnType);
+            Literal<?> defaultLiteral = convertToIcebergLiteral(defaultValue, column.getType(), columnType);
             updateSchema.addColumn(column.getName(), columnType, column.getComment().orElse(null), defaultLiteral);
         }
         else {
@@ -1806,7 +1806,7 @@ public abstract class IcebergAbstractMetadata
             throw new PrestoException(COLUMN_NOT_FOUND, format("Column '%s' does not exist in table '%s'", columnName, handle.getSchemaTableName()));
         }
         // Convert the default value to Iceberg literal
-        Literal<?> defaultLiteral = convertToIcebergLiteral(defaultValue, field.type());
+        Literal<?> defaultLiteral = convertToIcebergLiteral(defaultValue, toPrestoType(field.type(), typeManager), field.type());
         // updateColumnDefault only updates the write-default value, preserving the existing initial-default
         icebergTable.updateSchema()
                 .updateColumnDefault(columnName, defaultLiteral)

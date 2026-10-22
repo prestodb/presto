@@ -17,6 +17,7 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveStorageFormat;
@@ -55,6 +56,8 @@ import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UuidType.UUID;
+import static com.facebook.presto.common.type.UuidType.javaUuidToPrestoUuid;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -67,11 +70,13 @@ import static com.facebook.presto.iceberg.IcebergUtil.REAL_NEGATIVE_INFINITE;
 import static com.facebook.presto.iceberg.IcebergUtil.REAL_NEGATIVE_ZERO;
 import static com.facebook.presto.iceberg.IcebergUtil.REAL_POSITIVE_INFINITE;
 import static com.facebook.presto.iceberg.IcebergUtil.REAL_POSITIVE_ZERO;
+import static com.facebook.presto.iceberg.IcebergUtil.deserializeIcebergValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getAdjacentValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getMetadataColumnConstraints;
 import static com.facebook.presto.iceberg.IcebergUtil.getNonMetadataColumnConstraints;
 import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetReadSchema;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.Double.longBitsToDouble;
@@ -516,5 +521,22 @@ public class TestIcebergUtil
         finally {
             deleteRecursively(location, ALLOW_INSECURE);
         }
+    }
+
+    @Test
+    public void testDeserializeIcebergDefaultValue()
+    {
+        assertEquals(deserializeIcebergValue(UUID, "12151fd2-7586-11e9-8f9e-2a86e4085a59", "c", true),
+                javaUuidToPrestoUuid(java.util.UUID.fromString("12151fd2-7586-11e9-8f9e-2a86e4085a59")));
+
+        PrestoException invalidValue = expectThrows(PrestoException.class,
+                () -> deserializeIcebergValue(UUID, "not-a-uuid", "c", true));
+        assertEquals(invalidValue.getErrorCode(), ICEBERG_INVALID_METADATA.toErrorCode());
+        assertEquals(invalidValue.getMessage(), "Invalid default value 'not-a-uuid' for uuid column: c");
+
+        PrestoException unsupportedType = expectThrows(PrestoException.class,
+                () -> deserializeIcebergValue(new ArrayType(BIGINT), "[1]", "c", true));
+        assertEquals(unsupportedType.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+        assertEquals(unsupportedType.getMessage(), "Default values are not supported for columns of type array(bigint)");
     }
 }

@@ -25,12 +25,15 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.types.Type.TypeID;
 import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.ByteBuffers;
 
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.Base64;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -356,6 +359,10 @@ public class IcebergColumnHandle
                 LocalDateTime dt = LocalDateTime.ofInstant(Instant.ofEpochSecond(seconds, nanos), ZoneOffset.UTC);
                 return dt.format(TIMESTAMP_FORMATTER);
             }
+            case BINARY:
+            case FIXED:
+                // Iceberg stores BINARY and FIXED defaults as ByteBuffer; Base64 keeps the bytes intact.
+                return Base64.getEncoder().encodeToString(ByteBuffers.toByteArray((ByteBuffer) value));
             default:
                 return String.valueOf(value);
         }

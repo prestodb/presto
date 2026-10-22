@@ -58,6 +58,7 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
 import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpecList;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -137,7 +138,9 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.Decimals.decodeUnscaledValue;
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.common.type.Decimals.isLongDecimal;
 import static com.facebook.presto.common.type.Decimals.isShortDecimal;
@@ -148,7 +151,11 @@ import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UuidType.UUID;
+import static com.facebook.presto.common.type.UuidType.javaUuidToPrestoUuid;
+import static com.facebook.presto.common.type.UuidType.prestoUuidToJavaUuid;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -180,6 +187,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.isHiveLocksEnab
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_DERIVED_COLUMN_SPEC;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -209,7 +217,9 @@ import static java.lang.Math.ulp;
 import static java.lang.String.format;
 import static java.util.Collections.emptyIterator;
 import static java.util.Comparator.comparing;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.fromString;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
@@ -990,7 +1000,41 @@ public final class IcebergUtil
         return new Schema(Types.StructType.of(icebergColumns).asStructType().fields());
     }
 
+    private static long parseTimestampMillis(String valueString)
+    {
+        // Default values are serialized as ISO datetime strings
+        // (e.g. "2023-01-01 11:00:00.000000"); partition values arrive
+        // as microseconds-since-epoch numeric strings.  Accept both.
+        try {
+            return MICROSECONDS.toMillis(parseLong(valueString));
+        }
+        catch (NumberFormatException ignored) {
+            // ISO string: parse to epoch-millis via LocalDateTime
+            try {
+                LocalDateTime ldt = LocalDateTime.parse(
+                        valueString,
+                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss[.SSSSSS][.SSS]"));
+                return ldt.toInstant(ZoneOffset.UTC).toEpochMilli();
+            }
+            catch (DateTimeParseException e) {
+                throw new IllegalArgumentException(e);
+            }
+        }
+    }
+
     public static Object deserializeIcebergValue(Type type, String valueString, String name)
+    {
+        return deserializeIcebergValue(type, valueString, name, false);
+    }
+
+    /**
+     * Deserializes an Iceberg partition value, or a column initial-default or write-default value,
+     * carried as a string.
+     *
+     * @param isDefaultValue whether the value is a column default value rather than a partition value,
+     * which determines the error reported if it cannot be deserialized
+     */
+    public static Object deserializeIcebergValue(Type type, String valueString, String name, boolean isDefaultValue)
     {
         if (valueString == null) {
             return null;
@@ -1019,27 +1063,17 @@ public final class IcebergUtil
                 return parseDouble(valueString);
             }
             if (type.equals(TIMESTAMP) || type.equals(TIME)) {
-                // Default values are serialised as ISO datetime strings
-                // (e.g. "2023-01-01 11:00:00.000000"); partition values arrive
-                // as microseconds-since-epoch numeric strings.  Accept both.
-                try {
-                    return MICROSECONDS.toMillis(parseLong(valueString));
-                }
-                catch (NumberFormatException ignored) {
-                    // ISO string: parse to epoch-millis via LocalDateTime
-                    try {
-                        LocalDateTime ldt = LocalDateTime.parse(
-                                valueString,
-                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss[.SSSSSS][.SSS]"));
-                        return ldt.toInstant(ZoneOffset.UTC).toEpochMilli();
-                    }
-                    catch (DateTimeParseException e) {
-                        throw new IllegalArgumentException(e);
-                    }
-                }
+                return parseTimestampMillis(valueString);
+            }
+            if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                // Iceberg stores timestamptz values in UTC
+                return packDateTimeWithZone(parseTimestampMillis(valueString), TimeZoneKey.UTC_KEY);
+            }
+            if (type.equals(UUID)) {
+                return javaUuidToPrestoUuid(fromString(valueString));
             }
             if (type.equals(DATE) || type.equals(TIMESTAMP_MICROSECONDS)) {
-                // Default values are serialised as ISO date strings
+                // Default values are serialized as ISO date strings
                 // (e.g. "2023-01-01"); partition values arrive as integer
                 // days-since-epoch numeric strings.  Accept both.
                 try {
@@ -1071,11 +1105,21 @@ public final class IcebergUtil
             }
         }
         catch (IllegalArgumentException e) {
+            if (isDefaultValue) {
+                throw new PrestoException(ICEBERG_INVALID_METADATA, format(
+                        "Invalid default value '%s' for %s column: %s",
+                        valueString,
+                        type.getDisplayName(),
+                        name));
+            }
             throw new PrestoException(ICEBERG_INVALID_PARTITION_VALUE, format(
                     "Invalid partition value '%s' for %s partition key: %s",
                     valueString,
                     type.getDisplayName(),
                     name));
+        }
+        if (isDefaultValue) {
+            throw new PrestoException(NOT_SUPPORTED, format("Default values are not supported for columns of type %s", type.getDisplayName()));
         }
         // Iceberg tables don't partition by non-primitive-type columns.
         throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
@@ -1865,11 +1909,12 @@ public final class IcebergUtil
      * This is used to set initial-default and write-default values in Iceberg V3 schemas.
      * Returns null if defaultValue is null, which represents setting the default to NULL.
      */
-    public static Literal<?> convertToIcebergLiteral(Object defaultValue, org.apache.iceberg.types.Type icebergType)
+    public static Literal<?> convertToIcebergLiteral(Object defaultValue, Type prestoType, org.apache.iceberg.types.Type icebergType)
     {
         if (defaultValue == null) {
             return null;
         }
+        validateDefaultValueType(prestoType, icebergType);
         switch (icebergType.typeId()) {
             case STRING:
                 return Literal.of(((Slice) defaultValue).toStringUtf8());
@@ -1885,16 +1930,71 @@ public final class IcebergUtil
                 return Literal.of((boolean) defaultValue);
             case DATE:
                 return Literal.of((long) defaultValue);
-            case TIMESTAMP:
+            case TIME:
                 return Literal.of(MILLISECONDS.toMicros((long) defaultValue));
+            case TIMESTAMP:
+                long millisUtc = ((Types.TimestampType) icebergType).shouldAdjustToUTC() ?
+                        unpackMillisUtc((long) defaultValue) :
+                        (long) defaultValue;
+                return Literal.of(MILLISECONDS.toMicros(millisUtc));
             case DECIMAL:
                 int scale = ((Types.DecimalType) icebergType).scale();
-                return Literal.of(new BigDecimal(new BigInteger(defaultValue.toString()), scale));
+                BigInteger unscaledValue = defaultValue instanceof Slice ?
+                        decodeUnscaledValue((Slice) defaultValue) :
+                        BigInteger.valueOf((long) defaultValue);
+                return Literal.of(new BigDecimal(unscaledValue, scale));
+            case BINARY:
+                return Literal.of(ByteBuffer.wrap(((Slice) defaultValue).getBytes()));
+            case FIXED:
+                // Presto cannot create fixed columns, but SET DEFAULT can target one created by another engine
+                int length = ((Types.FixedType) icebergType).length();
+                Slice bytes = (Slice) defaultValue;
+                if (bytes.length() != length) {
+                    throw new PrestoException(INVALID_ARGUMENTS, format(
+                            "Default value for %s column must be %s bytes long, but was %s bytes",
+                            icebergType,
+                            length,
+                            bytes.length()));
+                }
+                return Literal.of(ByteBuffer.wrap(bytes.getBytes()));
+            case UUID:
+                return Literal.of(prestoUuidToJavaUuid((Slice) defaultValue));
+            default:
+                throw new VerifyException("Unexpected type for default value: " + icebergType);
+        }
+    }
+
+    /**
+     * Validates that a non-null default value can be set for a column of the given type.
+     */
+    private static void validateDefaultValueType(Type prestoType, org.apache.iceberg.types.Type icebergType)
+    {
+        switch (icebergType.typeId()) {
+            case BOOLEAN:
+            case INTEGER:
+            case LONG:
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+            case STRING:
+            case DATE:
+            case TIME:
+            case TIMESTAMP:
             case BINARY:
             case FIXED:
-                return Literal.of(ByteBuffer.wrap(((Slice) defaultValue).getBytes()));
+            case UUID:
+                return;
+            case GEOMETRY:
+            case GEOGRAPHY:
+            case VARIANT:
+            case UNKNOWN:
+                // The Iceberg spec requires these types to default to null
+                throw new PrestoException(NOT_SUPPORTED, format(
+                        "Iceberg does not allow non-null default values for columns of type %s (Iceberg type %s)",
+                        prestoType.getDisplayName(),
+                        icebergType.typeId().toString().toLowerCase(ENGLISH)));
             default:
-                throw new PrestoException(NOT_SUPPORTED, "Default values not supported for type: " + icebergType.typeId());
+                throw new PrestoException(NOT_SUPPORTED, format("Default values are not supported for columns of type %s", prestoType.getDisplayName()));
         }
     }
 

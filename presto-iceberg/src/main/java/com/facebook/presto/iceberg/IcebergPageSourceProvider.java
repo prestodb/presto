@@ -1231,6 +1231,7 @@ public class IcebergPageSourceProvider
         return Optional.of(IcebergUtil.deserializeIcebergValue(
                 column.getType(),
                 column.getDefaultValue().get(),
-                column.getName()));
+                column.getName(),
+                true));
     }
 }

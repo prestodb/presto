@@ -433,7 +433,7 @@ public class IcebergPageSink
 
     private Block fillBlockWithDefault(Block block, IcebergColumnHandle column)
     {
-        Object writeDefaultValue = deserializeIcebergValue(column.getType(), column.getWriteDefaultValue().get(), column.getName());
+        Object writeDefaultValue = deserializeIcebergValue(column.getType(), column.getWriteDefaultValue().get(), column.getName(), true);
         return RunLengthEncodedBlock.create(column.getType(), writeDefaultValue, block.getPositionCount());
     }
 
