@@ -240,8 +240,9 @@ add_subdirectory(velox)
 # only known after add_subdirectory(velox) above. Presto code that touches the
 # UCX exchange must key on this definition rather than on PRESTO_ENABLE_CUDF:
 # cuDF builds fine without UCX, and then neither the ucxx targets nor the
-# ucx-exchange headers exist.
-if(VELOX_ENABLE_UCX_EXCHANGE)
+# ucx-exchange headers exist. Velox builds the UCX exchange only with cuDF, so
+# a VELOX_ENABLE_UCX_EXCHANGE=ON passed without cuDF must not enable it here.
+if(PRESTO_ENABLE_CUDF AND VELOX_ENABLE_UCX_EXCHANGE)
   add_compile_definitions(PRESTO_ENABLE_UCX_EXCHANGE)
 endif()
 
