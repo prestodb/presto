@@ -32,6 +32,7 @@
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/main/common/JavaWriterConfigKeys.h"
 #include "presto_cpp/main/common/LegacyHiveConfigKeys.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/Registration.h"
@@ -1477,6 +1478,7 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
           util::requiredProperty(connectorConf, kConnectorName);
 
       util::migrateLegacyHiveParquetKeys(connectorName, connectorConf);
+      util::mapJavaWriterConnectorConfigs(connectorName, connectorConf);
 
       PRESTO_STARTUP_LOG(INFO)
           << "Registered catalog property keys from " << entry.path() << ":\n"
