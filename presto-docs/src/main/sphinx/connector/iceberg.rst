@@ -622,6 +622,16 @@ Session properties set behavior changes for queries executed within the given se
        ``iceberg.target-max-file-size`` in the current session.
      - Yes
      - Yes
+   * - .. _iceberg-sess-shuffle-partitioned-columns-for-table-write:
+
+       ``iceberg.shuffle_partitioned_columns_for_table_write``
+     - Shuffles the rows of an INSERT or CREATE TABLE AS on their partition values, so each partition
+       is written by a single writer and ends up in fewer files. Applies to tables whose partition
+       fields are all identity transforms of BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, REAL,
+       DOUBLE, VARCHAR, DATE or TIMESTAMP columns; other tables are written as without it. A large
+       partition is then written by one writer. The default value is ``false``.
+     - Yes
+     - Yes
    * - .. _iceberg-sess-native-parquet-writer-row-group-max-rows:
 
        ``iceberg.native_parquet_writer_row_group_max_rows``
@@ -3392,6 +3402,11 @@ For example::
 
 If a user creates a table externally with non-identity sort columns and then inserts data, the following warning message will be shown.
 ``Iceberg table sort order has sort fields of <X>, <Y>, ... which are not currently supported by Presto``
+
+Presto C++ workers also sort the rows of each data file by the table's sort order, and support
+``rewrite_data_files`` with a ``zorder(...)`` sort. On Presto C++ workers,
+``iceberg.target_max_file_size`` also splits the files of a sorted table, so each file holds a
+contiguous range of the sort order. Java workers write one file per writer for a sorted table.
 
 Materialized Views
 ------------------

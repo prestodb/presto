@@ -24,15 +24,23 @@ import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.BigintType;
+import com.facebook.presto.common.type.BooleanType;
+import com.facebook.presto.common.type.DateType;
+import com.facebook.presto.common.type.DoubleType;
+import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
+import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.BaseHiveColumnHandle;
 import com.facebook.presto.hive.HiveOutputInfo;
 import com.facebook.presto.hive.HiveOutputMetadata;
 import com.facebook.presto.hive.HivePartition;
+import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.PartitionSet;
 import com.facebook.presto.hive.SubfieldExtractor;
@@ -178,6 +186,7 @@ import java.util.stream.StreamSupport;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
+import static com.facebook.presto.hive.HivePartitioningHandle.createHiveCompatiblePartitioningHandle;
 import static com.facebook.presto.hive.HiveUtil.PRESTO_QUERY_ID;
 import static com.facebook.presto.hive.MetadataUtils.getCombinedRemainingPredicate;
 import static com.facebook.presto.hive.MetadataUtils.getDiscretePredicates;
@@ -226,10 +235,12 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializ
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewMaxChangedPartitions;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewStoragePrefix;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.isShufflePartitionedColumnsForTableWriteEnabled;
 import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COLUMN_EXPRESSION_SPEC;
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
+import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
@@ -271,6 +282,7 @@ import static com.facebook.presto.iceberg.IcebergWarningCode.SORT_COLUMN_TRANSFO
 import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_TABLE_PROPERTY;
 import static com.facebook.presto.iceberg.PartitionFields.getPartitionColumnName;
 import static com.facebook.presto.iceberg.PartitionFields.getTransformTerm;
+import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
 import static com.facebook.presto.iceberg.PartitionFields.toPartitionFields;
 import static com.facebook.presto.iceberg.PartitionSpecConverter.toPrestoPartitionSpec;
 import static com.facebook.presto.iceberg.SchemaConverter.toPrestoSchema;
@@ -278,6 +290,7 @@ import static com.facebook.presto.iceberg.SortField.fromIceberg;
 import static com.facebook.presto.iceberg.SortFieldUtils.getNonIdentityColumns;
 import static com.facebook.presto.iceberg.SortFieldUtils.toSortFields;
 import static com.facebook.presto.iceberg.TableStatisticsMaker.getSupportedColumnStatistics;
+import static com.facebook.presto.iceberg.TypeConverter.toHiveType;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.changelog.ChangelogOperation.UPDATE_AFTER;
@@ -289,6 +302,7 @@ import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateStatistic
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
+import static com.facebook.presto.spi.PartitionedTableWritePolicy.SINGLE_WRITER_PER_PARTITION_REQUIRED;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
@@ -367,6 +381,19 @@ public abstract class IcebergAbstractMetadata
     protected final IcebergTableProperties tableProperties;
     private final StandardFunctionResolution functionResolution;
     private static final JsonCodec<List<String>> STRING_LIST_CODEC = JsonCodec.listJsonCodec(String.class);
+    // Matches the bucket count Hive uses to shuffle partitioned table writes.
+    private static final int SHUFFLE_MAX_PARALLELISM_FOR_PARTITIONED_TABLE_WRITE = 1009;
+    // Types that the Hive-compatible bucket function hashes on both Java and native workers, besides VARCHAR.
+    private static final Set<com.facebook.presto.common.type.Type> SHUFFLE_PARTITION_COLUMN_TYPES = ImmutableSet.of(
+            BooleanType.BOOLEAN,
+            TinyintType.TINYINT,
+            SmallintType.SMALLINT,
+            IntegerType.INTEGER,
+            BigintType.BIGINT,
+            RealType.REAL,
+            DoubleType.DOUBLE,
+            DateType.DATE,
+            TimestampType.TIMESTAMP);
 
     public IcebergAbstractMetadata(
             TypeManager typeManager,
@@ -722,6 +749,20 @@ public abstract class IcebergAbstractMetadata
         shouldRunInAutoCommitTransaction("CREATE TABLE");
         Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
         finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
+    }
+
+    @Override
+    public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        Schema schema = toIcebergSchema(tableMetadata.getColumns());
+        return getShuffledWriteLayout(session, schema, parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties())));
+    }
+
+    @Override
+    public Optional<ConnectorNewTableLayout> getInsertLayout(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        Table icebergTable = getIcebergTable(session, ((IcebergTableHandle) tableHandle).getSchemaTableName());
+        return getShuffledWriteLayout(session, icebergTable.schema(), icebergTable.spec());
     }
 
     @Override
@@ -3677,5 +3718,35 @@ public abstract class IcebergAbstractMetadata
         if (!transactionContext.isAutoCommitContext()) {
             throw new PrestoException(ICEBERG_TRANSACTION_CONFLICT_ERROR, statement + " cannot be called within a transaction (use autocommit mode) in Iceberg connector.");
         }
+    }
+    /**
+     * Returns a layout that hashes rows on their partition values, so each partition is written by a single writer, when
+     * the session asks for it. Only partition specs whose fields are all identity transforms of top-level columns
+     * qualify: hashing the source values of a transform such as {@code day(ts)} would spread one partition over several
+     * writers.
+     */
+    private Optional<ConnectorNewTableLayout> getShuffledWriteLayout(ConnectorSession session, Schema schema, PartitionSpec partitionSpec)
+    {
+        if (!isShufflePartitionedColumnsForTableWriteEnabled(session) || partitionSpec.isUnpartitioned()) {
+            return Optional.empty();
+        }
+        ImmutableList.Builder<String> partitionColumns = ImmutableList.builder();
+        ImmutableList.Builder<HiveType> partitionTypes = ImmutableList.builder();
+        for (PartitionField field : partitionSpec.fields()) {
+            Types.NestedField column = schema.findField(field.sourceId());
+            if (!field.transform().isIdentity() || !schema.columns().contains(column)) {
+                return Optional.empty();
+            }
+            com.facebook.presto.common.type.Type type = toPrestoType(column.type(), typeManager);
+            if (!SHUFFLE_PARTITION_COLUMN_TYPES.contains(type) && !(type instanceof VarcharType)) {
+                return Optional.empty();
+            }
+            partitionColumns.add(column.name());
+            partitionTypes.add(toHiveType(type));
+        }
+        return Optional.of(new ConnectorNewTableLayout(
+                createHiveCompatiblePartitioningHandle(SHUFFLE_MAX_PARALLELISM_FOR_PARTITIONED_TABLE_WRITE, partitionTypes.build(), OptionalInt.empty()),
+                partitionColumns.build(),
+                SINGLE_WRITER_PER_PARTITION_REQUIRED));
     }
 }

@@ -38,6 +38,7 @@
 #include "presto_cpp/main/connectors/Registration.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
 #include "presto_cpp/main/connectors/hive/functions/HiveFunctionRegistration.h"
+#include "presto_cpp/main/connectors/iceberg/functions/IcebergFunctionRegistration.h"
 #include "presto_cpp/main/functions/FunctionMetadata.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
@@ -1577,6 +1578,11 @@ void PrestoServer::registerFunctions() {
       velox::connector::hasConnector("hive-hadoop2")) {
     hive::functions::registerHiveNativeFunctions();
   }
+
+  // The Iceberg plugin adds its functions to the built-in namespace whether or
+  // not an Iceberg catalog is configured, so they are registered the same way.
+  iceberg::functions::registerIcebergNativeFunctions(
+      prestoBuiltinFunctionPrefix_);
 
 #ifdef PRESTO_ENABLE_THETA_SKETCH
   functions::aggregate::theta_sketch::registerAllThetaSketchFunctions(

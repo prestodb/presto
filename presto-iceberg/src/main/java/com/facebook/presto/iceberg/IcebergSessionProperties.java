@@ -81,6 +81,7 @@ public final class IcebergSessionProperties
     public static final String MATERIALIZED_VIEW_DEFAULT_MAX_SNAPSHOTS_PER_REFRESH = "materialized_view_default_max_snapshots_per_refresh";
     public static final String AGGREGATE_PUSH_DOWN_ENABLED = "aggregate_push_down_enabled";
     public static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
+    public static final String SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE = "shuffle_partitioned_columns_for_table_write";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -287,6 +288,12 @@ public final class IcebergSessionProperties
                         "Controls whether to push down aggregate (MIN/MAX/COUNT) to Iceberg based on data file stats",
                         icebergConfig.isAggregatePushDownEnabled(),
                         false))
+                .add(booleanProperty(
+                        SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE,
+                        "Shuffle the data on partitioned columns, so each partition is written by a single writer. " +
+                                "Applies to tables whose partition fields are all identity transforms.",
+                        false,
+                        false))
                 .add(new PropertyMetadata<>(
                         TARGET_MAX_FILE_SIZE,
                         "Target maximum size of written files; the actual size may be larger",
@@ -479,6 +486,11 @@ public final class IcebergSessionProperties
     public static boolean isAggregatePushDownEnabled(ConnectorSession session)
     {
         return session.getProperty(AGGREGATE_PUSH_DOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isShufflePartitionedColumnsForTableWriteEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, Boolean.class);
     }
 
     public static DataSize getTargetMaxFileSize(ConnectorSession session)

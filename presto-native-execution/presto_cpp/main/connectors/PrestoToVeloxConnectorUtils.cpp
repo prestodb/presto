@@ -17,6 +17,7 @@
 #include <folly/String.h>
 #include "presto_cpp/main/types/TypeParser.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
@@ -925,6 +926,32 @@ std::unordered_map<std::string, std::string> extractSerdeParameters(
   }
   extractNimbleSerdeParameters(tableParameters, serdeParameters);
   return serdeParameters;
+}
+
+std::unique_ptr<velox::core::PartitionFunctionSpec> toHivePartitionFunctionSpec(
+    const protocol::ConnectorPartitioningHandle* partitioningHandle,
+    const std::vector<int>& bucketToPartition,
+    const std::vector<velox::column_index_t>& channels,
+    const std::vector<velox::VectorPtr>& constValues,
+    bool& effectivelyGather) {
+  auto hivePartitioningHandle =
+      dynamic_cast<const protocol::hive::HivePartitioningHandle*>(
+          partitioningHandle);
+  VELOX_CHECK_NOT_NULL(
+      hivePartitioningHandle,
+      "Unexpected partitioning handle type {}",
+      partitioningHandle->_type);
+  VELOX_USER_CHECK(
+      hivePartitioningHandle->bucketFunctionType ==
+          protocol::hive::BucketFunctionType::HIVE_COMPATIBLE,
+      "Unsupported Hive bucket function type: {}",
+      toJsonString(hivePartitioningHandle->bucketFunctionType));
+  effectivelyGather = hivePartitioningHandle->bucketCount == 1;
+  return std::make_unique<velox::connector::hive::HivePartitionFunctionSpec>(
+      hivePartitioningHandle->bucketCount,
+      bucketToPartition,
+      channels,
+      constValues);
 }
 
 } // namespace facebook::presto

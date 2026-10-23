@@ -484,24 +484,12 @@ HivePrestoToVeloxConnector::createVeloxPartitionFunctionSpec(
     const std::vector<velox::column_index_t>& channels,
     const std::vector<velox::VectorPtr>& constValues,
     bool& effectivelyGather) const {
-  auto hivePartitioningHandle =
-      dynamic_cast<const protocol::hive::HivePartitioningHandle*>(
-          partitioningHandle);
-  VELOX_CHECK_NOT_NULL(
-      hivePartitioningHandle,
-      "Unexpected partitioning handle type {}",
-      partitioningHandle->_type);
-  VELOX_USER_CHECK(
-      hivePartitioningHandle->bucketFunctionType ==
-          protocol::hive::BucketFunctionType::HIVE_COMPATIBLE,
-      "Unsupported Hive bucket function type: {}",
-      toJsonString(hivePartitioningHandle->bucketFunctionType));
-  effectivelyGather = hivePartitioningHandle->bucketCount == 1;
-  return std::make_unique<connector::hive::HivePartitionFunctionSpec>(
-      hivePartitioningHandle->bucketCount,
+  return toHivePartitionFunctionSpec(
+      partitioningHandle,
       bucketToPartition,
       channels,
-      constValues);
+      constValues,
+      effectivelyGather);
 }
 
 std::unique_ptr<protocol::ConnectorProtocol>
