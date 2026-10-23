@@ -79,7 +79,6 @@ additional exporter is needed.
          ▼
    OpenTelemetry Collector
 
-the Java coordinator. The native worker already exposes its metrics.
 
 For a broader view of the available Prestissimo worker metrics, see
 :doc:`/presto_cpp/metrics`. For coordinator JMX metrics, see
