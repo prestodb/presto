@@ -79,7 +79,6 @@ additional exporter is needed.
          ▼
    OpenTelemetry Collector
 
-The additional JMX exporter is required only for
 the Java coordinator. The native worker already exposes its metrics.
 
 For a broader view of the available Prestissimo worker metrics, see
