@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution.scheduler;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.cost.StatsAndCosts;
@@ -32,6 +33,7 @@ import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -70,8 +72,13 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -79,6 +86,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.EXPERIMENTAL_DETERMINISTIC_BOUNDED_SPLITS;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -97,6 +105,7 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
 public class TestSourcePartitionedScheduler
@@ -436,6 +445,201 @@ public class TestSourcePartitionedScheduler
     private static void assertPartitionedSplitCount(SqlStageExecution stage, int expectedPartitionedSplitCount)
     {
         assertEquals(stage.getAllTasks().stream().mapToInt(remoteTask -> remoteTask.getPartitionedSplitsInfo().getCount()).sum(), expectedPartitionedSplitCount);
+    }
+
+    @Test
+    public void testDeterministicPlacementCollectsAllMetadataBeforeDispatch()
+    {
+        Map<String, String> expected = null;
+        for (int batchSize : new int[] {1, 7, 1000}) {
+            List<ConnectorSplit> splits = new ArrayList<>();
+            for (int i = 0; i < 15; i++) {
+                splits.add(new KeyedAffinitySplit("file-" + i));
+            }
+            Collections.shuffle(splits, new Random(batchSize));
+            Map<String, String> observed = new HashMap<>();
+            NodeTaskMap tasks = new NodeTaskMap(finalizerService);
+            SqlStageExecution stage = createSqlStageExecution(createPlan(), tasks);
+            StageScheduler scheduler = deterministicScheduler(new FixedSplitSource(splits), stage, tasks, batchSize, observed);
+            try {
+                int scheduled = 0;
+                for (int call = 0; call < 100; call++) {
+                    ScheduleResult result = scheduler.schedule();
+                    scheduled += result.getSplitsScheduled();
+                    if (call < (splits.size() - 1) / batchSize) {
+                        assertEquals(scheduled, 0, "No I/O tasks before the last metadata batch");
+                        assertEquals(stage.getAllTasks().size(), 0);
+                    }
+                    if (result.isFinished()) {
+                        break;
+                    }
+                }
+                assertEquals(scheduled, 15);
+                assertEquals(observed.size(), 15);
+                if (expected == null) {
+                    expected = observed;
+                }
+                else {
+                    assertEquals(observed, expected);
+                }
+            }
+            finally {
+                scheduler.close();
+                stage.abort();
+            }
+        }
+    }
+
+    @Test
+    public void testDeterministicPlacementWaitsForAsynchronousFinalMetadata()
+    {
+        CompletableFuture<ConnectorSplitSource.ConnectorSplitBatch> first = new CompletableFuture<>();
+        CompletableFuture<ConnectorSplitSource.ConnectorSplitBatch> last = new CompletableFuture<>();
+        ConnectorSplitSource source = new ConnectorSplitSource()
+        {
+            private int requests;
+
+            @Override
+            public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+            {
+                assertTrue(requests < 2);
+                return requests++ == 0 ? first : last;
+            }
+
+            @Override
+            public boolean isFinished()
+            {
+                return last.isDone();
+            }
+
+            @Override
+            public void close() {}
+        };
+        NodeTaskMap tasks = new NodeTaskMap(finalizerService);
+        SqlStageExecution stage = createSqlStageExecution(createPlan(), tasks);
+        Map<String, String> observed = new HashMap<>();
+        StageScheduler scheduler = deterministicScheduler(source, stage, tasks, 10, observed);
+        try {
+            ScheduleResult waiting = scheduler.schedule();
+            assertFalse(waiting.getBlocked().isDone());
+            first.complete(new ConnectorSplitSource.ConnectorSplitBatch(
+                    ImmutableList.of(new KeyedAffinitySplit("first")), false));
+            assertTrue(waiting.getBlocked().isDone());
+            assertEquals(scheduler.schedule().getSplitsScheduled(), 0);
+
+            waiting = scheduler.schedule();
+            assertFalse(waiting.getBlocked().isDone());
+            assertTrue(stage.getAllTasks().isEmpty());
+            assertTrue(observed.isEmpty());
+            last.complete(new ConnectorSplitSource.ConnectorSplitBatch(
+                    ImmutableList.of(new KeyedAffinitySplit("last")), true));
+            assertTrue(waiting.getBlocked().isDone());
+
+            ScheduleResult result = scheduler.schedule();
+            assertEquals(result.getSplitsScheduled(), 2);
+            assertEquals(observed.keySet(), ImmutableSet.of("first", "last"));
+            assertEffectivelyFinished(result, scheduler);
+        }
+        finally {
+            scheduler.close();
+            stage.abort();
+        }
+    }
+
+    @Test
+    public void testDeterministicMetadataLimitAndEmptyScan()
+    {
+        NodeTaskMap tasks = new NodeTaskMap(finalizerService);
+        SqlStageExecution stage = createSqlStageExecution(createPlan(), tasks);
+        StageScheduler scheduler = deterministicScheduler(
+                createFixedSplitSource(100_001, TestingSplit::createRemoteSplit), stage, tasks, 100_001, new HashMap<>());
+        try {
+            PrestoException failure = expectThrows(PrestoException.class, scheduler::schedule);
+            assertTrue(failure.getMessage().contains("100000 split records"));
+            assertEquals(stage.getAllTasks().size(), 0);
+        }
+        finally {
+            scheduler.close();
+            stage.abort();
+        }
+
+        NodeTaskMap emptyTasks = new NodeTaskMap(finalizerService);
+        SqlStageExecution emptyStage = createSqlStageExecution(createPlan(), emptyTasks);
+        StageScheduler empty = deterministicScheduler(
+                createFixedSplitSource(0, TestingSplit::createRemoteSplit), emptyStage, emptyTasks, 1, new HashMap<>());
+        try {
+            ScheduleResult result = empty.schedule();
+            assertEquals(result.getSplitsScheduled(), 1); // Preserve the normal synthetic empty split.
+            assertEffectivelyFinished(result, empty);
+        }
+        finally {
+            empty.close();
+            emptyStage.abort();
+        }
+    }
+
+    private StageScheduler deterministicScheduler(
+            ConnectorSplitSource source, SqlStageExecution stage, NodeTaskMap tasks, int batchSize, Map<String, String> observed)
+    {
+        NodeScheduler nodes = new NodeScheduler(
+                new LegacyNetworkTopology(), nodeManager, new NodeSelectionStats(),
+                new NodeSchedulerConfig().setIncludeCoordinator(false).setMaxSplitsPerNode(20).setMaxPendingSplitsPerTask(0),
+                tasks, new ThrowingNodeTtlFetcherManager(), new NoOpQueryManager(), new SimpleTtlNodeSelectorConfig());
+        Session session = TestingSession.testSessionBuilder()
+                .setSystemProperty(EXPERIMENTAL_DETERMINISTIC_BOUNDED_SPLITS, "true")
+                .build();
+        SplitPlacementPolicy policy = new DynamicSplitPlacementPolicy(nodes.createNodeSelector(session, CONNECTOR_ID), stage::getAllTasks)
+        {
+            @Override
+            public SplitPlacementResult computeAssignments(Set<Split> splits)
+            {
+                SplitPlacementResult result = super.computeAssignments(splits);
+                result.getAssignments().entries().forEach(entry ->
+                        entry.getValue().getConnectorSplit().getCacheAffinityKey().ifPresent(key -> {
+                            assertTrue(entry.getValue().getSplitContext().isCacheable());
+                            observed.put(key, entry.getKey().getNodeIdentifier());
+                        }));
+                return result;
+            }
+        };
+        return newSourcePartitionedSchedulerAsStageScheduler(stage, TABLE_SCAN_NODE_ID,
+                new ConnectorAwareSplitSource(CONNECTOR_ID, TestingTransactionHandle.create(), source),
+                policy, batchSize, new CTEMaterializationTracker());
+    }
+
+    private static class KeyedAffinitySplit
+            implements ConnectorSplit
+    {
+        private final String key;
+
+        private KeyedAffinitySplit(String key)
+        {
+            this.key = key;
+        }
+
+        @Override
+        public com.facebook.presto.spi.schedule.NodeSelectionStrategy getNodeSelectionStrategy()
+        {
+            return com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
+        }
+
+        @Override
+        public List<com.facebook.presto.spi.HostAddress> getPreferredNodes(com.facebook.presto.spi.NodeProvider provider)
+        {
+            return provider.get(key);
+        }
+
+        @Override
+        public Optional<String> getCacheAffinityKey()
+        {
+            return Optional.of(key);
+        }
+
+        @Override
+        public Object getInfo()
+        {
+            return key;
+        }
     }
 
     private static void assertEffectivelyFinished(ScheduleResult scheduleResult, StageScheduler scheduler)

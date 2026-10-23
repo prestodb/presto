@@ -63,6 +63,7 @@ import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunc
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class TestHiveSplit
 {
@@ -129,7 +130,9 @@ public class TestHiveSplit
 
         JsonCodec<HiveSplit> codec = getJsonCodec();
         String json = codec.toJson(expected);
+        assertFalse(json.contains("cacheAffinityKey"), "Placement hints must not change the worker split protocol");
         HiveSplit actual = codec.fromJson(json);
+        assertEquals(actual.getCacheAffinityKey(), Optional.of("path#0"));
 
         assertEquals(actual.getDatabase(), expected.getDatabase());
         assertEquals(actual.getTable(), expected.getTable());

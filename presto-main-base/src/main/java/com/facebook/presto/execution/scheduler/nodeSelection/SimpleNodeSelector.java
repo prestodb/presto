@@ -18,6 +18,7 @@ import com.facebook.presto.execution.NodeTaskMap;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.scheduler.BucketNodeMap;
+import com.facebook.presto.execution.scheduler.DeterministicBoundedAssignment;
 import com.facebook.presto.execution.scheduler.InternalNodeInfo;
 import com.facebook.presto.execution.scheduler.NodeAssignmentStats;
 import com.facebook.presto.execution.scheduler.NodeMap;
@@ -36,6 +37,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -56,9 +58,12 @@ import static com.facebook.presto.execution.scheduler.NodeScheduler.selectNodes;
 import static com.facebook.presto.execution.scheduler.NodeScheduler.toWhenHasSplitQueueSpaceFuture;
 import static com.facebook.presto.metadata.InternalNode.NodeStatus.DEAD;
 import static com.facebook.presto.spi.StandardErrorCode.NODE_SELECTION_NOT_SUPPORTED;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.HARD_AFFINITY;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.SOFT_AFFINITY;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Sets.newHashSet;
 import static java.lang.String.format;
@@ -83,6 +88,8 @@ public class SimpleNodeSelector
     private final int maxUnacknowledgedSplitsPerTask;
     private final int maxTasksPerStage;
     private final int maxPreferredNodes;
+    private final boolean deterministicBoundedSplits;
+    private Map<String, String> deterministicOwners;
 
     public SimpleNodeSelector(
             InternalNodeManager nodeManager,
@@ -97,7 +104,8 @@ public class SimpleNodeSelector
             long maxPendingSplitsWeightPerTask,
             int maxUnacknowledgedSplitsPerTask,
             int maxTasksPerStage,
-            int maxPreferredNodes)
+            int maxPreferredNodes,
+            boolean deterministicBoundedSplits)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.nodeSelectionStats = requireNonNull(nodeSelectionStats, "nodeSelectionStats is null");
@@ -113,6 +121,48 @@ public class SimpleNodeSelector
         checkArgument(maxUnacknowledgedSplitsPerTask > 0, "maxUnacknowledgedSplitsPerTask must be > 0, found: %s", maxUnacknowledgedSplitsPerTask);
         this.maxTasksPerStage = maxTasksPerStage;
         this.maxPreferredNodes = maxPreferredNodes;
+        this.deterministicBoundedSplits = deterministicBoundedSplits;
+    }
+
+    @Override
+    public boolean requiresFullSplitSet()
+    {
+        return deterministicBoundedSplits;
+    }
+
+    @Override
+    public void prepareForSplits(Set<Split> splits)
+    {
+        checkState(deterministicBoundedSplits && deterministicOwners == null, "Placement must be prepared exactly once per source");
+        Map<String, Long> weights = new HashMap<>();
+        for (Split split : splits) {
+            if (split.getNodeSelectionStrategy() == SOFT_AFFINITY) {
+                long bytes = Math.max(1, split.getConnectorSplit().getSplitSizeInBytes().orElse(1));
+                weights.merge(affinityKey(split), bytes, Math::addExact);
+            }
+        }
+        List<String> workers = getActiveNodes().stream()
+                .filter(node -> node.getNodeStatus() != DEAD)
+                .filter(node -> includeCoordinator || !node.isCoordinator())
+                .map(InternalNode::getNodeIdentifier)
+                .sorted()
+                .limit(maxTasksPerStage)
+                .collect(toList());
+        if (workers.isEmpty()) {
+            throw new PrestoException(NO_NODES_AVAILABLE, "No active workers for deterministic bounded placement");
+        }
+        deterministicOwners = DeterministicBoundedAssignment.assign(weights, workers);
+        log.info("Deterministic bounded placement: affinityKeys=%s workers=%s capacityBytes=%s fingerprint=%s",
+                weights.size(), workers.size(), DeterministicBoundedAssignment.capacity(weights.values(), workers.size()),
+                DeterministicBoundedAssignment.fingerprint(deterministicOwners));
+    }
+
+    private static String affinityKey(Split split)
+    {
+        String key = split.getConnectorSplit().getCacheAffinityKey()
+                .orElseThrow(() -> new PrestoException(NOT_SUPPORTED,
+                        "SOFT_AFFINITY connector must provide a stable cache key for experimental_deterministic_bounded_splits"));
+        return split.getConnectorId() + ":" + key;
     }
 
     @Override
@@ -149,6 +199,7 @@ public class SimpleNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
+        checkState(!deterministicBoundedSplits || deterministicOwners != null, "Prepare the complete split set before placement");
         Multimap<InternalNode, Split> assignment = HashMultimap.create();
         NodeMap nodeMap = this.nodeMap.get().get();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
@@ -165,7 +216,15 @@ public class SimpleNodeSelector
 
         NodeProvider nodeProvider = nodeMap.getNodeProvider(maxPreferredNodes);
         OptionalInt preferredNodeCount = OptionalInt.empty();
-        for (Split split : splits) {
+        // Queue admission may happen over many calls. It must not recompute the
+        // planned owner using current task load or only the remaining keys.
+        Iterable<Split> orderedSplits = splits;
+        if (deterministicBoundedSplits) {
+            orderedSplits = splits.stream()
+                    .sorted(Comparator.comparing(split -> split.getNodeSelectionStrategy() == SOFT_AFFINITY ? affinityKey(split) : ""))
+                    .collect(toList());
+        }
+        for (Split split : orderedSplits) {
             List<InternalNode> candidateNodes;
             switch (split.getNodeSelectionStrategy()) {
                 case HARD_AFFINITY:
@@ -173,6 +232,18 @@ public class SimpleNodeSelector
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     break;
                 case SOFT_AFFINITY:
+                    if (deterministicBoundedSplits) {
+                        String owner = deterministicOwners.get(affinityKey(split));
+                        checkState(owner != null, "Split was not present in the prepared placement");
+                        InternalNode worker = nodeMap.getActiveNodesByNodeId().get(owner);
+                        if (worker == null || worker.getNodeStatus() == DEAD) {
+                            throw new PrestoException(NO_NODES_AVAILABLE,
+                                    "Deterministic placement owner is unavailable: " + owner + "; retry the query to recompute placement");
+                        }
+                        candidateNodes = ImmutableList.of(worker);
+                        preferredNodeCount = OptionalInt.of(1);
+                        break;
+                    }
                     candidateNodes = selectExactNodes(nodeMap, split.getPreferredNodes(nodeProvider), includeCoordinator);
                     preferredNodeCount = OptionalInt.of(candidateNodes.size());
                     candidateNodes = ImmutableList.<InternalNode>builder()
@@ -218,7 +289,7 @@ public class SimpleNodeSelector
                 assignmentStats.addAssignedSplit(chosenNode, splitWeight);
             }
             else {
-                if (split.getNodeSelectionStrategy() != HARD_AFFINITY) {
+                if (split.getNodeSelectionStrategy() != HARD_AFFINITY && !(deterministicBoundedSplits && split.getNodeSelectionStrategy() == SOFT_AFFINITY)) {
                     splitWaitingForAnyNode = true;
                 }
                 // Exact node set won't matter, if a split is waiting for any node
@@ -241,6 +312,7 @@ public class SimpleNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks, BucketNodeMap bucketNodeMap)
     {
+        checkArgument(!deterministicBoundedSplits, "Deterministic bounded placement does not support bucketed execution");
         return selectDistributionNodes(nodeMap.get().get(), nodeTaskMap, maxSplitsWeightPerNode, maxPendingSplitsWeightPerTask, maxUnacknowledgedSplitsPerTask, splits, existingTasks, bucketNodeMap, nodeSelectionStats);
     }
 
