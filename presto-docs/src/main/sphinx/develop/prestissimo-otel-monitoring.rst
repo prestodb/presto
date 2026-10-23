@@ -280,7 +280,7 @@ to the host is useful for debugging and manual inspection.
 Collecting Native Worker Metrics
 --------------------------------
 
-The Prestissimo worker runs the Velox C++ engine and already exposes
+The Prestissimo worker runs the Velox C++ engine and exposes
 Prometheus metrics through its built-in HTTP server. No additional
 exporter is needed.
 
