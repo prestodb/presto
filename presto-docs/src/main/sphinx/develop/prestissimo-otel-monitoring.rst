@@ -453,7 +453,7 @@ endpoint:
        resource_to_telemetry_conversion:
          enabled: true
 
-This is especially useful during development because it allows
+This is useful during development because it allows
 inspection of the metrics after they have passed through the Collector.
 
 Complete Pipeline
