@@ -11,8 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.facebook.presto.hive.metastore.thrift;
 
+import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.MapType;
@@ -56,6 +58,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.Striped;
 import com.google.errorprone.annotations.ThreadSafe;
 import jakarta.inject.Inject;
 import org.apache.hadoop.fs.Path;
@@ -100,6 +103,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -110,7 +114,9 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Lock;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -173,7 +179,11 @@ import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.HIVE_
 public class ThriftHiveMetastore
         implements HiveMetastore
 {
+    private static final Logger log = Logger.get(ThriftHiveMetastore.class);
     private static final HdfsContext hdfsContext = new HdfsContext(new ConnectorIdentity(DEFAULT_METASTORE_USER, Optional.empty(), Optional.empty()));
+    private static final Pattern DUPLICATE_COLUMN_STATISTICS_PATTERN = Pattern.compile(
+            "(?i)unexpected\\s+\\d+\\s+statistics?\\s+for\\s+\\d+\\s+columns?",
+            Pattern.CASE_INSENSITIVE);
 
     private final ThriftHiveMetastoreStats stats;
     private final HiveCluster clientProvider;
@@ -182,6 +192,7 @@ public class ThriftHiveMetastore
     private final boolean impersonationEnabled;
     private final boolean isMetastoreAuthenticationEnabled;
     private final boolean deleteFilesOnTableDrop;
+    private final Striped<Lock> columnStatisticsRepairLocks = Striped.lock(32);
 
     private volatile boolean metastoreKnownToSupportTableParamEqualsPredicate;
     private volatile boolean metastoreKnownToSupportTableParamLikePredicate;
@@ -488,7 +499,10 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("getTableColumnStatistics", stats.getGetTableColumnStatistics().wrap(() ->
                             getMetastoreClientThenCall(metastoreContext, client ->
-                                    groupStatisticsByColumn(client.getTableColumnStatistics(databaseName, tableName, columns), rowCount))));
+                                    groupStatisticsByColumn(
+                                            new SchemaTableName(databaseName, tableName),
+                                            client.getTableColumnStatistics(databaseName, tableName, columns),
+                                            rowCount))));
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
@@ -570,7 +584,11 @@ public class ThriftHiveMetastore
                 .filter(entry -> !entry.getValue().isEmpty())
                 .collect(toImmutableMap(
                         Map.Entry::getKey,
-                        entry -> groupStatisticsByColumn(entry.getValue(), partitionRowCounts.getOrDefault(entry.getKey(), OptionalLong.empty()))));
+                        entry ->
+                                groupStatisticsByColumn(
+                                        new SchemaTableName(databaseName, tableName),
+                                        entry.getValue(),
+                                        partitionRowCounts.getOrDefault(entry.getKey(), OptionalLong.empty()))));
     }
 
     private Map<String, List<ColumnStatisticsObj>> getMetastorePartitionColumnStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, Set<String> partitionNames, List<String> columnNames)
@@ -594,10 +612,22 @@ public class ThriftHiveMetastore
         }
     }
 
-    private Map<String, HiveColumnStatistics> groupStatisticsByColumn(List<ColumnStatisticsObj> statistics, OptionalLong rowCount)
+    private static Map<String, HiveColumnStatistics> groupStatisticsByColumn(SchemaTableName schemaTableName, List<ColumnStatisticsObj> statistics, OptionalLong rowCount)
     {
-        return statistics.stream()
-                .collect(toImmutableMap(ColumnStatisticsObj::getColName, statisticsObj -> ThriftMetastoreUtil.fromMetastoreApiColumnStatistics(statisticsObj, rowCount)));
+        Map<String, HiveColumnStatistics> statisticsByColumn = new HashMap<>();
+        for (ColumnStatisticsObj stats : statistics) {
+            HiveColumnStatistics newColumnStatistics = ThriftMetastoreUtil.fromMetastoreApiColumnStatistics(stats, rowCount);
+            if (statisticsByColumn.containsKey(stats.getColName())) {
+                HiveColumnStatistics existingColumnStatistics = statisticsByColumn.get(stats.getColName());
+                if (!newColumnStatistics.equals(existingColumnStatistics)) {
+                    log.warn("Ignore inconsistent statistics in %s column of table %s: %s and %s", stats.getColName(), schemaTableName, newColumnStatistics, existingColumnStatistics);
+                }
+            }
+            else {
+                statisticsByColumn.put(stats.getColName(), newColumnStatistics);
+            }
+        }
+        return ImmutableMap.copyOf(statisticsByColumn);
     }
 
     @Override
@@ -628,6 +658,62 @@ public class ThriftHiveMetastore
     private void setTableColumnStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
     {
         try {
+            storeTableColumnStatistics(metastoreContext, databaseName, tableName, statistics);
+        }
+        catch (PrestoException e) {
+            if (!isDuplicateColumnStatisticsError(e)) {
+                throw e;
+            }
+            repairAndStoreTableColumnStatistics(metastoreContext, databaseName, tableName, statistics, e);
+        }
+    }
+
+    private void repairAndStoreTableColumnStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, List<ColumnStatisticsObj> statistics, PrestoException cause)
+    {
+        Lock lock = columnStatisticsRepairLocks.get(new SchemaTableName(databaseName, tableName));
+        lock.lock();
+        try {
+            try {
+                storeTableColumnStatistics(metastoreContext, databaseName, tableName, statistics);
+                return;
+            }
+            catch (PrestoException e) {
+                if (!isDuplicateColumnStatisticsError(e)) {
+                    throw e;
+                }
+            }
+
+            List<String> columnNames = statistics.stream()
+                    .map(ColumnStatisticsObj::getColName)
+                    .collect(toImmutableList());
+            log.warn(cause, "Duplicated column statistics in %s.%s, purging statistics for %s columns and retrying", databaseName, tableName, columnNames.size());
+            deleteAllTableColumnStatistics(metastoreContext, databaseName, tableName);
+            storeTableColumnStatistics(metastoreContext, databaseName, tableName, statistics);
+        }
+        finally {
+            lock.unlock();
+        }
+    }
+
+    private static boolean isDuplicateColumnStatisticsError(Throwable throwable)
+    {
+        for (Throwable cause = throwable; cause != null && cause != cause.getCause(); cause = cause.getCause()) {
+            if (cause instanceof MetaException && cause.getMessage() != null) {
+                String message = cause.getMessage();
+                if (DUPLICATE_COLUMN_STATISTICS_PATTERN.matcher(message).find()) {
+                    return true;
+                }
+                if (message.toLowerCase().contains("column statistics") || message.toLowerCase().contains("statistics for")) {
+                    log.debug("Found MetaException containing column statistics text, but pattern did not match: %s", message);
+                }
+            }
+        }
+        return false;
+    }
+
+    private void storeTableColumnStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
+    {
+        try {
             retry()
                     .stopOn(NoSuchObjectException.class, InvalidObjectException.class, MetaException.class, InvalidInputException.class)
                     .stopOnIllegalExceptions()
@@ -646,6 +732,11 @@ public class ThriftHiveMetastore
         catch (Exception e) {
             throw propagate(e);
         }
+    }
+
+    private void deleteAllTableColumnStatistics(MetastoreContext metastoreContext, String databaseName, String tableName)
+    {
+        deleteTableColumnStatistics(metastoreContext, databaseName, tableName, null);
     }
 
     private void deleteTableColumnStatistics(MetastoreContext metastoreContext, String databaseName, String tableName, String columnName)
