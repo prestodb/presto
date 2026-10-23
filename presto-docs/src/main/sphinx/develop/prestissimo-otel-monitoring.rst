@@ -12,7 +12,7 @@ runs the Velox C++ execution engine and provides a
 Prometheus-compatible metrics endpoint.
 
 Collecting metrics from the entire Prestissimo cluster
-requires two different approaches. In this article, we look at how to
+requires two different approaches. This document presents how to
 collect metrics from both components using the OpenTelemetry Collector,
 enrich those metrics with useful metadata, and export them to an
 observability backend without coupling the architecture to a specific
