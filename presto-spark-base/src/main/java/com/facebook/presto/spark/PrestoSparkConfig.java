@@ -73,6 +73,7 @@ public class PrestoSparkConfig
     private boolean adaptiveJoinSideSwitchingEnabled;
     private String nativeExecutionBroadcastBasePath;
     private boolean nativeTerminateWithCoreWhenUnresponsiveEnabled;
+    private boolean nativeExecutionCompressTaskUpdateEnabled;
     private Duration nativeTerminateWithCoreTimeout = new Duration(5, MINUTES);
     private boolean isDynamicPrestoMemoryPoolTuningEnabled;
     private double dynamicPrestoMemoryPoolTuningFraction = 0.7;
@@ -527,6 +528,19 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setNativeExecutionBroadcastBasePath(String nativeExecutionBroadcastBasePath)
     {
         this.nativeExecutionBroadcastBasePath = nativeExecutionBroadcastBasePath;
+        return this;
+    }
+
+    public boolean isNativeExecutionCompressTaskUpdateEnabled()
+    {
+        return nativeExecutionCompressTaskUpdateEnabled;
+    }
+
+    @Config("native-execution-compress-task-update-enabled")
+    @ConfigDescription("Zstd-compress the task update request sent to the native worker")
+    public PrestoSparkConfig setNativeExecutionCompressTaskUpdateEnabled(boolean nativeExecutionCompressTaskUpdateEnabled)
+    {
+        this.nativeExecutionCompressTaskUpdateEnabled = nativeExecutionCompressTaskUpdateEnabled;
         return this;
     }
 

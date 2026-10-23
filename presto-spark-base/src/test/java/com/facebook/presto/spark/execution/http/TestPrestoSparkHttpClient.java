@@ -16,6 +16,8 @@ package com.facebook.presto.spark.execution.http;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
+import com.facebook.presto.Session;
+import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskId;
@@ -25,9 +27,11 @@ import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.TaskState;
 import com.facebook.presto.execution.TaskStatus;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
+import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.operator.PageBufferClient;
 import com.facebook.presto.operator.PageTransportErrorException;
 import com.facebook.presto.operator.TaskStats;
+import com.facebook.presto.spark.PrestoSparkSessionProperties;
 import com.facebook.presto.spark.execution.http.server.smile.BaseResponse;
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskInfoFetcher;
 import com.facebook.presto.spark.execution.nativeprocess.HttpNativeExecutionTaskResultFetcher;
@@ -44,9 +48,9 @@ import com.facebook.presto.spi.PrestoTransportException;
 import com.facebook.presto.spi.page.PageCodecMarker;
 import com.facebook.presto.spi.page.PagesSerdeUtil;
 import com.facebook.presto.spi.page.SerializedPage;
+import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
-import com.facebook.presto.testing.TestingSession;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -66,11 +70,14 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
+import okio.Buffer;
 import okio.Timeout;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -93,8 +100,12 @@ import static com.facebook.presto.client.PrestoHeaders.PRESTO_TASK_INSTANCE_ID;
 import static com.facebook.presto.execution.TaskTestUtils.createPlanFragment;
 import static com.facebook.presto.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.NATIVE_EXECUTION_COMPRESS_TASK_UPDATE_ENABLED;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static com.google.common.net.HttpHeaders.CONTENT_ENCODING;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -123,6 +134,12 @@ public class TestPrestoSparkHttpClient
     private static final JsonCodec<BatchTaskUpdateRequest> TASK_UPDATE_REQUEST_JSON_CODEC = JsonCodec.jsonCodec(BatchTaskUpdateRequest.class);
     private static final JsonCodec<ServerInfo> SERVER_INFO_JSON_CODEC = JsonCodec.jsonCodec(ServerInfo.class);
     private static final int HTTP_STATUS_OK = 200;
+    // updateTask reads Presto-on-Spark session properties, which the default testing session does not register
+    private static final SessionPropertyManager SESSION_PROPERTY_MANAGER = createTestingSessionPropertyManager(
+            ImmutableList.<PropertyMetadata<?>>builder()
+                    .addAll(new SystemSessionProperties().getSessionProperties())
+                    .addAll(new PrestoSparkSessionProperties().getSessionProperties())
+                    .build());
     private static final String CONTENT_TYPE_JSON = "application/json";
     private ScheduledExecutorService scheduledExecutorService;
 
@@ -325,7 +342,7 @@ public class TestPrestoSparkHttpClient
                     new TableWriteInfo(Optional.empty(), Optional.empty()),
                     Optional.empty(),
                     Optional.empty(),
-                    TestingSession.testSessionBuilder().build(),
+                    testSession(),
                     createInitialEmptyOutputBuffers(PARTITIONED));
             assertEquals(taskInfo.getTaskId().toString(), taskId.toString());
         }
@@ -333,6 +350,67 @@ public class TestPrestoSparkHttpClient
             e.printStackTrace();
             fail();
         }
+    }
+
+    @Test
+    public void testUpdateTaskUncompressed()
+    {
+        Request request = sendTaskUpdate(false);
+        assertNull(request.header(CONTENT_ENCODING));
+        BatchTaskUpdateRequest sent = TASK_UPDATE_REQUEST_JSON_CODEC.fromJson(readBody(request));
+        assertTrue(sent.getTaskUpdateRequest().getFragment().isPresent());
+    }
+
+    @Test
+    public void testUpdateTaskZstdCompressed()
+    {
+        Request request = sendTaskUpdate(true);
+        assertEquals(request.header(CONTENT_ENCODING), "zstd");
+        byte[] body = readBody(request);
+        BatchTaskUpdateRequest sent = deserializeZstdCompressed(TASK_UPDATE_REQUEST_JSON_CODEC, body);
+        assertTrue(sent.getTaskUpdateRequest().getFragment().isPresent());
+        assertTrue(body.length < TASK_UPDATE_REQUEST_JSON_CODEC.toBytes(sent).length);
+    }
+
+    private Request sendTaskUpdate(boolean compress)
+    {
+        TaskId taskId = new TaskId("testid", 0, 0, 0, 0);
+        RecordingTaskInfoResponseManager responseManager = new RecordingTaskInfoResponseManager();
+        PrestoSparkHttpTaskClient workerClient = createWorkerClient(
+                new TestingOkHttpClient(scheduledExecutorService,
+                        new TestingResponseManager(taskId.toString(), responseManager)));
+        Session session = testSessionBuilder(SESSION_PROPERTY_MANAGER)
+                .setSystemProperty(NATIVE_EXECUTION_COMPRESS_TASK_UPDATE_ENABLED, String.valueOf(compress))
+                .build();
+        workerClient.updateTask(
+                taskId,
+                new ArrayList<>(),
+                createPlanFragment(),
+                new TableWriteInfo(Optional.empty(), Optional.empty()),
+                Optional.empty(),
+                Optional.empty(),
+                session,
+                createInitialEmptyOutputBuffers(PARTITIONED));
+        Request request = responseManager.getRequest();
+        assertNotNull(request);
+        return request;
+    }
+
+    private static byte[] readBody(Request request)
+    {
+        Buffer buffer = new Buffer();
+        try {
+            request.body().writeTo(buffer);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return buffer.readByteArray();
+    }
+
+    private static Session testSession()
+    {
+        return testSessionBuilder(SESSION_PROPERTY_MANAGER).build();
     }
 
     @Test
@@ -350,7 +428,7 @@ public class TestPrestoSparkHttpClient
                 new TableWriteInfo(Optional.empty(), Optional.empty()),
                 Optional.empty(),
                 Optional.empty(),
-                TestingSession.testSessionBuilder().build(),
+                testSession(),
                 createInitialEmptyOutputBuffers(PARTITIONED)))
                 .isInstanceOf(PrestoException.class)
                 .hasMessageContaining("500");
@@ -371,7 +449,7 @@ public class TestPrestoSparkHttpClient
                 new TableWriteInfo(Optional.empty(), Optional.empty()),
                 Optional.empty(),
                 Optional.empty(),
-                TestingSession.testSessionBuilder().build(),
+                testSession(),
                 createInitialEmptyOutputBuffers(PARTITIONED));
     }
 
@@ -959,7 +1037,7 @@ public class TestPrestoSparkHttpClient
                     taskConfig,
                     queryConfig);
             NativeExecutionTask task = taskFactory.createNativeExecutionTask(
-                    testSessionBuilder().build(),
+                    testSession(),
                     BASE_URI,
                     taskId,
                     createPlanFragment(),
@@ -1538,6 +1616,25 @@ public class TestPrestoSparkHttpClient
             }
 
             return super.createTaskInfoResponse(httpStatus, taskId, request);
+        }
+    }
+
+    private static class RecordingTaskInfoResponseManager
+            extends TestingResponseManager.TestingTaskInfoResponseManager
+    {
+        private final AtomicReference<Request> request = new AtomicReference<>();
+
+        @Override
+        public Response createTaskInfoResponse(int httpStatus, String taskId, Request request)
+                throws PrestoException
+        {
+            this.request.set(request);
+            return super.createTaskInfoResponse(httpStatus, taskId, request);
+        }
+
+        public Request getRequest()
+        {
+            return request.get();
         }
     }
 

@@ -1930,7 +1930,7 @@ Presto on Spark Properties
 --------------------------
 
 These properties control how :doc:`Presto on Spark </admin/spark>` assigns table scan
-splits to Spark input partitions.
+splits to Spark input partitions and sends tasks to native workers.
 
 ``spark.max-splits-count-per-partition``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1955,6 +1955,27 @@ created rather than overfilling an existing one, so this limit takes precedence 
 the partition count ceiling.
 
 The corresponding session property is :ref:`admin/properties-session:\`\`max_splits_count_per_spark_partition\`\``.
+
+``native-execution-compress-task-update-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Compress the task update request that an executor sends to its native (Velox) worker
+with zstd, and send it with the ``Content-Encoding: zstd`` header.
+
+The task update request carries every split of the task, and most of each split's
+metadata repeats from split to split, so the request compresses well. Without
+compression, the executor builds the whole serialized request on its heap and then
+copies it into a single array, so a task with many splits needs about twice the
+request's size in executor memory. With compression, the request is compressed while
+it is serialized, and the uncompressed request is never held in memory.
+
+The native worker must support compressed task update requests. A worker that does not
+fails every task.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`native_execution_compress_task_update_enabled\`\``.
 
 Driver-side Metadata Sidecar Properties
 ---------------------------------------
