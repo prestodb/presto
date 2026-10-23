@@ -94,6 +94,7 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.google.common.collect.ImmutableList;
@@ -1173,6 +1174,21 @@ public final class SqlToRowExpressionTranslator
             }
 
             throw new UnsupportedOperationException("not yet implemented: " + node.getField());
+        }
+
+        @Override
+        protected RowExpression visitTrim(Trim node, Context context)
+        {
+            String functionName = node.getSpecification().getFunctionName();
+            ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
+            arguments.add(process(node.getTrimSource(), context));
+            node.getTrimCharacter().ifPresent(trimCharacter -> arguments.add(process(trimCharacter, context)));
+            List<RowExpression> argumentList = arguments.build();
+
+            FunctionHandle functionHandle = functionAndTypeResolver.lookupFunction(
+                    functionName,
+                    fromTypes(argumentList.stream().map(RowExpression::getType).collect(toImmutableList())));
+            return call(getSourceLocation(node), functionName, functionHandle, getType(node), argumentList);
         }
 
         @Override
