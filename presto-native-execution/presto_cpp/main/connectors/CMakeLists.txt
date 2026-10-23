@@ -32,3 +32,4 @@ endif()
 target_link_libraries(presto_connectors presto_velox_expr_conversion velox)
 
 add_subdirectory(hive)
+add_subdirectory(iceberg)

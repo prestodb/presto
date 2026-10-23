@@ -20,6 +20,7 @@
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/connectors/Connector.h"
 #include "velox/connectors/hive/TableHandle.h"
+#include "velox/core/PlanNode.h"
 #include "velox/dwio/common/Options.h"
 #include "velox/type/Filter.h"
 #include "velox/type/Type.h"
@@ -79,5 +80,15 @@ void extractNimbleSerdeParameters(
 /// Mirrors Java's HiveMetadata.extractSerdeParameters().
 std::unordered_map<std::string, std::string> extractSerdeParameters(
     const std::map<std::string, std::string>& tableParameters);
+
+/// Converts a Hive partitioning handle into the Velox partition function that
+/// hashes rows the same way, for any connector that partitions data with one.
+/// Sets 'effectivelyGather' when every row goes to a single partition.
+std::unique_ptr<velox::core::PartitionFunctionSpec> toHivePartitionFunctionSpec(
+    const protocol::ConnectorPartitioningHandle* partitioningHandle,
+    const std::vector<int>& bucketToPartition,
+    const std::vector<velox::column_index_t>& channels,
+    const std::vector<velox::VectorPtr>& constValues,
+    bool& effectivelyGather);
 
 } // namespace facebook::presto
