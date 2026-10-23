@@ -541,13 +541,8 @@ public class TestJdbcMetadata
                 OptionalLong.empty(),
                 OptionalLong.empty(),
                 100);
-        BaseJdbcConfig baseConfig = new BaseJdbcConfig();
-        baseConfig.setConnectionUrl("jdbc:h2:mem:test");
-        JdbcMetadata viewMetadata = new JdbcMetadata(
-                JdbcMetadataCache.createTransactionCache(globalCache, 100),
-                withNoOpViewWrites(database.getJdbcClient()),
-                false,
-                new DefaultTableLocationProvider(baseConfig));
+        JdbcMetadataCacheStats transactionCacheStats = new JdbcMetadataCacheStats();
+        JdbcMetadata viewMetadata = newViewMetadata(JdbcMetadataCache.createTransactionCache(globalCache, transactionCacheStats, 100));
 
         // H2 reports example.view as a table, so it is cached the way a datasource-managed view is
         SchemaTableName viewName = new SchemaTableName("example", "view");
@@ -555,6 +550,14 @@ public class TestJdbcMetadata
         loadAsTable(viewMetadata, viewName);
         loadAsTable(viewMetadata, viewName);
         assertCacheMisses(globalCacheStats, 1);
+        // the repeat read is served by the transaction cache without reaching the shared one
+        assertCacheHits(transactionCacheStats, 1);
+        assertCacheHits(globalCacheStats, 0);
+
+        // another transaction reads the view from the shared cache instead of the datasource
+        loadAsTable(newViewMetadata(JdbcMetadataCache.createTransactionCache(globalCache, 100)), viewName);
+        assertCacheMisses(globalCacheStats, 1);
+        assertCacheHits(globalCacheStats, 1);
 
         viewMetadata.createView(SESSION, new ConnectorTableMetadata(viewName, ImmutableList.of()), "view data", true);
         loadAsTable(viewMetadata, viewName);
@@ -568,9 +571,25 @@ public class TestJdbcMetadata
         loadAsTable(viewMetadata, viewName);
         assertCacheMisses(globalCacheStats, 4);
 
-        viewMetadata.renameView(SESSION, otherName, viewName);
-        loadAsTable(viewMetadata, viewName);
-        assertCacheMisses(globalCacheStats, 5);
+        // only the handle leaves the shared cache, so its column entry outlives it; the handle view
+        // DDL reloads compares equal to the one the columns were cached under and still clears them
+        globalCache.invalidateTableHandle(SESSION, viewName);
+        JdbcMetadata nextTransaction = newViewMetadata(JdbcMetadataCache.createTransactionCache(globalCache, 100));
+        nextTransaction.dropView(SESSION, viewName);
+        loadAsTable(nextTransaction, viewName);
+        assertEquals(globalCacheStats.getTableHandleCacheMiss(), 6);
+        assertEquals(globalCacheStats.getColumnHandlesCacheMiss(), 5);
+    }
+
+    private JdbcMetadata newViewMetadata(JdbcMetadataCache transactionCache)
+    {
+        BaseJdbcConfig baseConfig = new BaseJdbcConfig();
+        baseConfig.setConnectionUrl("jdbc:h2:mem:test");
+        return new JdbcMetadata(
+                transactionCache,
+                withNoOpViewWrites(database.getJdbcClient()),
+                false,
+                new DefaultTableLocationProvider(baseConfig));
     }
 
     private static void loadAsTable(JdbcMetadata metadata, SchemaTableName name)
@@ -583,6 +602,12 @@ public class TestJdbcMetadata
     {
         assertEquals(stats.getTableHandleCacheMiss(), expected);
         assertEquals(stats.getColumnHandlesCacheMiss(), expected);
+    }
+
+    private static void assertCacheHits(JdbcMetadataCacheStats stats, long expected)
+    {
+        assertEquals(stats.getTableHandleCacheHit(), expected);
+        assertEquals(stats.getColumnHandlesCacheHit(), expected);
     }
 
     /**

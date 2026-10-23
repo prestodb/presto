@@ -307,23 +307,48 @@ public class JdbcMetadata
     @Override
     public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
     {
-        jdbcClient.createView(session, viewMetadata, viewData, replace);
         // a replaced view can expose different columns than the one it replaced
-        jdbcMetadataCache.invalidateView(session, viewMetadata.getTable());
+        Optional<JdbcTableHandle> replacedView = replace ? getViewTableHandle(session, viewMetadata.getTable()) : Optional.empty();
+        jdbcClient.createView(session, viewMetadata, viewData, replace);
+        invalidateView(session, viewMetadata.getTable(), replacedView);
     }
 
     @Override
     public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
     {
+        Optional<JdbcTableHandle> view = getViewTableHandle(session, viewName);
         jdbcClient.renameView(session, viewName, newViewName);
-        jdbcMetadataCache.invalidateView(session, viewName);
-        jdbcMetadataCache.invalidateView(session, newViewName);
+        invalidateView(session, viewName, view);
+        jdbcMetadataCache.invalidateTableHandle(session, newViewName);
     }
 
     @Override
     public void dropView(ConnectorSession session, SchemaTableName viewName)
     {
+        Optional<JdbcTableHandle> view = getViewTableHandle(session, viewName);
         jdbcClient.dropView(session, viewName);
-        jdbcMetadataCache.invalidateView(session, viewName);
+        invalidateView(session, viewName, view);
+    }
+
+    /**
+     * Returns the table handle a client that reports views as tables gives for a view, so view
+     * DDL can invalidate its cached handle and columns the way table DDL does. It has to be read
+     * before the DDL runs, since a dropped or renamed view no longer resolves. Handles compare by
+     * connector and name only, so the one read here matches every cached column entry for the view,
+     * even one cached under a handle loaded earlier.
+     */
+    private Optional<JdbcTableHandle> getViewTableHandle(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.ofNullable(jdbcMetadataCache.getTableHandle(session, viewName));
+    }
+
+    private void invalidateView(ConnectorSession session, SchemaTableName viewName, Optional<JdbcTableHandle> view)
+    {
+        if (view.isPresent()) {
+            jdbcMetadataCache.invalidateTable(session, view.get());
+        }
+        else {
+            jdbcMetadataCache.invalidateTableHandle(session, viewName);
+        }
     }
 }
