@@ -141,7 +141,7 @@ void to_json(json& j, const HiveFileSplit& p);
 void from_json(const json& j, HiveFileSplit& p);
 } // namespace facebook::presto::protocol::hive
 namespace facebook::presto::protocol::hive {
-enum class HiveCompressionCodec { NONE, SNAPPY, GZIP, LZ4, ZSTD };
+enum class HiveCompressionCodec { NONE, SNAPPY, GZIP, LZ4, ZSTD, LZ4_RAW };
 extern void to_json(json& j, const HiveCompressionCodec& e);
 extern void from_json(const json& j, HiveCompressionCodec& e);
 } // namespace facebook::presto::protocol::hive

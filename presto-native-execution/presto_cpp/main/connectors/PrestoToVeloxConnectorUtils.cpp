@@ -797,13 +797,23 @@ std::vector<common::Subfield> toRequiredSubfields(
 }
 
 velox::common::CompressionKind toFileCompressionKind(
-    const protocol::hive::HiveCompressionCodec& hiveCompressionCodec) {
+    const protocol::hive::HiveCompressionCodec& hiveCompressionCodec,
+    velox::dwio::common::FileFormat fileFormat) {
+  const bool isParquet = fileFormat == velox::dwio::common::FileFormat::PARQUET;
   switch (hiveCompressionCodec) {
     case protocol::hive::HiveCompressionCodec::SNAPPY:
       return velox::common::CompressionKind::CompressionKind_SNAPPY;
     case protocol::hive::HiveCompressionCodec::GZIP:
       return velox::common::CompressionKind::CompressionKind_GZIP;
     case protocol::hive::HiveCompressionCodec::LZ4:
+      // Parquet's LZ4 codec frames the LZ4 blocks the way Hadoop's Lz4Codec
+      // does; Parquet calls the unframed codec LZ4_RAW.
+      return isParquet
+          ? velox::common::CompressionKind::CompressionKind_LZ4_HADOOP
+          : velox::common::CompressionKind::CompressionKind_LZ4;
+    case protocol::hive::HiveCompressionCodec::LZ4_RAW:
+      VELOX_USER_CHECK(
+          isParquet, "LZ4_RAW compression is only supported for Parquet.");
       return velox::common::CompressionKind::CompressionKind_LZ4;
     case protocol::hive::HiveCompressionCodec::ZSTD:
       return velox::common::CompressionKind::CompressionKind_ZSTD;

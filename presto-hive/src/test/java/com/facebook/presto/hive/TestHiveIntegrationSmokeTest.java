@@ -5939,7 +5939,8 @@ public class TestHiveIntegrationSmokeTest
         String tableName = "test_" + format.name().toLowerCase(ROOT) + "_compression_codec_" + codec.name().toLowerCase(ROOT);
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("hive", COMPRESSION_CODEC, codec.name()).build();
-        if (codec.isSupportedStorageFormat(format == PARQUET ? HiveStorageFormat.PARQUET : HiveStorageFormat.ORC)) {
+        // ORC is written with orc_compression_codec, so compression_codec does not apply to it.
+        if (format == ORC || codec.isSupportedStorageFormat(format)) {
             assertUpdate(session,
                     format("CREATE TABLE %s WITH (format = '%s') AS SELECT * FROM orders",
                             tableName, format.name()),

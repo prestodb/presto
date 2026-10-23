@@ -819,7 +819,8 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       toVeloxIcebergPartitionSpec(
           icebergDistributedProcedureHandle->partitionSpec, typeParser),
       std::optional(toFileCompressionKind(
-          icebergDistributedProcedureHandle->compressionCodec)));
+          icebergDistributedProcedureHandle->compressionCodec,
+          toVeloxFileFormat(icebergDistributedProcedureHandle->fileFormat))));
 }
 
 std::unique_ptr<protocol::ConnectorProtocol>
@@ -853,8 +854,9 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       toVeloxFileFormat(icebergOutputTableHandle->fileFormat),
       toVeloxIcebergPartitionSpec(
           icebergOutputTableHandle->partitionSpec, typeParser),
-      std::optional(
-          toFileCompressionKind(icebergOutputTableHandle->compressionCodec)));
+      std::optional(toFileCompressionKind(
+          icebergOutputTableHandle->compressionCodec,
+          toVeloxFileFormat(icebergOutputTableHandle->fileFormat))));
 }
 
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
@@ -883,8 +885,9 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       toVeloxFileFormat(icebergInsertTableHandle->fileFormat),
       toVeloxIcebergPartitionSpec(
           icebergInsertTableHandle->partitionSpec, typeParser),
-      std::optional(
-          toFileCompressionKind(icebergInsertTableHandle->compressionCodec)),
+      std::optional(toFileCompressionKind(
+          icebergInsertTableHandle->compressionCodec,
+          toVeloxFileFormat(icebergInsertTableHandle->fileFormat))),
       /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
       /*writeKind=*/
       velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
@@ -940,8 +943,9 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       toVeloxFileFormat(icebergDeleteTableHandle->fileFormat),
       toVeloxIcebergPartitionSpec(
           icebergDeleteTableHandle->partitionSpec, typeParser),
-      std::optional(
-          toFileCompressionKind(icebergDeleteTableHandle->compressionCodec)),
+      std::optional(toFileCompressionKind(
+          icebergDeleteTableHandle->compressionCodec,
+          toVeloxFileFormat(icebergDeleteTableHandle->fileFormat))),
       /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
       writeKind,
       toExistingDeletionVectors(
@@ -998,7 +1002,9 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
           velox::connector::hive::LocationHandle::TableType::kExisting),
       toVeloxFileFormat(innerInsert.fileFormat),
       toVeloxIcebergPartitionSpec(innerInsert.partitionSpec, typeParser),
-      std::optional(toFileCompressionKind(innerInsert.compressionCodec)),
+      std::optional(toFileCompressionKind(
+          innerInsert.compressionCodec,
+          toVeloxFileFormat(innerInsert.fileFormat))),
       std::unordered_map<std::string, std::string>{},
       velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
           kMerge,

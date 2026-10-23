@@ -1860,8 +1860,10 @@ public abstract class IcebergDistributedSmokeTestBase
         return new Object[][] {
                 // codec, format, shouldSucceed, expectedErrorMessage
                 {"ZSTD", "PARQUET", true, null},
-                {"LZ4", "PARQUET", false, "Compression codec LZ4 is not supported for Parquet format"},
+                {"LZ4", "PARQUET", true, null},
+                {"LZ4_RAW", "PARQUET", true, null},
                 {"LZ4", "ORC", true, null},
+                {"LZ4_RAW", "ORC", false, "Compression codec LZ4_RAW is not supported for ORC format"},
                 {"ZSTD", "ORC", true, null},
                 {"SNAPPY", "ORC", true, null},
                 {"SNAPPY", "PARQUET", true, null},

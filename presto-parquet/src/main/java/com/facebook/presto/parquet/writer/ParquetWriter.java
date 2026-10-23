@@ -59,6 +59,7 @@ import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.BROTLI;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.GZIP;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.LZ4;
+import static org.apache.parquet.hadoop.metadata.CompressionCodecName.LZ4_RAW;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.LZO;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.SNAPPY;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
@@ -353,6 +354,9 @@ public class ParquetWriter
         }
         else if (compressionCodecClass.equals("org.apache.hadoop.io.compress.Lz4Codec")) {
             return LZ4;
+        }
+        else if (compressionCodecClass.equals("org.apache.parquet.hadoop.codec.Lz4RawCodec")) {
+            return LZ4_RAW;
         }
         else if (compressionCodecClass.equals("org.apache.hadoop.io.compress.ZStandardCodec") ||
                 compressionCodecClass.equals("org.apache.parquet.hadoop.codec.ZstandardCodec")) {

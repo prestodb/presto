@@ -34,7 +34,6 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveHdfsConfiguration;
-import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
@@ -167,6 +166,7 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOI
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_MAX_DELETE_COLUMNS;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT;
+import static com.facebook.presto.iceberg.IcebergUtil.isCompressionCodecSupported;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
@@ -5138,7 +5138,7 @@ public abstract class IcebergDistributedTestBase
         String tableName = "test_" + format.name().toLowerCase(ROOT) + "_compression_codec_" + codec.name().toLowerCase(ROOT);
         Session session = Session.builder(getSession())
                 .setCatalogSessionProperty("iceberg", COMPRESSION_CODEC, codec.name()).build();
-        if (codec.isSupportedStorageFormat(format == PARQUET ? HiveStorageFormat.PARQUET : HiveStorageFormat.ORC)) {
+        if (isCompressionCodecSupported(codec, format)) {
             String codecName = format == PARQUET ? codec.getParquetCompressionCodec().name() : codec.getOrcCompressionKind().name();
             assertQuerySucceeds(session, format("CREATE TABLE %s WITH (\"write.format.default\" = '%s') as select * from lineitem with no data", tableName, format.name()));
             assertQuery(session, format("SELECT value FROM \"%s$properties\" WHERE key = 'write.%s.compression-codec'", tableName, format.name().toLowerCase(ROOT)), format("VALUES '%s'", codecName));
