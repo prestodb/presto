@@ -2354,6 +2354,8 @@ manifests the check takes longer.
   ``NOT NULL``. Drop the constraint before moving the branch. The check reads the manifests of the
   target snapshot.
 * After the constraint is set, an ``INSERT``, ``UPDATE`` or ``MERGE`` that stores ``NULL`` in the column fails.
+  On Iceberg V3, an ``INSERT`` that omits a column with a default writes the default, but a ``MERGE``
+  whose ``INSERT`` omits the column fails.
 * In an explicit transaction, if another query commits a write to the table after ``SET NOT NULL``,
   ``COMMIT`` fails with ``Table metadata refresh is required`` and discards every change in the
   transaction, as it does after ``ADD COLUMN``.

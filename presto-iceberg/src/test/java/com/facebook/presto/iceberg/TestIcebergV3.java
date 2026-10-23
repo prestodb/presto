@@ -926,7 +926,8 @@ public class TestIcebergV3
     }
 
     /**
-     * MERGE rejects V3 tables, and write defaults exist only in V3, so a MERGE never omits a column with a write default.
+     * The Java worker rejects MERGE on V3 tables, where write defaults exist. The native MERGE case is in
+     * {@code TestIcebergAlterColumnNotNull#testInsertOmittingNotNullColumnWithDefault}.
      */
     @Test
     public void testMergeOmittingNotNullColumnWithDefault()
@@ -937,7 +938,7 @@ public class TestIcebergV3
 
             assertQueryFails(
                     "MERGE INTO " + tableName + " t USING (VALUES 2) s(c1) ON t.c1 = s.c1 WHEN NOT MATCHED THEN INSERT (c1) VALUES (s.c1)",
-                    "Iceberg table updates for format version 3 are not supported yet");
+                    "Iceberg V3 deletion-vector writes \\(MERGE\\) require the native \\(Prestissimo\\) worker.*");
             assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5)");
         }
     }

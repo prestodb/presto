@@ -893,6 +893,7 @@ public class QueryPlanner
                     expression = createSymbolReference(relationPlanWithUniqueRowIds.getFieldMappings().get(fieldNumber));
 
                     if (mergeCase instanceof MergeInsert) {
+                        // TODO: Write the column default, as INSERT does, instead of checking NOT NULL on the omitted column.
                         expression = checkNotNullColumns(targetColumnHandle, expression, fieldNumber, mergeAnalysis);
                     }
                 }
