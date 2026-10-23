@@ -1750,7 +1750,11 @@ public abstract class IcebergAbstractMetadata
 
         // Reject re-using a name that was previously used in this struct (dropped or renamed away).
         // Readers match nested fields by name, not field ID, so existing rows would return stale data.
-        Types.StructType currentParentStruct = parentField.type().asStructType();
+        // Note: the guard relies on historical schemas being present in table metadata. If metadata
+        // cleanup (such as expireSnapshots) removes old schema versions, the guard may miss previously
+        // used names and the stale-read risk would reappear for those tables.
+        // The root cause (name-based nested field matching in Parquet/ORC/Velox readers) is tracked
+        // in https://github.com/prestodb/presto/issues/28705.
         boolean nameWasPreviouslyUsed = icebergTable.schemas().values().stream()
                 .anyMatch(historicalSchema -> {
                     NestedField historicalParent = historicalSchema.findField(parentField.fieldId());
@@ -1758,10 +1762,7 @@ public abstract class IcebergAbstractMetadata
                         return false;
                     }
                     return historicalParent.type().asStructType().fields().stream()
-                            .anyMatch(child -> child.name().equalsIgnoreCase(fieldName)
-                                    && currentParentStruct.fields().stream().noneMatch(
-                                            current -> current.fieldId() == child.fieldId()
-                                                    && current.name().equalsIgnoreCase(fieldName)));
+                            .anyMatch(child -> child.name().equalsIgnoreCase(fieldName));
                 });
         if (nameWasPreviouslyUsed) {
             throw new PrestoException(NOT_SUPPORTED, format(

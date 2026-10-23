@@ -2283,6 +2283,9 @@ The dotted path may refer to arbitrarily nested fields. The following clauses ar
 for nested fields and will be rejected: ``NOT NULL``, ``COMMENT``, ``DEFAULT``,
 ``GENERATED``/``AS``, ``WITH`` properties, and ``FIRST``/``AFTER``.
 
+Adding a nested field whose name was previously used by a dropped or renamed field in the same
+struct is rejected to prevent stale data from appearing in existing rows.
+
 ALTER COLUMN SET DATA TYPE (nested struct field)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
