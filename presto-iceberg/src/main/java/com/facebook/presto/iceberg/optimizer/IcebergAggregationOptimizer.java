@@ -15,7 +15,6 @@ package com.facebook.presto.iceberg.optimizer;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.common.predicate.TupleDomain;
-import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.iceberg.IcebergAbstractMetadata;
 import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergTableHandle;
@@ -182,12 +181,6 @@ public class IcebergAggregationOptimizer
             for (AggregationNode.Aggregation aggregation : node.getAggregations().values()) {
                 if (aggregation.isDistinct() || aggregation.getMask().isPresent() || allowedFunctions.keySet().stream().noneMatch(
                         pred -> pred.test(aggregation.getFunctionHandle()))) {
-                    return false;
-                }
-                // UNKNOWN columns are always null; Iceberg NullType file statistics omit
-                // null_value_count, so COUNT(unknown_col) from metadata would return
-                // record_count instead of 0.
-                if (aggregation.getArguments().stream().anyMatch(arg -> arg.getType() instanceof UnknownType)) {
                     return false;
                 }
             }
