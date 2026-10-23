@@ -394,6 +394,21 @@ Native Execution only. Enable writer spilling on native engine.
 Minimum memory footprint size required to reclaim memory from a file writer by flushing its buffered data to disk.
 Default is 96MB.
 
+``native_cudf_exchange_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true`` when the worker has the cuDF UCX transport enabled; ``false`` otherwise
+
+Native Execution only. Controls whether worker-to-worker exchanges use the cuDF UCX transport.
+When unset, uses UCX if the transport is available, otherwise uses the in-memory HTTP exchange.
+Setting this property to ``false`` uses the in-memory HTTP exchange. Explicitly setting it to
+``true`` requires UCX and fails the query if the transport is unavailable on a worker.
+
+UCX requires workers built with UCX exchange support and configured with ``cudf.enabled=true``
+and ``cudf.exchange=true``. All workers must have the same UCX exchange capabilities.
+Coordinator-facing exchanges continue to use HTTP.
+
 ``native_max_output_buffer_size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
