@@ -185,8 +185,11 @@ public class ParquetQuickStatsBuilder
                     case INTEGER: {
                         ColumnQuickStats<Integer> toMerge = (ColumnQuickStats<Integer>) rolledUpColStats.getOrDefault(columnKey, new ColumnQuickStats<>(columnName, Integer.class));
                         IntStatistics asIntegerStats = ((IntStatistics) colStats);
-                        toMerge.setMinValue(asIntegerStats.getMin());
-                        toMerge.setMaxValue(asIntegerStats.getMax());
+                        // Min/max are not set when the file has no usable min/max, e.g. when the deprecated fields are ignored
+                        if (colStats.hasNonNullValue()) {
+                            toMerge.setMinValue(asIntegerStats.getMin());
+                            toMerge.setMaxValue(asIntegerStats.getMax());
+                        }
                         toMerge.addToNullsCount(nullsCount);
                         rolledUpColStats.put(columnKey, toMerge);
                         break;
@@ -194,8 +197,10 @@ public class ParquetQuickStatsBuilder
                     case LONG: {
                         ColumnQuickStats<Long> toMerge = (ColumnQuickStats<Long>) rolledUpColStats.getOrDefault(columnKey, new ColumnQuickStats<>(columnName, Long.class));
                         LongStatistics asLongStats = ((LongStatistics) colStats);
-                        toMerge.setMinValue(asLongStats.getMin());
-                        toMerge.setMaxValue(asLongStats.getMax());
+                        if (colStats.hasNonNullValue()) {
+                            toMerge.setMinValue(asLongStats.getMin());
+                            toMerge.setMaxValue(asLongStats.getMax());
+                        }
                         toMerge.addToNullsCount(nullsCount);
                         rolledUpColStats.put(columnKey, toMerge);
                         break;
@@ -204,8 +209,10 @@ public class ParquetQuickStatsBuilder
                     case DOUBLE: {
                         ColumnQuickStats<Double> toMerge = (ColumnQuickStats<Double>) rolledUpColStats.getOrDefault(columnKey, new ColumnQuickStats<>(columnName, Double.class));
                         DoubleStatistics asDoubleStats = ((DoubleStatistics) colStats);
-                        toMerge.setMinValue(asDoubleStats.getMin());
-                        toMerge.setMaxValue(asDoubleStats.getMax());
+                        if (colStats.hasNonNullValue()) {
+                            toMerge.setMinValue(asDoubleStats.getMin());
+                            toMerge.setMaxValue(asDoubleStats.getMax());
+                        }
                         toMerge.addToNullsCount(nullsCount);
                         rolledUpColStats.put(columnKey, toMerge);
                         break;
@@ -213,8 +220,10 @@ public class ParquetQuickStatsBuilder
                     case FLOAT: {
                         ColumnQuickStats<Float> toMerge = (ColumnQuickStats<Float>) rolledUpColStats.getOrDefault(columnKey, new ColumnQuickStats<>(columnName, Float.class));
                         FloatStatistics asFloatStats = ((FloatStatistics) colStats);
-                        toMerge.setMinValue(asFloatStats.getMin());
-                        toMerge.setMaxValue(asFloatStats.getMax());
+                        if (colStats.hasNonNullValue()) {
+                            toMerge.setMinValue(asFloatStats.getMin());
+                            toMerge.setMaxValue(asFloatStats.getMax());
+                        }
                         toMerge.addToNullsCount(nullsCount);
                         rolledUpColStats.put(columnKey, toMerge);
                         break;
@@ -230,8 +239,10 @@ public class ParquetQuickStatsBuilder
                         ColumnQuickStats<ChronoLocalDate> toMerge = (ColumnQuickStats<ChronoLocalDate>) rolledUpColStats.getOrDefault(columnKey,
                                 new ColumnQuickStats<>(columnName, ChronoLocalDate.class));
                         IntStatistics asIntStats = ((IntStatistics) colStats);
-                        toMerge.setMinValue(LocalDate.ofEpochDay(asIntStats.getMin()));
-                        toMerge.setMaxValue(LocalDate.ofEpochDay(asIntStats.getMax()));
+                        if (colStats.hasNonNullValue()) {
+                            toMerge.setMinValue(LocalDate.ofEpochDay(asIntStats.getMin()));
+                            toMerge.setMaxValue(LocalDate.ofEpochDay(asIntStats.getMax()));
+                        }
                         toMerge.addToNullsCount(nullsCount);
                         rolledUpColStats.put(columnKey, toMerge);
                         break;
