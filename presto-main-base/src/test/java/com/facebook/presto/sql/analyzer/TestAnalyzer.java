@@ -31,7 +31,9 @@ import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.planner.CompilerConfig;
+import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.util.AstUtils;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -112,6 +114,7 @@ import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -620,6 +623,31 @@ public class TestAnalyzer
     {
         // TODO: validate output
         analyze("SELECT t1.* FROM t1 ORDER BY a");
+    }
+
+    @Test
+    public void testOrderByAggregationScopeWithCorrelatedGroupingExpression()
+    {
+        Analysis analysis = analyzeAndGetAnalysis(CLIENT_SESSION,
+                "SELECT EXISTS (SELECT t.*, count(*) FROM (VALUES 1) AS t(id) " +
+                        "GROUP BY 1, t.id + length(o.id) ORDER BY t.id, count(*)) " +
+                        "FROM (VALUES 'outer') AS o(id)");
+        QuerySpecification subquery = AstUtils.preOrder(analysis.getStatement())
+                .filter(QuerySpecification.class::isInstance)
+                .map(QuerySpecification.class::cast)
+                .filter(query -> query.getOrderBy().isPresent())
+                .findFirst()
+                .get();
+        RelationType relationType = analysis.getScope(subquery.getOrderBy().get())
+                .getLocalParent().get().getRelationType();
+
+        // Only the direct local column reference retains its source field. The expression
+        // containing a correlated reference and the aggregate need anonymous placeholders.
+        assertEquals(relationType.getAllFieldCount(), 3);
+        assertSame(relationType.getFieldByIndex(0), analysis.getScope(subquery.getFrom().get()).getRelationType().getFieldByIndex(0));
+        assertEquals(relationType.getFieldByIndex(1).getName(), Optional.empty());
+        assertEquals(relationType.getFieldByIndex(1).getRelationAlias(), Optional.empty());
+        assertEquals(relationType.getFieldByIndex(2).getName(), Optional.empty());
     }
 
     @Test

@@ -1628,6 +1628,45 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testOrderByQualifiedColumnAfterGrouping()
+    {
+        for (String groupBy : ImmutableList.of("id", "t.id", "1", "id, t.id, 1")) {
+            assertPlanSucceeded(
+                    "SELECT t.id AS renamed, count(*) FROM (VALUES 1, 1) AS t(id) " +
+                            "GROUP BY " + groupBy + " ORDER BY t.id",
+                    getQueryRunner().getDefaultSession());
+        }
+    }
+
+    @Test
+    public void testOrderByQualifiedColumnAfterDuplicateWildcardGrouping()
+    {
+        assertPlanSucceeded(
+                "SELECT t.*, count(*) FROM (VALUES (1, 'a'), (1, 'a')) AS t(id, label) " +
+                        "GROUP BY 1, 2, t.id, t.label ORDER BY t.id, t.label",
+                getQueryRunner().getDefaultSession());
+    }
+
+    @Test
+    public void testOrderByQualifiedColumnAfterJoinedWildcardGrouping()
+    {
+        assertPlanSucceeded(
+                "SELECT t.*, u.*, count(*) FROM (VALUES 1, 1) AS t(id) " +
+                        "CROSS JOIN (VALUES 'a', 'a') AS u(id) " +
+                        "GROUP BY 1, 2 ORDER BY t.id, u.id",
+                getQueryRunner().getDefaultSession());
+    }
+
+    @Test
+    public void testOrderByExpressionAfterGrouping()
+    {
+        assertPlanSucceeded(
+                "SELECT t.id + 1 AS shifted, count(*) FROM (VALUES 1, 1) AS t(id) " +
+                        "GROUP BY 1 ORDER BY t.id + 1, count(*)",
+                getQueryRunner().getDefaultSession());
+    }
+
+    @Test
     public void testComplexOrderBy()
     {
         assertDistributedPlan("SELECT COUNT(*) " +
