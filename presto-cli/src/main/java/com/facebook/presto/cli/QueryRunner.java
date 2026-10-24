@@ -178,7 +178,7 @@ public class QueryRunner
         if (user.isPresent() && password.isPresent()) {
             checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
                     "Authentication using username/password requires HTTPS to be enabled");
-            clientBuilder.addInterceptor(basicAuth(user.get(), password.get()));
+            clientBuilder.addNetworkInterceptor(basicAuth(user.get(), password.get()));
         }
     }
 
@@ -190,7 +190,7 @@ public class QueryRunner
         if (accessToken.isPresent()) {
             checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
                     "Authentication using an access token requires HTTPS to be enabled");
-            clientBuilder.addInterceptor(tokenAuth(accessToken.get()));
+            clientBuilder.addNetworkInterceptor(tokenAuth(accessToken.get()));
         }
     }
 

@@ -20,9 +20,11 @@ import okhttp.internal.tls.LegacyHostnameVerifier;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.Credentials;
+import okhttp3.HttpUrl;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
 import okhttp3.Response;
 
 import javax.net.ssl.KeyManager;
@@ -82,6 +84,12 @@ public final class OkHttpUtil
                 .build());
     }
 
+    /**
+     * Interceptor that adds basic authentication credentials.
+     * Credentials are forwarded on redirects only when the redirect target is trusted —
+     * same scheme, same host, and same port as the original request; see {@link #isTrustedRedirectTarget}.
+     * Must be registered with {@code addNetworkInterceptor} so it runs on each hop in the redirect chain.
+     */
     public static Interceptor basicAuth(String user, String password)
     {
         requireNonNull(user, "user is null");
@@ -90,20 +98,47 @@ public final class OkHttpUtil
             throw new ClientException("Illegal character ':' found in username");
         }
 
-        String credential = Credentials.basic(user, password);
-        return chain -> chain.proceed(chain.request().newBuilder()
-                .header(AUTHORIZATION, credential)
-                .build());
+        return authorizationInterceptor(Credentials.basic(user, password));
     }
 
+    /**
+     * Interceptor that adds a bearer token.
+     * Credentials are forwarded on redirects only when the redirect target is trusted;
+     * see {@link #basicAuth} and {@link #isTrustedRedirectTarget}.
+     */
     public static Interceptor tokenAuth(String accessToken)
     {
         requireNonNull(accessToken, "accessToken is null");
         checkArgument(CharMatcher.inRange((char) 33, (char) 126).matchesAllOf(accessToken));
 
-        return chain -> chain.proceed(chain.request().newBuilder()
-                .addHeader(AUTHORIZATION, "Bearer " + accessToken)
-                .build());
+        return authorizationInterceptor("Bearer " + accessToken);
+    }
+
+    private static Interceptor authorizationInterceptor(String credential)
+    {
+        return chain -> {
+            Request request = chain.request();
+            // OkHttp strips Authorization on redirects to a different host. The original request of the
+            // call tells us where the user intended to send credentials, so we restore them only when
+            // the redirect target is a trusted one.
+            if (isTrustedRedirectTarget(chain.call().request().url(), request.url())) {
+                request = request.newBuilder().header(AUTHORIZATION, credential).build();
+            }
+            return chain.proceed(request);
+        };
+    }
+
+    /**
+     * Credentials may be sent to {@code target} only if it uses the same scheme (no HTTPS → HTTP
+     * downgrade), the same host, and the same port as the URL the user originally connected to.
+     * Sibling hosts under the same registrable domain are intentionally excluded — a different
+     * hostname may be an independently controlled service that should not receive credentials.
+     */
+    static boolean isTrustedRedirectTarget(HttpUrl origin, HttpUrl target)
+    {
+        return origin.scheme().equals(target.scheme())
+                && origin.host().equalsIgnoreCase(target.host())
+                && origin.port() == target.port();
     }
 
     public static void setupTimeouts(OkHttpClient.Builder clientBuilder, int timeout, TimeUnit unit)
