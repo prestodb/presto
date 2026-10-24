@@ -17,6 +17,7 @@
 #include "presto_cpp/main/common/LegacyHiveConfigKeys.h"
 #include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "velox/common/compression/Compression.h"
+#include "velox/connectors/ConnectorRegistry.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/functions/prestosql/PrestoQueryConfig.h"
 #include "velox/type/tz/TimeZoneMap.h"
@@ -43,6 +44,28 @@ void updateVeloxConfigsWithSpecialCases(
     configStrings.emplace(
         velox::core::QueryConfig::kDriverCpuTimeSliceLimitMs, "1000");
   }
+}
+
+// native_cudf_enabled is one of the few session properties whose legal values
+// depend on the worker: a worker without cuDF registered cannot run anything
+// on the GPU. Running such a query on the CPU instead would give it CPU
+// performance without telling anybody, so fail it here, where the message can
+// name both the property and the worker config that governs it, rather than
+// leaving it to whatever downstream code notices.
+void validateCudfConfigs(
+    const std::unordered_map<std::string, std::string>& queryConfigs) {
+  const auto it = queryConfigs.find(SessionProperties::kCudfEnabledConfig);
+  if (it == queryConfigs.end() || !folly::to<bool>(it->second)) {
+    return;
+  }
+  VELOX_USER_CHECK(
+      SessionProperties::isCudfAvailable(),
+      "{}=true, but cuDF is not registered on this worker. Enable it with "
+      "'{}=true' in the worker's config on a worker built with cuDF, or unset "
+      "{} to run on the CPU.",
+      SessionProperties::kCudfEnabled,
+      SessionProperties::kCudfEnabledConfig,
+      SessionProperties::kCudfEnabled);
 }
 
 void updateFromSessionConfigs(
@@ -271,16 +294,46 @@ std::unordered_map<std::string, std::string> toVeloxConfigs(
 
   // Finally apply special case configs.
   updateVeloxConfigsWithSpecialCases(configs);
+
+  validateCudfConfigs(configs);
   return configs;
 }
 
 namespace {
+
+// A connector is handed only its own catalog's session properties, never the
+// query config, so a query that chose not to run on the GPU has to be told to
+// every catalog it might read. That includes the catalogs the coordinator sent
+// no properties for, which is every catalog the query overrode nothing on:
+// without an entry the cuDF connectors would read their own worker-level
+// default and hand a GPU data source to a query running CPU operators.
+//
+// Only the catalogs registered on this worker can be read by a task on it, so
+// the registry is the full set, and only a query that chose explicitly needs
+// an entry -- an absent key already means "whatever this worker decided".
+void propagateCudfEnabledToConnectors(
+    const std::unordered_map<std::string, std::string>& queryConfigs,
+    std::unordered_map<
+        std::string,
+        std::unordered_map<std::string, std::string>>& connectorConfigs) {
+  const auto it = queryConfigs.find(SessionProperties::kCudfEnabledConfig);
+  if (it == queryConfigs.end()) {
+    return;
+  }
+  for (const auto& catalog :
+       velox::connector::ConnectorRegistry::global().snapshot()) {
+    connectorConfigs[catalog.first][SessionProperties::kCudfEnabledConfig] =
+        it->second;
+  }
+}
+
 std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>
 toConnectorConfigs(
     const protocol::TaskUpdateRequest& taskUpdateRequest,
+    const std::unordered_map<std::string, std::string>& queryConfigs,
     velox::core::CredentialKeys& credentialKeys) {
-  std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>
-      connectorConfigs;
+  std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
+      rawConnectorConfigs;
   for (const auto& entry : taskUpdateRequest.session.catalogProperties) {
     std::unordered_map<std::string, std::string> connectorConfig;
     // remove native prefix from native connector session property names
@@ -306,12 +359,20 @@ toConnectorConfigs(
     if (taskUpdateRequest.session.schema) {
       connectorConfig.insert({"schema", *taskUpdateRequest.session.schema});
     }
+    rawConnectorConfigs.insert({entry.first, std::move(connectorConfig)});
+  }
+
+  propagateCudfEnabledToConnectors(queryConfigs, rawConnectorConfigs);
+
+  std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>
+      connectorConfigs;
+  connectorConfigs.reserve(rawConnectorConfigs.size());
+  for (auto& [catalogName, connectorConfig] : rawConnectorConfigs) {
     connectorConfigs.insert(
-        {entry.first,
+        {catalogName,
          std::make_shared<velox::config::ConfigBase>(
              std::move(connectorConfig))});
   }
-
   return connectorConfigs;
 }
 } // namespace
@@ -332,7 +393,8 @@ TaskConfigs toTaskConfigs(
         velox::core::CredentialKeys::OnConflict::kKeep);
   }
 
-  auto connectorConfigs = toConnectorConfigs(taskUpdateRequest, credentialKeys);
+  auto connectorConfigs =
+      toConnectorConfigs(taskUpdateRequest, configs, credentialKeys);
 
   return {
       .queryConfig = velox::core::QueryConfig(std::move(configs)),
