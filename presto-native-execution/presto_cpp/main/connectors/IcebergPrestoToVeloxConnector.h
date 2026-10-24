@@ -40,6 +40,14 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const VeloxExprConverter& exprConverter,
       const TypeParser& typeParser) const final;
 
+  std::unique_ptr<velox::connector::ConnectorTableHandle> toVeloxTableHandle(
+      const protocol::TableHandle& tableHandle,
+      const protocol::Map<
+          protocol::VariableReferenceExpression,
+          std::shared_ptr<protocol::ColumnHandle>>& assignments,
+      const VeloxExprConverter& exprConverter,
+      const TypeParser& typeParser) const final;
+
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;
 
