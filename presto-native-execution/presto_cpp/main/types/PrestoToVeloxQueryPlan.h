@@ -280,6 +280,23 @@ class VeloxQueryPlanConverterBase {
       std::vector<velox::core::AggregationNode::Aggregate>& aggregates,
       std::vector<std::string>& aggregateNames);
 
+  /// Resolves the coordinator's per-edge transport annotation onto the Velox
+  /// transport id the plan node will name. A missing annotation and HTTP both
+  /// mean the built-in in-memory transport. ANY means "this edge MAY use the
+  /// fastest transport this worker registered" -- not "use UCX" -- because the
+  /// coordinator sets it for every worker-to-worker edge without knowing what
+  /// any particular worker supports, so the decision is made here, from the
+  /// native_cudf_exchange_enabled session property and what this worker has
+  /// registered:
+  ///
+  ///   property unset  -> UCX where the transport is registered, in-memory
+  ///                      elsewhere (the property's documented default)
+  ///   property false  -> in-memory, whatever is registered
+  ///   property true   -> UCX, or a user error naming the property where the
+  ///                      transport is not registered
+  virtual std::string toVeloxTransportType(
+      const std::shared_ptr<protocol::TransportType>& transportType) const;
+
   velox::memory::MemoryPool* const pool_;
   velox::core::QueryCtx* const queryCtx_;
   VeloxExprConverter exprConverter_;
@@ -331,6 +348,12 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
       const protocol::TaskId& taskId) override;
 
   velox::connector::CommitStrategy getCommitStrategy() const override;
+
+  /// Batch exchanges go through the shuffle interface or storage, never a
+  /// worker-to-worker transport, so every edge stays in-memory.
+  std::string toVeloxTransportType(
+      const std::shared_ptr<protocol::TransportType>& transportType)
+      const override;
 
  private:
   const std::string shuffleName_;
