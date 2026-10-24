@@ -24,6 +24,7 @@ add_library(
   Announcer.cpp
   CPUMon.cpp
   CoordinatorDiscoverer.cpp
+  MemorySampling.cpp
   PeriodicMemoryChecker.cpp
   PeriodicTaskManager.cpp
   PrestoExchangeSource.cpp
