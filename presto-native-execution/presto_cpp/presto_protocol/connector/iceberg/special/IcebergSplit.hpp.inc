@@ -32,6 +32,7 @@ struct IcebergSplit : public ConnectorSplit {
   int64_t dataSequenceNumber = {};
   int64_t firstRowId = -1;
   int64_t affinitySchedulingSectionSize = {};
+  List<Integer> partitionEnforcedFieldIds = {};
 
   IcebergSplit() noexcept;
 };

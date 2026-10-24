@@ -1291,6 +1291,54 @@ TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitCarriesDataSequenceNumber) {
   EXPECT_EQ(it->second, "5");
 }
 
+TEST_F(
+    PrestoToVeloxConnectorTest,
+    toVeloxSplitCarriesPartitionEnforcedFieldIds) {
+  protocol::iceberg::IcebergSplit split;
+  split.path = "/path/to/data/file.dwrf";
+  split.fileFormat = protocol::iceberg::FileFormat::ORC;
+  split.partitionEnforcedFieldIds = {3, 7};
+
+  protocol::SplitContext context;
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  auto veloxSplit = icebergConnector.toVeloxSplit("iceberg", &split, &context);
+  auto* hiveIceberg = dynamic_cast<connector::hive::iceberg::HiveIcebergSplit*>(
+      veloxSplit.get());
+  ASSERT_NE(hiveIceberg, nullptr);
+  EXPECT_EQ(
+      hiveIceberg->partitionEnforcedFieldIds,
+      (std::unordered_set<int32_t>{3, 7}));
+}
+
+TEST_F(
+    PrestoToVeloxConnectorTest,
+    icebergSplitWithoutPartitionEnforcedFieldIds) {
+  // A coordinator that predates the field omits the key.
+  const auto splitJson = json::parse(R"({
+    "@type": "hive-iceberg",
+    "path": "/path/to/data/file.dwrf",
+    "start": 0,
+    "length": 10,
+    "fileFormat": "ORC",
+    "addresses": [],
+    "partitionKeys": {},
+    "partitionSpecAsJson": "{}",
+    "nodeSelectionStrategy": "NO_PREFERENCE",
+    "splitWeight": 1,
+    "deletes": []
+  })");
+  protocol::iceberg::IcebergSplit split;
+  protocol::iceberg::from_json(splitJson, split);
+  EXPECT_TRUE(split.partitionEnforcedFieldIds.empty());
+
+  split.partitionEnforcedFieldIds = {2};
+  json roundTrip;
+  protocol::iceberg::to_json(roundTrip, split);
+  protocol::iceberg::IcebergSplit decoded;
+  protocol::iceberg::from_json(roundTrip, decoded);
+  EXPECT_EQ(decoded.partitionEnforcedFieldIds, std::vector<int32_t>{2});
+}
+
 TEST_F(PrestoToVeloxConnectorTest, toVeloxSplitKeepsUnassignedSequenceNumber) {
   // V1 tables have no sequence numbers. Passing 0 through unchanged keeps
   // filtering disabled for them, which is the documented "unassigned"

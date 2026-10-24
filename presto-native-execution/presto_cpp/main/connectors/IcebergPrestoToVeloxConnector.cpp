@@ -646,25 +646,30 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
         protocolChangelogInfo.snapshotId};
   }
 
-  return std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
-      catalogId,
-      icebergSplit->path,
-      toVeloxReadFileFormat(icebergSplit->fileFormat),
-      icebergSplit->start,
-      icebergSplit->length,
-      partitionKeys,
-      std::nullopt,
-      customSplitInfo,
-      nullptr,
-      splitContext->cacheable,
-      deletes,
-      infoColumns,
-      std::nullopt,
-      icebergSplit->dataSequenceNumber,
-      parseIdentityPartitionKeys(
-          icebergSplit->partitionSpecAsJson, icebergSplit->partitionKeys),
-      std::nullopt,
-      changelogInfo);
+  auto veloxSplit =
+      std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
+          catalogId,
+          icebergSplit->path,
+          toVeloxReadFileFormat(icebergSplit->fileFormat),
+          icebergSplit->start,
+          icebergSplit->length,
+          partitionKeys,
+          std::nullopt,
+          customSplitInfo,
+          nullptr,
+          splitContext->cacheable,
+          deletes,
+          infoColumns,
+          std::nullopt,
+          icebergSplit->dataSequenceNumber,
+          parseIdentityPartitionKeys(
+              icebergSplit->partitionSpecAsJson, icebergSplit->partitionKeys),
+          std::nullopt,
+          changelogInfo);
+  veloxSplit->partitionEnforcedFieldIds.insert(
+      icebergSplit->partitionEnforcedFieldIds.begin(),
+      icebergSplit->partitionEnforcedFieldIds.end());
+  return veloxSplit;
 }
 
 std::unique_ptr<velox::connector::ColumnHandle>
