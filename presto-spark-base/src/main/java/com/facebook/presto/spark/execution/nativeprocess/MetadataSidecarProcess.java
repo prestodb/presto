@@ -167,11 +167,11 @@ public class MetadataSidecarProcess
     @Override
     protected RuntimeException propagateStartFailure(Throwable t)
     {
-        // Driver-side: fail the Spark application, don't trigger executor failover.
-        throw new PrestoException(
-                NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR,
-                format("Failed to start metadata sidecar at %s", getLocation()),
-                t);
+        // Driver-side: fail the Spark application, don't trigger executor failover. No exit code here:
+        // start() closes the process before calling this, so getExitCode() would report that teardown
+        // kill rather than how the sidecar died. awaitPortDiscovery() reads it before any teardown.
+        String message = format("Failed to start metadata sidecar at %s", getLocation());
+        throw new PrestoException(NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR, withCrashReport(message), t);
     }
 
     /**

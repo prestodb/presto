@@ -54,6 +54,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
@@ -65,6 +66,7 @@ import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_BINARY_NOT_EXIST;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.NATIVE_EXECUTION_TASK_ERROR;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.util.concurrent.Futures.addCallback;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.lang.String.format;
@@ -91,14 +93,12 @@ public abstract class AbstractNativeProcess
     private static final String WORKER_NODE_CONFIG_FILE = "node.properties";
     private static final String WORKER_CONNECTOR_CONFIG_DIR = "catalog";
     private static final int SIGSYS = 31;
-    // The forked worker's stderr is teed to the JVM's own stderr, FileDescriptor.err (OS file descriptor 2),
-    // which is shared process-wide (System.err and every worker's pipe write to it). This stream MUST NOT be
-    // closed: closing it closes that shared descriptor for the whole executor JVM, so every subsequently
-    // launched worker's pipe then dies on its first write and never captures the "*** Aborted" banner. Pre-fix,
-    // a fresh FileOutputStream(FileDescriptor.err) was opened per worker and closed on worker death, so only the
-    // FIRST crash per executor was ever captured. Shared + never closed. It is a PrintStream (not a raw
-    // FileOutputStream) so writes are synchronized/atomic across the concurrent worker pipes (a dying worker's
-    // pipe can still be draining while the relaunched worker's pipe starts writing), preventing interleaved lines.
+    // A ~20KB folly banner can still be in flight when the death is observed; bounded so a failing
+    // start cannot hang on a pipe that never reaches EOF.
+    private static final long CRASH_REPORT_DRAIN_TIMEOUT_SECONDS = 5;
+    // Wraps the JVM's own fd 2, shared process-wide with System.err and every worker's pipe, so closing it
+    // would close stderr for the whole executor JVM: no pipe may close this stream. PrintStream serializes
+    // each underlying write across worker pipes that drain concurrently; a long line can still interleave.
     private static final PrintStream EXECUTOR_STDERR = new PrintStream(new FileOutputStream(FileDescriptor.err), false, UTF_8);
 
     private static final String PORT_FILE_NAME = "http-server.port";
@@ -282,7 +282,7 @@ public abstract class AbstractNativeProcess
             if (!process.isAlive()) {
                 throw new PrestoException(
                         NATIVE_EXECUTION_PROCESS_LAUNCH_ERROR,
-                        format("Native subprocess exited before writing port file %s (exit code %s)", portFile, process.exitValue()));
+                        withCrashReport(format("Native subprocess exited before writing port file %s (exit code %s)", portFile, process.exitValue())));
             }
             if (System.nanoTime() >= deadlineNanos) {
                 throw new PrestoException(
@@ -322,7 +322,8 @@ public abstract class AbstractNativeProcess
      */
     protected RuntimeException propagateStartFailure(Throwable t)
     {
-        throw new PrestoSparkFatalException(t.getMessage(), t.getCause());
+        // An override must attach withCrashReport() too; this covers subclasses that do not override.
+        throw new PrestoSparkFatalException(withCrashReport(t.getMessage()), t.getCause());
     }
 
     /**
@@ -440,26 +441,35 @@ public abstract class AbstractNativeProcess
             long pid = getPid(running);
             log.info("Destroying process: %s", pid);
             running.destroy();
-            try {
-                // This 1 sec is arbitrary. Ideally, we do not need to be give any heads up
-                // to CPP process on presto-on-spark native, because the resources
-                // are reclaimed by the container manager.
-                // For localmode, we still want to provide an opportunity for
-                // graceful termination as there is no resource/container manager.
-                running.waitFor(1, TimeUnit.SECONDS);
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            finally {
-                if (running.isAlive()) {
-                    log.warn("Graceful shutdown of native execution process failed. Force killing it: %s", pid);
-                    running.destroyForcibly();
-                }
+            // This 1 sec is arbitrary. Ideally, we do not need to be give any heads up
+            // to CPP process on presto-on-spark native, because the resources
+            // are reclaimed by the container manager.
+            // For localmode, we still want to provide an opportunity for
+            // graceful termination as there is no resource/container manager.
+            awaitExit(running);
+            if (running.isAlive()) {
+                log.warn("Graceful shutdown of native execution process failed. Force killing it: %s", pid);
+                running.destroyForcibly();
+                // The kill is asynchronous. A start failure reads the crash report right after
+                // close(), and getCrashReport() only waits for stderr to drain once the process
+                // is dead; seen alive, it returns a snapshot that can miss the banner's tail.
+                awaitExit(running);
             }
         }
         else {
             log.info("Process is dead: %s", getPid(running));
+        }
+    }
+
+    // Waits up to a second for the process to exit, keeping the thread's interrupt status. Returns at
+    // once if that status is already set, so an interrupted close() skips every wait after the first.
+    private static void awaitExit(Process process)
+    {
+        try {
+            process.waitFor(1, TimeUnit.SECONDS);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -468,15 +478,43 @@ public abstract class AbstractNativeProcess
         return process != null && process.isAlive();
     }
 
+    /**
+     * Returns the native crash banner the process printed, or an empty string if it printed none.
+     * Once the process is dead this blocks for up to {@code CRASH_REPORT_DRAIN_TIMEOUT_SECONDS}
+     * while the stderr pipe finishes reading, since the pipe reaches EOF no earlier.
+     */
     public String getCrashReport()
     {
         ProcessOutputPipe pipe = processOutputPipe;
         if (pipe == null) {
             return "";
         }
-        // Called from processFailure() only after the process is dead, by which point the stderr pipe has
-        // read the crash banner into abortMessage.
+        // A live process keeps its stderr open, so the pipe cannot reach EOF. Waiting would spend the
+        // whole timeout on a failure that is not a death, then report a truncation that never happened.
+        if (isAlive()) {
+            return pipe.getAbortMessage();
+        }
+        if (!pipe.awaitDrained(CRASH_REPORT_DRAIN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+            log.warn("Crash report may be truncated: stderr pipe did not finish before the wait ended (timeout %ss or interrupt)", CRASH_REPORT_DRAIN_TIMEOUT_SECONDS);
+        }
         return pipe.getAbortMessage();
+    }
+
+    /**
+     * Appends the captured native crash banner to {@code message}, when the dead process produced one.
+     */
+    protected String withCrashReport(String message)
+    {
+        String crashReport = getCrashReport();
+        if (crashReport.isEmpty()) {
+            return message;
+        }
+        // Throwable.getMessage() is nullable, and the base propagateStartFailure passes it
+        // straight through; without this the banner would be prefixed with the string "null".
+        if (isNullOrEmpty(message)) {
+            return crashReport;
+        }
+        return message + ":\n" + crashReport;
     }
 
     /**
@@ -618,6 +656,7 @@ public abstract class AbstractNativeProcess
         private final OutputStream outputStream;
         private final StringBuilder abortMessage = new StringBuilder();
         private final AtomicBoolean started = new AtomicBoolean();
+        private final CountDownLatch drained = new CountDownLatch(1);
 
         public ProcessOutputPipe(long pid, InputStream inputStream, OutputStream outputStream)
         {
@@ -639,10 +678,8 @@ public abstract class AbstractNativeProcess
         @Override
         public void run()
         {
-            // Only the per-worker reader (the forked process's stderr) is auto-closed. The writer wraps the
-            // shared executor stderr (EXECUTOR_STDERR / FileDescriptor.err) and is deliberately NOT closed —
-            // closing it would close the JVM's shared stderr descriptor. Every line is flushed, so nothing is
-            // buffered/lost by not closing it.
+            // Only the per-worker reader is auto-closed; the writer wraps the shared executor stderr, which
+            // must stay open. Every line is flushed, so nothing is buffered.
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, UTF_8));
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, UTF_8))) {
                 String line;
@@ -663,6 +700,23 @@ public abstract class AbstractNativeProcess
             }
             catch (IOException e) {
                 log.warn(e, "failure occurred when copying streams");
+            }
+            finally {
+                drained.countDown();
+            }
+        }
+
+        // The reader hits EOF once the forked process is gone, so a caller that has observed the death can
+        // wait here instead of snapshotting a banner the pipe is still appending to. Returns false when the
+        // wait timed out or was interrupted, leaving whatever the pipe had captured by then.
+        public boolean awaitDrained(long timeout, TimeUnit unit)
+        {
+            try {
+                return drained.await(timeout, unit);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
             }
         }
 

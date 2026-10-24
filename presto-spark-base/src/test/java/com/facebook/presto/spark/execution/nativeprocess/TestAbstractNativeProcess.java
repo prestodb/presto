@@ -18,7 +18,9 @@ import org.testng.annotations.Test;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertFalse;
@@ -26,10 +28,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestAbstractNativeProcess
 {
-    /**
-     * The crash report contains the full folly/velox crash banner captured from the "*** Aborted" line
-     * onward; earlier ordinary log lines are teed to the executor stderr but excluded from the report.
-     */
+    /** Capture starts at the "*** Aborted" line; earlier log lines are teed to stderr but left out. */
     @Test
     public void testCrashBannerCaptured()
     {
@@ -60,10 +59,7 @@ public class TestAbstractNativeProcess
         assertTrue(teed.contains("*** Aborted at 1784160518"), "tee is missing the crash banner");
     }
 
-    /**
-     * A death with no crash banner (e.g. SIGKILL / OOM-kill, which prints nothing) drains cleanly and
-     * yields an empty crash report — the case where the exit code fallback is the only diagnostic.
-     */
+    /** A death with no banner (SIGKILL / OOM-kill) drains cleanly and yields an empty report. */
     @Test
     public void testNoBannerYieldsEmptyCrashReport()
     {
@@ -79,15 +75,13 @@ public class TestAbstractNativeProcess
     }
 
     /**
-     * A pipe must NOT close its (shared) executor-stderr stream. FileDescriptor.err (OS fd 2) is shared by every
-     * worker's pipe on the executor, so closing it after the first worker dies breaks the next relaunched
-     * worker's pipe — its reader throws on the first write and never reaches the "*** Aborted" banner. Regression
-     * for the bug where only the first native crash per executor attached a banner.
+     * fd 2 is shared by every worker's pipe on the executor, so a pipe that closed it would break the
+     * next relaunched worker's pipe before that pipe reaches its banner.
      */
     @Test
     public void testPipeDoesNotCloseSharedStderr()
     {
-        // Models the shared stderr descriptor: once closed, further writes throw — like closing FileOutputStream(FileDescriptor.err).
+        // Models fd 2: once closed, further writes throw.
         class SharedStderr
                 extends OutputStream
         {
@@ -120,8 +114,7 @@ public class TestAbstractNativeProcess
         assertTrue(pipe1.getAbortMessage().contains("*** Aborted at 1"), "pipe1 missed its banner");
         assertFalse(stderr.closed, "pipe must not close the shared executor stderr (FileDescriptor.err)");
 
-        // Relaunched worker on the SAME executor: its banner must still be captured. Pre-fix, pipe1 closed the
-        // shared stderr, so pipe2's reader threw on the first (pre-banner) line and never reached the banner.
+        // Relaunched worker on the SAME executor: its banner must still be captured.
         String crash2 = "I0715 12:02:00 starting\n*** Aborted at 2 ***\n*** Signal 11 (SIGSEGV) ***\n";
         AbstractNativeProcess.ProcessOutputPipe pipe2 = new AbstractNativeProcess.ProcessOutputPipe(
                 2, new ByteArrayInputStream(crash2.getBytes(UTF_8)), stderr);
@@ -132,5 +125,50 @@ public class TestAbstractNativeProcess
         String teed = new String(stderr.sink.toByteArray(), UTF_8);
         assertTrue(teed.contains("*** Aborted at 1"), "shared stderr missing first worker's output: " + teed);
         assertTrue(teed.contains("*** Aborted at 2"), "shared stderr missing second worker's output: " + teed);
+    }
+
+    /**
+     * The pipe runs on an unjoined daemon thread, so a caller that has just observed the
+     * process die can reach the banner while it is still being appended.
+     */
+    @Test
+    public void testAwaitDrainedWaitsForTheWholeBanner()
+    {
+        String crash = "*** Aborted at 1 ***\n*** Signal 6 (SIGABRT) ***\n    @ theLastFrame\n";
+        // Yields one byte per read so the reader is still mid-banner when awaitDrained is called.
+        InputStream trickle = new ByteArrayInputStream(crash.getBytes(UTF_8))
+        {
+            @Override
+            public synchronized int read(byte[] buffer, int offset, int length)
+            {
+                return super.read(buffer, offset, 1);
+            }
+        };
+
+        AbstractNativeProcess.ProcessOutputPipe pipe =
+                new AbstractNativeProcess.ProcessOutputPipe(7, trickle, new ByteArrayOutputStream());
+        pipe.start();
+
+        assertTrue(pipe.awaitDrained(30, TimeUnit.SECONDS), "drain reported incomplete on a stream that reached EOF");
+        String crashReport = pipe.getAbortMessage();
+        assertTrue(
+                crashReport.contains("theLastFrame"),
+                "awaitDrained returned before the banner was complete: " + crashReport);
+    }
+
+    /**
+     * A drain that never finishes has to say so, otherwise the caller reports whatever partial
+     * banner it has as though it were the whole crash.
+     */
+    @Test
+    public void testAwaitDrainedReportsAnUnfinishedPipe()
+    {
+        // Never started, so the reader never reaches EOF and the latch never opens.
+        AbstractNativeProcess.ProcessOutputPipe pipe = new AbstractNativeProcess.ProcessOutputPipe(
+                8, new ByteArrayInputStream(new byte[0]), new ByteArrayOutputStream());
+
+        assertFalse(
+                pipe.awaitDrained(50, TimeUnit.MILLISECONDS),
+                "a pipe that never ran must not report a completed drain");
     }
 }
