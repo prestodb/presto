@@ -27,8 +27,7 @@ public interface ConnectorTableFunctionHandle
 {
     default ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction,
                                            ConnectorSession session,
-                                           NodeManager nodeManager,
-                                           Object functionAndTypeManager)
+                                           NodeManager nodeManager)
     {
         throw new UnsupportedOperationException();
     }

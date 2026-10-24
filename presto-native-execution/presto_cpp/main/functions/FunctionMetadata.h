@@ -16,6 +16,7 @@
 
 #include <optional>
 #include "presto_cpp/external/json/nlohmann/json.hpp"
+#include "velox/common/memory/MemoryPool.h"
 
 namespace facebook::presto {
 
@@ -26,5 +27,16 @@ namespace facebook::presto {
 nlohmann::json getFunctionsMetadata(
     const std::string& namespacePrefix,
     const std::optional<std::string>& catalog);
+
+// Returns metadata for all registered table valued functions as json.
+nlohmann::json getTableValuedFunctionsMetadata();
+
+nlohmann::json getAnalyzedTableValueFunction(
+    const std::string& connectorTableMetadataJson,
+    velox::memory::MemoryPool* pool);
+
+nlohmann::json getSplits(
+    const std::string& connectorTableFunctionHandle,
+    velox::memory::MemoryPool* pool);
 
 } // namespace facebook::presto
