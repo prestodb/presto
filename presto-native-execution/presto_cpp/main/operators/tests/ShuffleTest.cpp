@@ -105,6 +105,30 @@ struct TestShuffleInfo {
   }
 };
 
+class AbortTrackingShuffleReader : public ShuffleReader {
+ public:
+  folly::SemiFuture<std::vector<std::unique_ptr<ShuffleSerializedPage>>> next(
+      uint64_t /* maxBytes */) override {
+    return folly::makeSemiFuture(
+        std::vector<std::unique_ptr<ShuffleSerializedPage>>{});
+  }
+
+  void noMoreData(bool success) override {
+    success_ = success;
+  }
+
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return {};
+  }
+
+  std::optional<bool> success() const {
+    return success_;
+  }
+
+ private:
+  std::optional<bool> success_;
+};
+
 std::vector<int> getSortOrder(const std::vector<std::string>& keys) {
   std::vector<int> indices(keys.size());
   boost::algorithm::iota(indices, 0);
@@ -882,6 +906,17 @@ class ShuffleTest : public exec::test::OperatorTestBase {
     return makeRowVector(columns);
   }
 };
+
+TEST_F(ShuffleTest, exchangeSourceAbort) {
+  auto shuffleReader = std::make_shared<AbortTrackingShuffleReader>();
+  auto queue = std::make_shared<exec::ExchangeQueue>(1, 0);
+  ShuffleExchangeSource source("task", 0, queue, shuffleReader, pool());
+
+  source.abort();
+
+  ASSERT_TRUE(shuffleReader->success().has_value());
+  EXPECT_FALSE(shuffleReader->success().value());
+}
 
 TEST_F(ShuffleTest, operators) {
   const std::string shuffleRootPath = tempDir_->getPath();
