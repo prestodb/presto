@@ -25,15 +25,32 @@ public class GroupField
         extends Field
 {
     private final ImmutableList<Optional<Field>> children;
+    private final Optional<PrimitiveField> levelSourceField;
 
     public GroupField(Type type, int repetitionLevel, int definitionLevel, boolean required, ImmutableList<Optional<Field>> children)
     {
+        this(type, repetitionLevel, definitionLevel, required, children, Optional.empty());
+    }
+
+    public GroupField(Type type, int repetitionLevel, int definitionLevel, boolean required, ImmutableList<Optional<Field>> children, Optional<PrimitiveField> levelSourceField)
+    {
         super(type, repetitionLevel, definitionLevel, required);
         this.children = requireNonNull(children, "children is required");
+        this.levelSourceField = requireNonNull(levelSourceField, "levelSourceField is required");
     }
 
     public List<Optional<Field>> getChildren()
     {
         return children;
+    }
+
+    /**
+     * An existing leaf column under this struct whose definition and repetition levels can be
+     * read to determine which struct positions are null and how many elements an enclosing
+     * collection contains — used when no projected child column is present in the file.
+     */
+    public Optional<PrimitiveField> getLevelSourceField()
+    {
+        return levelSourceField;
     }
 }

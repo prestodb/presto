@@ -20,18 +20,22 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.block.RunLengthEncodedBlock;
 import com.facebook.presto.common.block.SortOrder;
 import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.BigintType;
 import com.facebook.presto.common.type.BooleanType;
 import com.facebook.presto.common.type.DateType;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.DoubleType;
 import com.facebook.presto.common.type.IntegerType;
+import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RealType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.SmallintType;
 import com.facebook.presto.common.type.TimeType;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.HdfsContext;
@@ -184,8 +188,12 @@ public class IcebergPageSink
         this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
         String tempDirectoryPath = locationProvider.newDataLocation("sort-tmp-files");
         this.tempDirectory = new Path(tempDirectoryPath);
+        // Replace UNKNOWN anywhere it appears (top-level or nested inside ROW/ARRAY/MAP) with
+        // BOOLEAN so that the ORC sort-spill temp files (TempFileWriter → OrcType.toOrcType)
+        // do not fail: UNKNOWN columns are always NULL, so any scalar placeholder type works.
         List<Type> types = getColumnsForWrite(outputSchema, partitionSpec, requireNonNull(sortParameters.getTypeManager(), "typeManager is null")).stream()
                 .map(IcebergColumnHandle::getType)
+                .map(IcebergPageSink::replaceUnknownWithBoolean)
                 .collect(toImmutableList());
         this.sortParameters = sortParameters;
         if (!sortOrder.isEmpty()) {
@@ -603,6 +611,32 @@ public class IcebergPageSink
             return timestampType.fromEpochComponents(localDateTime.toEpochSecond(ZoneOffset.UTC), localDateTime.getNano());
         }
         return value;
+    }
+
+    private static Type replaceUnknownWithBoolean(Type type)
+    {
+        if (type.equals(UnknownType.UNKNOWN)) {
+            return BooleanType.BOOLEAN;
+        }
+        if (type instanceof RowType) {
+            List<RowType.Field> fields = ((RowType) type).getFields().stream()
+                    .map(f -> new RowType.Field(f.getName(), replaceUnknownWithBoolean(f.getType())))
+                    .collect(toImmutableList());
+            return RowType.from(fields);
+        }
+        if (type instanceof ArrayType) {
+            return new ArrayType(replaceUnknownWithBoolean(((ArrayType) type).getElementType()));
+        }
+        if (type instanceof MapType) {
+            MapType m = (MapType) type;
+            Type newKey = replaceUnknownWithBoolean(m.getKeyType());
+            Type newValue = replaceUnknownWithBoolean(m.getValueType());
+            if (newKey == m.getKeyType() && newValue == m.getValueType()) {
+                return type;
+            }
+            return new MapType(newKey, newValue, m.getKeyBlockEquals(), m.getKeyBlockHashCode());
+        }
+        return type;
     }
 
     private static List<PartitionColumn> toPartitionColumns(List<IcebergColumnHandle> handles, PartitionSpec partitionSpec)
