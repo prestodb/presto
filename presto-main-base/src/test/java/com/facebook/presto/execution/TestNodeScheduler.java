@@ -18,6 +18,7 @@ import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.NodeVersion;
 import com.facebook.presto.dispatcher.NoOpQueryManager;
+import com.facebook.presto.execution.scheduler.FixedBucketNodeMap;
 import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
 import com.facebook.presto.execution.scheduler.ModularHashingNodeProvider;
 import com.facebook.presto.execution.scheduler.NetworkLocation;
@@ -73,6 +74,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -80,10 +82,12 @@ import java.util.Optional;
 import java.util.OptionalDouble;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -553,6 +557,75 @@ public class TestNodeScheduler
         for (InternalNode node : nodeManager.getActiveConnectorNodes(CONNECTOR_ID)) {
             assertTrue(assignments.keySet().contains(node));
         }
+    }
+
+    @Test
+    public void testAssignmentPreservesSplitOrder()
+    {
+        assertAssignmentPreservesSplitOrder(splits -> nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments());
+    }
+
+    @Test
+    public void testTopologyAwareAssignmentPreservesSplitOrder()
+    {
+        TestNetworkTopology topology = new TestNetworkTopology();
+        NodeScheduler topologyAwareNodeScheduler = new NodeScheduler(
+                new NetworkLocationCache(topology),
+                topology,
+                nodeManager,
+                new NodeSelectionStats(),
+                new NodeSchedulerConfig()
+                        .setMaxSplitsPerNode(20)
+                        .setIncludeCoordinator(false)
+                        .setNetworkTopology("test")
+                        .setMaxPendingSplitsPerTask(10),
+                nodeTaskMap,
+                new Duration(0, SECONDS),
+                new ThrowingNodeTtlFetcherManager(),
+                new NoOpQueryManager(),
+                new SimpleTtlNodeSelectorConfig());
+
+        try {
+            NodeSelector topologyAwareNodeSelector = topologyAwareNodeScheduler.createNodeSelector(session, CONNECTOR_ID);
+            assertAssignmentPreservesSplitOrder(splits -> topologyAwareNodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments());
+        }
+        finally {
+            topologyAwareNodeScheduler.stop();
+        }
+    }
+
+    @Test
+    public void testBucketedAssignmentPreservesSplitOrder()
+    {
+        InternalNode assignedNode = nodeManager.getActiveConnectorNodes(CONNECTOR_ID).stream()
+                .filter(node -> node.getHostAndPort().equals(HostAddress.fromString("127.0.0.1:11")))
+                .collect(onlyElement());
+        FixedBucketNodeMap bucketNodeMap = new FixedBucketNodeMap(split -> 0, ImmutableList.of(assignedNode), false);
+
+        assertAssignmentPreservesSplitOrder(splits -> nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values()), bucketNodeMap).getAssignments());
+    }
+
+    private static void assertAssignmentPreservesSplitOrder(Function<Set<Split>, Multimap<InternalNode, Split>> computeAssignments)
+    {
+        TestingTransactionHandle transactionHandle = new TestingTransactionHandle(new UUID(0, 0));
+        List<ConnectorSplit> expectedOrder = new ArrayList<>();
+        Set<Split> splits = new LinkedHashSet<>();
+
+        // The descending, controlled hash codes make a hash-based assignment multimap reorder these splits.
+        for (int splitId = 15; splitId >= 0; splitId--) {
+            ConnectorSplit connectorSplit = new TestSplitLocalWithHashCode(splitId);
+            expectedOrder.add(connectorSplit);
+            splits.add(new Split(CONNECTOR_ID, transactionHandle, connectorSplit));
+        }
+
+        Multimap<InternalNode, Split> assignments = computeAssignments.apply(splits);
+        InternalNode assignedNode = assignments.keySet().stream().collect(onlyElement());
+        List<ConnectorSplit> actualOrder = new ArrayList<>();
+        for (Split split : assignments.get(assignedNode)) {
+            actualOrder.add(split.getConnectorSplit());
+        }
+
+        assertEquals(actualOrder, expectedOrder);
     }
 
     @Test
@@ -1450,6 +1523,36 @@ public class TestNodeScheduler
         public SplitWeight getSplitWeight()
         {
             return splitWeight;
+        }
+    }
+
+    private static class TestSplitLocalWithHashCode
+            extends TestSplitLocal
+    {
+        private final int splitId;
+
+        public TestSplitLocalWithHashCode(int splitId)
+        {
+            this.splitId = splitId;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if ((obj == null) || (getClass() != obj.getClass())) {
+                return false;
+            }
+            TestSplitLocalWithHashCode other = (TestSplitLocalWithHashCode) obj;
+            return splitId == other.splitId;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return splitId;
         }
     }
 

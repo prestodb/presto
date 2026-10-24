@@ -31,9 +31,9 @@ import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.SplitWeight;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
-import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.HashMap;
@@ -149,7 +149,7 @@ public class SimpleNodeSelector
     @Override
     public SplitPlacementResult computeAssignments(Set<Split> splits, List<RemoteTask> existingTasks)
     {
-        Multimap<InternalNode, Split> assignment = HashMultimap.create();
+        ListMultimap<InternalNode, Split> assignment = ArrayListMultimap.create();
         NodeMap nodeMap = this.nodeMap.get().get();
         NodeAssignmentStats assignmentStats = new NodeAssignmentStats(nodeTaskMap, nodeMap, existingTasks);
 
