@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
+#include <fmt/core.h>
 #include <folly/Uri.h>
 #include "presto_cpp/main/common/Configs.h"
 
@@ -29,12 +30,24 @@ folly::SocketAddress CoordinatorDiscoverer::updateAddress() {
 
   auto uri = folly::Uri(discoveryUri.value());
   updateAddressSafe(folly::SocketAddress(uri.hostname(), uri.port(), true));
+  // Format host:port for use as the HTTP Host header. IPv6 literals must be
+  // bracketed (RFC 7230 §5.4): "[::1]:8080" not "::1:8080".
+  const auto& host = uri.hostname();
+  const bool isIpv6 = host.find(':') != std::string::npos;
+  updateHostHeaderSafe(
+      isIpv6 ? fmt::format("[{}]:{}", host, uri.port())
+             : fmt::format("{}:{}", host, uri.port()));
   return coordinatorAddress_;
 }
 
 folly::SocketAddress CoordinatorDiscoverer::getAddress() {
   std::lock_guard<std::mutex> l(mutex_);
   return coordinatorAddress_;
+}
+
+std::string CoordinatorDiscoverer::getHostHeader() {
+  std::lock_guard<std::mutex> l(mutex_);
+  return coordinatorHostHeader_;
 }
 
 void CoordinatorDiscoverer::updateAddressSafe(
@@ -44,6 +57,12 @@ void CoordinatorDiscoverer::updateAddressSafe(
     LOG(INFO) << "Coordinator address changed to " << address;
   }
   coordinatorAddress_ = address;
+}
+
+void CoordinatorDiscoverer::updateHostHeaderSafe(
+    const std::string& hostHeader) {
+  std::lock_guard<std::mutex> l(mutex_);
+  coordinatorHostHeader_ = hostHeader;
 }
 
 } // namespace facebook::presto
