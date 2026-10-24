@@ -14,11 +14,16 @@
 package com.facebook.presto.delta;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.delta.deletionvector.DeletionVectorEntry;
 import com.facebook.presto.spi.schedule.NodeSelectionStrategy;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 /**
  * Test {@link DeltaSplit} is created correctly with given arguments and JSON serialization/deserialization works.
@@ -35,11 +40,13 @@ public class TestDeltaSplit
                 "database",
                 "table",
                 "s3://bucket/path/to/delta/table/file1.parquet",
+                "s3://bucket/path/to/delta/table/",
                 0,
                 200,
                 500,
                 ImmutableMap.of("part1", "part1Val"),
-                NodeSelectionStrategy.NO_PREFERENCE);
+                NodeSelectionStrategy.NO_PREFERENCE,
+                Optional.empty());
 
         String json = codec.toJson(expected);
         DeltaSplit actual = codec.fromJson(json);
@@ -53,5 +60,45 @@ public class TestDeltaSplit
         assertEquals(actual.getFileSize(), expected.getFileSize());
         assertEquals(actual.getSplitSizeInBytes(), expected.getSplitSizeInBytes());
         assertEquals(actual.getPartitionValues(), expected.getPartitionValues());
+        assertFalse(actual.getDeletionVector().isPresent());
+    }
+
+    @Test
+    public void testJsonRoundTripWithDeletionVector()
+    {
+        DeletionVectorEntry dve = new DeletionVectorEntry(
+                "a", "b", Optional.of(1), 20, 1);
+        DeltaSplit expected = new DeltaSplit(
+                "delta",
+                "database",
+                "table",
+                "s3://bucket/path/to/delta/table/file1.parquet",
+                "s3://bucket/path/to/delta/table",
+                0,
+                200,
+                500,
+                ImmutableMap.of("part1", "part1Val"),
+                NodeSelectionStrategy.NO_PREFERENCE,
+                Optional.ofNullable(dve));
+
+        String json = codec.toJson(expected);
+        DeltaSplit actual = codec.fromJson(json);
+
+        assertEquals(actual.getConnectorId(), expected.getConnectorId());
+        assertEquals(actual.getSchema(), expected.getSchema());
+        assertEquals(actual.getTable(), expected.getTable());
+        assertEquals(actual.getFilePath(), expected.getFilePath());
+        assertEquals(actual.getStart(), expected.getStart());
+        assertEquals(actual.getLength(), expected.getLength());
+        assertEquals(actual.getFileSize(), expected.getFileSize());
+        assertEquals(actual.getSplitSizeInBytes(), expected.getSplitSizeInBytes());
+        assertEquals(actual.getPartitionValues(), expected.getPartitionValues());
+        assertTrue(actual.getDeletionVector().isPresent());
+        DeletionVectorEntry actualDve = actual.getDeletionVector().get();
+        assertEquals(actualDve.getStorageType(), dve.getStorageType());
+        assertEquals(actualDve.getPathOrInlineDv(), dve.getPathOrInlineDv());
+        assertEquals(actualDve.getOffset(), dve.getOffset());
+        assertEquals(actualDve.sizeInBytes(), dve.sizeInBytes());
+        assertEquals(actualDve.getCardinality(), dve.getCardinality());
     }
 }
