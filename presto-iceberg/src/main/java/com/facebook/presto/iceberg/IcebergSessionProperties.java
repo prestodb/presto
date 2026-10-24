@@ -51,6 +51,8 @@ public final class IcebergSessionProperties
 {
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
+    public static final String NATIVE_PARQUET_WRITER_ROW_GROUP_MAX_ROWS = "native_parquet_writer_row_group_max_rows";
+    public static final String NATIVE_PARQUET_WRITER_PAGE_MAX_ROWS = "native_parquet_writer_page_max_rows";
     private static final String PARQUET_WRITER_VERSION = "parquet_writer_version";
     private static final String ORC_STRING_STATISTICS_LIMIT = "orc_string_statistics_limit";
     private static final String ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE = "orc_optimized_writer_min_stripe_size";
@@ -109,6 +111,18 @@ public final class IcebergSessionProperties
                         PARQUET_WRITER_PAGE_SIZE,
                         "Parquet: Writer page size",
                         parquetFileWriterConfig.getPageSize(),
+                        false))
+                .add(longProperty(
+                        NATIVE_PARQUET_WRITER_ROW_GROUP_MAX_ROWS,
+                        "Native Execution only. Parquet: Maximum number of rows in a row group. A row group closes at " +
+                                "this many rows or at the writer block size, whichever comes first.",
+                        1_048_576L,
+                        false))
+                .add(longProperty(
+                        NATIVE_PARQUET_WRITER_PAGE_MAX_ROWS,
+                        "Native Execution only. Parquet: Maximum number of rows in a data page. A page closes at " +
+                                "this many rows or at the writer page size, whichever comes first.",
+                        Long.MAX_VALUE,
                         false))
                 .add(new PropertyMetadata<>(
                         PARQUET_WRITER_VERSION,
