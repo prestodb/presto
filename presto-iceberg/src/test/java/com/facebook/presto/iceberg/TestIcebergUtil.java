@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
@@ -45,6 +46,9 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
+import static com.facebook.presto.common.type.DateTimeEncoding.unpackZoneKey;
 import static com.facebook.presto.common.type.DateType.DATE;
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -52,12 +56,15 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.DOUBLE_NEGATIVE_INFINITE;
 import static com.facebook.presto.iceberg.IcebergUtil.DOUBLE_NEGATIVE_ZERO;
@@ -67,10 +74,12 @@ import static com.facebook.presto.iceberg.IcebergUtil.REAL_NEGATIVE_INFINITE;
 import static com.facebook.presto.iceberg.IcebergUtil.REAL_NEGATIVE_ZERO;
 import static com.facebook.presto.iceberg.IcebergUtil.REAL_POSITIVE_INFINITE;
 import static com.facebook.presto.iceberg.IcebergUtil.REAL_POSITIVE_ZERO;
+import static com.facebook.presto.iceberg.IcebergUtil.deserializeIcebergValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getAdjacentValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getMetadataColumnConstraints;
 import static com.facebook.presto.iceberg.IcebergUtil.getNonMetadataColumnConstraints;
 import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
+import static com.facebook.presto.iceberg.IcebergUtil.parsePartitionValue;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetReadSchema;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -409,6 +418,34 @@ public class TestIcebergUtil
     {
         assertEquals(1024, getTargetSplitSize(1024, 512).toBytes());
         assertEquals(512, getTargetSplitSize(0, 512).toBytes());
+    }
+
+    @Test
+    public void testDeserializeIcebergValueForTimestampWithTimeZone()
+    {
+        // Iceberg stores timestamptz partition values as microseconds since the epoch.
+        long value = (long) deserializeIcebergValue(TIMESTAMP_WITH_TIME_ZONE, "1727740800000000", "ts");
+        assertEquals(unpackMillisUtc(value), 1727740800000L); // 2024-10-01T00:00:00Z
+        assertEquals(unpackZoneKey(value), UTC_KEY);
+
+        // Column default values arrive as ISO strings in UTC.
+        assertEquals(deserializeIcebergValue(TIMESTAMP_WITH_TIME_ZONE, "2024-10-01 00:00:00.000000", "ts"), value);
+
+        assertThat(deserializeIcebergValue(TIMESTAMP_WITH_TIME_ZONE, null, "ts")).isNull();
+
+        PrestoException e = expectThrows(PrestoException.class,
+                () -> deserializeIcebergValue(TIMESTAMP_WITH_TIME_ZONE, "not a timestamp", "ts"));
+        assertEquals(e.getErrorCode(), ICEBERG_INVALID_PARTITION_VALUE.toErrorCode());
+    }
+
+    @Test
+    public void testParsePartitionValueForTimestampWithTimeZone()
+    {
+        NullableValue value = parsePartitionValue("1727740800000000", TIMESTAMP_WITH_TIME_ZONE, "ts");
+        assertEquals(value.getType(), TIMESTAMP_WITH_TIME_ZONE);
+        assertEquals(value.getValue(), packDateTimeWithZone(1727740800000L, UTC_KEY));
+
+        assertThat(parsePartitionValue(null, TIMESTAMP_WITH_TIME_ZONE, "ts").isNull()).isTrue();
     }
 
     @DataProvider

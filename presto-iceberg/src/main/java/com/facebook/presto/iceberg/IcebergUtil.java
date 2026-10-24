@@ -774,6 +774,7 @@ public final class IcebergUtil
                 DOUBLE.equals(type) ||
                 DATE.equals(type) ||
                 type instanceof TimestampType ||
+                type instanceof TimestampWithTimeZoneType ||
                 TIME.equals(type) ||
                 VARBINARY.equals(type) ||
                 isVarcharType(type) ||
@@ -1019,24 +1020,11 @@ public final class IcebergUtil
                 return parseDouble(valueString);
             }
             if (type.equals(TIMESTAMP) || type.equals(TIME)) {
-                // Default values are serialised as ISO datetime strings
-                // (e.g. "2023-01-01 11:00:00.000000"); partition values arrive
-                // as microseconds-since-epoch numeric strings.  Accept both.
-                try {
-                    return MICROSECONDS.toMillis(parseLong(valueString));
-                }
-                catch (NumberFormatException ignored) {
-                    // ISO string: parse to epoch-millis via LocalDateTime
-                    try {
-                        LocalDateTime ldt = LocalDateTime.parse(
-                                valueString,
-                                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss[.SSSSSS][.SSS]"));
-                        return ldt.toInstant(ZoneOffset.UTC).toEpochMilli();
-                    }
-                    catch (DateTimeParseException e) {
-                        throw new IllegalArgumentException(e);
-                    }
-                }
+                return parseEpochMillis(valueString);
+            }
+            if (type instanceof TimestampWithTimeZoneType) {
+                // Iceberg timestamptz values are instants, so use UTC like the Parquet reader does.
+                return packDateTimeWithZone(parseEpochMillis(valueString), TimeZoneKey.UTC_KEY);
             }
             if (type.equals(DATE) || type.equals(TIMESTAMP_MICROSECONDS)) {
                 // Default values are serialised as ISO date strings
@@ -1079,6 +1067,28 @@ public final class IcebergUtil
         }
         // Iceberg tables don't partition by non-primitive-type columns.
         throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
+    }
+
+    private static long parseEpochMillis(String valueString)
+    {
+        // Default values are serialised as ISO datetime strings
+        // (e.g. "2023-01-01 11:00:00.000000"); partition values arrive
+        // as microseconds-since-epoch numeric strings.  Accept both.
+        try {
+            return MICROSECONDS.toMillis(parseLong(valueString));
+        }
+        catch (NumberFormatException ignored) {
+            // ISO string: parse to epoch-millis via LocalDateTime
+            try {
+                LocalDateTime ldt = LocalDateTime.parse(
+                        valueString,
+                        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss[.SSSSSS][.SSS]"));
+                return ldt.toInstant(ZoneOffset.UTC).toEpochMilli();
+            }
+            catch (DateTimeParseException e) {
+                throw new IllegalArgumentException(e);
+            }
+        }
     }
 
     public static Domain createDomainFromIcebergPartitionValue(

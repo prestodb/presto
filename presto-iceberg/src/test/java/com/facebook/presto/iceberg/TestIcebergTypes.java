@@ -83,7 +83,7 @@ public class TestIcebergTypes
                 "WITH (PARTITIONING = ARRAY['b'])");
         assertUpdate(session, "INSERT INTO test_timestamptz_partition (a, b, c) SELECT a, b, c FROM test_timestamptz", 10);
 
-        MaterializedResult partitionRows = runner.execute(session, "SELECT * FROM test_timestamptz");
+        MaterializedResult partitionRows = runner.execute(session, "SELECT * FROM test_timestamptz_partition");
 
         List<Type> partitionTypes = partitionRows.getTypes();
         assertTrue(partitionTypes.get(0) instanceof TimestampWithTimeZoneType);
@@ -116,6 +116,43 @@ public class TestIcebergTypes
 
         MaterializedResult earlyRowsFromEquals = runner.execute(session, "SELECT a FROM test_timestamptz_filter WHERE a = " + earlyTimestamptz);
         com.facebook.presto.testing.assertions.Assert.assertEquals(earlyRows, earlyRowsFromEquals);
+    }
+
+    @Test(dataProvider = "testTimestampWithTimezone")
+    public void testTimestampWithTimezoneIdentityPartition(Session session)
+    {
+        QueryRunner runner = getQueryRunner();
+        String catalog = session.getCatalog().get();
+        String schema = session.getSchema().get();
+        String table = "test_timestamptz_identity_partition";
+
+        dropTableIfExists(runner, catalog, schema, table);
+        assertQuerySucceeds(session, "CREATE TABLE " + table + "(a TIMESTAMP WITH TIME ZONE, b BIGINT, c TIMESTAMP WITH TIME ZONE) " +
+                "WITH (PARTITIONING = ARRAY['a'])");
+        // The first two rows are the same instant, so they are in the same partition.
+        assertUpdate(session, "INSERT INTO " + table + " VALUES " +
+                "(TIMESTAMP '1984-12-08 00:10:00 America/Los_Angeles', 1, TIMESTAMP '2000-01-01 00:00:00 UTC'), " +
+                "(TIMESTAMP '1984-12-08 08:10:00 UTC', 2, TIMESTAMP '2000-01-02 00:00:00 UTC'), " +
+                "(TIMESTAMP '2024-10-01 00:00:00 UTC', 3, TIMESTAMP '2000-01-03 00:00:00 UTC'), " +
+                "(NULL, 4, NULL)", 4);
+
+        // The value of an identity partition column comes from the partition metadata.
+        MaterializedResult rows = runner.execute(session, "SELECT a, b FROM " + table + " ORDER BY b");
+        assertTrue(rows.getTypes().get(0) instanceof TimestampWithTimeZoneType);
+        assertEquals(rows.getMaterializedRows().toString(),
+                "[[1984-12-08T08:10Z[UTC], 1], [1984-12-08T08:10Z[UTC], 2], [2024-10-01T00:00Z[UTC], 3], [null, 4]]");
+
+        assertEquals(runner.execute(session, "SELECT b FROM " + table + " WHERE a = TIMESTAMP '2024-10-01 00:00:00 UTC'").getOnlyValue(), 3L);
+        assertEquals(runner.execute(session, "SELECT count(*) FROM " + table + " WHERE a < TIMESTAMP '2000-01-01 00:00:00 UTC'").getOnlyValue(), 2L);
+
+        // The "$partitions" table shows the partition values and the min and max of column c.
+        MaterializedResult partitions = runner.execute(session, "SELECT a, row_count, c.min, c.max FROM \"" + table + "$partitions\" ORDER BY a");
+        assertEquals(partitions.getMaterializedRows().toString(), "[" +
+                "[1984-12-08T08:10Z[UTC], 2, 2000-01-01T00:00Z[UTC], 2000-01-02T00:00Z[UTC]], " +
+                "[2024-10-01T00:00Z[UTC], 1, 2000-01-03T00:00Z[UTC], 2000-01-03T00:00Z[UTC]], " +
+                "[null, 1, null, null]]");
+
+        dropTableIfExists(runner, catalog, schema, table);
     }
 
     /**
