@@ -179,6 +179,57 @@ public class TestParquetWriter
         }
     }
 
+    @DataProvider
+    public static Object[][] lz4Codecs()
+    {
+        return new Object[][] {{CompressionCodecName.LZ4}, {CompressionCodecName.LZ4_RAW}};
+    }
+
+    @Test(dataProvider = "lz4Codecs")
+    public void testLz4RoundTrip(CompressionCodecName codec)
+            throws Exception
+    {
+        temporaryDirectory = createTempDir();
+        parquetFile = new File(temporaryDirectory, randomUUID().toString());
+        List<Type> types = ImmutableList.of(BIGINT, VARCHAR);
+        List<String> names = ImmutableList.of("col_1", "col_2");
+        // 1MB pages hold several of the 128KB blocks that LZ4 frames.
+        ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
+                .setMaxPageSize(DataSize.succinctBytes(1024 * 1024))
+                .build();
+        int rowCount = 100_000;
+        try (ParquetWriter parquetWriter = createParquetWriter(parquetFile, types, names, parquetWriterOptions, codec)) {
+            PageBuilder pageBuilder = new PageBuilder(rowCount, types);
+            for (int rowIdx = 0; rowIdx < rowCount; rowIdx++) {
+                BIGINT.writeLong(pageBuilder.getBlockBuilder(0), rowIdx);
+                VARCHAR.writeString(pageBuilder.getBlockBuilder(1), "value-" + rowIdx);
+                pageBuilder.declarePosition();
+            }
+            parquetWriter.write(pageBuilder.build());
+        }
+
+        FileParquetDataSource dataSource = new FileParquetDataSource(parquetFile);
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, parquetFile.length(), Optional.empty(), false).getParquetMetadata();
+        parquetMetadata.getBlocks().forEach(block -> block.getColumns().forEach(column -> assertEquals(column.getCodec(), codec)));
+        MessageType schema = parquetMetadata.getFileMetaData().getSchema();
+        MessageColumnIO messageColumnIO = getColumnIO(schema, schema);
+        Field bigintField = ColumnIOConverter.constructField(BIGINT, messageColumnIO.getChild(0)).get();
+        Field varcharField = ColumnIOConverter.constructField(VARCHAR, messageColumnIO.getChild(1)).get();
+        ParquetReader parquetReader = new ParquetReader(messageColumnIO, parquetMetadata.getBlocks(), Optional.empty(), dataSource, newSimpleAggregatedMemoryContext(), new DataSize(16, MEGABYTE), false, false, null, null, false, Optional.empty(), Optional.of(DateTimeZone.forID("America/Bahia_Banderas")));
+
+        int totalCount = 0;
+        for (int batchCount = parquetReader.nextBatch(); batchCount > 0; batchCount = parquetReader.nextBatch()) {
+            Block bigints = parquetReader.readBlock(bigintField);
+            Block varchars = parquetReader.readBlock(varcharField);
+            for (int position = 0; position < batchCount; position++) {
+                assertEquals(BIGINT.getLong(bigints, position), totalCount + position);
+                assertEquals(VARCHAR.getSlice(varchars, position).toStringUtf8(), "value-" + (totalCount + position));
+            }
+            totalCount += batchCount;
+        }
+        assertEquals(totalCount, rowCount);
+    }
+
     @DataProvider(name = "testMetadataCreation")
     public static Object[][] types()
     {

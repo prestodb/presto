@@ -73,6 +73,7 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getOrcStringS
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetWriterBlockSize;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetWriterVersion;
+import static com.facebook.presto.iceberg.IcebergUtil.verifyCompressionCodecSupported;
 import static com.facebook.presto.iceberg.TypeConverter.toOrcType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
@@ -122,6 +123,8 @@ public class IcebergFileWriterFactory
             FileFormat fileFormat,
             MetricsConfig metricsConfig)
     {
+        // CREATE TABLE verifies the codec too, but INSERT reads it from the session of the writing query.
+        verifyCompressionCodecSupported(getCompressionCodec(session), fileFormat);
         switch (fileFormat) {
             case PARQUET:
                 return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext, metricsConfig);

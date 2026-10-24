@@ -1841,3 +1841,33 @@ TEST_F(PrestoToVeloxConnectorTest, toVeloxColumnHandleCarriesTypeAttributes) {
   EXPECT_EQ(metadata.structType, "STRUCT");
   EXPECT_TRUE(metadata.required);
 }
+
+TEST_F(PrestoToVeloxConnectorTest, lz4CompressionKindDependsOnFileFormat) {
+  using protocol::hive::HiveCompressionCodec;
+  // Parquet's LZ4 codec is Hadoop framed and LZ4_RAW is the unframed one.
+  EXPECT_EQ(
+      toFileCompressionKind(
+          HiveCompressionCodec::LZ4, dwio::common::FileFormat::PARQUET),
+      common::CompressionKind_LZ4_HADOOP);
+  EXPECT_EQ(
+      toFileCompressionKind(
+          HiveCompressionCodec::LZ4_RAW, dwio::common::FileFormat::PARQUET),
+      common::CompressionKind_LZ4);
+  EXPECT_EQ(
+      toFileCompressionKind(
+          HiveCompressionCodec::LZ4, dwio::common::FileFormat::ORC),
+      common::CompressionKind_LZ4);
+  EXPECT_EQ(
+      toFileCompressionKind(
+          HiveCompressionCodec::LZ4, dwio::common::FileFormat::DWRF),
+      common::CompressionKind_LZ4);
+  VELOX_ASSERT_THROW(
+      toFileCompressionKind(
+          HiveCompressionCodec::LZ4_RAW, dwio::common::FileFormat::ORC),
+      "LZ4_RAW compression is only supported for Parquet.");
+
+  // An unknown codec name would deserialize to NONE and write uncompressed.
+  HiveCompressionCodec codec;
+  protocol::hive::from_json(nlohmann::json("LZ4_RAW"), codec);
+  EXPECT_EQ(codec, HiveCompressionCodec::LZ4_RAW);
+}

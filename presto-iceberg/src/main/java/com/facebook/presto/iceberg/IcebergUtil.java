@@ -1498,6 +1498,31 @@ public final class IcebergUtil
         }
     }
 
+    public static boolean isCompressionCodecSupported(HiveCompressionCodec compressionCodec, FileFormat fileFormat)
+    {
+        switch (fileFormat) {
+            case PARQUET:
+                // Unlike the Hive Parquet writer, the Presto Parquet writer that Iceberg uses writes both LZ4 codecs.
+                return compressionCodec == HiveCompressionCodec.LZ4
+                        || compressionCodec == HiveCompressionCodec.LZ4_RAW
+                        || compressionCodec.isSupportedStorageFormat(HiveStorageFormat.PARQUET);
+            case ORC:
+                return compressionCodec.isSupportedStorageFormat(HiveStorageFormat.ORC);
+            case DWRF:
+                return compressionCodec != HiveCompressionCodec.LZ4_RAW;
+            default:
+                return true;
+        }
+    }
+
+    public static void verifyCompressionCodecSupported(HiveCompressionCodec compressionCodec, FileFormat fileFormat)
+    {
+        if (!isCompressionCodecSupported(compressionCodec, fileFormat)) {
+            String formatName = fileFormat == FileFormat.PARQUET ? "Parquet" : fileFormat.name();
+            throw new PrestoException(NOT_SUPPORTED, format("Compression codec %s is not supported for %s format", compressionCodec, formatName));
+        }
+    }
+
     public static Map<String, String> populateTableProperties(
             IcebergAbstractMetadata metadata,
             ConnectorTableMetadata tableMetadata,
@@ -1538,15 +1563,11 @@ public final class IcebergUtil
         HiveCompressionCodec compressionCodec = getCompressionCodec(session);
         switch (fileFormat) {
             case PARQUET:
-                if (!compressionCodec.isSupportedStorageFormat(HiveStorageFormat.PARQUET)) {
-                    throw new PrestoException(NOT_SUPPORTED, format("Compression codec %s is not supported for Parquet format", compressionCodec));
-                }
+                verifyCompressionCodecSupported(compressionCodec, FileFormat.PARQUET);
                 propertiesBuilder.put(PARQUET_COMPRESSION, compressionCodec.getParquetCompressionCodec().name());
                 break;
             case ORC:
-                if (!compressionCodec.isSupportedStorageFormat(HiveStorageFormat.ORC)) {
-                    throw new PrestoException(NOT_SUPPORTED, format("Compression codec %s is not supported for ORC format", compressionCodec));
-                }
+                verifyCompressionCodecSupported(compressionCodec, FileFormat.ORC);
                 propertiesBuilder.put(ORC_COMPRESSION, compressionCodec.getOrcCompressionKind().name());
                 break;
             case NIMBLE:
