@@ -161,10 +161,12 @@ public final class DeltaExpressionUtils
         private final CloseableIterator<FilteredColumnarBatch> inputIterator;
         private final Iterator<Row> rows;
         private CloseableIterator<Row> prev;
+        private boolean closed;
 
         public BatchRowIterator(CloseableIterator<FilteredColumnarBatch> inputIterator,
                 Optional<Predicate<Row>> rowFilter)
         {
+            this.closed = false;
             this.inputIterator = inputIterator;
             this.rows = Streams.stream(inputIterator)
                     .flatMap(batch -> {
@@ -187,7 +189,7 @@ public final class DeltaExpressionUtils
         @Override
         public boolean hasNext()
         {
-            return rows.hasNext();
+            return !closed && rows.hasNext();
         }
 
         @Override
@@ -199,11 +201,15 @@ public final class DeltaExpressionUtils
         @Override
         public void close() throws IOException
         {
-            if (prev != null) {
-                prev.close();
+            if (closed) {
+                return;
             }
+            closed = true;
             if (inputIterator != null) {
                 inputIterator.close();
+            }
+            if (prev != null) {
+                prev.close();
             }
         }
     }

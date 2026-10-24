@@ -27,6 +27,7 @@ public final class DeltaSessionProperties
 {
     private static final String CACHE_ENABLED = "cache_enabled";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
+    private static final String DELTA_KERNEL_PREDICATE_PUSHDOWN_ENABLED = "delta_kernel_predicate_pushdown_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -46,6 +47,11 @@ public final class DeltaSessionProperties
                         PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
                         "Is dereference pushdown expression pushdown into Parquet reader enabled?",
                         deltaConfigConfig.isParquetDereferencePushdownEnabled(),
+                        false),
+                booleanProperty(
+                        DELTA_KERNEL_PREDICATE_PUSHDOWN_ENABLED,
+                        "Is predicate pushdown into Delta Kernel enabled?",
+                        null,
                         false));
     }
 
@@ -57,5 +63,10 @@ public final class DeltaSessionProperties
     public static boolean isParquetDereferencePushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static Boolean isDeltaKernelPredicatePushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(DELTA_KERNEL_PREDICATE_PUSHDOWN_ENABLED, Boolean.class);
     }
 }

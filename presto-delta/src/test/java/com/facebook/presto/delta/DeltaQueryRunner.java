@@ -69,6 +69,7 @@ public class DeltaQueryRunner
         private Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher = Optional.empty();
         private TimeZoneKey timeZoneKey = UTC_KEY;
         private boolean caseSensitivePartitions;
+        private boolean deltaKernelPushdown;
         private OptionalInt nodeCount = OptionalInt.of(4);
 
         public Builder setExternalWorkerLauncher(Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher)
@@ -92,6 +93,12 @@ public class DeltaQueryRunner
         public Builder caseSensitivePartitions()
         {
             caseSensitivePartitions = true;
+            return this;
+        }
+
+        public Builder setDeltaKernelPushdown(boolean kernelPushdown)
+        {
+            this.deltaKernelPushdown = kernelPushdown;
             return this;
         }
 
@@ -130,6 +137,7 @@ public class DeltaQueryRunner
             deltaProperties.put("hive.metastore", "file");
             deltaProperties.put("hive.metastore.catalog.dir", catalogDirectory.toFile().toURI().toString());
             deltaProperties.put("delta.case-sensitive-partitions-enabled", Boolean.toString(caseSensitivePartitions));
+            deltaProperties.put("delta.kernel-predicate-pushdown-enabled", Boolean.toString(this.deltaKernelPushdown));
             queryRunner.createCatalog(DELTA_CATALOG, "delta", deltaProperties);
 
             // Install a Hive connector catalog that uses the same metastore as Delta
