@@ -13,7 +13,13 @@ add_library(presto_mutable_configs MutableConfigs.cpp)
 
 target_link_libraries(presto_mutable_configs presto_common velox)
 
-add_executable(presto_common_test CommonTest.cpp ConfigTest.cpp LegacyHiveConfigKeysTest.cpp)
+add_executable(
+  presto_common_test
+  CommonTest.cpp
+  ConfigTest.cpp
+  JavaWriterConfigKeysTest.cpp
+  LegacyHiveConfigKeysTest.cpp
+)
 
 add_test(presto_common_test presto_common_test)
 
