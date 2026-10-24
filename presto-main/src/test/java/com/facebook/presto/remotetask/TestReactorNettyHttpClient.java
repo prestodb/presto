@@ -40,7 +40,6 @@ import java.net.URI;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static com.facebook.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static com.facebook.airlift.http.client.Request.Builder.prepareGet;
 import static com.facebook.presto.execution.TaskState.PLANNED;
 import static com.facebook.presto.server.RequestHelpers.getJsonTransportBuilder;
@@ -58,7 +57,7 @@ public class TestReactorNettyHttpClient
             99999L,
             123,
             PLANNED,
-            URI.create("http://localhost:8080/v1/task/1234"),
+            URI.create("http://localhost/v1/task/1234"),
             ImmutableSet.of(),
             ImmutableList.of(),
             0,
@@ -81,7 +80,7 @@ public class TestReactorNettyHttpClient
     {
         taskStatusCodec = new JsonCodecFactory(new JsonObjectMapperProvider()).jsonCodec(TaskStatus.class);
         server = HttpServer.create()
-                .port(8080)
+                .port(0)
                 .protocol(HttpProtocol.HTTP11)
                 .route(routes ->
                         routes.get("/v1/task/1234/status", (request, response) ->
@@ -104,7 +103,8 @@ public class TestReactorNettyHttpClient
             throws ExecutionException, InterruptedException
     {
         AdaptingJsonResponseHandler<TaskStatus> responseHandler = createAdaptingJsonResponseHandler(taskStatusCodec);
-        Request request = getJsonTransportBuilder(prepareGet()).setUri(uriBuilderFrom(TEST_TASK_STATUS_HTTP11.getSelf()).appendPath("status").build()).build();
+        URI statusUri = URI.create("http://localhost:" + server.port() + "/v1/task/1234/status");
+        Request request = getJsonTransportBuilder(prepareGet()).setUri(statusUri).build();
 
         HttpResponseFuture response = reactorNettyHttpClient.executeAsync(request, responseHandler);
         TaskStatus a = (TaskStatus) ((JsonResponseWrapper) response.get()).getValue();
