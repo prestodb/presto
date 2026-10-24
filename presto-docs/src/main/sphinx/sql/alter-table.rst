@@ -59,6 +59,10 @@ column. Only widening conversions are supported: ``INTEGER`` to ``BIGINT``, ``RE
 Narrowing conversions are rejected. The path must refer to a field inside a struct; paths
 into arrays or maps are not supported.
 
+When ``column_name`` contains a dot (for example ``address.zip``) in a ``DROP COLUMN`` statement, the nested field
+is dropped from the named ``ROW`` column. Dropping a nested field requires ``ALTER COLUMN`` permission on the table,
+not ``DROP COLUMN`` permission.
+
 For ``ALTER COLUMN`` statements, the ``FIRST`` and ``AFTER`` clauses move an existing column within the
 table's column order, leaving the data of every column unchanged. Unlike ``ADD COLUMN``, one of the two
 clauses is required, since the statement does nothing else; a column is moved to the end of the table by
@@ -132,6 +136,10 @@ Drop column ``zip`` from the ``users`` table::
 Drop column ``zip`` from the ``users`` table if table ``users`` and column ``zip`` exists::
 
     ALTER TABLE IF EXISTS users DROP COLUMN IF EXISTS zip;
+
+Drop a nested field ``zip`` inside the ``address`` struct column of the ``users`` table::
+
+    ALTER TABLE users DROP COLUMN address.zip;
 
 Rename column ``id`` to ``user_id`` in the ``users`` table::
 

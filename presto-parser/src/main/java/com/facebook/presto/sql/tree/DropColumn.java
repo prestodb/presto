@@ -27,21 +27,21 @@ public class DropColumn
         extends Statement
 {
     private final QualifiedName table;
-    private final Identifier column;
+    private final QualifiedName column;
     private final boolean tableExists;
     private final boolean columnExists;
 
-    public DropColumn(QualifiedName table, Identifier column, boolean tableExists, boolean columnExists)
+    public DropColumn(QualifiedName table, QualifiedName column, boolean tableExists, boolean columnExists)
     {
         this(Optional.empty(), table, column, tableExists, columnExists);
     }
 
-    public DropColumn(NodeLocation location, QualifiedName table, Identifier column, boolean tableExists, boolean columnExists)
+    public DropColumn(NodeLocation location, QualifiedName table, QualifiedName column, boolean tableExists, boolean columnExists)
     {
         this(Optional.of(location), table, column, tableExists, columnExists);
     }
 
-    private DropColumn(Optional<NodeLocation> location, QualifiedName table, Identifier column, boolean tableExists, boolean columnExists)
+    private DropColumn(Optional<NodeLocation> location, QualifiedName table, QualifiedName column, boolean tableExists, boolean columnExists)
     {
         super(location);
         this.table = requireNonNull(table, "table is null");
@@ -55,7 +55,7 @@ public class DropColumn
         return table;
     }
 
-    public Identifier getColumn()
+    public QualifiedName getColumn()
     {
         return column;
     }

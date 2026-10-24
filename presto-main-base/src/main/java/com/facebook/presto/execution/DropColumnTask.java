@@ -24,7 +24,6 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.tree.DropColumn;
 import com.facebook.presto.sql.tree.Expression;
-import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -35,6 +34,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 
 public class DropColumnTask
@@ -68,29 +68,41 @@ public class DropColumnTask
         }
 
         TableHandle tableHandle = tableHandleOptional.get();
-        Identifier columnIdentifier = statement.getColumn();
-        String column = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnIdentifier.getValue());
 
-        accessControl.checkCanDropColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
+        List<String> normalizedParts = statement.getColumn().getOriginalParts().stream()
+                .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part.getValue()))
+                .collect(toImmutableList());
 
-        ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
-        if (columnHandle == null) {
-            if (!statement.isColumnExists()) {
-                throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", column);
+        if (normalizedParts.size() == 1) {
+            // Top-level column: use existing ColumnHandle-based path.
+            accessControl.checkCanDropColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
+
+            String column = normalizedParts.get(0);
+            ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
+            if (columnHandle == null) {
+                if (!statement.isColumnExists()) {
+                    throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", column);
+                }
+                return immediateFuture(null);
             }
-            return immediateFuture(null);
-        }
 
-        if (metadata.getColumnMetadata(session, tableHandle, columnHandle).isHidden()) {
-            throw new SemanticException(NOT_SUPPORTED, statement, "Cannot drop hidden column");
-        }
+            if (metadata.getColumnMetadata(session, tableHandle, columnHandle).isHidden()) {
+                throw new SemanticException(NOT_SUPPORTED, statement, "Cannot drop hidden column");
+            }
 
-        if (metadata.getTableMetadata(session, tableHandle).getColumns().stream()
-                .filter(info -> !info.isHidden()).count() <= 1) {
-            throw new SemanticException(NOT_SUPPORTED, statement, "Cannot drop the only column in a table");
-        }
+            if (metadata.getTableMetadata(session, tableHandle).getColumns().stream()
+                    .filter(info -> !info.isHidden()).count() <= 1) {
+                throw new SemanticException(NOT_SUPPORTED, statement, "Cannot drop the only column in a table");
+            }
 
-        metadata.dropColumn(session, tableHandle, columnHandle);
+            metadata.dropColumn(session, tableHandle, columnHandle);
+        }
+        else {
+            // Nested field: alters an existing column's schema, so requires ALTER COLUMN permission.
+            accessControl.checkCanAlterColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
+
+            metadata.dropField(session, tableHandle, normalizedParts, statement.isColumnExists());
+        }
 
         return immediateFuture(null);
     }
