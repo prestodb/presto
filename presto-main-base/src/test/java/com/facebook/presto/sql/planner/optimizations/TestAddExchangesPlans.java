@@ -24,6 +24,7 @@ import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.testing.TestingSession;
+import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
@@ -75,6 +76,26 @@ import static org.testng.Assert.assertEquals;
 public class TestAddExchangesPlans
         extends BasePlanTest
 {
+    @Test
+    public void testNativeJmxScanHasSeparateSourceStage()
+    {
+        getQueryRunner().createCatalog("jmx", new TpchConnectorFactory(1)
+        {
+            @Override
+            public String getName()
+            {
+                return "jmx-test";
+            }
+        }, ImmutableMap.of());
+
+        assertNativeDistributedPlan(
+                "SELECT name, count(*) FROM jmx.tiny.nation GROUP BY name",
+                anyTree(exchange(
+                        REMOTE_STREAMING,
+                        ExchangeNode.Type.GATHER,
+                        anyTree(tableScan("nation")))));
+    }
+
     @Test
     public void testRepartitionForUnionWithAnyTableScans()
     {
