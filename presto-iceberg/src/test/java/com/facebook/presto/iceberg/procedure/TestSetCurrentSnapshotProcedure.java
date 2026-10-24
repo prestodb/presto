@@ -17,21 +17,30 @@ import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.CatalogUtil;
+import org.apache.iceberg.HasTableOperations;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
+import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.hadoop.HadoopCatalog;
+import org.apache.iceberg.util.JsonUtil;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.moveBranchError;
 import static java.lang.String.format;
 import static java.util.regex.Pattern.quote;
 
@@ -170,6 +179,45 @@ public class TestSetCurrentSnapshotProcedure
         finally {
             dropTable(tableName);
         }
+    }
+
+    /**
+     * Older Iceberg versions wrote snapshots without a schema ID, so the schema they were written with is unknown.
+     */
+    @Test
+    public void testSetCurrentSnapshotWithoutSchemaIdWithNullsInNotNullColumn()
+            throws IOException
+    {
+        String tableName = "test_set_snapshot_without_schema_id_table";
+        createTable(tableName);
+        try {
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, NULL)", 1);
+            long withNulls = loadTable(tableName).currentSnapshot().snapshotId();
+            assertUpdate("DELETE FROM " + tableName, 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'b')", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN value SET NOT NULL");
+            removeSnapshotSchemaIds(loadTable(tableName));
+
+            assertQueryFails(
+                    format("CALL system.set_current_snapshot('%s', '%s', %d)", TEST_SCHEMA, tableName, withNulls),
+                    moveBranchError("value"));
+            assertQuery("SELECT * FROM " + tableName, "VALUES (2, 'b')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    private static void removeSnapshotSchemaIds(Table table)
+            throws IOException
+    {
+        TableOperations operations = ((HasTableOperations) table).operations();
+        TableMetadata base = operations.current();
+        JsonNode metadata = JsonUtil.mapper().readTree(TableMetadataParser.toJson(base));
+        for (JsonNode snapshot : metadata.get("snapshots")) {
+            ((ObjectNode) snapshot).remove("schema-id");
+        }
+        operations.commit(base, TableMetadataParser.fromJson(metadata));
     }
 
     private Table loadTable(String tableName)

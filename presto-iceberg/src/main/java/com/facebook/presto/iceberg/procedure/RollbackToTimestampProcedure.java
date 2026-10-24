@@ -22,16 +22,25 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 import jakarta.inject.Inject;
+import org.apache.iceberg.ManageSnapshots;
+import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.util.SnapshotUtil;
 
 import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.moveMainBranch;
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
 
 public class RollbackToTimestampProcedure
@@ -77,10 +86,24 @@ public class RollbackToTimestampProcedure
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, tableName);
         IcebergTransactionMetadata metadata = metadataFactory.create();
-        getIcebergTable(metadata, clientSession, schemaTableName)
-                .manageSnapshots()
-                .rollbackToTime(timestamp.isLegacyTimestamp() ? timestamp.getMillisUtc() : timestamp.getMillis())
-                .commit();
+        long timestampMillis = timestamp.isLegacyTimestamp() ? timestamp.getMillisUtc() : timestamp.getMillis();
+        moveMainBranch(
+                getIcebergTable(metadata, clientSession, schemaTableName),
+                schemaTableName,
+                icebergTable -> latestAncestorOlderThan(icebergTable, timestampMillis),
+                ManageSnapshots::rollbackTo);
         metadata.commit();
+    }
+
+    /**
+     * Picks the same target as {@link ManageSnapshots#rollbackToTime}, and fails with the same message.
+     */
+    private static long latestAncestorOlderThan(Table icebergTable, long timestampMillis)
+    {
+        Optional<Snapshot> target = Streams.stream(SnapshotUtil.currentAncestors(icebergTable))
+                .filter(snapshot -> snapshot.timestampMillis() < timestampMillis)
+                .max(comparingLong(Snapshot::timestampMillis));
+        checkArgument(target.isPresent(), "Cannot roll back, no valid snapshot older than: %s", timestampMillis);
+        return target.get().snapshotId();
     }
 }

@@ -96,6 +96,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
 
 import java.util.Collection;
@@ -119,6 +120,7 @@ import static com.facebook.presto.metadata.MetadataUtil.createCatalogSchemaName;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.metadata.SessionFunctionHandle.SESSION_NAMESPACE;
+import static com.facebook.presto.spi.ColumnMetadata.DEFAULT_VALUE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
@@ -589,7 +591,9 @@ final class ShowQueriesRewrite
                 List<TableElement> columns = allowedColumns.stream()
                         .filter(column -> !column.isHidden())
                         .map(column -> {
-                            List<Property> propertyNodes = buildProperties(toQualifiedName(objectName, Optional.of(column.getName())), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
+                            // The column default travels as a property but is not a registered column property, so it has no WITH clause form.
+                            Map<String, Object> columnProperties = Maps.filterKeys(column.getProperties(), name -> !name.equals(DEFAULT_VALUE_PROPERTY));
+                            List<Property> propertyNodes = buildProperties(toQualifiedName(objectName, Optional.of(column.getName())), INVALID_COLUMN_PROPERTY, columnProperties, allColumnProperties);
                             return new ColumnDefinition(Optional.empty(),
                                     QualifiedName.of(ImmutableList.of(QueryUtil.quotedIdentifier(column.getName()))),
                                     column.getType().getDisplayName(),
