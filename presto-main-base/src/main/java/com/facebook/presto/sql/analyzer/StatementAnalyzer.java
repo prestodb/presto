@@ -4811,10 +4811,14 @@ class StatementAnalyzer
             Set<Field> seen = new HashSet<>();
             List<Field> orderByAggregationSourceFields = orderByAggregationExpressions.stream()
                     .map(expression -> {
-                        // generate qualified placeholder field for GROUP BY expressions that are column references
-                        Optional<Field> sourceField = sourceScope.tryResolveField(expression)
-                                .filter(resolvedField -> seen.add(resolvedField.getField()))
-                                .map(ResolvedField::getField);
+                        // Generate qualified placeholder fields for GROUP BY expressions that are column references.
+                        // Use the recorded binding rather than resolving by name, so wildcard-expanded
+                        // FieldReferences retain their source qualifier. Only reuse fields from the source scope.
+                        Optional<Field> sourceField = analysis.getColumnReferenceFields().get(NodeRef.of(expression)).stream()
+                                .filter(fieldId -> fieldId.getRelationId().equals(sourceScope.getRelationId()))
+                                .map(fieldId -> sourceScope.getRelationType().getFieldByIndex(fieldId.getFieldIndex()))
+                                .filter(seen::add)
+                                .findFirst();
                         return sourceField
                                 .orElse(Field.newUnqualified(expression.getLocation(), Optional.empty(), analysis.getType(expression)));
                     })
