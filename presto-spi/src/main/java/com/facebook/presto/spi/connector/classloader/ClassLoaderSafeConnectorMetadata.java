@@ -25,6 +25,7 @@ import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorMergeTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
+import com.facebook.presto.spi.ConnectorRefreshMaterializedViewHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -674,6 +675,22 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.finishRefreshMaterializedView(session, insertHandle, fragments, computedStatistics);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorRefreshMaterializedViewHandle refreshHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.finishRefreshMaterializedView(session, refreshHandle, fragments, computedStatistics);
+        }
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(ConnectorSession session, ConnectorRefreshMaterializedViewHandle refreshHandle, Collection<Slice> deleteFragments, Collection<Slice> insertFragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.finishRefreshMaterializedView(session, refreshHandle, deleteFragments, insertFragments, computedStatistics);
         }
     }
 

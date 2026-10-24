@@ -21,6 +21,7 @@ import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.metadata.AbstractMockMetadata;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ChangedRowsPredicate;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
@@ -43,6 +44,7 @@ import com.facebook.presto.spi.security.ViewSecurity;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
@@ -56,7 +58,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SystemSessionProperties.MATERIALIZED_VIEW_ROW_LEVEL_INCREMENTAL_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.MATERIALIZED_VIEW_STALE_READ_BEHAVIOR;
+import static com.facebook.presto.SystemSessionProperties.MATERIALIZED_VIEW_STITCHING_STRATEGY;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
@@ -68,6 +72,7 @@ import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.projec
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
 public class TestMaterializedViewRewrite
@@ -616,6 +621,83 @@ public class TestMaterializedViewRewrite
         }
     }
 
+    /**
+     * A change set that is not additions only must not produce a row-level candidate.
+     *
+     * <p>The disjuncts cannot tell a modified row from an appended one, so reusing the materialized
+     * rows would keep a value that should have been replaced. Only the connector can assert the
+     * range holds no modifications; absent that assertion the view falls back, which this asserts by
+     * matching the plan the partition-level and full paths produce.
+     */
+    @Test
+    public void testRowLevelDeclinesWhenNotAdditionsOnly()
+    {
+        QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
+        Metadata metadata = new RowLevelStaleMetadata(tester().getMetadata(), false);
+
+        tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
+                .setSystemProperty(MATERIALIZED_VIEW_ROW_LEVEL_INCREMENTAL_STRATEGY, "ALWAYS")
+                .setSystemProperty(MATERIALIZED_VIEW_STALE_READ_BEHAVIOR, "USE_STITCHING")
+                .setSystemProperty(MATERIALIZED_VIEW_STITCHING_STRATEGY, "ALWAYS")
+                .on(planBuilder -> {
+                    VariableReferenceExpression outputA = planBuilder.variable("a", BIGINT);
+                    VariableReferenceExpression dataTableA = planBuilder.variable("data_table_a", BIGINT);
+                    VariableReferenceExpression viewQueryA = planBuilder.variable("view_query_a", BIGINT);
+                    return planBuilder.materializedViewScan(
+                            materializedViewName,
+                            planBuilder.values(dataTableA),
+                            planBuilder.values(viewQueryA),
+                            ImmutableMap.of(outputA, dataTableA),
+                            ImmutableMap.of(outputA, viewQueryA),
+                            outputA);
+                })
+                .matches(project(
+                        ImmutableMap.of("a", expression("view_query_a")),
+                        values("view_query_a")));
+    }
+
+    /**
+     * A shape the row-level candidate cannot reason about must not produce one either, and must say
+     * why.
+     *
+     * <p>The view query here is a ValuesNode, which is outside the node whitelist -- the whitelist
+     * is deny-by-default precisely so a shape nobody has reasoned about declines rather than being
+     * served on a guess. The warning is asserted because a silent decline is indistinguishable from
+     * row-level never having been eligible, which is how this feature's defects stayed hidden.
+     */
+    @Test
+    public void testRowLevelDeclinesUnsupportedShapeAndReportsWhy()
+    {
+        QualifiedObjectName materializedViewName = QualifiedObjectName.valueOf("catalog.schema.mv");
+        Metadata metadata = new RowLevelStaleMetadata(tester().getMetadata(), true);
+
+        RuleAssert assertion = tester().assertThat(new MaterializedViewRewrite(metadata, new AllowAllAccessControl()))
+                // Row-level defaults to NEVER, so without these the candidate is never considered
+                // and the decline under test never happens.
+                .setSystemProperty(MATERIALIZED_VIEW_ROW_LEVEL_INCREMENTAL_STRATEGY, "ALWAYS")
+                .setSystemProperty(MATERIALIZED_VIEW_STALE_READ_BEHAVIOR, "USE_STITCHING")
+                .setSystemProperty(MATERIALIZED_VIEW_STITCHING_STRATEGY, "ALWAYS")
+                .on(planBuilder -> {
+                    VariableReferenceExpression outputA = planBuilder.variable("a", BIGINT);
+                    VariableReferenceExpression dataTableA = planBuilder.variable("data_table_a", BIGINT);
+                    VariableReferenceExpression viewQueryA = planBuilder.variable("view_query_a", BIGINT);
+                    return planBuilder.materializedViewScan(
+                            materializedViewName,
+                            planBuilder.values(dataTableA),
+                            planBuilder.values(viewQueryA),
+                            ImmutableMap.of(outputA, dataTableA),
+                            ImmutableMap.of(outputA, viewQueryA),
+                            outputA);
+                });
+        assertion.matches(project(
+                ImmutableMap.of("a", expression("view_query_a")),
+                values("view_query_a")));
+
+        assertTrue(assertion.getWarnings().stream()
+                        .anyMatch(warning -> warning.getMessage().contains("row-level")),
+                "a row-level decline must be reported, got: " + assertion.getWarnings());
+    }
+
     private static class TestingMetadataWithMaterializedViewStatus
             extends AbstractMockMetadata
     {
@@ -663,6 +745,53 @@ public class TestMaterializedViewRewrite
         public MetadataResolver getMetadataResolver(Session session)
         {
             return new MaterializedViewTestingMetadataResolver(super.getMetadataResolver(session), isFullyMaterialized, true);
+        }
+    }
+
+    /**
+     * Reports a stale view whose change set is row-level, so the row-level candidate is reachable.
+     *
+     * <p>{@code additionsOnly} is the parameter under test: it is the one correctness premise the
+     * engine cannot verify, and the gate must decline whenever it is false.
+     */
+    private static class RowLevelStaleMetadata
+            extends AbstractMockMetadata
+    {
+        private final Metadata delegate;
+        private final boolean additionsOnly;
+
+        RowLevelStaleMetadata(Metadata delegate, boolean additionsOnly)
+        {
+            this.delegate = delegate;
+            this.additionsOnly = additionsOnly;
+        }
+
+        @Override
+        public FunctionAndTypeManager getFunctionAndTypeManager()
+        {
+            return delegate.getFunctionAndTypeManager();
+        }
+
+        @Override
+        public MetadataResolver getMetadataResolver(Session session)
+        {
+            MetadataResolver inner = super.getMetadataResolver(session);
+            return new MaterializedViewTestingMetadataResolver(inner, false, false)
+            {
+                @Override
+                public MaterializedViewStatus getMaterializedViewStatus(QualifiedObjectName materializedViewName, TupleDomain<String> baseQueryDomain)
+                {
+                    SchemaTableName baseTable = new SchemaTableName("schema", "base");
+                    return new MaterializedViewStatus(
+                            PARTIALLY_MATERIALIZED,
+                            ImmutableMap.of(),
+                            Optional.empty(),
+                            ImmutableMap.of(baseTable, new ChangedRowsPredicate(
+                                    ImmutableList.of(TupleDomain.all()),
+                                    TupleDomain.all(),
+                                    additionsOnly)));
+                }
+            };
         }
     }
 

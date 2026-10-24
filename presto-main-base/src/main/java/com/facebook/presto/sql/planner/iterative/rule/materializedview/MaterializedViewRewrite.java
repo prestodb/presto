@@ -31,6 +31,7 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.MVRewriteCandidatesNode;
@@ -46,6 +47,7 @@ import com.facebook.presto.spi.security.ViewSecurity;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,6 +57,8 @@ import static com.facebook.presto.SystemSessionProperties.getMaterializedViewSta
 import static com.facebook.presto.SystemSessionProperties.getMaterializedViewStitchingStrategy;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewForceStale;
+import static com.facebook.presto.common.RuntimeMetricName.MATERIALIZED_VIEW_ROW_LEVEL_STITCHING_APPLIED;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedDataPredicates;
 import static com.facebook.presto.spi.StandardErrorCode.MATERIALIZED_VIEW_STALE;
 import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_ACCESS_CONTROL_FALLBACK;
@@ -69,6 +73,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 /**
  * Rewrites {@link MaterializedViewScanNode} to use pre-computed data when possible.
@@ -139,26 +144,54 @@ public class MaterializedViewRewrite
                     "Stitching disabled for materialized view " + node.getMaterializedViewName() +
                             " (materialized_view_stitching_strategy=NEVER); falling back to full view query."));
         }
-        if (!status.isFullyMaterialized() && !status.getPartitionsFromBaseTables().isEmpty()) {
+        if (!status.isFullyMaterialized()) {
             Map<SchemaTableName, MaterializedDataPredicates> constraints = status.getPartitionsFromBaseTables();
 
             if (shouldStitch && !stitchingDisabledByStrategy && canUseDataTableWithSecurityChecks(node, metadataResolver, session, definition, context)) {
-                Optional<PlanNode> unionPlan = buildStitchedPlan(
-                        metadata,
-                        session,
-                        node,
-                        constraints,
-                        definition,
-                        variableAllocator,
-                        idAllocator,
-                        context.getLookup(),
-                        context.getWarningCollector());
+                // Partition-level needs partition metadata; row-level does not, and is built from the
+                // connector's changed-rows predicates instead. Building the partition-level candidate
+                // from an empty constraint set would produce an empty delta and so a silently stale
+                // answer, so it is only attempted when there is something to constrain it with.
+                Optional<PlanNode> unionPlan = constraints.isEmpty()
+                        ? Optional.empty()
+                        : buildStitchedPlan(
+                                metadata,
+                                session,
+                                node,
+                                constraints,
+                                definition,
+                                variableAllocator,
+                                idAllocator,
+                                context.getLookup(),
+                                context.getWarningCollector());
 
-                if (unionPlan.isPresent()) {
+                Optional<PlanNode> rowLevelPlan = buildRowLevelPlan(
+                        session, node, status, constraints, definition, variableAllocator, idAllocator, context, unionPlan.isPresent());
+
+                ImmutableList.Builder<PlanNode> stitchedPlans = ImmutableList.builder();
+                // Row-level first: with a non-cost-based strategy the most selective eligible plan
+                // wins, and with AUTOMATIC the order only affects tie-breaking.
+                rowLevelPlan.ifPresent(stitchedPlans::add);
+                unionPlan.ifPresent(stitchedPlans::add);
+                List<PlanNode> candidates = stitchedPlans.build();
+
+                if (!candidates.isEmpty()) {
                     if (stitchingStrategy == MaterializedViewRewriteStrategy.AUTOMATIC) {
-                        return Result.ofPlanNode(buildAutomaticCandidates(node, unionPlan.get(), idAllocator));
+                        return Result.ofPlanNode(buildAutomaticCandidates(node, candidates, rowLevelPlan, idAllocator));
                     }
-                    return Result.ofPlanNode(unionPlan.get());
+                    // Row-level is added first, so it is candidates.get(0) exactly when present.
+                    if (rowLevelPlan.isPresent()) {
+                        context.getSession().getRuntimeStats()
+                                .addMetricValue(MATERIALIZED_VIEW_ROW_LEVEL_STITCHING_APPLIED, NONE, 1);
+                    }
+                    return Result.ofPlanNode(candidates.get(0));
+                }
+                if (constraints.isEmpty() && !status.hasRowLevelChanges()) {
+                    context.getWarningCollector().add(new PrestoWarning(
+                            MATERIALIZED_VIEW_STITCHING_FALLBACK,
+                            "Cannot stitch materialized view " + node.getMaterializedViewName() +
+                                    ": the connector reported neither partition-level nor row-level staleness for the stale base tables. " +
+                                    "Falling back to full recompute."));
                 }
             }
         }
@@ -183,7 +216,98 @@ public class MaterializedViewRewrite
         return Result.ofPlanNode(projectToOutputs(node, plan, mappings, idAllocator));
     }
 
-    private PlanNode buildAutomaticCandidates(MaterializedViewScanNode node, PlanNode stitchedPlan, PlanNodeIdAllocator idAllocator)
+    /**
+     * Builds the row-level candidate, which differs from the partition-level one only in that each
+     * base the connector reports changed rows for gets a row-level leaf. Bases without one keep
+     * their partition-level leaf, so a single candidate spans bases that can report changed rows
+     * and bases that cannot.
+     *
+     * <p>Warnings are collected separately: a row-level decline is not a fall back to full
+     * recompute when the partition-level candidate stands, so buildStitchedPlan's own framing would
+     * mislead.
+     */
+    private Optional<PlanNode> buildRowLevelPlan(
+            Session session,
+            MaterializedViewScanNode node,
+            MaterializedViewStatus status,
+            Map<SchemaTableName, MaterializedDataPredicates> constraints,
+            MaterializedViewDefinition definition,
+            VariableAllocator variableAllocator,
+            PlanNodeIdAllocator idAllocator,
+            Context context,
+            boolean partitionLevelAvailable)
+    {
+        if (!status.hasRowLevelChanges()) {
+            return Optional.empty();
+        }
+        if (!RowLevelRefreshEnablement.isEnabled(session, definition.getRowLevelIncrementalRefresh())) {
+            return Optional.empty();
+        }
+
+        // buildStitchedPlan frames its own declines as a fall back to full recompute, which is
+        // wrong when the partition-level candidate still stands. Buffer them so the reason survives
+        // and can be re-framed, rather than discarding it -- without the reason a decline is
+        // invisible and undiagnosable.
+        BufferingWarningCollector rowLevelWarnings = new BufferingWarningCollector();
+        Optional<PlanNode> plan = buildStitchedPlan(
+                metadata,
+                session,
+                node,
+                constraints,
+                status.getChangedRowsPredicates(),
+                definition,
+                variableAllocator,
+                idAllocator,
+                context.getLookup(),
+                rowLevelWarnings);
+
+        if (plan.isPresent()) {
+            return plan;
+        }
+
+        String reasons = rowLevelWarnings.getWarnings().stream()
+                .map(PrestoWarning::getMessage)
+                .collect(joining("; "));
+        context.getWarningCollector().add(new PrestoWarning(
+                MATERIALIZED_VIEW_STITCHING_FALLBACK,
+                "Cannot use row-level stitching for materialized view " + node.getMaterializedViewName() +
+                        "; falling back to " + (partitionLevelAvailable ? "partition-level stitching" : "full recompute") +
+                        (reasons.isEmpty() ? "." : ". Reason: " + reasons)));
+        return Optional.empty();
+    }
+
+    /**
+     * Holds warnings so a caller can decide whether, and how, to surface them.
+     */
+    private static class BufferingWarningCollector
+            implements WarningCollector
+    {
+        private final List<PrestoWarning> warnings = new ArrayList<>();
+
+        @Override
+        public void add(PrestoWarning warning)
+        {
+            warnings.add(requireNonNull(warning, "warning is null"));
+        }
+
+        @Override
+        public List<PrestoWarning> getWarnings()
+        {
+            return ImmutableList.copyOf(warnings);
+        }
+
+        @Override
+        public boolean hasWarnings()
+        {
+            return !warnings.isEmpty();
+        }
+    }
+
+    private PlanNode buildAutomaticCandidates(
+            MaterializedViewScanNode node,
+            List<PlanNode> stitchedPlans,
+            Optional<PlanNode> rowLevelPlan,
+            PlanNodeIdAllocator idAllocator)
     {
         PlanNode projectedViewQuery = projectToOutputs(node, node.getViewQueryPlan(), node.getViewQueryMappings(), idAllocator);
         QualifiedObjectName mvName = node.getMaterializedViewName();
@@ -191,11 +315,16 @@ public class MaterializedViewRewrite
                 node.getSourceLocation(),
                 idAllocator.getNextId(),
                 projectedViewQuery,
-                ImmutableList.of(new MVRewriteCandidate(
-                        stitchedPlan,
-                        mvName.getCatalogName(),
-                        mvName.getSchemaName(),
-                        mvName.getObjectName())),
+                stitchedPlans.stream()
+                        .map(plan -> new MVRewriteCandidate(
+                                plan,
+                                mvName.getCatalogName(),
+                                mvName.getSchemaName(),
+                                mvName.getObjectName(),
+                                // Identity, not equality: this is the same instance the row-level
+                                // builder returned and that was added to stitchedPlans.
+                                rowLevelPlan.map(rowLevel -> rowLevel == plan).orElse(false)))
+                        .collect(toImmutableList()),
                 node.getOutputVariables());
     }
 

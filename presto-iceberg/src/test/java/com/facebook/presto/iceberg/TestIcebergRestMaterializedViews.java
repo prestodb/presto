@@ -35,7 +35,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.iceberg.CatalogType.REST;
-import static com.facebook.presto.iceberg.IcebergWarningCode.BOUNDED_REFRESH_IGNORED;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.getRestServer;
 import static com.facebook.presto.iceberg.rest.IcebergRestTestUtil.restConnectorProperties;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -260,38 +259,6 @@ public class TestIcebergRestMaterializedViews
 
             assertQuery("SELECT id, v FROM \"__mv_storage__" + mv + "\" ORDER BY id",
                     "VALUES (1, 100), (2, 200)");
-        }
-        finally {
-            assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + mv);
-            assertUpdate("DROP TABLE IF EXISTS " + base);
-        }
-    }
-
-    @Test
-    public void testV2BaseFallsBackToUnboundedRefresh()
-    {
-        // V2 lacks per-row lineage; bound is ignored and a warning is emitted.
-        String base = "bounded_v2_base";
-        String mv = "bounded_v2_mv";
-        try {
-            assertUpdate(format("CREATE TABLE %s (id BIGINT, v BIGINT)", base));
-            assertUpdate(format("INSERT INTO %s VALUES (1, 100)", base), 1);
-            assertUpdate(format(
-                    "CREATE MATERIALIZED VIEW %s WITH (max_snapshots_per_refresh = 2) AS SELECT id, v FROM %s",
-                    mv, base));
-            assertUpdate("REFRESH MATERIALIZED VIEW " + mv, 1);
-
-            for (int i = 2; i <= 6; i++) {
-                assertUpdate(format("INSERT INTO %s VALUES (%d, %d)", base, i, i * 100), 1);
-            }
-            long head = headSnapshot(base);
-
-            MaterializedResult refresh = getQueryRunner().execute("REFRESH MATERIALIZED VIEW " + mv);
-            assertTrue(refresh.getWarnings().stream()
-                            .anyMatch(w -> w.getWarningCode().equals(BOUNDED_REFRESH_IGNORED.toWarningCode())),
-                    "expected V2-base warning to be emitted");
-            assertEquals(baseWatermark(mv, base), head, "V2 bases should advance all the way to HEAD in one refresh");
-            assertQuery("SELECT COUNT(*) FROM " + mv, "SELECT 6");
         }
         finally {
             assertUpdate("DROP MATERIALIZED VIEW IF EXISTS " + mv);

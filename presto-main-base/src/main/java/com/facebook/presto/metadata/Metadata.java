@@ -522,6 +522,14 @@ public interface Metadata
      */
     Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
+    default Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(Session session, InsertTableHandle tableHandle, Collection<Slice> deleteFragments, Collection<Slice> insertFragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        if (!deleteFragments.isEmpty()) {
+            throw new PrestoException(NOT_SUPPORTED, "Atomic delete and insert materialized view refresh is not supported");
+        }
+        return finishRefreshMaterializedView(session, tableHandle, insertFragments, computedStatistics);
+    }
+
     /**
      * Gets the referenced materialized views for a give table
      */
