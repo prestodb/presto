@@ -15,9 +15,9 @@ package com.facebook.presto.kafka;
 
 import com.facebook.presto.kafka.security.ForKafkaSasl;
 import com.facebook.presto.kafka.security.KafkaSaslConfig;
-import com.facebook.presto.spi.HostAddress;
 import jakarta.inject.Inject;
 
+import java.util.List;
 import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
@@ -40,10 +40,10 @@ public class SaslKafkaConsumerManager
     }
 
     @Override
-    public Properties configure(String threadName, HostAddress hostAddress)
+    public Properties configure(String threadName, List<String> hostAddresses)
     {
         Properties properties = new Properties();
-        properties.putAll(delegate.configure(threadName, hostAddress));
+        properties.putAll(delegate.configure(threadName, hostAddresses));
         properties.putAll(saslConfig.getKafkaSaslProperties());
         return properties;
     }
