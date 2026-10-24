@@ -996,7 +996,7 @@ TEST_F(MaterializedExchangeTest, abortFromActiveState) {
 
   buffer->abort();
   EXPECT_EQ(buffer->state(), MaterializedOutputBuffer::State::kAborted);
-  EXPECT_EQ(buffer->bufferedBytes(), 1024);
+  EXPECT_EQ(buffer->bufferedBytes(), 0);
 
   // Second abort is a no-op (CAS fails, already kAborted).
   buffer->abort();
@@ -1071,6 +1071,82 @@ TEST_F(MaterializedExchangeTest, backpressureParksAndWakesProducer) {
   EXPECT_EQ(buffer->bufferedBytes(), 0);
 
   buffer->noMoreData();
+  cleanupDirectory(shuffleDir->getPath());
+}
+
+// Abort wakes a producer parked above the low watermark, frees the queued data
+// no flush owns, and wakes a producer that parks after abort.
+TEST_F(MaterializedExchangeTest, abortWakesParkedProducerAndFreesQueuedData) {
+  constexpr int32_t numPartitions = 2;
+  constexpr int64_t kMaxBytes = 1L << 20; // 1MB backpressure cap.
+  constexpr int64_t kPerPartitionMax = 100L * 1024; // 100KB drain threshold.
+  // Partition 0's RowGroup crosses the drain and high watermarks. Partition
+  // 1's stays queued below the reclaim threshold.
+  constexpr int64_t kFlushedBytes = kMaxBytes;
+  constexpr int64_t kQueuedBytes = 10L * 1024;
+
+  facebook::presto::test::setupMutableSystemConfig();
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaterializationOutputBufferMaxBytes),
+      std::to_string(kMaxBytes));
+  SystemConfig::instance()->setValue(
+      std::string(
+          SystemConfig::
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes),
+      std::to_string(kPerPartitionMax));
+
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "abortParkedTest", 64L << 20, memory::MemoryReclaimer::create());
+  auto shuffleDir = exec::test::TempDirectoryPath::create();
+  auto writeInfo = localShuffleWriteInfo(shuffleDir->getPath(), numPartitions);
+
+  folly::Baton<> collectReached;
+  folly::Baton<> releaseCollect;
+  BlockingCollectShuffleFactory blockingFactory(
+      ShuffleInterfaceFactory::factory(shuffleName_),
+      &collectReached,
+      &releaseCollect);
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      numPartitions,
+      writeInfo,
+      &blockingFactory,
+      "abort-parked.0.0.0.0",
+      rootPool.get());
+
+  auto makeRowGroup = [&](int64_t bytes) {
+    auto iobuf = buffer->allocateTrackedIOBuf(bytes);
+    std::memset(iobuf->writableData(), 'x', bytes);
+    iobuf->append(bytes);
+    return iobuf;
+  };
+  buffer->enqueue(1, makeRowGroup(kQueuedBytes));
+  std::thread producer(
+      [&]() { buffer->enqueue(0, makeRowGroup(kFlushedBytes)); });
+
+  // The blocked collect holds partition 0, so this producer parks.
+  collectReached.wait();
+  velox::ContinueFuture parked = velox::ContinueFuture::makeEmpty();
+  ASSERT_EQ(
+      buffer->isBlocked(&parked),
+      velox::exec::BlockingReason::kWaitForConsumer);
+  ASSERT_FALSE(parked.isReady());
+  const auto usedBytesBeforeAbort = buffer->pool()->usedBytes();
+
+  buffer->abort();
+
+  EXPECT_TRUE(parked.isReady());
+  // Only the in-flight flush still holds bytes.
+  EXPECT_EQ(buffer->bufferedBytes(), kFlushedBytes);
+  EXPECT_EQ(buffer->pool()->usedBytes(), usedBytesBeforeAbort - kQueuedBytes);
+
+  // Still above the high watermark, but no producer stays parked.
+  velox::ContinueFuture late = velox::ContinueFuture::makeEmpty();
+  buffer->isBlocked(&late);
+  EXPECT_TRUE(!late.valid() || late.isReady());
+
+  releaseCollect.post();
+  producer.join();
+  EXPECT_EQ(buffer->bufferedBytes(), 0);
   cleanupDirectory(shuffleDir->getPath());
 }
 
@@ -1332,10 +1408,8 @@ TEST_F(MaterializedExchangeTest, concurrentAppendPreservesAllData) {
   cleanupDirectory(shuffleDir->getPath());
 }
 
-// Abort leaves queued data for destruction without flushing partial output.
-TEST_F(
-    MaterializedExchangeTest,
-    abortRetainsBufferedDataWithoutFlushUntilDestruction) {
+// Abort frees queued data without flushing partial output.
+TEST_F(MaterializedExchangeTest, abortFreesBufferedDataWithoutFlush) {
   constexpr int32_t numPartitions = 1;
   constexpr int64_t kRowGroupBytes = 10L * 1024;
 
@@ -1372,7 +1446,8 @@ TEST_F(
   buffer->abort();
 
   EXPECT_TRUE(recordingFactory.collectSizes().empty());
-  EXPECT_EQ(buffer->bufferedBytes(), kRowGroupBytes);
+  EXPECT_EQ(buffer->bufferedBytes(), 0);
+  EXPECT_EQ(buffer->pool()->usedBytes(), 0);
   EXPECT_EQ(buffer->state(), MaterializedOutputBuffer::State::kAborted);
 
   buffer.reset();
