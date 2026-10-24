@@ -149,6 +149,7 @@ import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -178,6 +179,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COLUMN_
 import static com.facebook.presto.iceberg.IcebergTableProperties.getWriteDataLocation;
 import static com.facebook.presto.iceberg.IcebergTableProperties.isHiveLocksEnabled;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
+import static com.facebook.presto.iceberg.UnknownFields.isUnknownType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_DERIVED_COLUMN_SPEC;
@@ -212,6 +214,7 @@ import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.hadoop.hive.serde.serdeConstants.VOID_TYPE_NAME;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_ENABLED;
@@ -553,6 +556,12 @@ public final class IcebergUtil
         // (the actual column is read back as JSON via the Iceberg type mapping)
         if (icebergType.typeId() == org.apache.iceberg.types.Type.TypeID.VARIANT) {
             return HiveType.HIVE_STRING.toString();
+        }
+
+        // Iceberg's HiveSchemaUtil cannot convert the V3 `unknown` type. Hive's `void` is
+        // its all-null type and is what Spark records for NullType, so use it here as well.
+        if (isUnknownType(icebergType)) {
+            return VOID_TYPE_NAME;
         }
 
         if (icebergType.isPrimitiveType()) {
@@ -993,6 +1002,10 @@ public final class IcebergUtil
     public static Object deserializeIcebergValue(Type type, String valueString, String name)
     {
         if (valueString == null) {
+            return null;
+        }
+        if (type.equals(UNKNOWN)) {
+            // UNKNOWN columns are never stored in data files and never have a meaningful partition/default value.
             return null;
         }
 

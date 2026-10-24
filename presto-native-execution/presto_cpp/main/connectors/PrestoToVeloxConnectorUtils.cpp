@@ -634,6 +634,8 @@ template TypePtr fieldNamesToLowerCase<TypeKind::VARCHAR>(const TypePtr&);
 template TypePtr fieldNamesToLowerCase<TypeKind::VARBINARY>(const TypePtr&);
 template TypePtr fieldNamesToLowerCase<TypeKind::TIMESTAMP>(const TypePtr&);
 template TypePtr fieldNamesToLowerCase<TypeKind::HUGEINT>(const TypePtr&);
+// Iceberg V3 unknown columns have no field names; return the type as-is.
+template TypePtr fieldNamesToLowerCase<TypeKind::UNKNOWN>(const TypePtr&);
 
 std::unique_ptr<common::Filter> toFilter(
     const protocol::Domain& domain,
@@ -872,7 +874,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
       folly::toLowerAscii(name);
       names.emplace_back(std::move(name));
       auto parsedType = hiveTypeParser.parse(column.type);
-      types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
+      types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH_WITH_UNKNOWN(
           fieldNamesToLowerCase, parsedType->kind(), parsedType));
     }
     finalDataColumns = ROW(std::move(names), std::move(types));

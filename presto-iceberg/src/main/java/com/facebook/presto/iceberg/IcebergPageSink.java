@@ -72,6 +72,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 import static com.facebook.presto.common.type.Decimals.readBigDecimal;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.hive.util.ConfigurationUtils.toJobConf;
 import static com.facebook.presto.iceberg.FileContent.DATA;
@@ -184,8 +185,12 @@ public class IcebergPageSink
         this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
         String tempDirectoryPath = locationProvider.newDataLocation("sort-tmp-files");
         this.tempDirectory = new Path(tempDirectoryPath);
+        // Replace top-level UNKNOWN columns with BOOLEAN so that the ORC sort-spill temp files
+        // (TempFileWriter → OrcType.toOrcType) do not fail: UNKNOWN columns are always NULL,
+        // so any scalar placeholder type works.
         List<Type> types = getColumnsForWrite(outputSchema, partitionSpec, requireNonNull(sortParameters.getTypeManager(), "typeManager is null")).stream()
                 .map(IcebergColumnHandle::getType)
+                .map(IcebergPageSink::replaceUnknownWithBoolean)
                 .collect(toImmutableList());
         this.sortParameters = sortParameters;
         if (!sortOrder.isEmpty()) {
@@ -603,6 +608,14 @@ public class IcebergPageSink
             return timestampType.fromEpochComponents(localDateTime.toEpochSecond(ZoneOffset.UTC), localDateTime.getNano());
         }
         return value;
+    }
+
+    private static Type replaceUnknownWithBoolean(Type type)
+    {
+        if (type.equals(UNKNOWN)) {
+            return BooleanType.BOOLEAN;
+        }
+        return type;
     }
 
     private static List<PartitionColumn> toPartitionColumns(List<IcebergColumnHandle> handles, PartitionSpec partitionSpec)
