@@ -190,6 +190,10 @@ public class TestOperatorStats
         assertEquals(actual.getOperatorType(), "test");
 
         assertEquals(actual.getTotalDrivers(), 1);
+        assertEquals(actual.getIsBlockedCalls(), 1);
+        assertEquals(actual.getIsBlockedWall(), new Duration(2, NANOSECONDS));
+        assertEquals(actual.getIsBlockedCpu(), new Duration(3, NANOSECONDS));
+        assertEquals(actual.getIsBlockedAllocationInBytes(), 234);
         assertEquals(actual.getAddInputCalls(), 2);
         assertEquals(actual.getAddInputWall(), new Duration(3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(4, NANOSECONDS));
@@ -239,6 +243,10 @@ public class TestOperatorStats
         assertEquals(actual.getOperatorType(), "test");
 
         assertEquals(actual.getTotalDrivers(), 3 * 1);
+        assertEquals(actual.getIsBlockedCalls(), 3 * 1);
+        assertEquals(actual.getIsBlockedWall(), new Duration(3 * 2, NANOSECONDS));
+        assertEquals(actual.getIsBlockedCpu(), new Duration(3 * 3, NANOSECONDS));
+        assertEquals(actual.getIsBlockedAllocationInBytes(), 3 * 234);
         assertEquals(actual.getAddInputCalls(), 3 * 2);
         assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
@@ -293,6 +301,10 @@ public class TestOperatorStats
         assertEquals(actual.getOperatorType(), "test");
 
         assertEquals(actual.getTotalDrivers(), 1 * 1);
+        assertEquals(actual.getIsBlockedCalls(), 1 * 1);
+        assertEquals(actual.getIsBlockedWall(), new Duration(1 * 2, NANOSECONDS));
+        assertEquals(actual.getIsBlockedCpu(), new Duration(1 * 3, NANOSECONDS));
+        assertEquals(actual.getIsBlockedAllocationInBytes(), 1 * 234);
         assertEquals(actual.getAddInputCalls(), 1 * 2);
         assertEquals(actual.getAddInputWall(), new Duration(1 * 3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(1 * 4, NANOSECONDS));
@@ -345,6 +357,10 @@ public class TestOperatorStats
         assertEquals(actual.getOperatorType(), "test");
 
         assertEquals(actual.getTotalDrivers(), 3 * 1);
+        assertEquals(actual.getIsBlockedCalls(), 3 * 1);
+        assertEquals(actual.getIsBlockedWall(), new Duration(3 * 2, NANOSECONDS));
+        assertEquals(actual.getIsBlockedCpu(), new Duration(3 * 3, NANOSECONDS));
+        assertEquals(actual.getIsBlockedAllocationInBytes(), 3 * 234);
         assertEquals(actual.getAddInputCalls(), 3 * 2);
         assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
@@ -399,6 +415,10 @@ public class TestOperatorStats
         assertEquals(actual.getOperatorType(), "test");
 
         assertEquals(actual.getTotalDrivers(), 3);
+        assertEquals(actual.getIsBlockedCalls(), 3 * 1);
+        assertEquals(actual.getIsBlockedWall(), new Duration(3 * 2, NANOSECONDS));
+        assertEquals(actual.getIsBlockedCpu(), new Duration(3 * 3, NANOSECONDS));
+        assertEquals(actual.getIsBlockedAllocationInBytes(), 3 * 234);
         assertEquals(actual.getAddInputCalls(), 3 * 2);
         assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
@@ -449,6 +469,10 @@ public class TestOperatorStats
         assertEquals(actual.getOperatorType(), "test");
 
         assertEquals(actual.getTotalDrivers(), 3);
+        assertEquals(actual.getIsBlockedCalls(), 3 * 1);
+        assertEquals(actual.getIsBlockedWall(), new Duration(3 * 2, NANOSECONDS));
+        assertEquals(actual.getIsBlockedCpu(), new Duration(3 * 3, NANOSECONDS));
+        assertEquals(actual.getIsBlockedAllocationInBytes(), 3 * 234);
         assertEquals(actual.getAddInputCalls(), 3 * 2);
         assertEquals(actual.getAddInputWall(), new Duration(3 * 3, NANOSECONDS));
         assertEquals(actual.getAddInputCpu(), new Duration(3 * 4, NANOSECONDS));
