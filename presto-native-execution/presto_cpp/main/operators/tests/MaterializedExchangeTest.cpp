@@ -316,6 +316,79 @@ class BlockingCollectShuffleFactory : public ShuffleInterfaceFactory {
   std::weak_ptr<BlockingCollectShuffleWriter> writer_;
 };
 
+// A shuffle page that returns a single caller-provided (possibly truncated)
+// record, used to feed a corrupt page to MaterializedExchange's reader.
+class TruncatedShuffleSerializedPage : public ShuffleSerializedPage {
+ public:
+  explicit TruncatedShuffleSerializedPage(std::string bytes)
+      : bytes_(std::move(bytes)), rows_{std::string_view(bytes_)} {}
+
+  uint64_t size() const override {
+    return bytes_.size();
+  }
+
+  std::optional<int64_t> numRows() const override {
+    return 1;
+  }
+
+  const std::vector<std::string_view>& rows(int32_t /*driverId*/) override {
+    return rows_;
+  }
+
+ private:
+  const std::string bytes_;
+  const std::vector<std::string_view> rows_;
+};
+
+// Reader that yields one TruncatedShuffleSerializedPage, then end-of-stream.
+class TruncatedShuffleReader : public ShuffleReader {
+ public:
+  explicit TruncatedShuffleReader(std::string bytes)
+      : bytes_(std::move(bytes)) {}
+
+  folly::SemiFuture<std::vector<std::unique_ptr<ShuffleSerializedPage>>> next(
+      uint64_t /*maxBytes*/) override {
+    std::vector<std::unique_ptr<ShuffleSerializedPage>> pages;
+    if (!done_) {
+      done_ = true;
+      pages.push_back(std::make_unique<TruncatedShuffleSerializedPage>(bytes_));
+    }
+    return folly::makeSemiFuture(std::move(pages));
+  }
+
+  void noMoreData(bool /*success*/) override {}
+
+  folly::F14FastMap<std::string, int64_t> stats() const override {
+    return {};
+  }
+
+ private:
+  const std::string bytes_;
+  bool done_{false};
+};
+
+class TruncatedShuffleFactory : public ShuffleInterfaceFactory {
+ public:
+  explicit TruncatedShuffleFactory(std::string bytes)
+      : bytes_(std::move(bytes)) {}
+
+  std::shared_ptr<ShuffleReader> createReader(
+      const std::string& /*serializedShuffleInfo*/,
+      int32_t /*partition*/,
+      velox::memory::MemoryPool* /*pool*/) override {
+    return std::make_shared<TruncatedShuffleReader>(bytes_);
+  }
+
+  std::shared_ptr<ShuffleWriter> createWriter(
+      const std::string& /*serializedShuffleInfo*/,
+      velox::memory::MemoryPool* /*pool*/) override {
+    VELOX_FAIL("writer not used in the reader-guard test");
+  }
+
+ private:
+  const std::string bytes_;
+};
+
 } // namespace
 
 class MaterializedExchangeTest : public exec::test::OperatorTestBase {
@@ -1379,6 +1452,116 @@ TEST_F(
   EXPECT_EQ(rootPool->usedBytes(), 0);
 
   cleanupDirectory(shuffleDir->getPath());
+}
+
+TEST_F(MaterializedExchangeTest, chunkedNestedRoundTrip) {
+  // Repro dig for D109377688 (chunk RowGroup flushing in MaterializedOutput): a
+  // large batch of deeply nested, varchar-bearing rows (threads_vf_event shape)
+  // forces MaterializedOutput to emit MULTIPLE bounded RowGroups per partition.
+  // Verify MaterializedExchange reads the data back exactly -- the chunked
+  // write->read data round-trip that the diff's size-only test does not cover.
+  auto rowType =
+      ROW({"k", "chain", "extra", "nav"},
+          {INTEGER(),
+           ARRAY(ROW({VARCHAR(), VARCHAR(), VARCHAR(), VARCHAR()})),
+           MAP(VARCHAR(), VARCHAR()),
+           ROW({VARCHAR(), VARCHAR()})});
+
+  const int numRows = 2000;
+  VectorFuzzer::Options opts;
+  opts.vectorSize = numRows;
+  opts.nullRatio = 0.2;
+  opts.containerLength = 12;
+  opts.containerVariableLength = true;
+  opts.stringLength = 128;
+  opts.stringVariableLength = true;
+  VectorFuzzer fuzzer(opts, pool(), 42);
+
+  std::vector<VectorPtr> children;
+  for (auto i = 0; i < rowType->size(); ++i) {
+    children.push_back(fuzzer.fuzz(rowType->childAt(i), numRows));
+  }
+  auto data = std::make_shared<RowVector>(
+      pool(), rowType, nullptr, numRows, std::move(children));
+
+  // Few partitions => more bytes per partition => multiple RowGroup chunks.
+  const int numPartitions = 2;
+  const int numDrivers = 2;
+
+  auto expected = runExchangeWrite({data}, numPartitions, numDrivers);
+  auto actual = runExchangeRead(numPartitions, rowType);
+  exec::test::assertEqualResults(expected, actual);
+  cleanupDirectory(tempDir_->getPath());
+}
+
+// Reader hardening: a record shorter than a RowGroup header must fail with a
+// clean exception, not underflow the unsigned 'remaining' and read a garbage
+// RowGroup size out of bounds. Feed a 5-byte record (< kPageHeaderSize) through
+// a mock shuffle reader and assert MaterializedExchange rejects it.
+TEST_F(MaterializedExchangeTest, readerRejectsTruncatedRecord) {
+  const std::string truncated(5, '\x01');
+  // Own the truncated factory locally and hand its reader to the exchange
+  // source directly. Registering it in the process-wide ShuffleInterfaceFactory
+  // registry would leak past the test -- that registry has no unregister/clear
+  // hook -- so route through the ExchangeSource factory instead, which is
+  // snapshotted and restored below.
+  auto truncatedFactory = std::make_shared<TruncatedShuffleFactory>(truncated);
+
+  // Route the exchange source through the truncated reader. factories() is
+  // process-wide state, so snapshot it and put it back on the way out rather
+  // than leaving this test's registration behind for whatever runs next.
+  const auto savedFactories = exec::ExchangeSource::factories();
+  SCOPE_EXIT {
+    exec::ExchangeSource::factories() = savedFactories;
+  };
+  exec::ExchangeSource::factories().clear();
+  exec::ExchangeSource::registerFactory(
+      [truncatedFactory](
+          const std::string& taskId,
+          int destination,
+          const std::shared_ptr<exec::ExchangeQueue>& queue,
+          memory::MemoryPool* pool) -> std::shared_ptr<exec::ExchangeSource> {
+        if (!taskId.starts_with("batch://")) {
+          return nullptr;
+        }
+        return std::make_shared<ShuffleExchangeSource>(
+            taskId,
+            destination,
+            queue,
+            truncatedFactory->createReader("", destination, pool),
+            pool);
+      });
+
+  auto dataType = ROW({"c0"}, {INTEGER()});
+  auto plan = exec::test::PlanBuilder()
+                  .addNode(
+                      [&dataType](
+                          core::PlanNodeId nodeId,
+                          core::PlanNodePtr /*source*/) -> core::PlanNodePtr {
+                        return std::make_shared<MaterializedExchangeNode>(
+                            nodeId, dataType);
+                      })
+                  .planNode();
+
+  exec::CursorParameters params;
+  params.planNode = plan;
+  params.destination = 0;
+
+  VELOX_ASSERT_THROW(
+      exec::test::readCursor(
+          params,
+          [&](exec::TaskCursor* taskCursor) {
+            if (taskCursor->noMoreSplits()) {
+              return;
+            }
+            auto& task = taskCursor->task();
+            auto remoteSplit = std::make_shared<exec::RemoteConnectorSplit>(
+                makeTaskId("read", 0, "unused"));
+            task->addSplit("0", exec::Split{remoteSplit});
+            task->noMoreSplits("0");
+            taskCursor->setNoMoreSplits();
+          }),
+      "Corrupt materialized page: truncated RowGroup header");
 }
 
 } // namespace facebook::presto::operators::test
