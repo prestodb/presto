@@ -102,6 +102,7 @@ public class NimbusOAuth2Client
     private final String principalField;
     private final Set<String> accessTokenAudiences;
     private final Duration maxClockSkew;
+    private final Duration challengeTimeout;
     private final NimbusHttpClient httpClient;
     private final OAuth2ServerConfigProvider serverConfigurationProvider;
     private volatile boolean loaded;
@@ -128,6 +129,7 @@ public class NimbusOAuth2Client
         scope = Scope.parse(oauthConfig.getScopes());
         principalField = oauthConfig.getPrincipalField();
         maxClockSkew = oauthConfig.getMaxClockSkew();
+        challengeTimeout = oauthConfig.getChallengeTimeout();
 
         accessTokenAudiences = new HashSet<>(oauthConfig.getAdditionalAudiences());
         accessTokenAudiences.add(clientId.getValue());
@@ -275,7 +277,7 @@ public class NimbusOAuth2Client
 
             return new Response(
                     accessToken.getValue(),
-                    determineExpiration(getExpiration(accessToken), claims.getExpirationTime()),
+                    determineExpiration(getExpiration(accessToken), claims.getExpirationTime(), challengeTimeout),
                     buildRefreshToken(refreshToken, existingRefreshToken),
                     claims.getClaims());
         }
@@ -640,7 +642,13 @@ public class NimbusOAuth2Client
         }
     }
 
-    private static Instant determineExpiration(Optional<Instant> validUntil, Date expiration)
+    static Instant determineExpiration(Optional<Instant> validUntil, Date expiration)
+            throws ChallengeFailedException
+    {
+        return determineExpiration(validUntil, expiration, null);
+    }
+
+    static Instant determineExpiration(Optional<Instant> validUntil, Date expiration, Duration fallback)
             throws ChallengeFailedException
     {
         if (validUntil.isPresent()) {
@@ -653,6 +661,10 @@ public class NimbusOAuth2Client
 
         if (expiration != null) {
             return expiration.toInstant();
+        }
+
+        if (fallback != null) {
+            return Instant.now().plusMillis(fallback.toMillis());
         }
 
         throw new ChallengeFailedException("no valid expiration date");
