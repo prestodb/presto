@@ -42,7 +42,7 @@ public class TestInternalCommunicationConfig
                 .setExcludeCipherSuites(null)
                 .setKerberosUseCanonicalHostname(true)
                 .setBinaryTransportEnabled(false)
-                .setMaxTaskUpdateSize(new DataSize(16, MEGABYTE))
+                .setMaxTaskUpdateSize(new DataSize(32, MEGABYTE))
                 .setTaskCommunicationProtocol(CommunicationProtocol.HTTP)
                 .setServerInfoCommunicationProtocol(CommunicationProtocol.HTTP)
                 .setThriftTransportEnabled(false)
