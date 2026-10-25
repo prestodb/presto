@@ -10,7 +10,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_executable(thrift_io_test ThriftIOTest.cpp)
+add_executable(thrift_io_test ThriftIOTest.cpp JdbcThriftToJsonTest.cpp)
+target_compile_definitions(
+  thrift_io_test
+  PRIVATE
+    PRESTO_JDBC_THRIFT_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/../../../../../presto-base-jdbc/src/test/resources/jdbc-thrift.json"
+)
 
 add_test(NAME thrift_io_test COMMAND thrift_io_test WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -22,6 +27,8 @@ target_include_directories(
 target_link_libraries(
   thrift_io_test
   presto_thrift_extra
+  presto_jdbc_thrift
+  presto_protocol
   presto_thrift-cpp2
   presto_native-cpp2
   ${RE2}
