@@ -465,6 +465,34 @@ public class TestIcebergSmokeHive
         dropTable(session, tableName);
     }
 
+    @Test
+    public void testUnknownColumnDDLHiveCatalog()
+    {
+        Session session = getSession();
+        String tableName = "test_unknown_column_ddl_hive";
+        try {
+            // CREATE TABLE with UNKNOWN column on V3 table succeeds
+            assertUpdate(session, "CREATE TABLE " + tableName + " (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3')");
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, NULL)", 1);
+            assertQuery(session, "SELECT * FROM " + tableName, "VALUES (1, NULL)");
+
+            // UNKNOWN on V2 table is rejected
+            assertQueryFails(
+                    session,
+                    "CREATE TABLE " + tableName + "_v2 (id INTEGER, unknown_column UNKNOWN)",
+                    ".*require.*format-version.*3.*|.*format-version.*3.*");
+
+            // Adding an UNKNOWN subfield inside a nested struct is rejected even on V3
+            assertQueryFails(
+                    session,
+                    "ALTER TABLE " + tableName + " ADD COLUMN id.nested UNKNOWN",
+                    ".*Unknown type nested inside a row, array, or map is not supported.*|.*not a struct/ROW type.*");
+        }
+        finally {
+            dropTable(session, tableName);
+        }
+    }
+
     private Table getIcebergTable(Session session, String tableName)
     {
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();
