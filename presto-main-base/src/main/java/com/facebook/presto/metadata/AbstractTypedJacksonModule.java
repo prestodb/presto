@@ -14,7 +14,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ConnectorCodec;
-import com.facebook.presto.spi.ConnectorId;
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -59,7 +58,7 @@ public abstract class AbstractTypedJacksonModule<T>
             Function<T, String> nameResolver,
             Function<String, Class<? extends T>> classResolver,
             boolean binarySerializationEnabled,
-            Function<ConnectorId, Optional<ConnectorCodec<T>>> codecExtractor)
+            Function<String, Optional<ConnectorCodec<T>>> codecExtractor)
     {
         super(baseClass.getSimpleName() + "Module", Version.unknownVersion());
 
