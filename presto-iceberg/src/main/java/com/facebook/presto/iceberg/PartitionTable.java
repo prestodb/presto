@@ -18,6 +18,7 @@ import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TimestampType;
+import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeUtils;
 import com.facebook.presto.spi.ColumnMetadata;
@@ -54,6 +55,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INCOMPATIBLE_VERSION;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_METADATA_TABLES;
@@ -324,6 +327,10 @@ public class PartitionTable
                 // epoch-milliseconds for the TIMESTAMP (p=3) mapping. Uses floor division so
                 // pre-1970 values are correct (TimeUnit.MICROSECONDS.toMillis() would truncate).
                 return TimestampType.TIMESTAMP_MICROSECONDS.toEpochMillis((long) value);
+            }
+            if (prestoType instanceof TimestampWithTimeZoneType) {
+                // Iceberg stores timestamptz values as epoch-microseconds in UTC.
+                return packDateTimeWithZone(TimestampType.TIMESTAMP_MICROSECONDS.toEpochMillis((long) value), UTC_KEY);
             }
         }
         if (type instanceof Types.TimeType) {
