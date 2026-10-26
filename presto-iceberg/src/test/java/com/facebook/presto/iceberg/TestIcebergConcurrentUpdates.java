@@ -23,7 +23,6 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.regex.Pattern;
@@ -58,10 +57,12 @@ public class TestIcebergConcurrentUpdates
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.builder()
+        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setCreateTpchTables(false)
                 .build()
                 .getQueryRunner();
+        queryRunner.installPlugin(new TestingGateFunctions.TestingGatePlugin());
+        return queryRunner;
     }
 
     @BeforeClass(alwaysRun = true)
@@ -99,20 +100,37 @@ public class TestIcebergConcurrentUpdates
 
         // Execute concurrent UPDATEs over the "test_concurrent_updates" table.
         for (int round = 0; round < ROUNDS; round++) {
-            // each writer only touches its own row, so the statements only conflict when committing
-            CyclicBarrier startTogether = new CyclicBarrier(WRITERS);
+            List<TestingGateFunctions.Gate> gates = new ArrayList<>();
+            List<String> gateNames = new ArrayList<>();
             List<Future<?>> updates = new ArrayList<>();
-            for (int writer = 1; writer <= WRITERS; writer++) {
-                String sql = format("UPDATE %s SET value = value + 1 WHERE id = %s", tableName, writer);
-                updates.add(executor.submit(() -> {
-                    startTogether.await(30, SECONDS);
-                    return getQueryRunner().execute(session, sql);
-                }));
+            for (int writer = 1; writer < WRITERS; writer++) {
+                String gateName = format("concurrent_update_%s_%s", round, writer);
+                gateNames.add(gateName);
+                gates.add(TestingGateFunctions.createGate(gateName));
+                String sql = format("UPDATE %s SET value = value + 1 WHERE id = %s AND await_gate('%s')", tableName, writer, gateName);
+                updates.add(executor.submit(() -> getQueryRunner().execute(session, sql)));
             }
 
-            for (Future<?> update : updates) {
-                // throws ICEBERG_COMMIT_CONFLICT if a rejected commit is not retried
-                update.get();
+            try {
+                try {
+                    for (TestingGateFunctions.Gate gate : gates) {
+                        gate.awaitArrival(30, SECONDS);
+                    }
+
+                    // This writer commits after the other updates have pinned their snapshots.
+                    getQueryRunner().execute(session, format("UPDATE %s SET value = value + 1 WHERE id = %s", tableName, WRITERS));
+                }
+                finally {
+                    gates.forEach(TestingGateFunctions.Gate::release);
+                }
+                for (Future<?> update : updates) {
+                    // throws ICEBERG_COMMIT_CONFLICT if a rejected commit is not retried
+                    update.get();
+                }
+            }
+            finally {
+                gates.forEach(TestingGateFunctions.Gate::release);
+                gateNames.forEach(TestingGateFunctions::removeGate);
             }
         }
 
@@ -128,8 +146,9 @@ public class TestIcebergConcurrentUpdates
         assertEquals(computeScalar(format("SELECT count(*) FROM %s WHERE value = %s", tableName, ROUNDS)), (long) WRITERS);
 
         // Check the list of executed queries and count the UPDATE commands that failed during the Iceberg commit and were re-executed.
-        String sql = format("UPDATE %s SET value = value \\+ 1 WHERE id = .*", tableName);
-        assertTrue(countRetriedQueries(sql) > 0, "expected concurrent updates to be retried");
+        String sql = format("UPDATE %s SET value = value \\+ 1 WHERE id = .* AND await_gate\\('.*'\\)", tableName);
+        assertTrue(countRetriedQueries(sql) >= (WRITERS - 1) * ROUNDS,
+                "expected every gated update to be retried at least once");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -152,17 +171,11 @@ public class TestIcebergConcurrentUpdates
                 .setSystemProperty(QUERY_RETRY_LIMIT, "10")
                 .build();
 
-        // Execute UPDATE and MERGE concurrently over the same table.
-        // Both statements modify different rows but will conflict when committing to Iceberg.
-        CyclicBarrier startTogether = new CyclicBarrier(2);
-        List<Future<?>> operations = new ArrayList<>();
-
-        // UPDATE modifies row with id = 1
-        String updateSql = format("UPDATE %s SET value = value + 1 WHERE id = 1", tableName);
-        operations.add(executor.submit(() -> {
-            startTogether.await(30, SECONDS);
-            return getQueryRunner().execute(session, updateSql);
-        }));
+        // Execute an UPDATE and MERGE over the same snapshot. The MERGE commits while the UPDATE is gated.
+        String gateName = "update_before_merge";
+        TestingGateFunctions.Gate gate = TestingGateFunctions.createGate(gateName);
+        String updateSql = format("UPDATE %s SET value = value + 1 WHERE id = 1 AND await_gate('%s')", tableName, gateName);
+        Future<?> update = executor.submit(() -> getQueryRunner().execute(session, updateSql));
 
         // MERGE modifies row with id = 2 and inserts row with id = 3
         String mergeSql = format(
@@ -174,14 +187,20 @@ public class TestIcebergConcurrentUpdates
                 "  INSERT (id, value) VALUES(s.id, s.value)",
                 tableName);
 
-        operations.add(executor.submit(() -> {
-            startTogether.await(30, SECONDS);
-            return getQueryRunner().execute(session, mergeSql);
-        }));
+        try {
+            gate.awaitArrival(30, SECONDS);
+            getQueryRunner().execute(session, mergeSql);
+        }
+        finally {
+            gate.release();
+        }
 
-        for (Future<?> operation : operations) {
-            // throws ICEBERG_COMMIT_CONFLICT if a rejected commit is not retried
-            operation.get();
+        try {
+            // throws ICEBERG_COMMIT_CONFLICT if the rejected UPDATE is not retried
+            update.get();
+        }
+        finally {
+            TestingGateFunctions.removeGate(gateName);
         }
 
         // After executing both UPDATE and MERGE commands, the table must contain the following data:
@@ -193,13 +212,13 @@ public class TestIcebergConcurrentUpdates
         assertQuery(session, format("SELECT id, value FROM %s ORDER BY id", tableName),
                 "VALUES (1, 11), (2, 100), (3, 300)");
 
-        // Check that at least one operation was retried due to commit conflict.
-        String updatePattern = format("UPDATE %s SET value = value \\+ 1 WHERE id = 1", tableName);
+        // Check that the gated UPDATE was retried after its commit conflict.
+        String updatePattern = format("UPDATE %s SET value = value \\+ 1 WHERE id = 1 AND await_gate\\('%s'\\)", tableName, gateName);
         String mergePattern = format("MERGE INTO %s t USING .* ON t.id = s.id .*", tableName);
         long retriedUpdates = countRetriedQueries(updatePattern);
         long retriedMerges = countRetriedQueries(mergePattern);
-        assertTrue(retriedUpdates > 0 || retriedMerges > 0,
-                "expected at least one concurrent operation (UPDATE or MERGE) to be retried");
+        assertEquals(retriedUpdates, 1L, "expected the gated UPDATE to be retried once");
+        assertEquals(retriedMerges, 0L, "expected the MERGE to commit without a retry");
 
         assertUpdate("DROP TABLE " + tableName);
     }
