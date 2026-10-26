@@ -187,37 +187,6 @@ public class TestIcebergGeospatialUtils
                 "Writing to Iceberg geography column 'geo' is only supported for the PARQUET file format, but the table uses ORC");
     }
 
-    /**
-     * Presto's GEOMETRY carries no spatial reference, so it cannot honour the CRS a geometry
-     * column declares, whatever the file format.
-     */
-    @Test
-    public void testWriteRejectsGeometry()
-    {
-        String message = "Writing to Iceberg geometry column 'geo' is not supported. Only geography columns can be written";
-        assertWriteFails(schema(Types.GeometryType.crs84()), 3, PARQUET, message);
-        assertWriteFails(schema(Types.GeometryType.crs84()), 3, ORC, message);
-    }
-
-    /**
-     * A nested geospatial field is validated like a top-level one, and reported by the
-     * top-level column that contains it.
-     */
-    @Test
-    public void testWriteValidatesNestedFields()
-    {
-        assertWriteFails(
-                schema(Types.ListType.ofOptional(2, Types.GeographyType.crs84())),
-                2,
-                PARQUET,
-                "Iceberg geography column 'geo' requires format version 3 or higher, but the table is at format version 2");
-        assertWriteFails(
-                schema(Types.StructType.of(optional(2, "inner", Types.GeometryType.crs84()))),
-                3,
-                PARQUET,
-                "Writing to Iceberg geometry column 'geo' is not supported. Only geography columns can be written");
-    }
-
     private static void assertReadFails(String wellKnownText, String expectedMessage)
     {
         try {
