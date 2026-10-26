@@ -444,6 +444,183 @@ public class TestResourceGroups
         assertEquals(query2.getState(), RUNNING);
     }
 
+    /**
+     * Regression test for: queued query is not started when resource group CPU quota regenerates (hardCpuLimit).
+     *
+     * When a subgroup exceeds its hardCpuLimit and all running queries finish, the group is removed from its
+     * parent's eligibleSubGroups queue. Previously, internalGenerateCpuQuota() did not call updateEligibility()
+     * after reducing cpuUsageMillis, so the group was never re-inserted and the queued query would wait
+     * indefinitely — until an unrelated event (new query arrival or another query finishing) triggered
+     * updateEligibility() as a side effect.
+     */
+    @Test(timeOut = 10_000)
+    public void testHardCpuLimitQueuedQueryStartsAfterQuotaRegenerates()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(5);
+
+        InternalResourceGroup group = root.getOrCreateSubGroup("group", true);
+        group.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group.setMaxQueuedQueries(10);
+        group.setHardConcurrencyLimit(5);
+        group.setHardCpuLimit(new Duration(10, SECONDS));
+        group.setCpuQuotaGenerationMillisPerSecond(2000); // regenerates 2s of CPU quota per second
+
+        // Step 1: Run a CPU-heavy query that pushes the group over its hardCpuLimit (10s).
+        // cpuUsage = 41s → group is 31s over limit.
+        MockManagedQueryExecution burner = new MockManagedQueryExecution(0, "burner", 1, new Duration(41, SECONDS));
+        burner.startWaitingForPrerequisites();
+        group.run(burner);
+        assertEquals(burner.getState(), RUNNING);
+
+        burner.complete();
+        // Group now has cpuUsageMillis = 41_000. hardCpuLimitMillis = 10_000. canRunMore() = false.
+        root.processQueuedQueries();
+
+        // Step 2: Submit a small query — it must go to QUEUED because CPU is still over limit.
+        MockManagedQueryExecution queued = new MockManagedQueryExecution(0, "queued", 1);
+        queued.startWaitingForPrerequisites();
+        group.run(queued);
+        assertEquals(queued.getState(), QUEUED);
+
+        // Step 3: Simulate quota regeneration with NO other traffic.
+        // 2000 ms/s * 16s = 32_000 ms of quota generated → cpuUsageMillis = 41_000 - 32_000 = 9_000 < hardCpuLimitMillis (10_000).
+        // After generateCpuQuota(), canRunMore() flips to true. updateEligibility() must re-add the group
+        // to the parent's eligibleSubGroups so that processQueuedQueries() can dispatch the waiting query.
+        root.generateCpuQuota(16);
+        root.processQueuedQueries();
+
+        // The queued query must start — no new query or other event was needed.
+        assertEquals(queued.getState(), RUNNING);
+    }
+
+    /**
+     * Precise regression test for the scheduler tick sequence from refreshAndStartQueries().
+     *
+     * The real scheduler runs generateCpuQuota(elapsedSeconds) followed immediately by
+     * processQueuedQueries() on every tick. This test replays that sequence second-by-second,
+     * asserting:
+     *   (a) the queued query remains QUEUED on every tick where CPU usage is still >= hardCpuLimit
+     *       (confirming the group is parked solely by hardCpuLimit and nothing else could wake it), and
+     *   (b) the queued query transitions to RUNNING on the exact tick where generateCpuQuota()
+     *       drives cpuUsageMillis below hardCpuLimitMillis — with no new query submitted and no
+     *       running query completing (the conditions that previously unblocked the group as a side effect).
+     *
+     * Before the fix (internalGenerateCpuQuota did not call updateEligibility), step (b) would fail:
+     * the query would stay QUEUED indefinitely because the subgroup was never re-inserted into its
+     * parent's eligibleSubGroups queue after quota regenerated.
+     */
+    @Test(timeOut = 10_000)
+    public void testHardCpuLimitQueuedQueryRemainsQueuedUntilQuotaFullyRegenerates()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(10);
+        root.setHardConcurrencyLimit(5);
+
+        InternalResourceGroup group = root.getOrCreateSubGroup("group", true);
+        group.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        group.setMaxQueuedQueries(10);
+        group.setHardConcurrencyLimit(5);
+        // hardCpuLimit = 10s, regeneration rate = 1s of CPU quota per real second.
+        // Burner uses 14s of CPU → group is 4s over limit → needs 4 ticks of generateCpuQuota(1) to clear.
+        group.setHardCpuLimit(new Duration(10, SECONDS));
+        group.setCpuQuotaGenerationMillisPerSecond(1000);
+
+        // Burn 14s of CPU; group ends up at cpuUsageMillis=14_000, hardCpuLimitMillis=10_000.
+        MockManagedQueryExecution burner = new MockManagedQueryExecution(0, "burner", 1, new Duration(14, SECONDS));
+        burner.startWaitingForPrerequisites();
+        group.run(burner);
+        assertEquals(burner.getState(), RUNNING);
+        burner.complete();
+        // Tick 0: quota = 0 elapsed seconds → no quota gen; process queues (nothing eligible, CPU over limit).
+        root.processQueuedQueries();
+
+        // Submit a query while CPU is over limit — must go to QUEUED.
+        MockManagedQueryExecution queued = new MockManagedQueryExecution(0, "queued", 1);
+        queued.startWaitingForPrerequisites();
+        group.run(queued);
+        assertEquals(queued.getState(), QUEUED);
+
+        // Ticks 1-3: each regenerates 1s of quota (1_000 ms).
+        // After tick 1: cpuUsageMillis = 13_000 → still >= 10_000, must stay QUEUED.
+        // After tick 2: cpuUsageMillis = 12_000 → still >= 10_000, must stay QUEUED.
+        // After tick 3: cpuUsageMillis = 11_000 → still >= 10_000, must stay QUEUED.
+        // This mirrors the refreshAndStartQueries() sequence exactly: generateCpuQuota then processQueuedQueries.
+        for (int tick = 1; tick <= 3; tick++) {
+            root.generateCpuQuota(1);
+            root.processQueuedQueries();
+            assertEquals(queued.getState(), QUEUED,
+                    "Query must still be QUEUED after tick " + tick + " (CPU usage still above hardCpuLimit)");
+        }
+
+        // Tick 4: regenerates another 1_000 ms → cpuUsageMillis = 10_000 - 1_000 ... wait:
+        // 14_000 - 4*1_000 = 10_000. That is still == hardCpuLimitMillis, so canRunMore() is still false
+        // (the check is cpuUsageMillis >= hardCpuLimitMillis). One more tick needed.
+        root.generateCpuQuota(1);
+        root.processQueuedQueries();
+        assertEquals(queued.getState(), QUEUED,
+                "Query must still be QUEUED after tick 4 (cpuUsageMillis == hardCpuLimitMillis, still blocked)");
+
+        // Tick 5: cpuUsageMillis = 10_000 - 1_000 = 9_000 < 10_000 → canRunMore() = true.
+        // generateCpuQuota() must call updateEligibility(), re-inserting the group into eligibleSubGroups.
+        // processQueuedQueries() then dispatches the waiting query.
+        // No new query was submitted; no running query completed. Only quota regeneration woke the group.
+        root.generateCpuQuota(1);
+        root.processQueuedQueries();
+        assertEquals(queued.getState(), RUNNING,
+                "Query must be RUNNING after tick 5 — quota has regenerated below hardCpuLimit");
+    }
+
+    /**
+     * Variant of the CPU quota regeneration bug test with a deeper group hierarchy
+     * (parent → subgroup → leaf), matching a typical production resource group configuration.
+     * Verifies that updateEligibility() propagates correctly up the tree after quota regeneration.
+     */
+    @Test(timeOut = 10_000)
+    public void testHardCpuLimitQueuedQueryStartsAfterQuotaRegeneratesInSubgroup()
+    {
+        RootInternalResourceGroup root = new RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false, createNodeManager(), createClusterResourceChecker(), QueryPacingContext.NOOP);
+        root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        root.setMaxQueuedQueries(100);
+        root.setHardConcurrencyLimit(100);
+
+        InternalResourceGroup parent = root.getOrCreateSubGroup("parent", true);
+        parent.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        parent.setMaxQueuedQueries(50);
+        parent.setHardConcurrencyLimit(10);
+
+        InternalResourceGroup leaf = parent.getOrCreateSubGroup("leaf", true);
+        leaf.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
+        leaf.setMaxQueuedQueries(10);
+        leaf.setHardConcurrencyLimit(5);
+        leaf.setHardCpuLimit(new Duration(10, SECONDS));
+        leaf.setCpuQuotaGenerationMillisPerSecond(2000); // 2s CPU quota per real second
+
+        // Burn through the CPU limit.
+        MockManagedQueryExecution burner = new MockManagedQueryExecution(0, "burner", 1, new Duration(41, SECONDS));
+        burner.startWaitingForPrerequisites();
+        leaf.run(burner);
+        assertEquals(burner.getState(), RUNNING);
+        burner.complete();
+        root.processQueuedQueries();
+
+        // Queue a query while the group is over its CPU limit.
+        MockManagedQueryExecution queued = new MockManagedQueryExecution(0, "queued", 1);
+        queued.startWaitingForPrerequisites();
+        leaf.run(queued);
+        assertEquals(queued.getState(), QUEUED);
+
+        // Regenerate enough quota to bring usage below hardCpuLimit (no new traffic submitted).
+        // 2000 ms/s * 16s = 32_000 ms generated → 41_000 - 32_000 = 9_000 < 10_000.
+        root.generateCpuQuota(16);
+        root.processQueuedQueries();
+
+        assertEquals(queued.getState(), RUNNING);
+    }
+
     @Test(timeOut = 10_000)
     public void testPriorityScheduling()
     {
