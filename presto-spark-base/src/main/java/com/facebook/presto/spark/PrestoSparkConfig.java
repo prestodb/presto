@@ -77,6 +77,7 @@ public class PrestoSparkConfig
     private boolean isDynamicPrestoMemoryPoolTuningEnabled;
     private double dynamicPrestoMemoryPoolTuningFraction = 0.7;
     private int attemptNumberToApplyDynamicMemoryPoolTuning = 1;
+    private boolean deferNativeExecutorTempStorage;
 
     public boolean isSparkPartitionCountAutoTuneEnabled()
     {
@@ -594,6 +595,22 @@ public class PrestoSparkConfig
     public PrestoSparkConfig setAttemptNumberToApplyDynamicMemoryPoolTuning(int attemptNumberToApplyDynamicMemoryPoolTuning)
     {
         this.attemptNumberToApplyDynamicMemoryPoolTuning = attemptNumberToApplyDynamicMemoryPoolTuning;
+        return this;
+    }
+
+    public boolean isDeferNativeExecutorTempStorage()
+    {
+        return deferNativeExecutorTempStorage;
+    }
+
+    @Config("spark.defer-native-executor-temp-storage")
+    @ConfigDescription("On executors that run native execution, create each temp storage other than local on first use " +
+            "instead of at startup. These executors decode the native temp storage handle with " +
+            "NativeExecutionTaskFactory.deserializeNativeTempStorageHandle(), which reads the local temp storage " +
+            "format; override it when experimental.spiller.spiller-temp-storage is not local")
+    public PrestoSparkConfig setDeferNativeExecutorTempStorage(boolean deferNativeExecutorTempStorage)
+    {
+        this.deferNativeExecutorTempStorage = deferNativeExecutorTempStorage;
         return this;
     }
 }

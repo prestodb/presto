@@ -1929,8 +1929,27 @@ To enable SSL/TLS, see :doc:`/security/internal-communication`.
 Presto on Spark Properties
 --------------------------
 
-These properties control how :doc:`Presto on Spark </admin/spark>` assigns table scan
-splits to Spark input partitions.
+These properties configure :doc:`Presto on Spark </admin/spark>`.
+
+``spark.defer-native-executor-temp-storage``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+On executors that run native execution (``native-execution-enabled=true``), create
+each temp storage other than ``local`` on first use instead of at startup. The JVM on
+these executors does not run query operators, so it normally never uses a temp
+storage and does not pay for creating one, such as a file system client. A Java task
+scheduled on such an executor still gets its temp storages, created on demand. Temp
+storage configuration is still validated at startup. Drivers, local-mode executors
+and Java executors are not affected.
+
+These executors decode the native temp storage handle with
+``NativeExecutionTaskFactory.deserializeNativeTempStorageHandle()``, which reads the
+``local`` temp storage format. If ``experimental.spiller.spiller-temp-storage`` is
+not ``local``, override that method for the configured temp storage; otherwise the
+executor fails at startup.
 
 ``spark.max-splits-count-per-partition``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

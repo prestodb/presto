@@ -1861,6 +1861,10 @@ SQL Support
      - Yes
      - Yes
      -
+   * - ``ALTER TABLE DROP COLUMN`` (nested struct field)
+     - Yes
+     - Yes
+     -
    * - ``ALTER VIEW``
      - Yes
      - Yes
@@ -2279,6 +2283,9 @@ The dotted path may refer to arbitrarily nested fields. The following clauses ar
 for nested fields and will be rejected: ``NOT NULL``, ``COMMENT``, ``DEFAULT``,
 ``GENERATED``/``AS``, ``WITH`` properties, and ``FIRST``/``AFTER``.
 
+Adding a nested field whose name was previously used by a dropped or renamed field in the same
+struct is rejected to prevent stale data from appearing in existing rows.
+
 ALTER COLUMN SET DATA TYPE (nested struct field)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -2307,6 +2314,24 @@ Example — Widen ``score`` from ``REAL`` to ``DOUBLE`` inside the ``info`` stru
 Example — Widen a decimal column with increased precision::
 
      ALTER TABLE iceberg.web.orders ALTER COLUMN totals.amount SET DATA TYPE DECIMAL(20, 2);
+
+DROP COLUMN (nested struct field)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports dropping a field from a ``ROW`` column using a dotted path. This is a
+metadata-only change — no data files are rewritten.
+
+Example::
+
+     ALTER TABLE iceberg.web.orders DROP COLUMN address.zip;
+
+The optional ``IF EXISTS`` clause suppresses the error if the field or any parent in the path does not exist::
+
+     ALTER TABLE iceberg.web.orders DROP COLUMN IF EXISTS address.zip;
+
+The dotted path may traverse arbitrarily nested structs, list elements (pseudo-step ``.element``,
+such as ``items.element.name``), and map values (pseudo-step ``.value``, such as ``m.value.name``).
+Dropping list elements, map keys, or map value containers directly is not supported.
 
 ALTER VIEW
 ^^^^^^^^^^
