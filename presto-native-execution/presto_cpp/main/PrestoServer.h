@@ -324,6 +324,11 @@ class PrestoServer {
 
   std::unique_ptr<http::HttpClientConnectionPool> exchangeSourceConnectionPool_;
 
+  // Own pinned backing until cache shutdown and destruction. Declared before
+  // cache_ so it is destroyed afterward. Ordinary execution pools retain the
+  // MemoryManager allocator.
+  std::shared_ptr<velox::memory::MemoryAllocator> pinnedCacheAllocator_;
+
   // If not null,  the instance of AsyncDataCache used for in-memory file cache.
   std::shared_ptr<velox::cache::AsyncDataCache> cache_;
 
