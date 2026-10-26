@@ -61,7 +61,7 @@ public class TestCreateTable
         }
     }
 
-    @Test(enabled = false) // Investigate
+    @Test
     public void testAllPrimitiveTypes()
     {
         String tableName = "primitive_types";
@@ -115,7 +115,7 @@ public class TestCreateTable
         }
     }
 
-    @Test(enabled = false) // Investigate
+    @Test
     public void testAsSelect()
     {
         String sourceTable = "source";
