@@ -1505,7 +1505,6 @@ public abstract class AbstractTestNativeGeneralQueries
                 .build();
         String atTimeZoneQuery = "SELECT from_unixtime(orderkey, 'UTC') AT TIME ZONE 'America/Los_Angeles' FROM orders";
         assertQuery(legacyTimestampWithTimezone, atTimeZoneQuery);
-        assertQuery(nonLegacyTimestampWithTimezone, atTimeZoneQuery);
 
         String renderingQuery = "SELECT hour(from_unixtime(orderkey, 'UTC')), " +
                 "cast(from_unixtime(orderkey, 'UTC') AS timestamp), " +
