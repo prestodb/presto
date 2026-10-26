@@ -124,7 +124,7 @@ public class TestPrestoSparkHistoryBasedTracking
         getHistoryProvider().waitProcessQueryEvents();
     }
 
-    private InMemoryHistoryBasedPlanStatisticsProvider getHistoryProvider()
+    protected InMemoryHistoryBasedPlanStatisticsProvider getHistoryProvider()
     {
         PrestoSparkQueryRunner queryRunner = (PrestoSparkQueryRunner) getQueryRunner();
         return (InMemoryHistoryBasedPlanStatisticsProvider) queryRunner.getHistoryBasedPlanStatisticsManager().getHistoryBasedPlanStatisticsTracker().getHistoryBasedPlanStatisticsProvider();

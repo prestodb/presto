@@ -115,7 +115,8 @@ public class PrestoSparkStaticQueryExecution
             Metadata metadata,
             PartitioningProviderManager partitioningProviderManager,
             HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker,
-            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
+            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector,
+            TaskInfoAggregationMode taskInfoAggregationMode)
     {
         super(
                 sparkContext,
@@ -154,7 +155,8 @@ public class PrestoSparkStaticQueryExecution
                 metadata,
                 partitioningProviderManager,
                 historyBasedPlanStatisticsTracker,
-                bootstrapMetricsCollector);
+                bootstrapMetricsCollector,
+                taskInfoAggregationMode);
     }
 
     @Override
