@@ -578,10 +578,15 @@ class Query
             }
         }
 
-        // The update count is not a query result: it only becomes meaningful once the auto-commit
-        // transaction of the statement commits, and that happens after the count has been streamed
-        // out. Sending it therefore does not prevent the statement from being retried, unlike real
-        // rows, which the client cannot be asked to consume twice.
+        // A data manipulation statement returns exactly one row with one BIGINT column: the update count.
+        // A normal query can send the client part of its results before it fails.
+        // An update statement cannot, because its only output is this single count row.
+        // So when it fails here, the client has not yet received or used any results, and
+        // the statement can be retried right away.
+        // On a successful retry, the client gets the update count from that attempt.
+        // For connectors that hold writes until the auto-commit transaction commits (e.g. Iceberg),
+        // a failure after this row was produced (typically a commit conflict) means nothing was committed.
+        // Real rows, in contrast, cannot be retracted once delivered, so we must disable retries in this case.
         if (producedRows && !isUpdateCountResult) {
             hasProducedResult = true;
         }
