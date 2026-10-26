@@ -15,6 +15,7 @@ package com.facebook.presto.iceberg.transaction;
 
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.transaction.IsolationLevel;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.BaseTable;
@@ -49,7 +50,9 @@ import java.util.function.Function;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TRANSACTION_CONFLICT_ERROR;
 import static com.facebook.presto.iceberg.IcebergUtil.opsFromTable;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterators.getOnlyElement;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.IcebergLibUtils.getScanContext;
 
@@ -61,12 +64,16 @@ public class IcebergTransactionContext
     private final Map<SchemaTableName, Table> initiallyReadTables;
     private final AtomicReference<Runnable> callbacksOnCommit = new AtomicReference<>();
 
+    // The update/delete WHERE predicate (empty when there is no WHERE), used for restricting the conflict detection scope.
+    private final Map<String, Optional<RowExpression>> queryWriteScopes;
+
     public IcebergTransactionContext(IsolationLevel isolationLevel, boolean autoCommitContext)
     {
         this.isolationLevel = requireNonNull(isolationLevel, "isolationLevel is null");
         this.autoCommitContext = autoCommitContext;
         txByTable = new ConcurrentHashMap<>();
         initiallyReadTables = new ConcurrentHashMap<>();
+        queryWriteScopes = new ConcurrentHashMap<>();
     }
 
     public IsolationLevel getIsolationLevel()
@@ -134,6 +141,18 @@ public class IcebergTransactionContext
         this.callbacksOnCommit.set(callback);
     }
 
+    public void setQueryWriteScope(String queryId, Optional<RowExpression> writeScope)
+    {
+        verify(!this.queryWriteScopes.containsKey(queryId),
+                format("write scope for query %s must not be present", queryId));
+        this.queryWriteScopes.put(queryId, writeScope);
+    }
+
+    public Optional<RowExpression> getQueryWriteScope(String queryId)
+    {
+        return this.queryWriteScopes.getOrDefault(queryId, Optional.empty());
+    }
+
     public void commit()
     {
         if (!txByTable.isEmpty()) {
@@ -144,6 +163,7 @@ public class IcebergTransactionContext
             txByTable.clear();
         }
         initiallyReadTables.clear();
+        queryWriteScopes.clear();
         callbacksOnCommit.set(null);
     }
 
@@ -151,6 +171,7 @@ public class IcebergTransactionContext
     {
         txByTable.clear();
         initiallyReadTables.clear();
+        queryWriteScopes.clear();
     }
 
     /**

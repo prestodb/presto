@@ -125,6 +125,7 @@ public class MetadataManagerStats
     private final AtomicLong dropConstraintCalls = new AtomicLong();
     private final AtomicLong addConstraintCalls = new AtomicLong();
     private final AtomicLong setColumnTypeCalls = new AtomicLong();
+    private final AtomicLong setFieldTypeCalls = new AtomicLong();
     private final AtomicLong setColumnPositionCalls = new AtomicLong();
     private final AtomicLong renameTableCalls = new AtomicLong();
     private final AtomicLong setTablePropertiesCalls = new AtomicLong();
@@ -239,6 +240,7 @@ public class MetadataManagerStats
     private final TimeStat dropTagTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat dropConstraintTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat setColumnTypeTime = new TimeStat(TimeUnit.NANOSECONDS);
+    private final TimeStat setFieldTypeTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat setColumnPositionTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat addConstraintTime = new TimeStat(TimeUnit.NANOSECONDS);
     private final TimeStat renameTableTime = new TimeStat(TimeUnit.NANOSECONDS);
@@ -905,6 +907,12 @@ public class MetadataManagerStats
     public long getSetColumnTypeCalls()
     {
         return setColumnTypeCalls.get();
+    }
+
+    @Managed
+    public long getSetFieldTypeCalls()
+    {
+        return setFieldTypeCalls.get();
     }
 
     @Managed
@@ -1687,6 +1695,13 @@ public class MetadataManagerStats
 
     @Managed
     @Nested
+    public TimeStat getSetFieldTypeTime()
+    {
+        return setFieldTypeTime;
+    }
+
+    @Managed
+    @Nested
     public TimeStat getSetColumnPositionTime()
     {
         return setColumnPositionTime;
@@ -2382,6 +2397,12 @@ public class MetadataManagerStats
     {
         setColumnTypeCalls.incrementAndGet();
         setColumnTypeTime.add(duration, TimeUnit.NANOSECONDS);
+    }
+
+    public void recordSetFieldTypeCall(long duration)
+    {
+        setFieldTypeCalls.incrementAndGet();
+        setFieldTypeTime.add(duration, TimeUnit.NANOSECONDS);
     }
 
     public void recordSetColumnPositionCall(long duration)

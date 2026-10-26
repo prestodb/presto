@@ -11,6 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <string>
@@ -597,7 +598,9 @@ TEST_F(PrestoToVeloxQueryConfigTest, connectorConfigConversion) {
   request.session.catalogProperties["hive"] = hiveProperties;
   request.session.catalogProperties["iceberg"] = icebergProperties;
 
-  auto connectorConfigs = toConnectorConfigs(request);
+  auto configs = toTaskConfigs(request);
+  auto& connectorConfigs = configs.connectorConfigs;
+  const auto& credentialKeys = configs.credentialKeys;
 
   // Verify connector configs are created
   EXPECT_EQ(2, connectorConfigs.size());
@@ -621,6 +624,14 @@ TEST_F(PrestoToVeloxQueryConfigTest, connectorConfigConversion) {
   EXPECT_EQ("PARQUET", icebergConfig->get<std::string>("iceberg.file_format"));
   EXPECT_EQ("HIVE", icebergConfig->get<std::string>("iceberg.catalog.type"));
   EXPECT_EQ("test_user", icebergConfig->get<std::string>("user"));
+
+  // Each catalog gets its own entry: a trace consults the connector the value
+  // was written into, and "user" is not a credential in either.
+  EXPECT_TRUE(credentialKeys.isConnectorCredential("hive", "test_credential"));
+  EXPECT_TRUE(
+      credentialKeys.isConnectorCredential("iceberg", "test_credential"));
+  EXPECT_FALSE(credentialKeys.isConnectorCredential("hive", "user"));
+  EXPECT_FALSE(credentialKeys.isConnectorCredential("iceberg", "user"));
 }
 
 TEST_F(PrestoToVeloxQueryConfigTest, specialHardCodedPrestoConfigurations) {
@@ -693,72 +704,95 @@ TEST_F(PrestoToVeloxQueryConfigTest, legacyTimestampWithTimezone) {
                    .useSessionTimezoneForTimestampWithTimezone());
 }
 
-TEST_F(PrestoToVeloxQueryConfigTest, sessionAndExtraCredentialsOverload) {
-  // --- Test 1: Basic session with empty extra credentials ---
-  {
-    auto session = createBasicSession();
+TEST_F(PrestoToVeloxQueryConfigTest, credentialKeysNameOnlyCredentials) {
+  TaskUpdateRequest request;
+  request.session = createBasicSession();
+  request.session.systemProperties[core::QueryConfig::kSpillEnabled] = "true";
+  request.extraCredentials["cat_token"] = "test_cat_token_value";
+  request.extraCredentials["auth_header"] = "Bearer xyz123";
 
-    std::map<std::string, std::string> emptyCredentials;
-    auto veloxConfig = toVeloxConfigs(session, emptyCredentials);
+  const auto configs = toTaskConfigs(request);
 
-    // No unexpected credentials should appear.
-    // Get raw configs to verify.
-    auto raw = veloxConfig.rawConfigsCopy();
-    EXPECT_EQ(0, raw.count("cat_token"));
-    EXPECT_EQ(0, raw.count("auth_header"));
-    EXPECT_EQ(0, raw.count("custom_credential"));
-  }
+  // The credential and the ordinary setting both land in the config; only
+  // 'credentialKeys' tells them apart.
+  const auto raw = configs.queryConfig.rawConfigsCopy();
+  EXPECT_THAT(raw, testing::Contains(testing::Key("cat_token")));
+  EXPECT_THAT(
+      raw, testing::Contains(testing::Key(core::QueryConfig::kSpillEnabled)));
 
-  // --- Test 2: Session with extra credentials (CAT, auth header, custom) ---
-  {
-    auto session = createBasicSession();
+  EXPECT_TRUE(configs.credentialKeys.isQueryConfigCredential("cat_token"));
+  EXPECT_TRUE(configs.credentialKeys.isQueryConfigCredential("auth_header"));
+  EXPECT_FALSE(configs.credentialKeys.isQueryConfigCredential(
+      core::QueryConfig::kSpillEnabled));
+}
 
-    std::map<std::string, std::string> extraCredentials{
-        {"cat_token", "test_cat_token_value"},
-        {"auth_header", "Bearer xyz123"},
-        {"custom_credential", "custom_value"},
-    };
+TEST_F(PrestoToVeloxQueryConfigTest, collidingCredentialIsNotNamed) {
+  // Flattening inserts rather than overwrites, so a session property of the
+  // same name keeps its value and the credential never reaches that config.
+  // Naming the key anyway would have a trace redact an ordinary value, and
+  // replay reparses the config, so a redacted typed setting would fail to
+  // parse.
+  TaskUpdateRequest request;
+  request.session = createBasicSession();
+  request.session.systemProperties[core::QueryConfig::kSpillEnabled] = "true";
+  request.extraCredentials[core::QueryConfig::kSpillEnabled] =
+      "not-a-boolean-secret";
+  request.extraCredentials["cat_token"] = "test_cat_token_value";
+  request.session.catalogProperties.emplace(
+      "hive", std::map<std::string, std::string>{{"cat_token", "cVal1"}});
 
-    auto veloxConfig = toVeloxConfigs(session, extraCredentials);
-    // Get raw configs to verify.
-    auto raw = veloxConfig.rawConfigsCopy();
+  const auto configs = toTaskConfigs(request);
+  EXPECT_TRUE(configs.queryConfig.spillEnabled());
+  EXPECT_EQ(
+      configs.connectorConfigs.at("hive")->get<std::string>("cat_token"),
+      std::optional<std::string>("cVal1"));
 
-    // Extra credentials included in the raw config.
-    ASSERT_TRUE(raw.count("cat_token"));
-    ASSERT_TRUE(raw.count("auth_header"));
-    ASSERT_TRUE(raw.count("custom_credential"));
-    EXPECT_EQ("test_cat_token_value", raw.at("cat_token"));
-    EXPECT_EQ("Bearer xyz123", raw.at("auth_header"));
-    EXPECT_EQ("custom_value", raw.at("custom_credential"));
-  }
+  EXPECT_TRUE(configs.credentialKeys.isQueryConfigCredential("cat_token"));
+  EXPECT_FALSE(configs.credentialKeys.isQueryConfigCredential(
+      core::QueryConfig::kSpillEnabled));
+  EXPECT_FALSE(
+      configs.credentialKeys.isConnectorCredential("hive", "cat_token"));
+}
 
-  // --- Test 3: Merge behavior: session system properties + more credentials
-  // ---
-  {
-    auto session = createBasicSession();
-    // Verify that typed options reflect session settings.
-    session.systemProperties[core::QueryConfig::kSpillEnabled] = "true";
-    session.systemProperties[SessionProperties::kJoinSpillEnabled] = "false";
+TEST_F(PrestoToVeloxQueryConfigTest, equalValueCollisionIsNotRecorded) {
+  // Pins the mechanism, not just the outcome: the session value and the
+  // credential are the same string, so an implementation that decided
+  // provenance by comparing the stored value against the credential would
+  // record this key and have a trace write `<redacted>` over a typed boolean.
+  // write() records a name only if it stored the credential there.
+  TaskUpdateRequest request;
+  request.session = createBasicSession();
+  request.session.systemProperties[core::QueryConfig::kSpillEnabled] = "true";
+  request.extraCredentials[core::QueryConfig::kSpillEnabled] = "true";
 
-    std::map<std::string, std::string> moreCredentials{
-        {"isolation_domain_token", "ids_token_abc123"},
-        {"verification_key", "verify_key_xyz"},
-    };
+  EXPECT_FALSE(toTaskConfigs(request).credentialKeys.isQueryConfigCredential(
+      core::QueryConfig::kSpillEnabled));
+}
 
-    auto veloxConfig = toVeloxConfigs(session, moreCredentials);
+TEST_F(PrestoToVeloxQueryConfigTest, credentialCollidingOnlyInQueryConfig) {
+  // The two flattenings are independent. A credential blocked from the query
+  // config by a session property of the same name still reaches a catalog
+  // whose properties do not name it, so it is a secret there and has to be
+  // named there -- consulting the query config's answer would write it into
+  // the trace verbatim.
+  TaskUpdateRequest request;
+  request.session = createBasicSession();
+  request.session.systemProperties[core::QueryConfig::kSpillEnabled] = "true";
+  request.session.catalogProperties.emplace(
+      "hive", std::map<std::string, std::string>{{"cKey1", "cVal1"}});
+  request.extraCredentials[core::QueryConfig::kSpillEnabled] =
+      "not-a-boolean-secret";
 
-    // Typed properties should be applied from the session.
-    EXPECT_TRUE(veloxConfig.spillEnabled());
-    EXPECT_FALSE(veloxConfig.joinSpillEnabled());
+  const auto configs = toTaskConfigs(request);
 
-    // Extra credentials should be present in the raw map.
-    // Get raw configs to verify.
-    auto raw = veloxConfig.rawConfigsCopy();
-    ASSERT_TRUE(raw.count("isolation_domain_token"));
-    ASSERT_TRUE(raw.count("verification_key"));
-    EXPECT_EQ("ids_token_abc123", raw.at("isolation_domain_token"));
-    EXPECT_EQ("verify_key_xyz", raw.at("verification_key"));
-  }
+  EXPECT_FALSE(configs.credentialKeys.isQueryConfigCredential(
+      core::QueryConfig::kSpillEnabled));
+  EXPECT_TRUE(configs.credentialKeys.isConnectorCredential(
+      "hive", core::QueryConfig::kSpillEnabled));
+  EXPECT_EQ(
+      configs.connectorConfigs.at("hive")->get<std::string>(
+          core::QueryConfig::kSpillEnabled),
+      std::optional<std::string>("not-a-boolean-secret"));
 }
 
 TEST_F(PrestoToVeloxQueryConfigTest, sessionStartTimeConfiguration) {

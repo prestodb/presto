@@ -14,6 +14,8 @@
 #include "presto_cpp/main/PrestoTask.h"
 #include <gtest/gtest.h>
 #include "velox/common/base/tests/GTestUtils.h"
+#include "velox/common/testutil/ScopedTestTime.h"
+#include "velox/common/time/Timer.h"
 #include "velox/exec/Split.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/parse/PlanNodeIdGenerator.h"
@@ -104,12 +106,57 @@ TEST_F(PrestoTaskTest, runtimeMetricConversion) {
 TEST_F(PrestoTaskTest, basic) {
   PrestoTask task{"20201107_130540_00011_wrpkw.1.2.3.4", "node2", 0};
 
-  // Test coordinator heartbeat.
+  // Test heartbeats.
+  EXPECT_EQ(task.timeSinceLastHeartbeatMs(), 0);
   EXPECT_EQ(task.timeSinceLastCoordinatorHeartbeatMs(), 0);
+  {
+    std::lock_guard<std::mutex> l(task.mutex);
+    task.updateHeartbeatLocked();
+  }
   task.updateCoordinatorHeartbeat();
+  EXPECT_GT(task.lastHeartbeatMs, 0);
+  EXPECT_EQ(task.info.lastHeartbeatInMillis, task.lastHeartbeatMs);
   /* sleep override */
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  EXPECT_GE(task.timeSinceLastHeartbeatMs(), 100);
   EXPECT_GE(task.timeSinceLastCoordinatorHeartbeatMs(), 100);
+
+  // A new heartbeat resets the age.
+  {
+    std::lock_guard<std::mutex> l(task.mutex);
+    task.updateHeartbeatLocked();
+  }
+  task.updateCoordinatorHeartbeat();
+  EXPECT_LT(task.timeSinceLastHeartbeatMs(), 100);
+  EXPECT_LT(task.timeSinceLastCoordinatorHeartbeatMs(), 100);
+}
+
+// Verifies that heartbeat ages ignore system clock steps. ScopedTestTime moves
+// only the system clock (EpochTime) while the steady clock keeps running.
+TEST_F(PrestoTaskTest, heartbeatAgeIgnoresSystemClockSteps) {
+#ifdef NDEBUG
+  GTEST_SKIP() << "ScopedTestTime overrides EpochTime only in debug builds";
+#endif
+  constexpr int64_t kOneHourMs = 3'600'000;
+  const uint64_t startMs = EpochTime::now<std::chrono::milliseconds>();
+
+  PrestoTask task{"20201107_130540_00011_wrpkw.1.2.3.4", "node2", 0};
+  common::testutil::ScopedTestTime scopedTestTime;
+  scopedTestTime.setCurrentTestTimeMs(startMs);
+  {
+    std::lock_guard<std::mutex> l(task.mutex);
+    task.updateHeartbeatLocked();
+  }
+  task.updateCoordinatorHeartbeat();
+  EXPECT_EQ(task.lastHeartbeatMs, startMs);
+  EXPECT_EQ(task.info.lastHeartbeatInMillis, startMs);
+
+  for (const int64_t offsetMs : {-kOneHourMs, kOneHourMs}) {
+    SCOPED_TRACE(fmt::format("System clock moved by {} ms", offsetMs));
+    scopedTestTime.setCurrentTestTimeMs(startMs + offsetMs);
+    EXPECT_LT(task.timeSinceLastHeartbeatMs(), 60'000);
+    EXPECT_LT(task.timeSinceLastCoordinatorHeartbeatMs(), 60'000);
+  }
 }
 
 TEST_F(PrestoTaskTest, updateStatus) {

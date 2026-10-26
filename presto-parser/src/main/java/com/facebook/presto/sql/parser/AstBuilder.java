@@ -668,7 +668,7 @@ class AstBuilder
     {
         return new DropColumn(getLocation(context),
                 getQualifiedName(context.tableName),
-                (Identifier) visit(context.column),
+                getQualifiedName(context.column),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
     }
@@ -1156,7 +1156,7 @@ class AstBuilder
         return new SetColumnType(
                 getLocation(context),
                 getQualifiedName(context.tableName),
-                (Identifier) visit(context.columnName),
+                getQualifiedName(context.columnName),
                 getType(context.type()),
                 context.EXISTS() != null);
     }
@@ -2442,7 +2442,10 @@ class AstBuilder
         }
 
         Optional<DerivedColumnSpec> derivedColumnExpressionSpec = Optional.empty();
-        Identifier columnIdentifier = (Identifier) visit(context.identifier());
+        QualifiedName columnName = getQualifiedName(context.qualifiedName());
+        // Derived columns are only supported for top-level columns, so the path is always single-part.
+        // Callers reject the dotted form: AddColumnTask (nested ADD COLUMN) and CreateTableTask.
+        Identifier columnIdentifier = columnName.getOriginalParts().get(0);
         Optional<Expression> derivedColumnExpression = Optional.empty();
         if (context.AS() != null && !context.expression().isEmpty()) {
             SqlBaseParser.ExpressionContext tree = context.expression().get(0);
@@ -2467,7 +2470,7 @@ class AstBuilder
 
         if (derivedColumnExpressionSpec.isPresent()) {
             return new ColumnDefinition(Optional.of(getLocation(context)),
-                    columnIdentifier,
+                    columnName,
                     getType(context.type()),
                     nullable,
                     properties,
@@ -2477,7 +2480,7 @@ class AstBuilder
         }
         return new ColumnDefinition(
                 getLocation(context),
-                columnIdentifier,
+                columnName,
                 getType(context.type()),
                 nullable, properties,
                 comment,

@@ -163,7 +163,7 @@ public class TestFastForwardBranchProcedure
         assertQueryFails("CALL system.fast_forward('test_table', branch => 'main', to => 'newBranch')",
                 "line 1:1: Named and positional arguments cannot be mixed");
         assertQueryFails("CALL custom.fast_forward('test_table', 'main', 'newBranch')",
-                "Procedure not registered: custom.fast_forward");
+                "Procedure not registered: iceberg.custom.fast_forward");
         assertQueryFails("CALL system.fast_forward('test_table', 'main')",
                 "line 1:1: Required procedure argument 'branch' is missing");
         assertQueryFails("CALL system.fast_forward('', 'main', 'newBranch')",

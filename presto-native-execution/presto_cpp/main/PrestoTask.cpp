@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/PrestoTask.h"
 #include <sys/resource.h>
+#include <chrono>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -236,6 +237,17 @@ RuntimeMetric fromMillis(int64_t ms) {
 
 RuntimeMetric fromNanos(int64_t nanos) {
   return RuntimeMetric{nanos, velox::RuntimeCounter::Unit::kNanos};
+}
+
+// Returns the time since 'timePoint' in milliseconds, or 0 if not set.
+uint64_t millisSince(
+    const std::optional<std::chrono::steady_clock::time_point>& timePoint) {
+  if (!timePoint.has_value()) {
+    return 0;
+  }
+  return std::chrono::duration_cast<std::chrono::milliseconds>(
+             std::chrono::steady_clock::now() - timePoint.value())
+      .count();
 }
 
 // Utility to generate presto runtime stat name when translating velox runtime
@@ -540,7 +552,7 @@ PrestoTask::PrestoTask(
                                    : util::getProcessCpuTimeNs()} {
   info.taskId = taskId;
   info.nodeId = nodeId;
-  createTimeMs = getCurrentTimeMs();
+  createTimeMs = EpochTime::now<std::chrono::milliseconds>();
 }
 
 PrestoTaskState PrestoTask::taskState() const {
@@ -559,7 +571,8 @@ PrestoTaskState PrestoTask::taskState() const {
 }
 
 void PrestoTask::updateHeartbeatLocked() {
-  lastHeartbeatMs = velox::getCurrentTimeMs();
+  lastHeartbeatMs = velox::EpochTime::now<std::chrono::milliseconds>();
+  lastHeartbeat = std::chrono::steady_clock::now();
   info.lastHeartbeatInMillis = lastHeartbeatMs;
 }
 
@@ -569,23 +582,17 @@ void PrestoTask::updateCoordinatorHeartbeat() {
 }
 
 void PrestoTask::updateCoordinatorHeartbeatLocked() {
-  lastCoordinatorHeartbeatMs = velox::getCurrentTimeMs();
+  lastCoordinatorHeartbeat = std::chrono::steady_clock::now();
 }
 
 uint64_t PrestoTask::timeSinceLastHeartbeatMs() const {
   std::lock_guard<std::mutex> l(mutex);
-  if (lastHeartbeatMs == 0UL) {
-    return 0UL;
-  }
-  return getCurrentTimeMs() - lastHeartbeatMs;
+  return millisSince(lastHeartbeat);
 }
 
 uint64_t PrestoTask::timeSinceLastCoordinatorHeartbeatMs() const {
   std::lock_guard<std::mutex> l(mutex);
-  if (lastCoordinatorHeartbeatMs == 0UL) {
-    return 0UL;
-  }
-  return getCurrentTimeMs() - lastCoordinatorHeartbeatMs;
+  return millisSince(lastCoordinatorHeartbeat);
 }
 
 void PrestoTask::recordProcessCpuTime() {
@@ -701,10 +708,13 @@ protocol::TaskInfo PrestoTask::updateInfoLocked(bool summarize) {
     return info;
   }
   const velox::exec::TaskStats veloxTaskStats = task->taskStats();
-  const uint64_t currentTimeMs = velox::getCurrentTimeMs();
-  // Set 'lastTaskStatsUpdateMs' to execution start time if it is 0.
-  if (lastTaskStatsUpdateMs == 0) {
-    lastTaskStatsUpdateMs = veloxTaskStats.executionStartTimeMs;
+  double sinceLastStatsUpdateMs;
+  if (statsUpdateWatch.has_value()) {
+    sinceLastStatsUpdateMs = statsUpdateWatch->lap().count() / 1'000.0;
+  } else {
+    // The first period starts at execution start.
+    sinceLastStatsUpdateMs = task->timeSinceStartMs();
+    statsUpdateWatch.emplace();
   }
 
   std::unordered_map<std::string, RuntimeMetric> taskRuntimeStats;
@@ -716,10 +726,11 @@ protocol::TaskInfo PrestoTask::updateInfoLocked(bool summarize) {
   updateOutputBufferInfoLocked(veloxTaskStats, taskRuntimeStats);
 
   // Update time related info.
-  updateTimeInfoLocked(veloxTaskStats, currentTimeMs, taskRuntimeStats);
+  updateTimeInfoLocked(veloxTaskStats, taskRuntimeStats);
 
   // Update memory related info.
-  updateMemoryInfoLocked(veloxTaskStats, currentTimeMs, taskRuntimeStats);
+  updateMemoryInfoLocked(
+      veloxTaskStats, sinceLastStatsUpdateMs, taskRuntimeStats);
 
   // Update execution related info.
   updateExecutionInfoLocked(
@@ -766,13 +777,12 @@ protocol::TaskInfo PrestoTask::updateInfoLocked(bool summarize) {
         prestoTaskStats);
   }
 
-  lastTaskStatsUpdateMs = currentTimeMs;
+  lastTaskStatsUpdateMs = velox::EpochTime::now<std::chrono::milliseconds>();
   return info;
 }
 
 void PrestoTask::updateTimeInfoLocked(
     const velox::exec::TaskStats& veloxTaskStats,
-    uint64_t currentTimeMs,
     std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats) {
   protocol::TaskStats& prestoTaskStats = info.stats;
 
@@ -789,13 +799,15 @@ void PrestoTask::updateTimeInfoLocked(
   prestoTaskStats.endTimeInMillis = veloxTaskStats.executionEndTimeMs;
   lastEndTimeMs = veloxTaskStats.executionEndTimeMs;
 
-  if (veloxTaskStats.executionEndTimeMs > veloxTaskStats.executionStartTimeMs) {
-    prestoTaskStats.elapsedTimeInNanos = (veloxTaskStats.executionEndTimeMs -
-                                          veloxTaskStats.executionStartTimeMs) *
-        1'000'000;
+  // Velox starts steady clock stop watches together with the execution start
+  // and end timestamps.
+  const uint64_t sinceStartMs = task->timeSinceStartMs();
+  if (veloxTaskStats.executionEndTimeMs == 0) {
+    prestoTaskStats.elapsedTimeInNanos = sinceStartMs * 1'000'000;
   } else {
+    const uint64_t sinceEndMs = task->timeSinceEndMs();
     prestoTaskStats.elapsedTimeInNanos =
-        (currentTimeMs - veloxTaskStats.executionStartTimeMs) * 1'000'000;
+        (sinceStartMs > sinceEndMs ? sinceStartMs - sinceEndMs : 0) * 1'000'000;
   }
 
   taskRuntimeStats["createTime"].addValue(veloxTaskStats.executionStartTimeMs);
@@ -809,15 +821,12 @@ void PrestoTask::updateTimeInfoLocked(
   taskRuntimeStats.insert({"nativeProcessCpuTime", fromNanos(processCpuTime_)});
   // Represents the time between receiving first taskUpdate and task creation
   // time.
-  taskRuntimeStats.insert(
-      {"taskCreationTime",
-       fromNanos(
-           (createFinishTimeMs - firstTimeReceiveTaskUpdateMs) * 1'000'000)});
+  taskRuntimeStats.insert({"taskCreationTime", fromMillis(taskCreationTimeMs)});
 }
 
 void PrestoTask::updateMemoryInfoLocked(
     const velox::exec::TaskStats& veloxTaskStats,
-    uint64_t currentTimeMs,
+    double sinceLastStatsUpdateMs,
     std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats) {
   protocol::TaskStats& prestoTaskStats = info.stats;
 
@@ -833,10 +842,8 @@ void PrestoTask::updateMemoryInfoLocked(
 
   const int64_t averageMemoryForLastPeriod =
       (currentBytes + lastMemoryReservation) / 2;
-  const double sinceLastPeriodMs = currentTimeMs - lastTaskStatsUpdateMs;
-
   prestoTaskStats.cumulativeUserMemory +=
-      (averageMemoryForLastPeriod * sinceLastPeriodMs);
+      (averageMemoryForLastPeriod * sinceLastStatsUpdateMs);
   // NOTE: velox doesn't differentiate user and system memory usages.
   prestoTaskStats.cumulativeTotalMemory = prestoTaskStats.cumulativeUserMemory;
   prestoTaskStats.peakNodeTotalMemoryInBytes =

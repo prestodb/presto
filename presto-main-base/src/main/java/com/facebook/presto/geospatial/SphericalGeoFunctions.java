@@ -14,9 +14,6 @@
 package com.facebook.presto.geospatial;
 
 import com.esri.core.geometry.Envelope;
-import com.esri.core.geometry.Geometry;
-import com.esri.core.geometry.Geometry.Type;
-import com.esri.core.geometry.GeometryCursor;
 import com.esri.core.geometry.MultiPath;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.Polygon;
@@ -50,6 +47,7 @@ import static com.facebook.presto.geospatial.SphericalGeographyUtils.EARTH_RADIU
 import static com.facebook.presto.geospatial.SphericalGeographyUtils.checkLatitude;
 import static com.facebook.presto.geospatial.SphericalGeographyUtils.checkLongitude;
 import static com.facebook.presto.geospatial.SphericalGeographyUtils.sphericalDistance;
+import static com.facebook.presto.geospatial.SphericalGeographyUtils.validateSphericalGeography;
 import static com.facebook.presto.geospatial.SphericalGeographyUtils.validateSphericalType;
 import static com.facebook.presto.geospatial.serde.EsriGeometrySerde.deserializeEnvelope;
 import static com.facebook.presto.geospatial.serde.JtsGeometrySerde.deserialize;
@@ -65,9 +63,6 @@ import static java.lang.String.format;
 
 public final class SphericalGeoFunctions
 {
-    private static final EnumSet<Geometry.Type> GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY = EnumSet.of(
-            Type.Point, Type.Polyline, Type.Polygon, Type.MultiPoint);
-
     private SphericalGeoFunctions() {}
 
     @Description("Converts a Geometry object to a SphericalGeography object")
@@ -75,31 +70,7 @@ public final class SphericalGeoFunctions
     @SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME)
     public static Slice toSphericalGeography(@SqlType(GEOMETRY_TYPE_NAME) Slice input)
     {
-        // "every point in input is in range" <=> "the envelope of input is in range"
-        Envelope envelope = deserializeEnvelope(input);
-        if (!envelope.isEmpty()) {
-            checkLatitude(envelope.getYMin());
-            checkLatitude(envelope.getYMax());
-            checkLongitude(envelope.getXMin());
-            checkLongitude(envelope.getXMax());
-        }
-        OGCGeometry geometry = EsriGeometrySerde.deserialize(input);
-        if (geometry.is3D()) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot convert 3D geometry to a spherical geography");
-        }
-
-        GeometryCursor cursor = geometry.getEsriGeometryCursor();
-        while (true) {
-            com.esri.core.geometry.Geometry subGeometry = cursor.next();
-            if (subGeometry == null) {
-                break;
-            }
-
-            if (!GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY.contains(subGeometry.getType())) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot convert geometry of this type to spherical geography: " + subGeometry.getType());
-            }
-        }
-
+        validateSphericalGeography(deserializeEnvelope(input), EsriGeometrySerde.deserialize(input));
         return input;
     }
 

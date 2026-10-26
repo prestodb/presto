@@ -45,6 +45,9 @@ import com.facebook.presto.tpch.TpchColumnHandle;
 import com.facebook.presto.tpch.TpchTableHandle;
 import com.facebook.presto.tpch.TpchTransactionHandle;
 import com.facebook.presto.transaction.TransactionManager;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Injector;
@@ -65,6 +68,7 @@ import org.testng.annotations.Test;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -92,6 +96,7 @@ public abstract class AbstractTestFlightShimPlugins
     public static final JsonCodec<TpchColumnHandle> TPCH_COLUMN_JSON_CODEC = jsonCodec(TpchColumnHandle.class);
     public static final JsonCodec<TpchTableHandle> TPCH_TABLE_HANDLE_JSON_CODEC = jsonCodec(TpchTableHandle.class);
     public static final JsonCodec<TpchTransactionHandle> TPCH_TRANSACTION_HANDLE_JSON_CODEC = jsonCodec(TpchTransactionHandle.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     public static final String TPCH_TABLE = "lineitem";
     public static final String ORDERKEY_COLUMN = "orderkey";
     public static final String LINENUMBER_COLUMN = "linenumber";
@@ -508,27 +513,46 @@ public abstract class AbstractTestFlightShimPlugins
 
     protected FlightShimRequest createTpchTableRequest(String tableName, int partNumber, int totalParts, List<TpchColumnHandle> columnHandles)
     {
-        String split = createTpchSplit(tableName, partNumber, totalParts);
+        String split = createTpchSplit(getConnectorName(), tableName, partNumber, totalParts);
         byte[] splitBytes = split.getBytes(StandardCharsets.UTF_8);
 
         ImmutableList.Builder<Descriptor.Field> fieldBuilder = ImmutableList.builder();
         ImmutableList.Builder<byte[]> columnBuilder = ImmutableList.builder();
         for (TpchColumnHandle columnHandle : columnHandles) {
             fieldBuilder.add(new Descriptor.Field(Optional.of(columnHandle.getColumnName()), Optional.of(columnHandle.getType())));
-            columnBuilder.add(TPCH_COLUMN_JSON_CODEC.toJsonBytes(columnHandle));
+            columnBuilder.add(withHandleType(TPCH_COLUMN_JSON_CODEC.toJsonBytes(columnHandle)));
         }
 
         TpchTableHandle tableHandle = new TpchTableHandle(TPCH_TABLE, 1.0);
-        byte[] tableHandleBytes = TPCH_TABLE_HANDLE_JSON_CODEC.toJsonBytes(tableHandle);
+        byte[] tableHandleBytes = withHandleType(TPCH_TABLE_HANDLE_JSON_CODEC.toJsonBytes(tableHandle));
 
-        byte[] transactionHandleBytes = TPCH_TRANSACTION_HANDLE_JSON_CODEC.toJsonBytes(TpchTransactionHandle.INSTANCE);
+        byte[] transactionHandleBytes = withHandleType(TPCH_TRANSACTION_HANDLE_JSON_CODEC.toJsonBytes(TpchTransactionHandle.INSTANCE));
 
         return new FlightShimRequest(getConnectorId(), fieldBuilder.build(), splitBytes, columnBuilder.build(), tableHandleBytes, Optional.empty(), transactionHandleBytes);
     }
 
-    protected static String createTpchSplit(String tableName, int partNumber, int totalParts)
+    // Handles are sent as the coordinator serializes them, with "@type" naming the connector that owns the handle class
+    protected byte[] withHandleType(byte[] handleJson)
+    {
+        try {
+            JsonNode handle = OBJECT_MAPPER.readTree(handleJson);
+            if (handle.isObject()) {
+                ObjectNode typedHandle = OBJECT_MAPPER.createObjectNode().put("@type", getConnectorName());
+                typedHandle.setAll((ObjectNode) handle);
+                return OBJECT_MAPPER.writeValueAsBytes(typedHandle);
+            }
+            // Scalar handles, such as enum singletons, are written as a [type, value] array
+            return OBJECT_MAPPER.writeValueAsBytes(OBJECT_MAPPER.createArrayNode().add(getConnectorName()).add(handle));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    protected static String createTpchSplit(String connectorName, String tableName, int partNumber, int totalParts)
     {
         return format("{\n" +
+                "  \"@type\" : \"%s\",\n" +
                 "  \"tableHandle\" : {\n" +
                 "    \"tableName\" : \"%s\",\n" +
                 "    \"scaleFactor\" : %.2f\n" +
@@ -539,7 +563,7 @@ public abstract class AbstractTestFlightShimPlugins
                 "  \"predicate\" : {\n" +
                 "    \"columnDomains\" : [ ]\n" +
                 "  }\n" +
-                "}", tableName, TINY_SCALE_FACTOR, partNumber, totalParts);
+                "}", connectorName, tableName, TINY_SCALE_FACTOR, partNumber, totalParts);
     }
 
     protected static FlightClient createFlightClient(BufferAllocator allocator, int serverPort) throws IOException

@@ -250,9 +250,19 @@ public interface Metadata
     void addColumn(Session session, TableHandle tableHandle, ColumnMetadata column, ColumnPosition position);
 
     /**
+     * Add a field to a nested struct column.
+     */
+    void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting);
+
+    /**
      * Set the specified type to the column.
      */
     void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type);
+
+    /**
+     * Set the type of a nested field within a struct column.
+     */
+    void setFieldType(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type);
 
     /**
      * Move the specified column to the specified position within the table's column order.
@@ -263,6 +273,13 @@ public interface Metadata
      * Drop the specified column.
      */
     void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column);
+
+    /**
+     * Drop a field from a nested struct column by dotted field path (e.g. {@code ["info", "age"]}).
+     * {@code fieldPath} has at least 2 elements; all elements are normalized via the connector's
+     * {@code normalizeIdentifier} before this method is called.
+     */
+    void dropField(Session session, TableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent);
 
     /**
      * Drops the specified table
@@ -397,9 +414,11 @@ public interface Metadata
     void finishCallDistributedProcedure(Session session, DistributedProcedureHandle procedureHandle, QualifiedObjectName procedureName, Collection<Slice> fragments);
 
     /**
-     * Begin update query
+     * Begin update query, carrying the update predicate scope (the analysis-time WHERE predicate;
+     * {@code Optional.empty()} when there is no WHERE) so the engine/connector can restrict the
+     * conflict detection scope if needed.
      */
-    TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
+    TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns, Optional<RowExpression> updateScope);
 
     /**
      * Finish update query

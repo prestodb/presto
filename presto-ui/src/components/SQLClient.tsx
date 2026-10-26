@@ -14,19 +14,12 @@
 
 import React from "react";
 import { clsx } from "clsx";
-import { createTheme } from "react-data-table-component";
 import { PrestoQuery } from "@prestodb/presto-js-client";
 import { QueryResults } from "./QueryResults";
 import { SessionProps } from "./SessionProps";
 import { SQLInput, createClient } from "./SQLInput";
 import { PageTitle } from "./PageTitle";
 import "prismjs/themes/prism-okaidia.css";
-
-createTheme("dark", {
-    background: {
-        default: "transparent",
-    },
-});
 
 type SessionValues = {
     [key: string]: string;

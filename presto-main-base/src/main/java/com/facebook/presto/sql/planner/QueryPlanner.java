@@ -144,6 +144,7 @@ import static com.facebook.presto.spi.ConnectorMergeSink.DELETE_OPERATION_NUMBER
 import static com.facebook.presto.spi.ConnectorMergeSink.INSERT_OPERATION_NUMBER;
 import static com.facebook.presto.spi.ConnectorMergeSink.UPDATE_OPERATION_NUMBER;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.plan.AggregationNode.groupingSets;
 import static com.facebook.presto.spi.plan.AggregationNode.singleGroupingSet;
 import static com.facebook.presto.spi.plan.LimitNode.Step.FINAL;
@@ -408,8 +409,13 @@ public class QueryPlanner
         if (rewriteAsMerge && !isMergeSupportedFormatVersion(handle)) {
             rewriteAsMerge = false;
         }
+        // V3 row-level updates are committed as Puffin deletion vectors (via the
+        // UPDATE-as-MERGE rewrite on native, or not at all on Java). Reject
+        // Java-planned V3 UPDATEs with the connector's message. Native-planned
+        // UPDATEs reach beginMerge through the rewrite below and are unaffected.
+        checkV3DeletionVectorRequiresNative(handle, "UPDATE");
         if (!rewriteAsMerge) {
-            handle = metadata.beginUpdate(session, handle, updatedColumns);
+            handle = metadata.beginUpdate(session, handle, updatedColumns, analysis.getWritePredicateScope());
         }
 
         String catalogName = handle.getConnectorId().getCatalogName();
@@ -421,6 +427,7 @@ public class QueryPlanner
         ImmutableList.Builder<VariableReferenceExpression> outputVariablesBuilder = ImmutableList.builder();
         ImmutableMap.Builder<VariableReferenceExpression, ColumnHandle> columns = ImmutableMap.builder();
         ImmutableList.Builder<Field> fields = ImmutableList.builder();
+        ImmutableList.Builder<String> orderedColumnNamesBuilder = ImmutableList.builder();
         ImmutableList.Builder<Expression> orderedColumnValuesBuilder = ImmutableList.builder();
         for (Field field : descriptor.getAllFields()) {
             String name = field.getName().get();
@@ -430,9 +437,11 @@ public class QueryPlanner
             fields.add(field);
             int index = targetColumnNames.indexOf(name);
             if (index >= 0) {
+                orderedColumnNamesBuilder.add(name);
                 orderedColumnValuesBuilder.add(node.getAssignments().get(index).getValue());
             }
         }
+        List<String> orderedColumnNames = orderedColumnNamesBuilder.build();
         List<Expression> orderedColumnValues = orderedColumnValuesBuilder.build();
 
         // add rowId column
@@ -486,7 +495,13 @@ public class QueryPlanner
 
         builder = builder.appendProjections(orderedColumnValues, variableAllocator, idAllocator, session, metadata, sqlParser, analysis, sqlPlannerContext);
 
-        PlanAndMappings planAndMappings = coerce(builder, orderedColumnValues, analysis, idAllocator, variableAllocator, metadata);
+        PlanAndMappings coerced = coerce(builder, orderedColumnValues, analysis, idAllocator, variableAllocator, metadata);
+        PlanAndMappings planAndMappings = checkNotNullUpdatedColumns(
+                node.getTable().getName(),
+                coerced,
+                orderedColumnNames,
+                orderedColumnValues,
+                updatedColumnMetadata);
         builder = planAndMappings.getSubPlan();
 
         ImmutableList.Builder<VariableReferenceExpression> updatedColumnValuesBuilder = ImmutableList.builder();
@@ -535,7 +550,7 @@ public class QueryPlanner
                     finalBuilder,
                     outputVariables,
                     rowId,
-                    targetColumnNames,
+                    orderedColumnNames,
                     orderedColumnValues,
                     planAndMappings,
                     outputs);
@@ -579,7 +594,7 @@ public class QueryPlanner
             PlanBuilder finalBuilder,
             List<VariableReferenceExpression> outputVariables,
             Optional<VariableReferenceExpression> rowId,
-            List<String> targetColumnNames,
+            List<String> orderedColumnNames,
             List<Expression> orderedColumnValues,
             PlanAndMappings planAndMappings,
             List<VariableReferenceExpression> outputs)
@@ -627,7 +642,7 @@ public class QueryPlanner
             mergeColumnVariablesBuilder.add(originalColumnVariable);
 
             String columnName = column.getName();
-            int setIndex = targetColumnNames.indexOf(columnName);
+            int setIndex = orderedColumnNames.indexOf(columnName);
             if (setIndex >= 0) {
                 Expression setExpression = orderedColumnValues.get(setIndex);
                 VariableReferenceExpression projectedVariable = planAndMappings.get(setExpression);
@@ -725,6 +740,48 @@ public class QueryPlanner
         }
         catch (NumberFormatException ignored) {
             return false;
+        }
+    }
+
+    /**
+     * Returns true iff the target table is an Iceberg format-version 3 table, whose
+     * row-level writes are committed as Puffin deletion vectors that only a native
+     * (Prestissimo) worker can produce. Like {@link #isMergeSupportedFormatVersion},
+     * the version is read from the {@code "format-version"} table property (no Iceberg
+     * dependency allowed here) and absent/unparseable means false.
+     */
+    private boolean isV3DeletionVectorTable(TableHandle handle)
+    {
+        Object formatVersion = metadata.getTableMetadata(session, handle)
+                .getMetadata()
+                .getProperties()
+                .get("format-version");
+        if (formatVersion == null) {
+            return false;
+        }
+        try {
+            return Integer.parseInt(formatVersion.toString()) == 3;
+        }
+        catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * Rejects Iceberg V3 row-level UPDATE/MERGE planned for Java execution with the same
+     * message the connector reports at commit time. Without this gate the failure surfaces
+     * from whichever engine-internal error the V3 row id hits first, which is
+     * version-fragile and differs between UPDATE/MERGE paths. DELETE is intentionally not
+     * gated here: full-table and partition-aligned deletes are rewritten to
+     * MetadataDeleteNode after planning and succeed on Java, and the planner cannot
+     * distinguish those from row-level deletes at plan time.
+     */
+    private void checkV3DeletionVectorRequiresNative(TableHandle handle, String operation)
+    {
+        if (!isNativeExecutionEnabled(session) && isV3DeletionVectorTable(handle)) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    "Iceberg V3 deletion-vector writes (" + operation + ") require the native (Prestissimo) worker. " +
+                            "The Java worker cannot produce Puffin deletion vectors.");
         }
     }
 
@@ -916,13 +973,14 @@ public class QueryPlanner
                 ImmutableList.of(targetUniqueIdColumnVariable, caseNumberVariable), Optional.empty());
 
         // Raise an error if unique_id variable is non-null and the unique_id/case_number combination was not distinct
+        CatalogSchemaName defaultNamespace = metadata.getFunctionAndTypeManager().getDefaultNamespace();
         Expression multipleMatchesExpression = new IfExpression(
                 LogicalBinaryExpression.and(
                         new NotExpression(createSymbolReference(isDistinctVariable)),
                         new IsNotNullPredicate(createSymbolReference(targetUniqueIdColumnVariable))),
                 new Cast(
                         new FunctionCall(
-                                QualifiedName.of("presto", "default", "fail"),
+                                QualifiedName.of(defaultNamespace.getCatalogName(), defaultNamespace.getSchemaName(), "fail"),
                                 ImmutableList.of(new Cast(new StringLiteral(
                                         "MERGE INTO operation failed for target table '" + targetTable.getName() + "'. " +
                                         "One or more rows in the target table matched multiple source rows. " +
@@ -936,6 +994,11 @@ public class QueryPlanner
                 markDistinctNode, rowExpression(multipleMatchesExpression, sqlPlannerContext));
 
         TableHandle targetTableHandle = analysis.getTableHandle(targetTable);
+        // V3 row-level merges are committed as Puffin deletion vectors, which only the
+        // native worker can write. Reject Java-planned V3 MERGEs here with the same
+        // message the connector reports, instead of letting the failure surface from
+        // whichever engine-internal error the 4-field V3 row id hits first.
+        checkV3DeletionVectorRequiresNative(targetTableHandle, "MERGE");
         RowChangeParadigm rowChangeParadigm = metadata.getRowChangeParadigm(session, targetTableHandle);
         Type targetTableRowIdColumnType = analysis.getType(analysis.getRowIdField(targetTable));
         TableMetadata targetTableMetadata = metadata.getTableMetadata(session, targetTableHandle);
@@ -1017,7 +1080,7 @@ public class QueryPlanner
      * @return The same expression if the column allows null values; otherwise, a CoalesceExpression that
      * prevents inserting NULL values into non-nullable columns.
      */
-    private static Expression checkNotNullColumns(
+    private Expression checkNotNullColumns(
             ColumnHandle targetColumnHandle,
             Expression expression,
             int fieldNumber,
@@ -1028,18 +1091,68 @@ public class QueryPlanner
             return expression;
         }
 
-        ColumnMetadata columnMetadata = mergeAnalysis.getTargetColumnsMetadata().get(fieldNumber);
+        return failIfNull(
+                expression,
+                mergeAnalysis.getTargetTable().getName(),
+                mergeAnalysis.getTargetColumnsMetadata().get(fieldNumber),
+                metadata.getFunctionAndTypeManager().getDefaultNamespace());
+    }
 
-        // Build a coalesce expression that returns an error when the original expression value is NULL.
+    /**
+     * Adds a ProjectNode that wraps the SET value of each NOT NULL column in {@link #failIfNull},
+     * and returns mappings from each SET expression to its checked variable.
+     * {@code columnNames} and {@code columnValues} must be in the same (table column) order.
+     */
+    private PlanAndMappings checkNotNullUpdatedColumns(
+            QualifiedName tableName,
+            PlanAndMappings planAndMappings,
+            List<String> columnNames,
+            List<Expression> columnValues,
+            List<ColumnMetadata> updatedColumns)
+    {
+        Map<String, ColumnMetadata> notNullColumns = updatedColumns.stream()
+                .filter(column -> !column.isNullable())
+                .collect(toImmutableMap(ColumnMetadata::getName, Function.identity()));
+        if (notNullColumns.isEmpty()) {
+            return planAndMappings;
+        }
+
+        PlanBuilder subPlan = planAndMappings.getSubPlan();
+        Assignments.Builder assignments = Assignments.builder();
+        assignments.putAll(subPlan.getRoot().getOutputVariables().stream().collect(toImmutableMap(Function.identity(), Function.identity())));
+        ImmutableMap.Builder<NodeRef<Expression>, VariableReferenceExpression> mappings = ImmutableMap.builder();
+        CatalogSchemaName defaultNamespace = metadata.getFunctionAndTypeManager().getDefaultNamespace();
+        for (int i = 0; i < columnValues.size(); i++) {
+            Expression columnValue = columnValues.get(i);
+            VariableReferenceExpression variable = planAndMappings.get(columnValue);
+            ColumnMetadata column = notNullColumns.get(columnNames.get(i));
+            if (column != null) {
+                VariableReferenceExpression checkedVariable = variableAllocator.newVariable(variable);
+                Expression checkedValue = failIfNull(createSymbolReference(variable), tableName, column, defaultNamespace);
+                assignments.put(checkedVariable, rowExpression(checkedValue, sqlPlannerContext));
+                variable = checkedVariable;
+            }
+            mappings.put(NodeRef.of(columnValue), variable);
+        }
+        return new PlanAndMappings(
+                subPlan.withNewRoot(new ProjectNode(idAllocator.getNextId(), subPlan.getRoot(), assignments.build())),
+                mappings.build());
+    }
+
+    /**
+     * Returns a CoalesceExpression that raises an error when {@code expression} is NULL.
+     */
+    private static Expression failIfNull(Expression expression, QualifiedName tableName, ColumnMetadata column, CatalogSchemaName functionNamespace)
+    {
         return new CoalesceExpression(expression,
                 new Cast(
                         new FunctionCall(
-                                QualifiedName.of("presto", "default", "fail"),
+                                QualifiedName.of(functionNamespace.getCatalogName(), functionNamespace.getSchemaName(), "fail"),
                                 ImmutableList.of(new Cast(new StringLiteral(
-                                        "NULL value not allowed for NOT NULL column. Table: " + mergeAnalysis.getTargetTable().getName() +
-                                                " Column: " + columnMetadata.getName()),
+                                        "NULL value not allowed for NOT NULL column. Table: " + tableName +
+                                                " Column: " + column.getName()),
                                         VARCHAR.getTypeSignature().toString()))),
-                        columnMetadata.getType().getTypeSignature().toString()));
+                        column.getType().getTypeSignature().toString()));
     }
 
     private static int getMergeCaseOperationNumber(MergeCase mergeCase)

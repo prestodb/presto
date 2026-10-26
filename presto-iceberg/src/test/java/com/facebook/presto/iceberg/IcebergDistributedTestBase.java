@@ -327,6 +327,39 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("DROP TABLE test_delete");
     }
 
+    /**
+     * Row-level (merge-on-read) DELETE after partition evolution. The predicate is on a
+     * non-partition column, so this cannot be served by a metadata delete and each writer emits a
+     * position-delete fragment carrying the partition spec id of the data file it read. Those
+     * fragments span two specs here, so a fragment that lost its spec id in serialization would be
+     * committed against spec 0 and land in the wrong partition.
+     */
+    @Test
+    public void testRowLevelDeleteAcrossPartitionSpecs()
+    {
+        String tableName = "test_row_level_delete_spec_evolution";
+        try {
+            assertQuerySucceeds("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR)" +
+                    " WITH (\"format-version\" = '2', \"write.delete.mode\" = 'merge-on-read', partitioning = ARRAY['a'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'keep'), (1, 'drop'), (2, 'drop')", 3);
+
+            // Evolve the spec: rows inserted from here on carry a different partition spec id.
+            assertQuerySucceeds("ALTER TABLE " + tableName + " ADD COLUMN c BIGINT WITH (partitioning = 'identity')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'keep', 10), (3, 'drop', 20)", 2);
+
+            // 'b' is not a partition column in either spec, so this is a row-level delete that
+            // touches data files written under both specs.
+            assertUpdate("DELETE FROM " + tableName + " WHERE b = 'drop'", 3);
+
+            assertQuery("SELECT a, b, c FROM " + tableName + " ORDER BY a",
+                    "VALUES (1, 'keep', NULL), (3, 'keep', 10)");
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 2");
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     @Test
     public void testRenameIdentityPartitionColumn()
     {
@@ -2561,8 +2594,10 @@ public abstract class IcebergDistributedTestBase
             assertHasDataFiles(icebergTable.currentSnapshot(), 4);
             assertHasDeleteFiles(icebergTable.currentSnapshot(), 2);
 
-            assertQueryFails("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'a > 3')", ".*");
-            assertQueryFails("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'c > 3')", ".*");
+            // Filters on non-enforceable columns leave a FilterNode in the procedure plan,
+            // which the plan sanity check rejects.
+            assertQueryFails("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'a > 3')", "Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
+            assertQueryFails("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'c > 3')", "Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
 
             // Explicitly set min-input-files=1 since we only have 4 files and want to rewrite them
             assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', options => map(array['rewrite-all'], array['true']))", 3);
@@ -2688,12 +2723,52 @@ public abstract class IcebergDistributedTestBase
         assertUpdate("ALTER TABLE test_table_references DROP COLUMN id2");
         assertUpdate("ALTER TABLE test_table_references ADD COLUMN id2_new BIGINT");
 
-        // since current table schema is changed from col id2 to id2_new
+        // The current table schema changed from id2 to id2_new.
         assertQuery("SELECT * FROM test_table_references where id1=1", "VALUES(1, NULL)");
+        // A branch is still being written to, so reading one uses the current schema.
         assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testBranch' where id1=1", "VALUES(1, NULL)");
-        // Currently Presto returns current table schema for any previous snapshot access https://github.com/prestodb/presto/issues/23553
-        // otherwise querying a tag uses the snapshot's schema https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags
-        assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testTag' where id1=1", "VALUES(1, NULL)");
+        // A tag marks a point in history, so reading one uses the schema its snapshot was written
+        // with, which still had id2.
+        // https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags
+        assertQuery("SELECT * FROM test_table_references FOR SYSTEM_VERSION AS OF 'testTag' where id1=1", "VALUES(1, 10)");
+    }
+
+    @Test
+    public void testTimeTravelWithNestedSchemaEvolution()
+    {
+        String tableName = "test_time_travel_nested_evolution";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, s ROW(a INTEGER, b INTEGER))");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(10, 20))", 1);
+            Table icebergTable = loadTable(tableName);
+            long snapshotId = icebergTable.currentSnapshot().snapshotId();
+
+            // Presto's ALTER TABLE only changes top-level columns, so the fields inside s are
+            // changed through the Iceberg API. None of these changes creates a new snapshot.
+            icebergTable.updateSchema().deleteColumn("s.b").commit();
+            icebergTable.updateSchema().addColumn("s", "c", Types.IntegerType.get()).commit();
+            icebergTable.updateSchema().renameColumn("s.a", "a_renamed").commit();
+
+            // A plain read uses the current schema: s is now (a_renamed, c). Only the names are
+            // checked here, not the value of a_renamed, because that value comes from how the
+            // reader matches renamed nested fields in data files, which is not what this test
+            // is about.
+            assertQuery("SELECT s.c FROM " + tableName, "VALUES NULL");
+            assertQuerySucceeds("SELECT s.a_renamed FROM " + tableName);
+            assertQueryFails("SELECT s.a FROM " + tableName, ".*cannot be resolved.*");
+            assertQueryFails("SELECT s.b FROM " + tableName, ".*cannot be resolved.*");
+
+            // A read of the old snapshot uses the schema it was written with: s is still (a, b),
+            // so the dropped field b can be read, and the added field c and the new name
+            // a_renamed are unknown.
+            String oldSnapshot = tableName + " FOR VERSION AS OF " + snapshotId;
+            assertQuery("SELECT s.a, s.b FROM " + oldSnapshot, "VALUES (10, 20)");
+            assertQueryFails("SELECT s.c FROM " + oldSnapshot, ".*cannot be resolved.*");
+            assertQueryFails("SELECT s.a_renamed FROM " + oldSnapshot, ".*cannot be resolved.*");
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     @Test
@@ -3504,6 +3579,30 @@ public abstract class IcebergDistributedTestBase
         assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 22, 23)");
         assertUpdate("UPDATE " + tableName + " SET row_t = ROW(row_t.f1 * 2, row_t.f2) WHERE row_t.f1 = 22", 1);
         assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 44, 23)");
+    }
+
+    @Test
+    public void testUpdateNullIntoNotNullColumn()
+    {
+        String tableName = "test_update_not_null_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (a BIGINT, b BIGINT NOT NULL, c BIGINT NOT NULL)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2, 3), (4, 5, 6)", 2);
+
+            assertQueryFails("UPDATE " + tableName + " SET b = NULL WHERE a = 1", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: b");
+            assertQueryFails("UPDATE " + tableName + " SET c = NULL", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: c");
+            assertQueryFails("UPDATE " + tableName + " SET c = IF(a = 4, NULL, c)", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: c");
+            assertQueryFails("UPDATE " + tableName + " SET c = NULL, b = 7 WHERE a = 1", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: c");
+            assertQueryFails("UPDATE " + tableName + " SET b = CAST(NULL AS INTEGER)", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: b");
+            assertUpdate("UPDATE " + tableName + " SET b = NULL WHERE a = 999", 0);
+            assertQuery("SELECT a, b, c FROM " + tableName, "VALUES (1, 2, 3), (4, 5, 6)");
+
+            assertUpdate("UPDATE " + tableName + " SET a = NULL, b = b + 1 WHERE a = 1", 1);
+            assertQuery("SELECT a, b, c FROM " + tableName, "VALUES (NULL, 3, 3), (4, 5, 6)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
     }
 
     public void testUpdateOnPartitionTable()
@@ -4410,6 +4509,12 @@ public abstract class IcebergDistributedTestBase
             for (@Language("SQL") String sqlMergeCommand : sqlMergeCommands) {
                 assertQueryFails(sqlMergeCommand, "NULL value not allowed for NOT NULL column. Table: merge_non_nullable_target_.* Column: region_name");
             }
+
+            assertUpdate(format("MERGE INTO %s t ", targetTable) +
+                    "USING (VALUES ('CANADA', 'AMERICA')) s(nation_name, region_name) " +
+                    "ON (t.nation_name = s.nation_name) " +
+                    "WHEN MATCHED THEN" +
+                    "    UPDATE SET region_name = NULL", 0);
         }
         finally {
             assertUpdate("DROP TABLE " + targetTable);

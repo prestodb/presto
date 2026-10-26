@@ -15,6 +15,7 @@ package com.facebook.presto.hive.statistics;
 
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.hive.DirectoryLister;
+import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HadoopDirectoryLister;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -47,6 +48,8 @@ import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.apache.hadoop.mapred.InputFormat;
+import org.apache.hudi.hadoop.HoodieParquetInputFormat;
+import org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -60,15 +63,18 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.hive.HiveColumnConverterProvider.DEFAULT_COLUMN_CONVERTER_PROVIDER;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_BACKGROUND_BUILD_TIMEOUT;
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_ENABLED;
+import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_ESTIMATE_NDV_STAT;
 import static com.facebook.presto.hive.HiveSessionProperties.QUICK_STATS_INLINE_BUILD_TIMEOUT;
 import static com.facebook.presto.hive.HiveSessionProperties.SKIP_EMPTY_FILES;
 import static com.facebook.presto.hive.HiveSessionProperties.USE_LIST_DIRECTORY_CACHE;
@@ -85,6 +91,7 @@ import static com.facebook.presto.hive.metastore.PrestoTableType.EXTERNAL_TABLE;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static com.facebook.presto.hive.statistics.PartitionQuickStats.convertToPartitionStatistics;
+import static com.facebook.presto.hive.statistics.PartitionQuickStats.withoutDistinctValuesCount;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -118,6 +125,11 @@ public class TestQuickStatsProvider
                     "Use quick stats to resolve stats",
                     true,
                     false),
+            booleanProperty(
+                    QUICK_STATS_ESTIMATE_NDV_STAT,
+                    "Emit a conservative distinctValuesCount (NDV) bound from quick stats",
+                    true,
+                    false),
             new PropertyMetadata<>(
                     QUICK_STATS_INLINE_BUILD_TIMEOUT,
                     "Inline build timeout for a quick stats call",
@@ -147,6 +159,7 @@ public class TestQuickStatsProvider
                     false,
                     false));
     public static final ConnectorSession SESSION = new TestingConnectorSession(quickStatsProperties);
+    private static final long PER_FILE_ROW_COUNT = 4242L;
     private final HiveClientConfig hiveClientConfig = new HiveClientConfig().setRecursiveDirWalkerEnabled(true);
     private HdfsEnvironment hdfsEnvironment;
     private DirectoryLister directoryListerMock;
@@ -161,6 +174,15 @@ public class TestQuickStatsProvider
         return new TestingConnectorSession(quickStatsProperties, ImmutableMap.of(
                 QUICK_STATS_INLINE_BUILD_TIMEOUT, inlineBuildTimeout,
                 QUICK_STATS_BACKGROUND_BUILD_TIMEOUT, backgroundBuildTimeout));
+    }
+
+    // Note: boolean session property values must be passed as Boolean, not as a String --
+    // PropertyMetadata#booleanProperty decodes with Boolean.class::cast, so a String value throws
+    // ClassCastException when the property is read.
+    private static ConnectorSession getSessionWithEstimateNdvStat(boolean estimateNdvStat)
+    {
+        return new TestingConnectorSession(quickStatsProperties, ImmutableMap.of(
+                QUICK_STATS_ESTIMATE_NDV_STAT, estimateNdvStat));
     }
 
     @BeforeTest
@@ -225,9 +247,73 @@ public class TestQuickStatsProvider
         mockIntegerColumnStats = new ColumnQuickStats<>("column", Integer.class);
         mockIntegerColumnStats.setMinValue(Integer.MIN_VALUE);
         mockIntegerColumnStats.setMaxValue(Integer.MAX_VALUE);
-        mockIntegerColumnStats.addToRowCount(4242L);
-        mockPartitionQuickStats = new PartitionQuickStats("partitionId", ImmutableList.of(mockIntegerColumnStats), 42);
+        mockPartitionQuickStats = new PartitionQuickStats("partitionId", ImmutableList.of(mockIntegerColumnStats), 42, 42 * PER_FILE_ROW_COUNT);
         expectedPartitionStats = convertToPartitionStatistics(mockPartitionQuickStats);
+    }
+
+    /**
+     * The NDV flag is applied when cached quick stats are read, so one entry serves both settings.
+     */
+    @Test
+    public void testNdvFlagIsAppliedOnRead()
+    {
+        AtomicInteger builds = new AtomicInteger();
+        QuickStatsBuilder countingBuilder = (session, metastore, table, metastoreContext, partitionId, files) -> {
+            builds.incrementAndGet();
+            return mockPartitionQuickStats;
+        };
+        QuickStatsProvider provider = new QuickStatsProvider(metastoreMock, hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
+                ImmutableList.of(countingBuilder));
+        SchemaTableName table = new SchemaTableName(TEST_SCHEMA, TEST_TABLE);
+
+        PartitionStatistics enabled = provider.getQuickStats(getSessionWithEstimateNdvStat(true), table, metastoreContext, "p1");
+        PartitionStatistics disabled = provider.getQuickStats(getSessionWithEstimateNdvStat(false), table, metastoreContext, "p1");
+        PartitionStatistics enabledAgain = provider.getQuickStats(getSessionWithEstimateNdvStat(true), table, metastoreContext, "p1");
+
+        assertEquals(builds.get(), 1);
+        assertEquals(enabled, convertToPartitionStatistics(mockPartitionQuickStats));
+        assertEquals(disabled, withoutDistinctValuesCount(enabled));
+        assertEquals(enabledAgain, enabled);
+    }
+
+    /**
+     * The listing skips the hidden log files of a Hudi merge-on-read table, so no files listed does not
+     * mean no rows there. The read-optimized view reads only the listed base files.
+     */
+    @Test
+    public void testNoFilesInHudiRealtimeTableIsUnknown()
+    {
+        assertEquals(quickStatsForEmptyTable(HoodieParquetRealtimeInputFormat.class.getName()), empty());
+        assertEquals(quickStatsForEmptyTable(HoodieParquetInputFormat.class.getName()).getBasicStatistics().getRowCount(), OptionalLong.of(0));
+    }
+
+    private PartitionStatistics quickStatsForEmptyTable(String inputFormat)
+    {
+        String tableName = "hudi_" + inputFormat.substring(inputFormat.lastIndexOf('.') + 1);
+        TestingExtendedHiveMetastore hudiMetastore = new TestingExtendedHiveMetastore();
+        hudiMetastore.createTable(
+                metastoreContext,
+                new Table(
+                        Optional.of("catalogName"),
+                        TEST_SCHEMA,
+                        tableName,
+                        "owner",
+                        MANAGED_TABLE,
+                        Storage.builder()
+                                .setStorageFormat(StorageFormat.create(ParquetHiveSerDe.class.getName(), inputFormat, HiveIgnoreKeyTextOutputFormat.class.getName()))
+                                .setLocation("location")
+                                .build(),
+                        ImmutableList.of(),
+                        ImmutableList.of(),
+                        ImmutableMap.of(),
+                        Optional.empty(),
+                        Optional.empty()),
+                new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()),
+                ImmutableList.of());
+        // directoryListerMock lists no files
+        QuickStatsProvider provider = new QuickStatsProvider(hudiMetastore, hdfsEnvironment, directoryListerMock, hiveClientConfig, new NamenodeStats(),
+                ImmutableList.of(new ParquetQuickStatsBuilder(new FileFormatDataSourceStats(), hdfsEnvironment, hiveClientConfig)));
+        return provider.getQuickStats(SESSION, new SchemaTableName(TEST_SCHEMA, tableName), metastoreContext, UNPARTITIONED_ID.getPartitionName());
     }
 
     @Test
@@ -498,7 +584,7 @@ public class TestQuickStatsProvider
             for (HiveFileInfo hiveFileInfo : fileInfoList) {
                 assertTrue(hiveFileInfo.getPath().equals("file:" + targetFilePath1) || hiveFileInfo.getPath().equals("file:" + targetFilePath2));
             }
-            return new PartitionQuickStats(UNPARTITIONED_ID.getPartitionName(), ImmutableList.of(mockIntegerColumnStats), fileInfoList.size());
+            return new PartitionQuickStats(UNPARTITIONED_ID.getPartitionName(), ImmutableList.of(mockIntegerColumnStats), fileInfoList.size(), 2 * PER_FILE_ROW_COUNT);
         };
 
         QuickStatsProvider quickStatsProvider = new QuickStatsProvider(metastoreMock, hdfsEnvironment, directoryLister, hiveClientConfig, new NamenodeStats(),

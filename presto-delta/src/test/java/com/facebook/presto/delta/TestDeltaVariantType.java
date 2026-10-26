@@ -636,4 +636,21 @@ public class TestDeltaVariantType
         assertEquals(result.getMaterializedRows().get(0).getField(0), 6L);
         assertEquals(result.getMaterializedRows().get(0).getField(1), 6L);
     }
+
+    @Test
+    public void testNonAnnotatedVariantIsReadCorrectly()
+    {
+        Session session = Session.builder(getSession()).build();
+        String query = format(
+                "SELECT data FROM \"%s\".\"%s\" ORDER BY id ASC",
+                PATH_SCHEMA,
+                goldenTablePathWithPrefix(DELTA_V3, "non_annotated_variant"));
+        MaterializedResult result = computeActual(session, query);
+        assertEquals(result.getMaterializedRows().size(), 5);
+        assertEquals(result.getMaterializedRows().get(0).getField(0), "{\"age\":30,\"city\":\"New York\",\"name\":\"Alice\"}");
+        assertEquals(result.getMaterializedRows().get(1).getField(0), "{\"age\":25,\"city\":\"London\",\"name\":\"Bob\"}");
+        assertEquals(result.getMaterializedRows().get(2).getField(0), "{\"age\":35,\"city\":\"Tokyo\",\"name\":\"Charlie\"}");
+        assertEquals(result.getMaterializedRows().get(3).getField(0), "{\"age\":28,\"city\":\"Paris\",\"name\":\"Diana\"}");
+        assertNull(result.getMaterializedRows().get(4).getField(0));
+    }
 }

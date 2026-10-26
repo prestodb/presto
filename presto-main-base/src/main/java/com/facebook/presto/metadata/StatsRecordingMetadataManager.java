@@ -426,11 +426,11 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
-    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    public TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns, Optional<RowExpression> updateScope)
     {
         long startTime = System.nanoTime();
         try {
-            return delegate.beginUpdate(session, tableHandle, updatedColumns);
+            return delegate.beginUpdate(session, tableHandle, updatedColumns, updateScope);
         }
         finally {
             stats.recordBeginUpdateCall(System.nanoTime() - startTime);
@@ -1160,6 +1160,18 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public void addField(Session session, TableHandle tableHandle, List<String> parentPath, String fieldName, Type type, boolean ignoreExisting)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.addField(session, tableHandle, parentPath, fieldName, type, ignoreExisting);
+        }
+        finally {
+            stats.recordAddColumnCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
     public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
     {
         long startTime = System.nanoTime();
@@ -1184,11 +1196,35 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public void setFieldType(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.setFieldType(session, tableHandle, column, fieldPath, type);
+        }
+        finally {
+            stats.recordSetFieldTypeCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
     public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
     {
         long startTime = System.nanoTime();
         try {
             delegate.dropColumn(session, tableHandle, column);
+        }
+        finally {
+            stats.recordDropColumnCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
+    public void dropField(Session session, TableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.dropField(session, tableHandle, fieldPath, ignoreNonExistent);
         }
         finally {
             stats.recordDropColumnCall(System.nanoTime() - startTime);

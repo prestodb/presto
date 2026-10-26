@@ -48,6 +48,16 @@ class SessionProperties : public SessionPropertiesProvider {
   static constexpr const char* kMaxExtendedPartialAggregationMemory =
       "native_max_extended_partial_aggregation_memory";
 
+  /// Number of input rows to receive before starting to check whether to
+  /// abandon partial aggregation.
+  static constexpr const char* kAbandonPartialAggregationMinRows =
+      "native_abandon_partial_aggregation_min_rows";
+
+  /// Abandons partial aggregation if number of groups equals or exceeds this
+  /// percentage of the number of input rows.
+  static constexpr const char* kAbandonPartialAggregationMinPct =
+      "native_abandon_partial_aggregation_min_pct";
+
   /// Enable join spilling on native engine.
   static constexpr const char* kJoinSpillEnabled = "native_join_spill_enabled";
 
@@ -83,6 +93,14 @@ class SessionProperties : public SessionPropertiesProvider {
   /// Ceiling for the per-driver RPC congestion window (0 = per-mode default).
   static constexpr const char* kRpcCongestionMaxWindow =
       "native_rpc_congestion_max_window";
+
+  /// Initial per-driver BATCH RPC congestion window (0 = default of 2).
+  static constexpr const char* kRpcCongestionBatchStartWindow =
+      "native_rpc_congestion_batch_start_window";
+
+  /// Cap for BATCH window growth on clean no-latency completions (0 = off).
+  static constexpr const char* kRpcCongestionAsyncGrowthMaxWindow =
+      "native_rpc_congestion_async_growth_max_window";
 
   /// Enable row number spilling on native engine.
   static constexpr const char* kRowNumberSpillEnabled =

@@ -57,6 +57,7 @@ import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INCOMPATIBLE_VERSION;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.isGeospatialType;
 import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_METADATA_TABLES;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableScan;
 import static com.facebook.presto.iceberg.IcebergUtil.isAvroException;
@@ -247,6 +248,12 @@ public class FilesTable
     private static void populateIdToTypeMap(Types.NestedField field, ImmutableMap.Builder<Integer, Type> idToTypeMap)
     {
         Type type = field.type();
+        if (isGeospatialType(type)) {
+            // Omitted so the bounds of geospatial columns are skipped: Iceberg cannot
+            // deserialize them, and a writer that treats the column as plain binary records
+            // byte-wise bounds that have no geospatial meaning anyway.
+            return;
+        }
         idToTypeMap.put(field.fieldId(), type);
         if (type instanceof Type.NestedType) {
             type.asNestedType().fields().forEach(child -> populateIdToTypeMap(child, idToTypeMap));

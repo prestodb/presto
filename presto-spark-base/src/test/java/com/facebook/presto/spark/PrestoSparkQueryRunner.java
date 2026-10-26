@@ -22,6 +22,7 @@ import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsManager;
 import com.facebook.presto.cost.StatsCalculator;
+import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.functionNamespace.SqlInvokedFunctionNamespaceManagerConfig;
 import com.facebook.presto.functionNamespace.execution.NoopSqlFunctionExecutor;
 import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
@@ -168,6 +169,7 @@ public class PrestoSparkQueryRunner
     private final PlanCheckerProviderManager planCheckerProviderManager;
     private final Set<PrestoSparkServiceWaitTimeMetrics> waitTimeMetrics;
     private final HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager;
+    private final EventListenerManager eventListenerManager;
 
     private final LifeCycleManager lifeCycleManager;
 
@@ -386,6 +388,7 @@ public class PrestoSparkQueryRunner
         planCheckerProviderManager = injector.getInstance(PlanCheckerProviderManager.class);
         waitTimeMetrics = injector.getInstance(new Key<Set<PrestoSparkServiceWaitTimeMetrics>>() {});
         historyBasedPlanStatisticsManager = injector.getInstance(HistoryBasedPlanStatisticsManager.class);
+        eventListenerManager = injector.getInstance(EventListenerManager.class);
 
         lifeCycleManager = injector.getInstance(LifeCycleManager.class);
 
@@ -563,6 +566,11 @@ public class PrestoSparkQueryRunner
     public HistoryBasedPlanStatisticsManager getHistoryBasedPlanStatisticsManager()
     {
         return historyBasedPlanStatisticsManager;
+    }
+
+    public EventListenerManager getEventListenerManager()
+    {
+        return eventListenerManager;
     }
 
     @Override

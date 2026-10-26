@@ -11,8 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "presto_cpp/main/properties/session/SessionProperties.h"
+
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <string>
+
+#include <fmt/format.h>
 #include <folly/Conv.h>
+
+#include <velox/common/base/Exceptions.h>
 #include "presto_cpp/main/common/Utils.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/type/Type.h"
@@ -73,6 +83,24 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kMaxExtendedPartialAggregationMemory,
       std::to_string(c.maxExtendedPartialAggregationMemoryUsage()));
+
+  addSessionProperty(
+      kAbandonPartialAggregationMinRows,
+      "Number of input rows to receive before starting to check whether to "
+      "abandon partial aggregation.",
+      INTEGER(),
+      false,
+      QueryConfig::kAbandonPartialAggregationMinRows,
+      std::to_string(c.abandonPartialAggregationMinRows()));
+
+  addSessionProperty(
+      kAbandonPartialAggregationMinPct,
+      "Abandons partial aggregation if number of groups equals or exceeds this "
+      "percentage of the number of input rows.",
+      INTEGER(),
+      false,
+      QueryConfig::kAbandonPartialAggregationMinPct,
+      std::to_string(c.abandonPartialAggregationMinPct()));
 
   addSessionProperty(
       kMaxSpillLevel,
@@ -148,6 +176,27 @@ SessionProperties::SessionProperties() {
       false,
       "rpc.ratelimiter.hard_limit",
       "-1");
+
+  addSessionProperty(
+      kRpcCongestionBatchStartWindow,
+      "Native Execution only. Initial per-driver BATCH RPC congestion window. "
+      "Zero preserves the default of 2; positive values are clamped to the "
+      "window bounds.",
+      BIGINT(),
+      false,
+      QueryConfig::kRpcCongestionBatchStartWindow,
+      fmt::to_string(c.rpcCongestionBatchStartWindow()));
+
+  addSessionProperty(
+      kRpcCongestionAsyncGrowthMaxWindow,
+      "Native Execution only. Cap for per-driver BATCH window growth on clean "
+      "completions that carry no usable latency sample. Zero disables recovery "
+      "growth; overload may still shrink the window. Positive values enable "
+      "bounded additive growth.",
+      BIGINT(),
+      false,
+      QueryConfig::kRpcCongestionAsyncGrowthMaxWindow,
+      fmt::to_string(c.rpcCongestionAsyncGrowthMaxWindow()));
 
   addSessionProperty(
       kRpcCongestionMaxWindow,

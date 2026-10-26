@@ -68,6 +68,7 @@ import java.util.stream.Stream;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_COMMIT_ERROR;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.validateGeospatialWrite;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getPartitioning;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getSortOrder;
@@ -80,6 +81,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeIcebergView;
 import static com.facebook.presto.iceberg.IcebergUtil.getViewComment;
 import static com.facebook.presto.iceberg.IcebergUtil.isPrestoView;
+import static com.facebook.presto.iceberg.IcebergUtil.parseFormatVersion;
 import static com.facebook.presto.iceberg.IcebergUtil.populateTableProperties;
 import static com.facebook.presto.iceberg.IcebergUtil.validateViewDefinitionForBranches;
 import static com.facebook.presto.iceberg.PartitionFields.parsePartitionFields;
@@ -211,7 +213,17 @@ public class IcebergNativeMetadata
 
     private List<String> listNestedNamespaces(SupportsNamespaces supportsNamespaces, Namespace parentNamespace)
     {
-        return supportsNamespaces.listNamespaces(parentNamespace)
+        List<Namespace> childNamespaces;
+        try {
+            childNamespaces = supportsNamespaces.listNamespaces(parentNamespace);
+        }
+        catch (NoSuchNamespaceException e) {
+            // The namespace was dropped concurrently (e.g. another session cleaning up
+            // schemas mid-listing); treat a vanished namespace as empty, mirroring
+            // listTables below.
+            return ImmutableList.of();
+        }
+        return childNamespaces
                 .stream()
                 .flatMap(childNamespace -> Stream.concat(
                         Stream.of(toPrestoSchemaName(childNamespace)),
@@ -446,6 +458,7 @@ public class IcebergNativeMetadata
 
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
         FileFormat fileFormat = tableProperties.getFileFormat(session, tableMetadata.getProperties());
+        validateGeospatialWrite(schema, parseFormatVersion(tableProperties.getFormatVersion(session, tableMetadata.getProperties())), fileFormat);
 
         try {
             TableIdentifier tableIdentifier = toIcebergTableIdentifier(schemaTableName, catalogFactory.isNestedNamespaceEnabled());

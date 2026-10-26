@@ -14,11 +14,13 @@
 
 #include "presto_cpp/main/TaskManager.h"
 
+#include <chrono>
 #include <utility>
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <folly/container/F14Set.h>
+#include <folly/stop_watch.h>
 #include <velox/core/PlanNode.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
@@ -153,13 +155,13 @@ void getData(
     return;
   }
 
-  int64_t startMs = getCurrentTimeMs();
+  const folly::stop_watch<std::chrono::milliseconds> watch;
   auto bufferFound = bufferManager.getData(
       taskId,
       destination,
       maxSize.getValue(protocol::DataUnit::BYTE),
       token,
-      [taskId = taskId, bufferId = destination, promiseHolder, startMs](
+      [taskId = taskId, bufferId = destination, promiseHolder, watch](
           std::vector<std::unique_ptr<folly::IOBuf>> pages,
           int64_t sequence,
           std::vector<int64_t> remainingBytes) mutable {
@@ -184,7 +186,7 @@ void getData(
           }
         }
 
-        int64_t waitTimeMs = getCurrentTimeMs() - startMs;
+        const int64_t waitTimeMs = watch.elapsed().count();
         VLOG(1) << "Task " << taskId << " waited " << waitTimeMs
                 << "ms for data: "
                 << "buffer " << bufferId << ", sequence " << sequence
@@ -205,7 +207,7 @@ void getData(
 
         RECORD_METRIC_VALUE(
             kCounterPartitionedOutputBufferGetDataLatencyMs,
-            getCurrentTimeMs() - startMs);
+            watch.elapsed().count());
       },
       [stateHolder]() {
         auto state = stateHolder.lock();
@@ -371,7 +373,8 @@ TaskManager::TaskManager(
           SystemConfig::instance()->taskSyncTerminateTimeoutMs()),
       bufferManager_(velox::exec::DefaultOutputBufferManager::getInstanceRef()),
       httpSrvCpuExecutor_(httpSrvCpuExecutor),
-      lastNotOverloadedTimeInSecs_(velox::getCurrentTimeSec()) {
+      lastNotOverloadedTimeInSecs_(
+          velox::SteadyTime::now<std::chrono::seconds>()) {
   VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
 }
 
@@ -494,7 +497,8 @@ TaskManager::buildTaskSpillDirectoryPath(
 void TaskManager::setServerOverloaded(bool serverOverloaded) {
   serverOverloaded_ = serverOverloaded;
   if (!serverOverloaded) {
-    lastNotOverloadedTimeInSecs_ = velox::getCurrentTimeSec();
+    lastNotOverloadedTimeInSecs_ =
+        velox::SteadyTime::now<std::chrono::seconds>();
   }
 }
 
@@ -564,15 +568,15 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
-  auto receiveTaskUpdateMs = getCurrentTimeMs();
+  const folly::stop_watch<std::chrono::milliseconds> receiveTaskUpdateWatch;
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
   auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
-  if (prestoTask->firstTimeReceiveTaskUpdateMs == 0) {
-    prestoTask->firstTimeReceiveTaskUpdateMs = receiveTaskUpdateMs;
-  }
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
+    if (!prestoTask->firstTaskUpdateWatch.has_value()) {
+      prestoTask->firstTaskUpdateWatch = receiveTaskUpdateWatch;
+    }
     prestoTask->updateCoordinatorHeartbeatLocked();
     if ((prestoTask->task == nullptr) && (planFragment.planNode != nullptr)) {
       // If the task is aborted, no need to do anything else.
@@ -635,7 +639,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       prestoTask->task = std::move(newExecTask);
       prestoTask->info.needsPlan = false;
       startTask = true;
-      prestoTask->createFinishTimeMs = getCurrentTimeMs();
+      prestoTask->taskCreationTimeMs =
+          prestoTask->firstTaskUpdateWatch->elapsed().count();
     }
     execTask = prestoTask->task;
   }
@@ -834,8 +839,7 @@ void TaskManager::startTaskLocked(std::shared_ptr<PrestoTask>& prestoTask) {
   // planned (queued) time.
   // Note task could be created at getTaskStatus/getTaskInfo endpoint and later
   // receive taskUpdate to create and start task.
-  const auto queuedTimeInMs =
-      velox::getCurrentTimeMs() - prestoTask->createTimeMs;
+  const auto queuedTimeInMs = prestoTask->createWatch.elapsed().count();
   prestoTask->info.stats.queuedTimeInNanos = queuedTimeInMs * 1'000'000;
   RECORD_METRIC_VALUE(kCounterTaskPlannedTimeMs, queuedTimeInMs);
 }
@@ -949,7 +953,8 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
     auto execTask = prestoTask->task;
     if (execTask) {
       taskDrainFuture = execTask->requestAbort();
-      prestoTask->info.stats.endTimeInMillis = velox::getCurrentTimeMs();
+      prestoTask->info.stats.endTimeInMillis =
+          velox::EpochTime::now<std::chrono::milliseconds>();
       prestoTask->updateInfoLocked(summarize);
 
       // Do not erase the finished/aborted tasks, because someone might still
@@ -1000,7 +1005,7 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
 }
 
 size_t TaskManager::cleanOldTasks() {
-  const auto startTimeMs = getCurrentTimeMs();
+  const folly::stop_watch<std::chrono::milliseconds> watch;
 
   folly::F14FastSet<protocol::TaskId> taskIdsToClean;
 
@@ -1067,7 +1072,7 @@ size_t TaskManager::cleanOldTasks() {
     cancelAbandonedTasksInternal(taskMap, oldTaskCleanUpMs_);
   }
 
-  const auto elapsedMs = (getCurrentTimeMs() - startTimeMs);
+  const auto elapsedMs = watch.elapsed().count();
   if (not taskIdsToClean.empty()) {
     std::vector<std::shared_ptr<PrestoTask>> tasksToDelete;
     tasksToDelete.reserve(taskIdsToClean.size());
@@ -1376,7 +1381,8 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
 
   prestoTask =
       std::make_shared<PrestoTask>(taskId, nodeId_, startProcessCpuTime);
-  prestoTask->info.stats.createTimeInMillis = velox::getCurrentTimeMs();
+  prestoTask->info.stats.createTimeInMillis =
+      velox::EpochTime::now<std::chrono::milliseconds>();
   prestoTask->info.needsPlan = true;
 
   struct UuidSplit {
@@ -1501,7 +1507,7 @@ int32_t TaskManager::yieldTasks(
     int32_t timeSliceMicros) {
   const auto taskMap = taskMap_.rlock();
   int32_t numYields = 0;
-  uint64_t now = getCurrentTimeMicro();
+  uint64_t now = EpochTime::now<std::chrono::microseconds>();
   for (const auto& pair : *taskMap) {
     if (pair.second->task != nullptr) {
       numYields += pair.second->task->yieldIfDue(now - timeSliceMicros);

@@ -88,7 +88,7 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP TAG (IF EXISTS)? name=string                              #dropTag
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        ALTER COLUMN columnName=identifier SET DATA TYPE type          #setColumnType
+        ALTER COLUMN columnName=qualifiedName SET DATA TYPE type       #setColumnType
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE TYPE qualifiedName AS (
         '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ')'
@@ -200,7 +200,7 @@ tableElement
     ;
 
 columnDefinition
-    : identifier type (NOT NULL)? (COMMENT string)? (DEFAULT expression)? ((GENERATED ALWAYS)? AS expression (PERSISTENT | VIRTUAL)?)? (WITH properties)?
+    : qualifiedName type (NOT NULL)? (COMMENT string)? (DEFAULT expression)? ((GENERATED ALWAYS)? AS expression (PERSISTENT | VIRTUAL)?)? (WITH properties)?
     ;
 
 likeClause

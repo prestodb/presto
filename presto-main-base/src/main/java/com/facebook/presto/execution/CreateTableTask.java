@@ -34,6 +34,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.ConstraintSpecification;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
@@ -124,26 +125,32 @@ public class CreateTableTask
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition) {
                 ColumnDefinition column = (ColumnDefinition) element;
-                String columnName = column.getName().getValue();
+                if (column.getName().getParts().size() != 1) {
+                    String qualifiedColumnName = column.getName().getOriginalParts().stream()
+                            .map(Identifier::getValue)
+                            .collect(Collectors.joining("."));
+                    throw new SemanticException(NOT_SUPPORTED, column, "Column name '%s' must not be qualified", qualifiedColumnName);
+                }
+                String columnName = column.getName().getOriginalParts().get(0).getValue();
                 String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnName);
                 Type type;
                 try {
                     type = metadata.getType(parseTypeSignature(column.getType()));
                 }
                 catch (IllegalArgumentException | UnknownTypeException e) {
-                    throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
+                    throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), columnName);
                 }
                 if (type.equals(UNKNOWN)) {
-                    throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
+                    throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), columnName);
                 }
                 if (columns.containsKey(name)) {
-                    throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
+                    throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", columnName);
                 }
                 if (!column.isNullable() && !metadata.getConnectorCapabilities(session, connectorId).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
-                    throw new SemanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", connectorId.getCatalogName(), column.getName());
+                    throw new SemanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", connectorId.getCatalogName(), columnName);
                 }
                 if (column.getDefaultExpression().isPresent() && column.getDerivedColumnSpec().isPresent()) {
-                    throw new SemanticException(NOT_SUPPORTED, column, "Both default expression and derived column expression cannot be set on the same column %s.", column.getName());
+                    throw new SemanticException(NOT_SUPPORTED, column, "Both default expression and derived column expression cannot be set on the same column %s.", columnName);
                 }
                 Map<String, Expression> sqlProperties = mapFromProperties(column.getProperties());
                 Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(

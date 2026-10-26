@@ -565,7 +565,9 @@ public final class SqlFormatter
             builder.append(formatName(node.getName()));
             if (node.getTableVersionExpression().isPresent()) {
                 builder.append(' ');
-                process(node.getTableVersionExpression().get(), indent);
+                // The version expression is formatted inline after the table name, so it is a root
+                // for formatting purposes regardless of how deeply the table itself is nested.
+                process(node.getTableVersionExpression().get(), 0);
             }
 
             return null;
@@ -1453,7 +1455,7 @@ public final class SqlFormatter
         private String formatColumnDefinition(ColumnDefinition column)
         {
             StringBuilder sb = new StringBuilder()
-                    .append(formatExpression(column.getName(), parameters))
+                    .append(formatName(column.getName()))
                     .append(" ").append(column.getType());
             if (!column.isNullable()) {
                 sb.append(" NOT NULL");
@@ -1567,7 +1569,7 @@ public final class SqlFormatter
             if (node.isColumnExists()) {
                 builder.append("IF EXISTS ");
             }
-            builder.append(formatExpression(node.getColumn(), parameters));
+            builder.append(formatName(node.getColumn()));
 
             return null;
         }

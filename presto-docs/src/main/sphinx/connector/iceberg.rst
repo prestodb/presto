@@ -488,7 +488,10 @@ Property Name                                              Description          
                                                            in case of concurrent upsert requests, before failing.
 
 ``format-version``                                         Optionally specifies the format version of the Iceberg            ``2``                 Yes                 No, write is not supported
-                                                           specification to use for new tables, either ``1`` or ``2``.
+                                                           specification to use for new tables, either ``1``, ``2``, or
+                                                           ``3``. Row-level ``DELETE``/``UPDATE``/``MERGE`` on a
+                                                           ``3`` table is committed as a Puffin deletion vector, which
+                                                           only a Presto C++ (Prestissimo) worker can write.
 
 ``location``                                               Optionally specifies the file system location URI for                                   Yes                 Yes
                                                            the table.
@@ -743,7 +746,9 @@ Property Name                                          Description              
 
 ``iceberg.io-impl``                                    Custom FileIO implementation to use in a catalog. It must       ``org.apache.iceberg.hadoop.HadoopFileIO``
                                                        be set to enable manifest caching. This is only needed for
-                                                       Hadoop, Nessie and REST catalogs.
+                                                       Hadoop and Nessie catalogs. The REST catalog ignores this
+                                                       property and always uses Presto's PrestoRESTFileIO FileIO,
+                                                       which supports manifest caching.
 
 ``iceberg.io.manifest.cache.max-total-bytes``          Maximum size of cache size in bytes.                            ``104857600``
 
@@ -762,7 +767,7 @@ JMX query to get the metrics and verify the cache usage::
 
 .. note::
 
-    Manifest file cache statistics are only available through the JMX connector when the Iceberg connector is configured with a HIVE catalog type.
+    Manifest file cache statistics are only available through the JMX connector when the Iceberg connector is configured with a HIVE or REST catalog type.
 
 .. rubric:: Presto C++ Support
 
@@ -1848,6 +1853,18 @@ SQL Support
      - Yes
      - Yes
      -
+   * - ``ALTER TABLE ADD COLUMN`` (nested struct field)
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN SET DATA TYPE`` (nested struct field)
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE DROP COLUMN`` (nested struct field)
+     - Yes
+     - Yes
+     -
    * - ``ALTER VIEW``
      - Yes
      - Yes
@@ -2181,11 +2198,10 @@ ADD COLUMN with DEFAULT (Iceberg V3)
 
 .. note::
 
-    ``ADD COLUMN DEFAULT`` read support is available in both **Presto Java** and **Presto C++** (Prestissimo).
-    Both engines execute the DDL, store the default in Iceberg metadata, and inject the ``initial-default``
-    value during reads for historical rows. In addition, **Presto Java** supports write-time handling of
-    ``write-default`` for omitted columns during ``INSERT`` into Iceberg V3 tables. **Presto C++** does not
-    support this behavior.
+    ``ADD COLUMN DEFAULT`` is supported in both **Presto Java** and **Presto C++** (Prestissimo).
+    Both engines execute the DDL, store the default in Iceberg metadata, inject the ``initial-default``
+    value during reads for historical rows, and write the ``write-default`` value for columns omitted
+    from an ``INSERT`` into Iceberg V3 tables.
 
 Iceberg Format Version 3 supports default column values for schema evolution. When a column is
 added with a ``DEFAULT`` clause, Presto sets both the ``initial-default`` and ``write-default``
@@ -2216,8 +2232,8 @@ ALTER COLUMN SET DEFAULT (Iceberg V3)
 .. note::
 
     ``ALTER COLUMN SET DEFAULT`` updates the Iceberg metadata (``write-default`` field).
-    In **Presto Java**, subsequent ``INSERT`` statements use the ``write-default`` value for omitted
-    columns. **Presto C++** does not yet support write-default materialization during ``INSERT``.
+    In both **Presto Java** and **Presto C++**, subsequent ``INSERT`` statements use the
+    ``write-default`` value for omitted columns.
 
 Iceberg Format Version 3 allows updating the ``write-default`` value for an existing column without
 modifying the ``initial-default``. This is useful for schema evolution and maintaining compatibility
@@ -2242,6 +2258,80 @@ value automatically.
 
 This feature requires Iceberg Format Version 3. Attempting to use ``ALTER COLUMN SET DEFAULT`` on
 a table with format version 2 or lower will result in an error.
+
+.. _iceberg-alter-table-schema-evolution:
+
+ALTER TABLE Schema Evolution
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. note::
+
+    This operation is supported in both **Presto Java** and **Presto C++**.
+
+The Iceberg connector supports adding a field to a ``ROW`` column using a dotted path to identify
+the parent struct. This is a metadata-only change — no data files are rewritten.
+
+Example — Add a field to a struct column::
+
+     ALTER TABLE iceberg.web.orders ADD COLUMN address.zip VARCHAR;
+
+The optional ``IF NOT EXISTS`` clause suppresses the error if the field already exists::
+
+     ALTER TABLE iceberg.web.orders ADD COLUMN IF NOT EXISTS address.zip VARCHAR;
+
+The dotted path may refer to arbitrarily nested fields. The following clauses are not supported
+for nested fields and will be rejected: ``NOT NULL``, ``COMMENT``, ``DEFAULT``,
+``GENERATED``/``AS``, ``WITH`` properties, and ``FIRST``/``AFTER``.
+
+Adding a nested field whose name was previously used by a dropped or renamed field in the same
+struct is rejected to prevent stale data from appearing in existing rows.
+
+ALTER COLUMN SET DATA TYPE (nested struct field)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports widening the type of a nested field by specifying a dotted path
+in ``ALTER COLUMN … SET DATA TYPE``. This is a metadata-only change — no data files are
+rewritten, and previously written data remains readable under the new, wider type.
+
+Only widening conversions are permitted:
+
+* ``INTEGER`` → ``BIGINT``
+* ``REAL`` → ``DOUBLE``
+* ``DECIMAL(p, s)`` → ``DECIMAL(p2, s)`` where ``p2 >= p`` (scale must remain unchanged)
+
+Narrowing conversions (such as ``BIGINT`` → ``INTEGER``) are rejected. The path must point to a
+field inside a struct column; paths into the element type of an array or the key/value types of a
+map are not supported.
+
+Example — Widen ``age`` from ``INTEGER`` to ``BIGINT`` inside the ``info`` struct::
+
+     ALTER TABLE iceberg.web.users ALTER COLUMN info.age SET DATA TYPE BIGINT;
+
+Example — Widen ``score`` from ``REAL`` to ``DOUBLE`` inside the ``info`` struct::
+
+     ALTER TABLE iceberg.web.users ALTER COLUMN info.score SET DATA TYPE DOUBLE;
+
+Example — Widen a decimal column with increased precision::
+
+     ALTER TABLE iceberg.web.orders ALTER COLUMN totals.amount SET DATA TYPE DECIMAL(20, 2);
+
+DROP COLUMN (nested struct field)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports dropping a field from a ``ROW`` column using a dotted path. This is a
+metadata-only change — no data files are rewritten.
+
+Example::
+
+     ALTER TABLE iceberg.web.orders DROP COLUMN address.zip;
+
+The optional ``IF EXISTS`` clause suppresses the error if the field or any parent in the path does not exist::
+
+     ALTER TABLE iceberg.web.orders DROP COLUMN IF EXISTS address.zip;
+
+The dotted path may traverse arbitrarily nested structs, list elements (pseudo-step ``.element``,
+such as ``items.element.name``), and map values (pseudo-step ``.value``, such as ``m.value.name``).
+Dropping list elements, map keys, or map value containers directly is not supported.
 
 ALTER VIEW
 ^^^^^^^^^^
@@ -2460,7 +2550,9 @@ UPDATE and MERGE
 
 The Iceberg connector supports :doc:`../sql/update` and :doc:`../sql/merge` operations on Iceberg
 tables. Only some tables support them. These tables must be at minimum format
-version 2, and the ``write.update.mode`` must be set to `merge-on-read`.
+version 2. On format version 2 the ``write.update.mode`` must be set to `merge-on-read`;
+format version 3 tables use deletion vectors natively and do not require that property, but
+their row-level writes require a Presto C++ (Prestissimo) worker.
 
 .. code-block:: sql
 
@@ -2477,7 +2569,26 @@ updates.
 
 .. code-block:: text
 
-    Query 20250204_010445_00022_ymwi5 failed: Iceberg table updates require at least format version 2 and update mode must be merge-on-read
+    Query 20250204_010445_00022_ymwi5 failed: Iceberg table updates require update mode to be merge-on-read
+
+On a format version 3 table, running the mutation on a Java worker returns:
+
+.. code-block:: text
+
+    Query 20250204_010445_00022_ymwi5 failed: Iceberg V3 deletion-vector writes (DELETE, UPDATE, MERGE) require the native (Prestissimo) worker. The Java worker cannot produce Puffin deletion vectors.
+
+Format version 3 tables always use deletion vectors for row-level writes, regardless of
+the ``write.delete.mode`` / ``write.update.mode`` table properties; those modes only
+apply to format version 2 tables. The following limitations apply to version 3 tables:
+
+* A single data file split across more than one writer task fails the commit: Iceberg
+  allows at most one deletion vector per data file, and the pinned Iceberg library
+  cannot merge duplicate vectors, so the commit fails loudly instead of corrupting the
+  table. Keep data files below the target split size to avoid this.
+* The set of existing deletion vectors is enumerated from the read snapshot on every
+  mutation and carried on the delete/insert handle to each writer task; on tables with
+  very many files carrying deletion vectors this handle payload grows accordingly.
+  Seeding writers from per-split delete files instead is a follow-up.
 
 Iceberg tables do not support running multiple :doc:`../sql/merge` statements on the same table in parallel. If two or more ``MERGE`` operations are executed concurrently on the same Iceberg table:
 
@@ -2851,6 +2962,63 @@ In the following query, the expression CURRENT_TIMESTAMP returns the current tim
             10 | united states |         1 | comment
     (1 row)
 
+Schema used by a time travel query
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Iceberg keeps the data of a table and the schema of a table apart. A snapshot is a set of data files,
+while the schema is part of the table metadata, and each snapshot records the schema it was written
+with. ``ALTER TABLE`` writes new table metadata and creates no snapshot, so the newest snapshot and
+the current schema can differ.
+
+A query that reads a point in history is answered with the schema recorded on the snapshot it reads,
+so it returns the columns the data was written with:
+
+* ``FOR VERSION AS OF`` and ``FOR SYSTEM_VERSION AS OF`` with a snapshot ID
+* ``FOR TIMESTAMP AS OF`` and ``FOR SYSTEM_TIME AS OF``, and the ``BEFORE`` form of either
+* ``"<table>@<snapshot ID>"``
+* ``FOR SYSTEM_VERSION AS OF '<tag>'``, because a tag marks a point in history
+
+Every other read is answered with the current schema:
+
+* a read of the table itself
+* ``FOR SYSTEM_VERSION AS OF '<branch>'`` and ``"<table>.branch_<branch>"``, because a branch is
+  still being written to
+
+This is the rule Iceberg states for `schema selection with branches and tags
+<https://iceberg.apache.org/docs/nightly/branching/#schema-selection-with-branches-and-tags>`_.
+
+So a column dropped after a snapshot was written is still returned by a query that reads that
+snapshot, and a column added after it is not:
+
+.. code-block:: sql
+
+    CREATE TABLE ctas_nation_evolved (nationkey bigint, name varchar);
+
+    // snapshot ID 5300424205832769799
+    INSERT INTO ctas_nation_evolved VALUES(10, 'united states');
+
+    ALTER TABLE ctas_nation_evolved DROP COLUMN name;
+
+    SELECT * FROM ctas_nation_evolved;
+
+.. code-block:: text
+
+     nationkey
+    -----------
+            10
+    (1 row)
+
+.. code-block:: sql
+
+    SELECT * FROM ctas_nation_evolved FOR VERSION AS OF 5300424205832769799;
+
+.. code-block:: text
+
+     nationkey |      name
+    -----------+---------------
+            10 | united states
+    (1 row)
+
 Querying branches and tags
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -2996,7 +3164,7 @@ The following operations are **not supported** with branch-specific table names 
 * The branch must exist before performing mutations (create it with ``ALTER TABLE ... CREATE BRANCH``)
 * Changes are isolated to the specified branch and do not affect the main table or other branches
 * All standard SQL features work with branch mutations such as WHERE clauses, column lists, INSERT from SELECT, and others
-* For MERGE operations, the table must have format version 2 or higher and update mode set to ``merge-on-read``
+* For MERGE operations, the table must have format version 2 with update mode set to ``merge-on-read``, or format version 3 (which uses deletion vectors natively and requires a Presto C++ worker for the write)
 
 **Presto C++ Support**
 
@@ -3062,9 +3230,45 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``GEOMETRY``
   * - ``VARIANT``
     - ``JSON``
+  * - ``GEOGRAPHY``
+    - ``SphericalGeography``
 
 
 No other types are supported.
+
+``GEOGRAPHY`` columns are supported for reading and writing, and require WGS84
+longitude-latitude coordinates with the default ``spherical`` edge interpolation
+algorithm -- the semantics Presto's ``SphericalGeography`` type models. The CRS may be
+either ``OGC:CRS84`` (the Iceberg default) or its equivalent ``EPSG:4326``; a
+``GEOGRAPHY`` column declaring any other CRS or algorithm fails with ``NOT_SUPPORTED``.
+This applies to both reads and writes, so an existing ``EPSG:4326`` column created by
+another engine can also be written. Tables created by Presto record the column as
+``geography`` with the default CRS and algorithm. Values read from a ``GEOGRAPHY`` column,
+including files written by other engines, are validated the same way as
+:func:`!to_spherical_geography`: coordinates must be valid longitudes and latitudes, and
+3D values are rejected. Writes require format version 3 and the ``PARQUET`` file format,
+which is checked when the table is created::
+
+    CREATE TABLE iceberg.default.places (
+        name VARCHAR,
+        location SphericalGeography)
+    WITH ("format-version" = '3')
+
+The same format version and file format checks apply when a ``GEOGRAPHY`` column is added
+with ``ALTER TABLE ... ADD COLUMN``.
+
+``GEOGRAPHY`` columns have the following limitations:
+
+* Only the ``PARQUET`` file format is supported, for both reading and writing. A query
+  that reads a ``GEOGRAPHY`` column from an ``ORC`` data file fails with
+  ``NOT_SUPPORTED``; other columns of the same file can still be read.
+  The same applies to ``GEOMETRY`` columns.
+* Lower and upper bounds are not recorded in the data file metrics, so predicates on a
+  ``GEOGRAPHY`` column do not prune data files.
+* ``ANALYZE`` does not collect distinct value counts, histograms, or min/max values for
+  ``GEOGRAPHY`` columns.
+* A ``GEOGRAPHY`` column cannot be used as a partition column, because no Iceberg
+  partition transform, including ``identity``, accepts geospatial types.
 
 PrestoDB to Iceberg type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -3113,6 +3317,8 @@ Map of PrestoDB types to the relevant Iceberg types:
     - ``MAP``
   * - ``ROW``
     - ``STRUCT``
+  * - ``SphericalGeography``
+    - ``GEOGRAPHY``
 
 
 No other types are supported.

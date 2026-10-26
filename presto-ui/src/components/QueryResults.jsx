@@ -14,17 +14,21 @@
 
 import React from "react";
 import DataTable from "react-data-table-component";
+import { PRESTO_DARK_THEME } from "./DataTableTheme";
 
 export const CUSTOM_STYLES = {
     headCells: {
         style: {
-            padding: "2px", // override the cell padding for head cells
+            // 8.x overrides the `padding` shorthand with its own layout styles, so use the longhands
+            paddingLeft: "2px", // override the cell padding for head cells
+            paddingRight: "2px",
             fontSize: "15px",
         },
     },
     cells: {
         style: {
-            padding: "2px", // override the cell padding for data cells
+            paddingLeft: "2px", // override the cell padding for data cells
+            paddingRight: "2px",
             fontSize: "15px",
         },
     },
@@ -88,7 +92,7 @@ export function QueryResults({ results }) {
                     <DataTable
                         columns={getColumns()}
                         data={results.data}
-                        theme="dark"
+                        theme={PRESTO_DARK_THEME}
                         customStyles={CUSTOM_STYLES}
                         striped={true}
                         pagination

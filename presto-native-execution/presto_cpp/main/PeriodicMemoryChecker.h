@@ -13,10 +13,12 @@
  */
 #pragma once
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <string>
 #include <vector>
@@ -155,7 +157,9 @@ class PeriodicMemoryChecker {
 
   // Serializes direct calls to the potentially stateful memory reader.
   std::mutex memoryUsageRefreshMutex_;
-  size_t lastHeapDumpAttemptTimestamp_{0};
+  // Steady clock time of the last heap dump attempt. Not set if there was
+  // none.
+  std::optional<std::chrono::steady_clock::time_point> lastHeapDumpAttemptTime_;
   std::priority_queue<
       DumpFileInfo,
       std::vector<DumpFileInfo>,

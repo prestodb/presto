@@ -29,6 +29,7 @@ import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
 import static com.facebook.presto.common.type.DateTimeEncoding.updateMillisUtc;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
+import static com.facebook.presto.util.DateTimeZoneIndex.renderingChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 
 public final class DateTimeOperators
@@ -186,16 +187,16 @@ public final class DateTimeOperators
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long timestampWithTimeZonePlusIntervalYearToMonth(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long timestampWithTimeZonePlusIntervalYearToMonth(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        return updateMillisUtc(unpackChronology(left).monthOfYear().add(unpackMillisUtc(left), right), left);
+        return updateMillisUtc(renderingChronology(properties, left).monthOfYear().add(unpackMillisUtc(left), right), left);
     }
 
     @ScalarOperator(ADD)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long intervalYearToMonthPlusTimestampWithTimeZone(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long right)
+    public static long intervalYearToMonthPlusTimestampWithTimeZone(SqlFunctionProperties properties, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long right)
     {
-        return updateMillisUtc(unpackChronology(right).monthOfYear().add(unpackMillisUtc(right), left), right);
+        return updateMillisUtc(renderingChronology(properties, right).monthOfYear().add(unpackMillisUtc(right), left), right);
     }
 
     @ScalarOperator(SUBTRACT)
@@ -272,9 +273,9 @@ public final class DateTimeOperators
 
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long timestampWithTimeZoneMinusIntervalYearToMonth(@SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
+    public static long timestampWithTimeZoneMinusIntervalYearToMonth(SqlFunctionProperties properties, @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE) long left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
-        long dateTimeWithTimeZone = unpackChronology(left).monthOfYear().add(unpackMillisUtc(left), -right);
+        long dateTimeWithTimeZone = renderingChronology(properties, left).monthOfYear().add(unpackMillisUtc(left), -right);
         return updateMillisUtc(dateTimeWithTimeZone, left);
     }
 

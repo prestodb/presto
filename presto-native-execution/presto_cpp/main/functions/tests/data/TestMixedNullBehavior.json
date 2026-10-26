@@ -1,0 +1,40 @@
+{
+  "test_mixed_null_behavior": [
+    {
+      "docString": "presto.default.test_mixed_null_behavior",
+      "functionKind": "SCALAR",
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
+      "outputType": "bigint",
+      "paramTypes": [
+        "bigint"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "RETURNS_NULL_ON_NULL_INPUT"
+      },
+      "schema": "default",
+      "typeVariableConstraints": [],
+      "variableArity": false
+    },
+    {
+      "docString": "presto.default.test_mixed_null_behavior",
+      "functionKind": "SCALAR",
+      "isRpcFunction": false,
+      "longVariableConstraints": [],
+      "outputType": "varchar",
+      "paramTypes": [
+        "varchar"
+      ],
+      "routineCharacteristics": {
+        "determinism": "DETERMINISTIC",
+        "language": "CPP",
+        "nullCallClause": "CALLED_ON_NULL_INPUT"
+      },
+      "schema": "default",
+      "typeVariableConstraints": [],
+      "variableArity": false
+    }
+  ]
+}

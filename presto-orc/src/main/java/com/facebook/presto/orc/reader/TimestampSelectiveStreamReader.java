@@ -62,6 +62,12 @@ public class TimestampSelectiveStreamReader
     private final OrcLocalMemoryContext systemMemoryContext;
     private final boolean nonDeterministicFilter;
     private final boolean enableMicroPrecision;
+    // When true, a timestamp that overflows the supported range is read back as null instead of
+    // failing the read with a TimestampOutOfBoundsException.
+    private final boolean readNullForOutOfBoundsTimestamp;
+    // Set when the batch currently being read actually decoded an out-of-bounds timestamp into a
+    // null. Reset on every read(); see producedNulls().
+    private boolean hasOverflowNull;
     private DecodeTimestampOptions decodeTimestampOptions;
 
     private InputStreamSource<BooleanInputStream> presentStreamSource = getBooleanMissingStreamSource();
@@ -90,9 +96,11 @@ public class TimestampSelectiveStreamReader
             Optional<TupleDomainFilter> filter,
             boolean outputRequired,
             OrcLocalMemoryContext systemMemoryContext,
-            boolean enableMicroPrecision)
+            boolean enableMicroPrecision,
+            boolean readNullForOutOfBoundsTimestamp)
     {
         this.enableMicroPrecision = enableMicroPrecision;
+        this.readNullForOutOfBoundsTimestamp = readNullForOutOfBoundsTimestamp;
         requireNonNull(filter, "filter is null");
         checkArgument(filter.isPresent() || outputRequired, "filter must be present if outputRequired is false");
         this.streamDescriptor = requireNonNull(streamDescriptor, "streamDescriptor is null");
@@ -158,10 +166,17 @@ public class TimestampSelectiveStreamReader
         }
 
         allNulls = false;
+        hasOverflowNull = false;
 
         if (outputRequired) {
-            ensureValuesCapacity(positionCount, nullsAllowed && presentStream != null);
+            ensureValuesCapacity(positionCount, mayProduceNulls());
         }
+
+        // The read loops below write into nulls[] whenever the reader may emit nulls (present stream
+        // or an out-of-bounds timestamp read back as null). Assert the buffer is allocated so an
+        // invariant break fails loudly here rather than as an obscure NPE mid-read.
+        checkState(!outputRequired || !mayProduceNulls() || nulls != null,
+                "nulls buffer must be allocated when the reader may produce nulls");
 
         outputPositions = initializeOutputPositions(outputPositions, positions, positionCount);
 
@@ -209,11 +224,33 @@ public class TimestampSelectiveStreamReader
                 }
             }
             else {
-                long value = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
-                if (filter.testLong(value)) {
+                long value = 0;
+                boolean overflowNull = false;
+                try {
+                    value = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
+                }
+                catch (TimestampOutOfBoundsException e) {
+                    if (!readNullForOutOfBoundsTimestamp) {
+                        throw e;
+                    }
+                    // Treat the out-of-bounds timestamp like a null value with respect to the filter.
+                    overflowNull = true;
+                }
+
+                if (overflowNull) {
+                    if ((nonDeterministicFilter && filter.testNull()) || nullsAllowed) {
+                        if (outputRequired) {
+                            nulls[outputPositionCount] = true;
+                            hasOverflowNull = true;
+                        }
+                        outputPositions[outputPositionCount] = position;
+                        outputPositionCount++;
+                    }
+                }
+                else if (filter.testLong(value)) {
                     if (outputRequired) {
                         values[outputPositionCount] = value;
-                        if (nullsAllowed && presentStream != null) {
+                        if (mayProduceNulls()) {
                             nulls[outputPositionCount] = false;
                         }
                     }
@@ -286,9 +323,23 @@ public class TimestampSelectiveStreamReader
                 nulls[i] = true;
             }
             else {
-                values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
-                if (presentStream != null) {
-                    nulls[i] = false;
+                boolean overflowNull = false;
+                try {
+                    values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), decodeTimestampOptions);
+                }
+                catch (TimestampOutOfBoundsException e) {
+                    if (!readNullForOutOfBoundsTimestamp) {
+                        throw e;
+                    }
+                    // An out-of-bounds timestamp is read back as null instead of failing the read.
+                    overflowNull = true;
+                }
+                // Set the null flag explicitly whenever the nulls array is in use to avoid stale
+                // entries. Guarded by mayProduceNulls() so the write and the allocation in
+                // ensureValuesCapacity() stay in sync.
+                if (mayProduceNulls()) {
+                    nulls[i] = overflowNull;
+                    hasOverflowNull |= overflowNull;
                 }
             }
             streamPosition++;
@@ -312,6 +363,22 @@ public class TimestampSelectiveStreamReader
             secondsStream.skip(items);
             nanosStream.skip(items);
         }
+    }
+
+    // Allocation guard: the nulls buffer has to exist before the read loop starts, so this is
+    // necessarily conservative -- whether an out-of-bounds timestamp will actually turn up in the
+    // batch is not known until it is decoded.
+    private boolean mayProduceNulls()
+    {
+        return nullsAllowed && (presentStream != null || readNullForOutOfBoundsTimestamp);
+    }
+
+    // Output guard: whether the batch just read can actually contain a null. Unlike
+    // mayProduceNulls() this is exact, so a column whose values all decoded cleanly still produces a
+    // block with no nulls and keeps the downstream mayHaveNull() == false fast path.
+    private boolean producedNulls()
+    {
+        return nullsAllowed && (presentStream != null || hasOverflowNull);
     }
 
     private void ensureValuesCapacity(int capacity, boolean recordNulls)
@@ -341,7 +408,7 @@ public class TimestampSelectiveStreamReader
             return new RunLengthEncodedBlock(NULL_BLOCK, positionCount);
         }
 
-        boolean includeNulls = nullsAllowed && presentStream != null;
+        boolean includeNulls = producedNulls();
         if (positionCount == outputPositionCount) {
             Block block = new LongArrayBlock(positionCount, Optional.ofNullable(includeNulls ? nulls : null), values);
             nulls = null;
@@ -392,7 +459,7 @@ public class TimestampSelectiveStreamReader
             return newLease(new RunLengthEncodedBlock(NULL_BLOCK, positionCount));
         }
 
-        boolean includeNulls = nullsAllowed && presentStream != null;
+        boolean includeNulls = producedNulls();
         if (positionCount != outputPositionCount) {
             compactValues(positions, positionCount, includeNulls);
         }

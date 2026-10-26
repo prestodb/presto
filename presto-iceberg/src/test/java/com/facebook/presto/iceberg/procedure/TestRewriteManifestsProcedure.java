@@ -146,7 +146,7 @@ public class TestRewriteManifestsProcedure
         assertQueryFails("CALL system.rewrite_manifests('test_table', 1)", "line 1:45: Cannot cast type integer to varchar");
         assertQueryFails("CALL system.rewrite_manifests(table_name => 'test_table', spec_id=> 1)", "line 1:1: Required procedure argument 'schema' is missing");
         assertQueryFails("CALL system.rewrite_manifests(schema => 'tpch', table_name => 'test', 1)", "line 1:1: Named and positional arguments cannot be mixed");
-        assertQueryFails("CALL custom.rewrite_manifests('tpch', 'test')", "Procedure not registered: custom.rewrite_manifests");
+        assertQueryFails("CALL custom.rewrite_manifests('tpch', 'test')", "Procedure not registered: iceberg.custom.rewrite_manifests");
     }
 
     @Test

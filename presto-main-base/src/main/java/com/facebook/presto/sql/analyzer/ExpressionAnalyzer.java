@@ -1445,6 +1445,9 @@ public class ExpressionAnalyzer
             else if (valueType.equals(TIMESTAMP)) {
                 resultType = TIMESTAMP_WITH_TIME_ZONE;
             }
+            else if (valueType.equals(TIMESTAMP_WITH_TIME_ZONE) && !sqlFunctionProperties.isLegacyTimestampWithTimezone()) {
+                resultType = TIMESTAMP;
+            }
 
             return setExpressionType(node, resultType);
         }

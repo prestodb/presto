@@ -42,7 +42,9 @@ Native Execution only. Use legacy TIME and TIMESTAMP semantics.
 
 When ``true``, ``TIMESTAMP WITH TIME ZONE`` values render in each value's embedded
 time zone. When ``false``, they render the UTC instant in the session time zone, so
-values that compare equal render identically.
+values that compare equal render identically. For a ``TIMESTAMP WITH TIME ZONE``
+input, ``AT TIME ZONE`` returns a zoned timestamp when this property is ``true``
+and a ``TIMESTAMP`` containing the requested-zone wall clock when it is ``false``.
 
 ``native_aggregation_spill_memory_threshold``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -74,6 +76,24 @@ Native Execution only. The maximum partial aggregation memory when data reductio
 When good data reduction is achieved through partial aggregation, more memory would be given even
 when we reach the limit of ``native_max_partial_aggregation_memory``.
 Default is 64MB.
+
+``native_abandon_partial_aggregation_min_rows``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``100000``
+
+Native Execution only. Number of input rows to receive before starting to check whether to abandon
+partial aggregation.
+
+``native_abandon_partial_aggregation_min_pct``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``80``
+
+Native Execution only. Abandons partial aggregation if the number of groups equals or exceeds this
+percentage of the number of input rows.
 
 
 ``native_debug_validate_output_from_operators``
@@ -657,6 +677,34 @@ Native Execution only. Ceiling for the per-driver RPC congestion window. When se
 the per-mode built-in values are used: PER_ROW mode defaults to 100, BATCH mode defaults to 256.
 Raise this value for high-latency backends so admission-controlled dispatch can run at high
 concurrency. The congestion window controls how many RPC requests can be in flight per driver.
+
+``native_rpc_congestion_batch_start_window``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Restrictions:** must be non-negative
+* **Default value:** ``0``
+
+Native Execution only. Initial per-driver BATCH RPC congestion window. Zero preserves the default
+of 2. A positive value is clamped between 1 and ``native_rpc_congestion_max_window``. PER_ROW always
+starts at its ceiling and is unaffected by this property.
+
+``native_rpc_congestion_async_growth_max_window``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Restrictions:** must be non-negative
+* **Default value:** ``0``
+
+Native Execution only. Cap for per-driver BATCH window growth on clean completions that carry no
+usable latency sample. Zero disables this growth. Overload may still shrink the window, and clean
+completions without usable latency samples do not grow it back toward the start.
+
+A positive value enables additive growth up to the cap. A positive value below the effective BATCH
+start window is raised to that start. ``native_rpc_congestion_max_window`` remains the overall
+ceiling (256 for BATCH when zero). Set ``native_rpc_congestion_batch_start_window`` and this property
+together when raising the start for backends without usable latency samples. Size both at or below
+the backend's measured concurrency knee.
 
 ``native_request_data_sizes_max_wait_sec``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -19,6 +19,7 @@
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
 #include <cerrno>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -100,6 +101,10 @@
 
 #ifdef PRESTO_ENABLE_THETA_SKETCH
 #include "presto_cpp/main/functions/theta_sketch/ThetaSketchRegistration.h"
+#endif
+
+#ifdef PRESTO_ENABLE_KLL_SKETCH
+#include "presto_cpp/main/functions/kll_sketch/KllSketchRegistration.h"
 #endif
 
 #ifdef __linux__
@@ -1575,6 +1580,10 @@ void PrestoServer::registerFunctions() {
   functions::aggregate::theta_sketch::registerAllThetaSketchFunctions(
       prestoBuiltinFunctionPrefix_);
 #endif
+
+#ifdef PRESTO_ENABLE_KLL_SKETCH
+  functions::registerAllKllSketchFunctions(prestoBuiltinFunctionPrefix_);
+#endif
 }
 
 void PrestoServer::registerRemoteFunctions() {
@@ -1827,15 +1836,14 @@ void PrestoServer::checkOverload() {
   // Determine if the server is overloaded. We require both memory and CPU to be
   // not overloaded for some time (continuous period) to consider the server as
   // not overloaded.
-  const uint64_t currentTimeSecs = velox::getCurrentTimeSec();
   if (memOverloaded_ || cpuOverloaded_) {
-    lastOverloadedTimeInSecs_ = currentTimeSecs;
+    lastOverloadedTime_ = std::chrono::steady_clock::now();
   }
-  VELOX_CHECK_GE(currentTimeSecs, lastOverloadedTimeInSecs_);
-  const bool serverOverloaded =
-      ((cpuOverloaded_ || memOverloaded_) ||
-       ((currentTimeSecs - lastOverloadedTimeInSecs_) <
-        systemConfig->workerOverloadedCooldownPeriodSec()));
+  const bool serverOverloaded = (cpuOverloaded_ || memOverloaded_) ||
+      (lastOverloadedTime_.has_value() &&
+       std::chrono::steady_clock::now() - lastOverloadedTime_.value() <
+           std::chrono::seconds(
+               systemConfig->workerOverloadedCooldownPeriodSec()));
 
   if (serverOverloaded && !serverOverloaded_) {
     LOG(WARNING) << "OVERLOAD: Server is overloaded.";

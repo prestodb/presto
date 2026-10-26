@@ -41,15 +41,6 @@ jobs:
           cd presto-native-execution
           make velox-submodule
 
-      - name: Build dependency image
-        run: |
-          cd presto-native-execution
-          docker build \
-            -t presto-native-dependency:latest \
-            -f scripts/dockerfiles/centos-dependency.dockerfile \
-            --progress=plain \
-            .
-
       - name: Build worker image (BuildKit)
         run: |
           cd presto-native-execution
@@ -57,7 +48,7 @@ jobs:
           docker build \
             -t presto-worker:latest \
             --build-arg BUILD_TYPE=Release \
-            --build-arg DEPENDENCY_IMAGE=presto-native-dependency:latest \
+            --build-arg DEPENDENCY_IMAGE=prestodb/presto-native-dependency:0.300-202610051009-aa529216 \
             --build-arg EXTRA_CMAKE_FLAGS="-DPRESTO_ENABLE_TESTING=OFF -DPRESTO_ENABLE_PARQUET=ON -DPRESTO_ENABLE_S3=ON -DPRESTO_ENABLE_REMOTE_FUNCTIONS=ON" \
             --build-arg NUM_THREADS=2 \
             -f scripts/dockerfiles/prestissimo-runtime.dockerfile \

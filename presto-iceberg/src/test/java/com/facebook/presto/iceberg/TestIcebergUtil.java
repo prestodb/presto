@@ -22,14 +22,25 @@ import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.hive.HiveStorageFormat;
 import com.facebook.presto.hive.HiveType;
 import com.facebook.presto.hive.metastore.Column;
+import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.HasTableOperations;
+import org.apache.iceberg.Schema;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.types.Types;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -46,6 +57,8 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECON
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergColumnHandle.LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE;
+import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.DOUBLE_NEGATIVE_INFINITE;
 import static com.facebook.presto.iceberg.IcebergUtil.DOUBLE_NEGATIVE_ZERO;
 import static com.facebook.presto.iceberg.IcebergUtil.DOUBLE_POSITIVE_INFINITE;
@@ -58,10 +71,14 @@ import static com.facebook.presto.iceberg.IcebergUtil.getAdjacentValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getMetadataColumnConstraints;
 import static com.facebook.presto.iceberg.IcebergUtil.getNonMetadataColumnConstraints;
 import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
+import static com.facebook.presto.iceberg.IcebergUtil.tryGetReadSchema;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.intBitsToFloat;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.expectThrows;
 
 public class TestIcebergUtil
 {
@@ -464,5 +481,40 @@ public class TestIcebergUtil
 
         assertThat(hiveColumns.get(2).getName()).isEqualTo("name");
         assertThat(hiveColumns.get(2).getType()).isEqualTo(HiveType.HIVE_STRING);
+    }
+
+    @Test
+    public void testReadSchemaFailsWhenTheSnapshotSchemaIsMissing()
+            throws IOException
+    {
+        Path location = Files.createTempDirectory("test_missing_snapshot_schema");
+        try {
+            Table table = new HadoopTables(new Configuration(false))
+                    .create(new Schema(Types.NestedField.optional(1, "a", Types.IntegerType.get())), location.toString());
+            table.newAppend().commit();
+            long snapshotId = table.currentSnapshot().snapshotId();
+            table.updateSchema().addColumn("b", Types.IntegerType.get()).commit();
+
+            // The snapshot was written with the first schema. Hide that schema, as if the table
+            // metadata had lost it, so that SnapshotUtil.schemaFor throws IllegalStateException.
+            Table tableWithoutOldSchema = new BaseTable(((HasTableOperations) table).operations(), table.name())
+            {
+                @Override
+                public Map<Integer, Schema> schemas()
+                {
+                    return ImmutableMap.of(table.schema().schemaId(), table.schema());
+                }
+            };
+
+            // The read must fail rather than fall back to the current schema, which is the wrong
+            // one for this snapshot.
+            IcebergTableName name = new IcebergTableName("t", DATA, Optional.of(snapshotId), Optional.empty(), Optional.empty());
+            PrestoException e = expectThrows(PrestoException.class,
+                    () -> tryGetReadSchema(tableWithoutOldSchema, name, Optional.empty(), Optional.of(snapshotId)));
+            assertEquals(e.getErrorCode(), ICEBERG_INVALID_METADATA.toErrorCode());
+        }
+        finally {
+            deleteRecursively(location, ALLOW_INSECURE);
+        }
     }
 }

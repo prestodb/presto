@@ -211,6 +211,26 @@ public final class SystemPartitioningHandle
         return new BucketPartitionFunction(bucketFunction, bucketToPartition);
     }
 
+    public static boolean isFixedRoundRobin(PartitioningHandle handle)
+    {
+        ConnectorPartitioningHandle connectorHandle = handle.getConnectorHandle();
+        if (!(connectorHandle instanceof SystemPartitioningHandle)) {
+            return false;
+        }
+        SystemPartitioningHandle systemHandle = (SystemPartitioningHandle) connectorHandle;
+        return systemHandle.partitioning == SystemPartitioning.FIXED
+                && systemHandle.function == SystemPartitionFunction.ROUND_ROBIN;
+    }
+
+    public static Optional<Integer> getSystemPartitionCount(PartitioningHandle handle)
+    {
+        ConnectorPartitioningHandle connectorHandle = handle.getConnectorHandle();
+        if (!(connectorHandle instanceof SystemPartitioningHandle)) {
+            return Optional.empty();
+        }
+        return ((SystemPartitioningHandle) connectorHandle).getPartitionCount();
+    }
+
     public static boolean isCompatibleSystemPartitioning(PartitioningHandle first, PartitioningHandle second)
     {
         ConnectorPartitioningHandle firstConnectorHandle = first.getConnectorHandle();

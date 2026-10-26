@@ -1198,7 +1198,9 @@ public final class SqlToRowExpressionTranslator
                         value);
             }
 
-            return call(functionAndTypeResolver, "at_timezone", getType(node), value, timeZone);
+            Type returnType = getType(node);
+            String functionName = returnType.equals(TIMESTAMP) ? "at_timezone_convert" : "at_timezone";
+            return call(functionAndTypeResolver, functionName, returnType, value, timeZone);
         }
 
         @Override

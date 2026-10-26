@@ -14,6 +14,7 @@
 
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
 
+#include <chrono>
 #include <cstdint>
 #include <utility>
 #include "presto_cpp/main/common/Configs.h"
@@ -140,7 +141,7 @@ int64_t PeriodicMemoryChecker::refreshSystemMemoryUsage() {
 }
 
 std::string PeriodicMemoryChecker::createHeapDumpFilePath() const {
-  const size_t now = velox::getCurrentTimeMs() / 1000;
+  const size_t now = velox::EpochTime::now<std::chrono::milliseconds>() / 1000;
   // Format as follow:
   // <heapDumpFilePrefix>.<pid>.<global_sequence>.i<sequence> =>
   // prefix.1234.235.i565
@@ -154,11 +155,13 @@ std::string PeriodicMemoryChecker::createHeapDumpFilePath() const {
 }
 
 void PeriodicMemoryChecker::maybeDumpHeap() {
-  const auto now = velox::getCurrentTimeMs() / 1000;
+  const auto now = std::chrono::steady_clock::now();
   const auto allocatedSize = mallocBytes();
   if (allocatedSize >= config_.mallocBytesUsageDumpThreshold &&
-      now - lastHeapDumpAttemptTimestamp_ >= config_.minHeapDumpIntervalSec) {
-    lastHeapDumpAttemptTimestamp_ = now;
+      (!lastHeapDumpAttemptTime_.has_value() ||
+       now - lastHeapDumpAttemptTime_.value() >=
+           std::chrono::seconds(config_.minHeapDumpIntervalSec))) {
+    lastHeapDumpAttemptTime_ = now;
     LOG(INFO) << fmt::format(
         "Memory usage allocated via malloc exceeded threshold of {}, current "
         "allocation: {}",

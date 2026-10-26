@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.300-SNAPSHOT</version>
+        <version>0.301-SNAPSHOT</version>
     </parent>
     <artifactId>presto-elasticsearch</artifactId>
     <name>presto-elasticsearch</name>
@@ -17,8 +17,26 @@
         <dep.log4j.version>2.25.5</dep.log4j.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <dep.lucene.version>9.12.0</dep.lucene.version>
+        <dep.tools-jackson.version>3.2.4</dep.tools-jackson.version>
         <project.build.targetJdk>17</project.build.targetJdk>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Source: https://mvnrepository.com/artifact/tools.jackson.core/jackson-core -->
+            <dependency>
+                <groupId>tools.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${dep.tools-jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>tools.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${dep.tools-jackson.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
