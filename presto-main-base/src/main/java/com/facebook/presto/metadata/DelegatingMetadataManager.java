@@ -304,6 +304,12 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
+    public void dropField(Session session, TableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        delegate.dropField(session, tableHandle, fieldPath, ignoreNonExistent);
+    }
+
+    @Override
     public void dropTable(Session session, TableHandle tableHandle)
     {
         delegate.dropTable(session, tableHandle);
