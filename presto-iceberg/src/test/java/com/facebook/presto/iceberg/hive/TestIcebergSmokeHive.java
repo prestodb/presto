@@ -577,8 +577,8 @@ public class TestIcebergSmokeHive
             assertUpdate(session, "ALTER TABLE " + renameTableName + " ADD COLUMN info.score INTEGER");
             assertUpdate(session, "INSERT INTO " + renameTableName + " VALUES (2, ROW('bob', 40, 99))", 1);
             // Note: info.years is intentionally excluded from this SELECT. In Iceberg, a rename keeps
-            // the original field ID, so Presto's name-based reader returns the stored value (30) for
-            // the existing row rather than NULL. Asserting info.years here would fail with 30 != NULL.
+            // the original field ID, so the correct value for the existing row is 30. Presto's nested
+            // readers match fields by name instead, so they return NULL here.
             // Tracked in https://github.com/prestodb/presto/issues/28705.
             assertQuery(session, "SELECT id, info.name, info.score FROM " + renameTableName + " ORDER BY id",
                     "VALUES (1, 'alice', NULL), (2, 'bob', 99)");
