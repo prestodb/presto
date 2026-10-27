@@ -17,6 +17,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.function.OperatorType;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ConnectorSession;
@@ -42,6 +43,7 @@ import com.facebook.presto.sql.relational.FunctionResolution;
 import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.BooleanLiteral;
+import com.facebook.presto.sql.tree.Cast;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.InListExpression;
@@ -53,17 +55,24 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.NotExpression;
+import com.facebook.presto.sql.tree.StringLiteral;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import jakarta.annotation.Nullable;
 import jakarta.inject.Inject;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.facebook.presto.SystemSessionProperties.shouldOptimizerUseHistograms;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -88,6 +97,8 @@ import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.LESS_TH
 import static com.facebook.presto.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
@@ -95,7 +106,10 @@ import static java.lang.Double.max;
 import static java.lang.Double.min;
 import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.singleton;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 
 public class FilterStatsCalculator
 {
@@ -107,6 +121,8 @@ public class FilterStatsCalculator
      */
     static final double CEIL_IN_PREDICATE_UPPER_BOUND_COEFFICIENT = 0.8;
     static final double UNKNOWN_FILTER_COEFFICIENT = 0.9;
+    private static final int MAX_PINNED_BRANCHES = 10_000;
+    private static final Pattern BOUNDED_VARCHAR = Pattern.compile("varchar\\((\\d+)\\)");
 
     private final Metadata metadata;
     private final ScalarStatsCalculator scalarStatsCalculator;
@@ -172,6 +188,102 @@ public class FilterStatsCalculator
             value = false;
         }
         return literalEncoder.toExpression(value, BOOLEAN);
+    }
+
+    /**
+     * Whether two OR branches can never both be true because every branch of one pins a string column to
+     * literal values the other branch rules out, as {@code name = 'a'} and {@code name = 'b'} do. A string
+     * column has no value range, so applying one branch to the other's output cannot see the contradiction:
+     * {@code name = 'a' AND name = 'b'} looks as large as {@code name = 'a'}, and an OR of many such branches
+     * collapses to the size of one. Each argument lists a predicate's OR branches, each as the literal values
+     * it requires of the columns it pins.
+     */
+    private static boolean areDisjoint(List<Map<VariableReferenceExpression, Set<Object>>> left, List<Map<VariableReferenceExpression, Set<Object>>> right)
+    {
+        for (Map<VariableReferenceExpression, Set<Object>> leftBranch : left) {
+            for (Map<VariableReferenceExpression, Set<Object>> rightBranch : right) {
+                boolean contradicts = leftBranch.entrySet().stream()
+                        .anyMatch(pin -> rightBranch.containsKey(pin.getKey()) && Collections.disjoint(pin.getValue(), rightBranch.get(pin.getKey())));
+                if (!contradicts) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * A predicate's OR branches as pins. A predicate that pins nothing, or has too many branches to track, is
+     * one branch that pins nothing.
+     */
+    private static List<Map<VariableReferenceExpression, Set<Object>>> branches(Optional<List<Map<VariableReferenceExpression, Set<Object>>>> pins)
+    {
+        return pins.orElse(ImmutableList.of(ImmutableMap.of()));
+    }
+
+    private static Optional<List<Map<VariableReferenceExpression, Set<Object>>>> andPins(
+            Optional<List<Map<VariableReferenceExpression, Set<Object>>>> left,
+            Optional<List<Map<VariableReferenceExpression, Set<Object>>>> right)
+    {
+        if (!left.isPresent()) {
+            return right;
+        }
+        if (!right.isPresent()) {
+            return left;
+        }
+        if ((long) left.get().size() * right.get().size() > MAX_PINNED_BRANCHES) {
+            return Optional.empty();
+        }
+        ImmutableList.Builder<Map<VariableReferenceExpression, Set<Object>>> result = ImmutableList.builder();
+        for (Map<VariableReferenceExpression, Set<Object>> leftBranch : left.get()) {
+            for (Map<VariableReferenceExpression, Set<Object>> rightBranch : right.get()) {
+                Map<VariableReferenceExpression, Set<Object>> combined = new HashMap<>(leftBranch);
+                rightBranch.forEach((variable, values) -> combined.merge(variable, values, (a, b) -> a.stream().filter(b::contains).collect(toImmutableSet())));
+                result.add(combined);
+            }
+        }
+        return Optional.of(result.build());
+    }
+
+    private static Optional<List<Map<VariableReferenceExpression, Set<Object>>>> orPins(
+            Optional<List<Map<VariableReferenceExpression, Set<Object>>>> left,
+            Optional<List<Map<VariableReferenceExpression, Set<Object>>>> right)
+    {
+        if (!left.isPresent() || !right.isPresent() || left.get().size() + right.get().size() > MAX_PINNED_BRANCHES) {
+            return Optional.empty();
+        }
+        return Optional.of(ImmutableList.<Map<VariableReferenceExpression, Set<Object>>>builder().addAll(left.get()).addAll(right.get()).build());
+    }
+
+    /**
+     * Only string columns are pinned: a column with a known value range is handled by the range math.
+     */
+    private static Optional<List<Map<VariableReferenceExpression, Set<Object>>>> pin(VariableReferenceExpression variable, Set<Object> values)
+    {
+        if (!(variable.getType() instanceof VarcharType) || values.contains(null)) {
+            return Optional.empty();
+        }
+        return Optional.of(ImmutableList.of(ImmutableMap.of(variable, values)));
+    }
+
+    /**
+     * The value of a string literal, as {@link LiteralEncoder} writes one into an expression: a plain literal,
+     * or one cast to a bounded varchar at least as long as the literal.
+     */
+    private static Optional<Object> stringValue(Expression expression)
+    {
+        if (expression instanceof StringLiteral) {
+            return Optional.of(utf8Slice(((StringLiteral) expression).getValue()));
+        }
+        if (expression instanceof Cast && ((Cast) expression).getExpression() instanceof StringLiteral) {
+            String literal = ((StringLiteral) ((Cast) expression).getExpression()).getValue();
+            String type = ((Cast) expression).getType().toLowerCase(ENGLISH);
+            Matcher bounded = BOUNDED_VARCHAR.matcher(type);
+            if (type.equals("varchar") || (bounded.matches() && Integer.parseInt(bounded.group(1)) >= literal.codePointCount(0, literal.length()))) {
+                return Optional.of(utf8Slice(literal));
+            }
+        }
+        return Optional.empty();
     }
 
     private RowExpression simplifyExpression(ConnectorSession session, RowExpression predicate)
@@ -294,6 +406,10 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
+            if (areDisjoint(branches(pins(left)), branches(pins(right)))) {
+                return calculator.capStats(calculator.addStatsAndSumDistinctValues(leftEstimate, rightEstimate), input);
+            }
+
             PlanNodeStatsEstimate andEstimate = new FilterExpressionStatsCalculatingVisitor(leftEstimate, session, types).process(right);
             if (andEstimate.isOutputRowCountUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
@@ -304,6 +420,36 @@ public class FilterStatsCalculator
                             calculator.addStatsAndSumDistinctValues(leftEstimate, rightEstimate),
                             andEstimate),
                     input);
+        }
+
+        private Optional<List<Map<VariableReferenceExpression, Set<Object>>>> pins(Expression expression)
+        {
+            if (expression instanceof LogicalBinaryExpression) {
+                LogicalBinaryExpression logical = (LogicalBinaryExpression) expression;
+                Optional<List<Map<VariableReferenceExpression, Set<Object>>>> left = pins(logical.getLeft());
+                Optional<List<Map<VariableReferenceExpression, Set<Object>>>> right = pins(logical.getRight());
+                return logical.getOperator() == LogicalBinaryExpression.Operator.AND ? andPins(left, right) : orPins(left, right);
+            }
+            if (expression instanceof ComparisonExpression && ((ComparisonExpression) expression).getOperator() == EQUAL) {
+                ComparisonExpression comparison = (ComparisonExpression) expression;
+                Expression column = comparison.getLeft() instanceof SymbolReference ? comparison.getLeft() : comparison.getRight();
+                Expression literal = column == comparison.getLeft() ? comparison.getRight() : comparison.getLeft();
+                Optional<Object> value = stringValue(literal);
+                if (column instanceof SymbolReference && value.isPresent()) {
+                    return pin(toVariable(column), ImmutableSet.of(value.get()));
+                }
+            }
+            if (expression instanceof InPredicate && ((InPredicate) expression).getValue() instanceof SymbolReference
+                    && ((InPredicate) expression).getValueList() instanceof InListExpression) {
+                InPredicate in = (InPredicate) expression;
+                List<Optional<Object>> values = ((InListExpression) in.getValueList()).getValues().stream()
+                        .map(FilterStatsCalculator::stringValue)
+                        .collect(toImmutableList());
+                if (values.stream().allMatch(Optional::isPresent)) {
+                    return pin(toVariable(in.getValue()), values.stream().map(Optional::get).collect(toImmutableSet()));
+                }
+            }
+            return Optional.empty();
         }
 
         @Override
@@ -748,6 +894,10 @@ public class FilterStatsCalculator
                 return PlanNodeStatsEstimate.unknown();
             }
 
+            if (areDisjoint(branches(pins(left)), branches(pins(right)))) {
+                return calculator.capStats(calculator.addStatsAndSumDistinctValues(leftEstimate, rightEstimate), input);
+            }
+
             PlanNodeStatsEstimate andEstimate = newEstimate(leftEstimate).process(right);
             if (andEstimate.isOutputRowCountUnknown()) {
                 return PlanNodeStatsEstimate.unknown();
@@ -758,6 +908,48 @@ public class FilterStatsCalculator
                             calculator.addStatsAndSumDistinctValues(leftEstimate, rightEstimate),
                             andEstimate),
                     input);
+        }
+
+        private Optional<List<Map<VariableReferenceExpression, Set<Object>>>> pins(RowExpression expression)
+        {
+            if (expression instanceof SpecialFormExpression) {
+                SpecialFormExpression special = (SpecialFormExpression) expression;
+                List<RowExpression> arguments = special.getArguments();
+                switch (special.getForm()) {
+                    case AND:
+                        return arguments.stream().map(this::pins).reduce(FilterStatsCalculator::andPins).orElse(Optional.empty());
+                    case OR:
+                        return arguments.stream().map(this::pins).reduce(FilterStatsCalculator::orPins).orElse(Optional.empty());
+                    case IN:
+                        if (arguments.get(0) instanceof VariableReferenceExpression
+                                && arguments.stream().skip(1).allMatch(ConstantExpression.class::isInstance)) {
+                            return pin((VariableReferenceExpression) arguments.get(0), arguments.stream()
+                                    .skip(1)
+                                    .map(argument -> ((ConstantExpression) argument).getValue())
+                                    .collect(toSet()));
+                        }
+                        return Optional.empty();
+                    default:
+                        return Optional.empty();
+                }
+            }
+            if (expression instanceof CallExpression) {
+                CallExpression call = (CallExpression) expression;
+                boolean isEquality = metadata.getFunctionAndTypeManager().getFunctionMetadata(call.getFunctionHandle()).getOperatorType()
+                        .map(OperatorType.EQUAL::equals)
+                        .orElse(false);
+                if (isEquality) {
+                    RowExpression left = call.getArguments().get(0);
+                    RowExpression right = call.getArguments().get(1);
+                    if (left instanceof VariableReferenceExpression && right instanceof ConstantExpression) {
+                        return pin((VariableReferenceExpression) left, singleton(((ConstantExpression) right).getValue()));
+                    }
+                    if (right instanceof VariableReferenceExpression && left instanceof ConstantExpression) {
+                        return pin((VariableReferenceExpression) right, singleton(((ConstantExpression) left).getValue()));
+                    }
+                }
+            }
+            return Optional.empty();
         }
 
         private PlanNodeStatsEstimate estimateIn(RowExpression value, List<RowExpression> candidates)
