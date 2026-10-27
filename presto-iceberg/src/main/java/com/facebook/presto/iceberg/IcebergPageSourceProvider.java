@@ -22,8 +22,6 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
-import com.facebook.presto.common.type.ArrayType;
-import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeType;
@@ -170,10 +168,12 @@ import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimp
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcReader.MODIFICATION_TIME_NOT_SET;
+import static com.facebook.presto.parquet.ParquetTypeUtils.findNestedColumnIOByIdOrName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getSubfieldType;
+import static com.facebook.presto.parquet.ParquetTypeUtils.getSubfieldTypeByIdOrName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.nestedColumnPath;
 import static com.facebook.presto.parquet.cache.MetadataReader.findFirstNonHiddenColumnId;
@@ -262,7 +262,8 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> regularColumns,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats,
-            ParquetMetadataSource parquetMetadataSource)
+            ParquetMetadataSource parquetMetadataSource,
+            Optional<Schema> tableSchema)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
@@ -305,7 +306,7 @@ public class IcebergPageSourceProvider
                     .collect(toImmutableMap(field -> field.getId().intValue(), Function.identity()));
 
             Optional<MessageType> messageType = regularColumns.stream()
-                    .map(column -> getColumnType(parquetIdToField, fileSchema, column))
+                    .map(column -> getColumnType(parquetIdToField, fileSchema, column, tableSchema))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .map(type -> new MessageType(fileSchema.getName(), type))
@@ -376,12 +377,35 @@ public class IcebergPageSourceProvider
                 if (column.getColumnType() == IcebergColumnHandle.ColumnType.SYNTHESIZED &&
                         !column.isUpdateRowIdColumn() && !column.isMergeTargetTableRowIdColumn()) {
                     Subfield pushedDownSubfield = getPushedDownSubfield(column);
-                    List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield).stream()
-                            .map(AvroSchemaUtil::makeCompatibleName)
-                            .collect(Collectors.toList());
-                    Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName())), nestedColumnPath);
+                    ColumnIO rootColumnIO = lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName()));
+                    List<String> namePath = nestedColumnPath(pushedDownSubfield);
+
+                    Optional<ColumnIO> columnIO = resolveColumnIOByFieldIds(
+                            rootColumnIO, pushedDownSubfield.getRootName(), namePath, tableSchema);
+
                     if (columnIO.isPresent()) {
-                        internalFields.add(constructField(prestoType, columnIO.get()));
+                        Optional<ColumnIdentity> subfieldIdentity = resolveSubfieldIdentity(
+                                pushedDownSubfield.getRootName(), namePath, tableSchema);
+                        if (subfieldIdentity.isPresent()) {
+                            internalFields.add(IcebergParquetColumnIOConverter.constructField(
+                                    subfieldIdentity.get(),
+                                    prestoType,
+                                    columnIO.get()));
+                        }
+                        else if (!tableSchema.isPresent()) {
+                            // Schema-less path (delete-file reads): safe to fall back to name-based
+                            // resolution because no SYNTHESIZED columns are expected in that context.
+                            internalFields.add(constructField(prestoType, columnIO.get()));
+                        }
+                        else {
+                            // tableSchema is present but the subfield identity could not be resolved
+                            // (e.g. path resolved to a non-struct intermediate). Do not fall back to
+                            // name-based lookup — that would silently read the wrong physical column
+                            // after a rename. Treat as missing and return the default value instead.
+                            internalFields.add(Optional.empty());
+                            getInitialDefaultValue(column)
+                                    .ifPresent(value -> defaultValues.put(column.getId(), value));
+                        }
                     }
                     else {
                         internalFields.add(Optional.empty());
@@ -390,22 +414,17 @@ public class IcebergPageSourceProvider
                     }
                 }
                 else {
-                    Optional<org.apache.parquet.schema.Type> parquetField = getColumnType(parquetIdToField, fileSchema, column);
+                    Optional<org.apache.parquet.schema.Type> parquetField = getColumnType(parquetIdToField, fileSchema, column, tableSchema);
                     if (!parquetField.isPresent()) {
                         internalFields.add(Optional.empty());
                         getInitialDefaultValue(column)
                                 .ifPresent(value -> defaultValues.put(column.getId(), value));
                     }
                     else {
-                        // Use a Parquet-compatible version of the column type so that constructField()
-                        // can resolve ROW sub-field names against the hex-encoded Parquet column names
-                        // (e.g. "field-two" in the Presto type must match "field_x2dtwo" in the file).
-                        // We do NOT derive the type from the Parquet schema here because doing so
-                        // would produce the old file schema for schema-evolved tables and cause a
-                        // "field N has unexpected position count" error when new fields were added.
-                        Type parquetCompatibleType = encodeFieldNamesForParquet(column.getType());
-                        ColumnIO fieldColumnIO = lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()));
-                        internalFields.add(constructField(parquetCompatibleType, fieldColumnIO));
+                        internalFields.add(IcebergParquetColumnIOConverter.constructField(
+                                column.getColumnIdentity(),
+                                column.getType(),
+                                lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()))));
                     }
                 }
                 if (column.isRowPositionColumn()) {
@@ -452,14 +471,33 @@ public class IcebergPageSourceProvider
     public static Optional<org.apache.parquet.schema.Type> getColumnType(
             Map<Integer, org.apache.parquet.schema.Type> parquetIdToField,
             MessageType messageType,
-            IcebergColumnHandle column)
+            IcebergColumnHandle column,
+            Optional<Schema> tableSchema)
     {
         if (isPushedDownSubfield(column)) {
             Subfield pushedDownSubfield = getPushedDownSubfield(column);
+            String rootName = AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName());
             List<String> encodedPath = nestedColumnPath(pushedDownSubfield).stream()
                     .map(AvroSchemaUtil::makeCompatibleName)
                     .collect(Collectors.toList());
-            return getSubfieldType(messageType, AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName()), encodedPath);
+            if (tableSchema.isPresent()) {
+                Optional<List<Integer>> fieldIds = resolveFieldIds(pushedDownSubfield.getRootName(), nestedColumnPath(pushedDownSubfield), tableSchema);
+                if (fieldIds.isPresent()) {
+                    Optional<org.apache.parquet.schema.Type> subfieldType = getSubfieldTypeByIdOrName(messageType, rootName, fieldIds.get(), encodedPath);
+                    if (subfieldType.isPresent()) {
+                        return subfieldType;
+                    }
+                }
+                // The subfield cannot be resolved in tableSchema or is not present in the file under the requested identity.
+                // Include the root struct column so that its GroupColumnIO is available for subfield traversal in
+                // resolveColumnIOByFieldIds, which then yields NULL or the default value.
+                return Optional.ofNullable(getParquetTypeByName(rootName, messageType));
+            }
+            Optional<org.apache.parquet.schema.Type> subfieldType = getSubfieldType(messageType, rootName, encodedPath);
+            if (subfieldType.isPresent()) {
+                return subfieldType;
+            }
+            return Optional.ofNullable(getParquetTypeByName(rootName, messageType));
         }
 
         if (parquetIdToField.isEmpty()) {
@@ -467,6 +505,140 @@ public class IcebergPageSourceProvider
             return Optional.ofNullable(getParquetTypeByName(column.getName(), messageType));
         }
         return Optional.ofNullable(parquetIdToField.get(column.getId()));
+    }
+
+    /**
+     * Resolves a pushed-down subfield's {@link ColumnIO} by traversing the Parquet ColumnIO tree
+     * using stable Iceberg field IDs obtained from the current table schema.
+     *
+     * <p>This is required for reading historical Parquet files after a nested field rename:
+     * the physical child name in the file still reflects the pre-rename name (e.g. "age"),
+     * but the Iceberg schema now exposes the new name (e.g. "years") while the field ID
+     * remains stable (e.g. 3). Matching by ID guarantees the correct physical column is read.
+     *
+     * <p>Each group on the path is resolved by field ID, except that a group which carries no field
+     * IDs at all (for example a file written by Hive or Spark) is resolved by the encoded field name.
+     *
+     * <p>Falls back to name-based resolution via {@link org.apache.parquet.io.ColumnIOConverter#findNestedColumnIO}
+     * when the IDs cannot be determined, see {@link #resolveFieldIds}. That fallback is a plain name
+     * lookup that is only reached when no table-schema IDs are available at all; it is never applied
+     * to a group once an ID has been determined for the path.
+     */
+    private static Optional<ColumnIO> resolveColumnIOByFieldIds(
+            ColumnIO rootColumnIO,
+            String rootName,
+            List<String> namePath,
+            Optional<Schema> tableSchema)
+    {
+        if (rootColumnIO == null) {
+            return Optional.empty();
+        }
+        List<String> encodedPath = namePath.stream()
+                .map(AvroSchemaUtil::makeCompatibleName)
+                .collect(Collectors.toList());
+        if (tableSchema.isPresent()) {
+            Optional<List<Integer>> fieldIds = resolveFieldIds(rootName, namePath, tableSchema);
+            if (fieldIds.isPresent()) {
+                return findNestedColumnIOByIdOrName(rootColumnIO, fieldIds.get(), encodedPath);
+            }
+            // When tableSchema is present, an unresolvable or ambiguous path must NOT fall back to
+            // matching by physical file name; return empty so the reader produces NULL / default value.
+            return Optional.empty();
+        }
+        return findNestedColumnIO(rootColumnIO, encodedPath);
+    }
+
+    /**
+     * Maps a pushed-down subfield path to the Iceberg field IDs of the current table schema, one
+     * per path element. Returns empty when
+     * <ul>
+     *   <li>{@code tableSchema} is absent (delete-file reads, no SYNTHESIZED columns expected)</li>
+     *   <li>the path is empty</li>
+     *   <li>any step cannot be resolved in the current schema or is ambiguous</li>
+     * </ul>
+     */
+    private static Optional<List<Integer>> resolveFieldIds(String rootName, List<String> namePath, Optional<Schema> tableSchema)
+    {
+        if (!tableSchema.isPresent() || namePath.isEmpty()) {
+            return Optional.empty();
+        }
+        Schema schema = tableSchema.get();
+        Types.NestedField currentField = schema.columns().stream()
+                .filter(field -> field.name().equals(rootName))
+                .findFirst()
+                .orElseGet(() -> {
+                    List<Types.NestedField> matches = schema.columns().stream()
+                            .filter(field -> field.name().equalsIgnoreCase(rootName))
+                            .collect(toImmutableList());
+                    return matches.size() == 1 ? matches.get(0) : null;
+                });
+        if (currentField == null) {
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<Integer> idSequence = ImmutableList.builder();
+        for (String step : namePath) {
+            if (!currentField.type().isStructType()) {
+                return Optional.empty();
+            }
+            Types.StructType structType = currentField.type().asStructType();
+            Types.NestedField nextField = structType.fields().stream()
+                    .filter(field -> field.name().equals(step))
+                    .findFirst()
+                    .orElseGet(() -> {
+                        List<Types.NestedField> matches = structType.fields().stream()
+                                .filter(field -> field.name().equalsIgnoreCase(step))
+                                .collect(toImmutableList());
+                        return matches.size() == 1 ? matches.get(0) : null;
+                    });
+            if (nextField == null) {
+                return Optional.empty();
+            }
+            idSequence.add(nextField.fieldId());
+            currentField = nextField;
+        }
+        return Optional.of(idSequence.build());
+    }
+
+    private static Optional<ColumnIdentity> resolveSubfieldIdentity(String rootName, List<String> namePath, Optional<Schema> tableSchema)
+    {
+        if (!tableSchema.isPresent() || namePath.isEmpty()) {
+            return Optional.empty();
+        }
+        Schema schema = tableSchema.get();
+        Types.NestedField currentField = schema.columns().stream()
+                .filter(field -> field.name().equals(rootName))
+                .findFirst()
+                .orElseGet(() -> {
+                    List<Types.NestedField> matches = schema.columns().stream()
+                            .filter(field -> field.name().equalsIgnoreCase(rootName))
+                            .collect(toImmutableList());
+                    return matches.size() == 1 ? matches.get(0) : null;
+                });
+        if (currentField == null) {
+            return Optional.empty();
+        }
+
+        for (String step : namePath) {
+            if (!currentField.type().isStructType()) {
+                return Optional.empty();
+            }
+            Types.StructType structType = currentField.type().asStructType();
+            Types.NestedField nextField = structType.fields().stream()
+                    .filter(field -> field.name().equals(step))
+                    .findFirst()
+                    .orElseGet(() -> {
+                        List<Types.NestedField> matches = structType.fields().stream()
+                                .filter(field -> field.name().equalsIgnoreCase(step))
+                                .collect(toImmutableList());
+                        return matches.size() == 1 ? matches.get(0) : null;
+                    });
+            if (nextField == null) {
+                return Optional.empty();
+            }
+            currentField = nextField;
+        }
+        return Optional.of(ColumnIdentity.createColumnIdentity(currentField));
     }
 
     private static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<IcebergColumnHandle> effectivePredicate)
@@ -555,6 +727,7 @@ public class IcebergPageSourceProvider
                     runtimeStats,
                     MODIFICATION_TIME_NOT_SET);
 
+            List<OrcType> orcTypes = reader.getFooter().getTypes();
             List<HiveColumnHandle> physicalColumnHandles = new ArrayList<>(regularColumns.size());
             ImmutableMap.Builder<Integer, Object> defaultValues = ImmutableMap.builder();
             ImmutableMap.Builder<Integer, Type> includedColumns = ImmutableMap.builder();
@@ -596,8 +769,9 @@ public class IcebergPageSourceProvider
                             Optional.empty());
 
                     physicalColumnHandles.add(columnHandle);
-                    includedColumns.put(columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature()));
-                    columnReferences.add(new TupleDomainOrcPredicate.ColumnReference<>(columnHandle, columnHandle.getHiveColumnIndex(), typeManager.getType(columnHandle.getTypeSignature())));
+                    Type physicalType = toPhysicalOrcType(column.getType(), column.getColumnIdentity(), orcTypes, icebergOrcColumn.getOrcFieldTypeIndex());
+                    includedColumns.put(columnHandle.getHiveColumnIndex(), physicalType);
+                    columnReferences.add(new TupleDomainOrcPredicate.ColumnReference<>(columnHandle, columnHandle.getHiveColumnIndex(), physicalType));
                 }
                 else {
                     // Missing columns are treated as REGULAR at the physical ORC-reader level.
@@ -706,6 +880,95 @@ public class IcebergPageSourceProvider
             }
             throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    /**
+     * Recursively rewrites the logical Presto {@link Type} for an ORC struct column so that
+     * each nested field name matches the <em>physical</em> name stored in the ORC file rather
+     * than the current logical name in the Iceberg schema.
+     *
+     * <p>This is necessary after a nested field rename: the logical type will have the new name
+     * (e.g. {@code years}) but the physical ORC stream still uses the original name (e.g.
+     * {@code age}).  {@link com.facebook.presto.orc.reader.StructBatchStreamReader} matches
+     * nested streams by name, so without this rewrite the renamed sub-field would always read
+     * as {@code null} from pre-rename files.
+     *
+     * <p>The mapping at each level is: logical name → Iceberg field ID (from
+     * {@code columnIdentity.getChildren()}) → physical name (from the ORC type's
+     * {@code iceberg.id} attribute on each nested sub-type).  Recursion handles arbitrarily
+     * deep struct nesting.
+     *
+     * <p>Non-struct types are returned unchanged.  When the ORC file has no {@code iceberg.id}
+     * attributes (migrated tables) all names are left as-is, which preserves the existing
+     * behaviour.
+     */
+    private static Type toPhysicalOrcType(Type logicalType, ColumnIdentity columnIdentity, List<OrcType> orcTypes, int physicalStructTypeIndex)
+    {
+        if (!(logicalType instanceof RowType)) {
+            return logicalType;
+        }
+        if (physicalStructTypeIndex >= orcTypes.size()) {
+            return logicalType;
+        }
+        OrcType physicalStructType = orcTypes.get(physicalStructTypeIndex);
+        if (physicalStructType.getOrcTypeKind() != OrcType.OrcTypeKind.STRUCT) {
+            return logicalType;
+        }
+
+        Map<Integer, String> icebergIdToPhysicalName = new java.util.HashMap<>();
+        Map<Integer, Integer> icebergIdToSubTypeIndex = new java.util.HashMap<>();
+        for (int i = 0; i < physicalStructType.getFieldCount(); i++) {
+            int subTypeIndex = physicalStructType.getFieldTypeIndex(i);
+            String physicalName = physicalStructType.getFieldName(i);
+            if (subTypeIndex < orcTypes.size()) {
+                String icebergIdStr = orcTypes.get(subTypeIndex).getAttributes().get(ORC_ICEBERG_ID_KEY);
+                if (icebergIdStr != null) {
+                    int icebergId = Integer.parseInt(icebergIdStr);
+                    icebergIdToPhysicalName.put(icebergId, physicalName);
+                    icebergIdToSubTypeIndex.put(icebergId, subTypeIndex);
+                }
+            }
+        }
+        if (icebergIdToPhysicalName.isEmpty()) {
+            // No iceberg.id attributes – migrated table, leave names as-is.
+            return logicalType;
+        }
+
+        Map<String, ColumnIdentity> logicalNameToChildIdentity = new java.util.HashMap<>();
+        for (ColumnIdentity child : columnIdentity.getChildren()) {
+            logicalNameToChildIdentity.put(child.getName().toLowerCase(ENGLISH), child);
+        }
+
+        RowType rowType = (RowType) logicalType;
+        ImmutableList.Builder<RowType.Field> rewrittenFields = ImmutableList.builder();
+        for (RowType.Field field : rowType.getFields()) {
+            String logicalName = field.getName()
+                    .map(n -> n.toLowerCase(ENGLISH))
+                    .orElse(null);
+            ColumnIdentity childIdentity = logicalName != null ? logicalNameToChildIdentity.get(logicalName) : null;
+            Integer icebergId = childIdentity != null ? childIdentity.getId() : null;
+            String physicalName = icebergId != null ? icebergIdToPhysicalName.get(icebergId) : null;
+
+            Type fieldType = field.getType();
+            if (childIdentity != null && icebergId != null && fieldType instanceof RowType) {
+                Integer subTypeIndex = icebergIdToSubTypeIndex.get(icebergId);
+                if (subTypeIndex != null) {
+                    fieldType = toPhysicalOrcType(fieldType, childIdentity, orcTypes, subTypeIndex);
+                }
+            }
+
+            if (physicalName != null) {
+                rewrittenFields.add(RowType.field(physicalName, fieldType));
+            }
+            else {
+                // When the ORC struct has iceberg.id attributes but this field's ID is missing from
+                // the file (e.g. added later), using the logical name could mistakenly bind to an old
+                // dropped column of the same name. Use a synthetic missing name so ORC reader produces NULL.
+                String missingName = "$missing_orc_field$" + (icebergId != null ? icebergId : field.getName().orElse(""));
+                rewrittenFields.add(RowType.field(missingName, fieldType));
+            }
+        }
+        return RowType.from(rewrittenFields.build());
     }
 
     private static List<IcebergOrcColumn> getFileOrcColumns(OrcReader reader)
@@ -913,7 +1176,8 @@ public class IcebergPageSourceProvider
                         split.getFileFormat(),
                         columnList,
                         icebergLayout.getValidPredicate(),
-                        splitContext.isCacheable());
+                        splitContext.isCacheable(),
+                        Optional.of(tableSchema));
 
         IcebergPartitionInsertingPageSource partitionInsertingPageSource = new IcebergPartitionInsertingPageSource(
                 delegateColumns,
@@ -1133,6 +1397,22 @@ public class IcebergPageSourceProvider
             TupleDomain<IcebergColumnHandle> predicate,
             boolean isCacheable)
     {
+        return createDataPageSource(session, hdfsContext, path, start, length, fileFormat,
+                dataColumns, predicate, isCacheable, Optional.empty());
+    }
+
+    private ConnectorPageSourceWithRowPositions createDataPageSource(
+            ConnectorSession session,
+            HdfsContext hdfsContext,
+            Path path,
+            long start,
+            long length,
+            FileFormat fileFormat,
+            List<IcebergColumnHandle> dataColumns,
+            TupleDomain<IcebergColumnHandle> predicate,
+            boolean isCacheable,
+            Optional<Schema> tableSchema)
+    {
         validateGeospatialRead(dataColumns, fileFormat);
         switch (fileFormat) {
             case PARQUET:
@@ -1146,7 +1426,8 @@ public class IcebergPageSourceProvider
                         dataColumns,
                         predicate,
                         fileFormatDataSourceStats,
-                        parquetMetadataSource);
+                        parquetMetadataSource,
+                        tableSchema);
             case ORC:
                 OrcReaderOptions readerOptions = OrcReaderOptions.builder()
                         .withMaxMergeDistance(getOrcMaxMergeDistance(session))
@@ -1181,46 +1462,6 @@ public class IcebergPageSourceProvider
                         dwrfEncryptionProvider);
         }
         throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
-    }
-
-    /**
-     * Returns a copy of {@code type} where every ROW field name has been encoded with
-     * {@link AvroSchemaUtil#makeCompatibleName} so that
-     * {@link org.apache.parquet.io.ColumnIOConverter#constructField} can resolve
-     * sub-field children by name against a Parquet {@code GroupColumnIO} whose columns
-     * use the same hex-encoded names (e.g. {@code "field-two"} → {@code "field_x2dtwo"}).
-     * Non-container types (not ROW, not ARRAY, not MAP) and names that contain no special characters are returned unchanged.
-     * The method is recursive so deeply-nested ROW types are also handled.
-     */
-    private static Type encodeFieldNamesForParquet(Type type)
-    {
-        if (type instanceof RowType) {
-            RowType rowType = (RowType) type;
-            List<RowType.Field> encodedFields = rowType.getFields().stream()
-                    .map(field -> {
-                        Type encodedFieldType = encodeFieldNamesForParquet(field.getType());
-                        return field.getName().isPresent()
-                                ? RowType.field(AvroSchemaUtil.makeCompatibleName(field.getName().get()), encodedFieldType, field.isDelimited())
-                                : RowType.field(encodedFieldType);
-                    })
-                    .collect(toImmutableList());
-            return RowType.from(encodedFields);
-        }
-        if (type instanceof ArrayType) {
-            Type elementType = ((ArrayType) type).getElementType();
-            return new ArrayType(encodeFieldNamesForParquet(elementType));
-        }
-        if (type instanceof MapType) {
-            MapType mapType = (MapType) type;
-            Type keyType = mapType.getKeyType();
-            Type valueType = mapType.getValueType();
-            return new MapType(
-                    encodeFieldNamesForParquet(keyType),
-                    encodeFieldNamesForParquet(valueType),
-                    mapType.getKeyBlockEquals(),
-                    mapType.getKeyBlockHashCode());
-        }
-        return type;
     }
 
     private static Optional<Object> getInitialDefaultValue(IcebergColumnHandle column)
