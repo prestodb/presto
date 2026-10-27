@@ -240,6 +240,26 @@ public interface Metadata
     void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);
 
     /**
+     * Rename a field inside a nested struct column.
+     *
+     * <p>{@code fieldPath} is the path of segments leading to the field being renamed (for example {@code ["info", "age"]}).
+     * It always contains at least 2 elements (enforced by the caller), and all elements of {@code fieldPath}
+     * as well as {@code target} have already been normalized by the engine via the connector's own
+     * {@code normalizeIdentifier} before this method is invoked.
+     *
+     * <p>{@code target} is the new name for the last segment of the path.
+     *
+     * <p>Path steps traverse struct fields. Whether collection steps such as list elements
+     * (using the pseudo-step {@code element}) or map values (using the pseudo-step {@code value})
+     * are supported is connector-specific.
+     *
+     * <p>The connector must throw {@code COLUMN_NOT_FOUND} if the target field or any parent step
+     * does not exist; the engine's execution task catches this error and suppresses it when {@code IF EXISTS}
+     * is specified on the statement.
+     */
+    void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target);
+
+    /**
      * Set the default value for the specified column
      */
     void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue);

@@ -2055,6 +2055,84 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
+    public void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
+    {
+        checkArgument(fieldPath.size() >= 2, "fieldPath must have at least 2 elements, got: %s", fieldPath);
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have fields renamed");
+        validateNoBranchSpecified(handle, "RENAME COLUMN");
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        // Iceberg's renameColumn() is case-sensitive; resolve the field first to get its canonical name.
+        ResolvedField resolved = resolveFieldToRename(icebergTable.schema(), fieldPath, handle.getSchemaTableName());
+        String dottedPath = String.join(".", fieldPath);
+        String canonicalPath = icebergTable.schema().findColumnName(resolved.field.fieldId());
+
+        boolean targetExists = resolved.containingStruct.fields().stream()
+                .anyMatch(sibling -> sibling.fieldId() != resolved.field.fieldId() && sibling.name().equalsIgnoreCase(target));
+        if (targetExists) {
+            throw new PrestoException(ALREADY_EXISTS,
+                    format("Cannot rename field '%s' to '%s' in table '%s': a field with that name already exists", dottedPath, target, handle.getSchemaTableName()));
+        }
+
+        try {
+            icebergTable.updateSchema().renameColumn(canonicalPath, target).commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to rename field: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
+    /**
+     * Resolves the struct field that {@code fieldPath} names, walking one struct level at a time from the root of
+     * the schema. An exact name match is preferred, then a case-insensitive match among the siblings of that level
+     * only, so a case collision elsewhere in the schema cannot affect the lookup (unlike
+     * {@link Schema#caseInsensitiveFindField}). Fields that differ only by case are never guessed between.
+     * Only struct fields are traversed; a path through a list or map is rejected.
+     */
+    @VisibleForTesting
+    static ResolvedField resolveFieldToRename(Schema schema, List<String> fieldPath, SchemaTableName tableName)
+    {
+        Types.StructType currentStruct = schema.asStruct();
+        NestedField field = null;
+        for (int i = 0; i < fieldPath.size(); i++) {
+            String segment = fieldPath.get(i);
+            String pathSoFar = String.join(".", fieldPath.subList(0, i + 1));
+            Optional<NestedField> child = findFieldToDrop(currentStruct, segment, pathSoFar, tableName);
+            if (!child.isPresent()) {
+                if (i == fieldPath.size() - 1) {
+                    throw new PrestoException(COLUMN_NOT_FOUND,
+                            format("Field '%s' does not exist in table '%s'", String.join(".", fieldPath), tableName));
+                }
+                throw new PrestoException(COLUMN_NOT_FOUND,
+                        format("Cannot find parent field '%s' in table '%s'", pathSoFar, tableName));
+            }
+            field = child.get();
+            if (i < fieldPath.size() - 1) {
+                if (!field.type().isStructType()) {
+                    throw new PrestoException(NOT_SUPPORTED,
+                            format("Parent field '%s' in table '%s' is not a struct/ROW type", pathSoFar, tableName));
+                }
+                currentStruct = field.type().asStructType();
+            }
+        }
+        return new ResolvedField(currentStruct, field);
+    }
+
+    @VisibleForTesting
+    static final class ResolvedField
+    {
+        final Types.StructType containingStruct;
+        final NestedField field;
+
+        private ResolvedField(Types.StructType containingStruct, NestedField field)
+        {
+            this.containingStruct = containingStruct;
+            this.field = field;
+        }
+    }
+
+    @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> insertColumnNames)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;

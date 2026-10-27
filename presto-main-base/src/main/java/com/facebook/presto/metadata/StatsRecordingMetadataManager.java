@@ -1244,6 +1244,18 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.renameField(session, tableHandle, fieldPath, target);
+        }
+        finally {
+            stats.recordRenameColumnCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
     public void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue)
     {
         long startTime = System.nanoTime();
