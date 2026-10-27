@@ -463,6 +463,21 @@ avoid exceeding memory limits for the query.
 
   Enables reading data in ``TEXTFILE`` format.
 
+``plan-dump-dir``
+^^^^^^^^^^^^^^^^^
+
+* **Type:** ``string``
+* **Default value:** ``""``
+
+Specifies the directory to which the worker writes each task's Velox plan as
+JSON in ``<task-id>.json``, and the splits the task receives in
+``<task-id>.splits.json``. Splits that the coordinator re-sends are recorded
+once. In file names, characters of the task ID other than letters, digits,
+``_``, ``-``, and ``.`` are replaced with ``_``. The directory is created if it
+does not exist. Plan dumping is disabled if empty. Useful for extracting plans
+from TPC-DS/TPC-H queries run via Presto to build Velox test plans like
+TpcdsQueryBuilder-style plans.
+
 Cache Properties
 ----------------
 

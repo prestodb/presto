@@ -1018,6 +1018,10 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kPlanConsistencyCheckEnabled{
       "plan-consistency-check-enabled"};
 
+  /// Directory to write each task's Velox plan to as '<task-id>.json' and its
+  /// splits to as '<task-id>.splits.json'. Disabled if not set or empty.
+  static constexpr std::string_view kPlanDumpDir{"plan-dump-dir"};
+
   SystemConfig();
 
   virtual ~SystemConfig() = default;
@@ -1419,6 +1423,8 @@ class SystemConfig : public ConfigBase {
   bool enumTypesEnabled() const;
 
   bool planConsistencyCheckEnabled() const;
+
+  folly::Optional<std::string> planDumpDir() const;
 };
 
 /// Provides access to node properties defined in node.properties file.
