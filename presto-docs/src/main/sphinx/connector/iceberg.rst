@@ -1865,6 +1865,10 @@ SQL Support
      - Yes
      - Yes
      -
+   * - ``ALTER TABLE RENAME COLUMN`` (nested struct field)
+     - Yes
+     - Yes
+     -
    * - ``ALTER TABLE ALTER COLUMN SET NOT NULL``
      - Yes
      - Yes
@@ -2340,6 +2344,26 @@ The optional ``IF EXISTS`` clause suppresses the error if the field or any paren
 The dotted path may traverse arbitrarily nested structs, list elements (pseudo-step ``.element``,
 such as ``items.element.name``), and map values (pseudo-step ``.value``, such as ``m.value.name``).
 Dropping list elements, map keys, or map value containers directly is not supported.
+
+RENAME COLUMN (nested struct field)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports renaming a field of a ``ROW`` column using a dotted path. This is a
+metadata-only change — no data files are rewritten. Only the last element of the path is renamed,
+and the new name is a single identifier, not a path.
+
+Example::
+
+     ALTER TABLE iceberg.web.orders RENAME COLUMN address.zip TO postal_code;
+
+The optional ``IF EXISTS`` clause suppresses the error if the field or any parent in the path does not exist::
+
+     ALTER TABLE iceberg.web.orders RENAME COLUMN IF EXISTS address.zip TO postal_code;
+
+The dotted path may traverse arbitrarily nested structs. Iceberg identifies each field by a stable
+field ID, so the renamed field keeps its data: rows written before the rename are read through the new name.
+In Parquet files the field is located by its field ID, not by the name stored in the file. A Parquet
+struct that carries no field IDs at all, such as one written by Hive or Spark, is matched by name instead.
 
 ALTER COLUMN SET NOT NULL
 ~~~~~~~~~~~~~~~~~~~~~~~~~
