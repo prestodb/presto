@@ -348,6 +348,10 @@
                                     <shadedPattern>${shadeBase}.org.jetbrains.annotations</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>org.jspecify</pattern>
+                                    <shadedPattern>${shadeBase}.org.jspecify</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.facebook.presto.client</pattern>
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
                                 </relocation>
