@@ -60,9 +60,22 @@ RUN bash -c "mkdir build && \
 # "fatbinary fatal : Could not open input file 'kernel.ptx'". The fork implements those
 # paths and is what RAPIDS CI uses.
 # See: https://github.com/rapidsai/sccache
+# Checksums come from the release's .sha256 files; update them together with the version.
 ARG SCCACHE_VERSION="0.17.0-rapids.2"
-RUN wget -q -O- "https://github.com/rapidsai/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-$(uname -m)-unknown-linux-musl.tar.gz" \
-    | tar -C /usr/bin -zf - --wildcards --strip-components=1 -x '*/sccache' && \
+ARG SCCACHE_SHA256_X86_64="19bd470e09ecaf38d195c7ddbc3585e4c1164d64d65fb5f15120cc7df3f15e67"
+ARG SCCACHE_SHA256_AARCH64="f04441eeca46bb14212f03ebed6aaff874d6174d55b540aef9bce10adf7805ff"
+RUN set -eu && \
+    arch="$(uname -m)" && \
+    case "${arch}" in \
+      x86_64) sha256="${SCCACHE_SHA256_X86_64}" ;; \
+      aarch64) sha256="${SCCACHE_SHA256_AARCH64}" ;; \
+      *) echo "Unsupported architecture for sccache: ${arch}" >&2; exit 1 ;; \
+    esac && \
+    tarball="/tmp/sccache.tar.gz" && \
+    wget -q -O "${tarball}" "https://github.com/rapidsai/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-${arch}-unknown-linux-musl.tar.gz" && \
+    echo "${sha256}  ${tarball}" | sha256sum -c - && \
+    tar -C /usr/bin -zxf "${tarball}" --wildcards --strip-components=1 '*/sccache' && \
+    rm -f "${tarball}" && \
     chmod +x /usr/bin/sccache && \
     sccache --version
 
