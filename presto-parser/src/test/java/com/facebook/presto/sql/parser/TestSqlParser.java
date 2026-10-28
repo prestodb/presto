@@ -957,7 +957,7 @@ public class TestSqlParser
                 new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
         assertExpression("trim(' abc ', ' ')",
                 new FunctionCall(QualifiedName.of("trim"), ImmutableList.of(new StringLiteral(" abc "), new StringLiteral(" "))));
-        assertInvalidExpression("trim(FROM ' abc ')", "The 'trim' function must have specification, char or both arguments when it takes FROM");
+        assertInvalidExpression("trim(FROM ' abc ')", "TRIM requires a specification (BOTH, LEADING or TRAILING) or trim characters before FROM");
 
         // BOTH, LEADING and TRAILING used as column references inside trim
         assertExpression("trim(leading)",
@@ -4753,3 +4753,4 @@ public class TestSqlParser
         ) instanceof Query);
     }
 }
+
