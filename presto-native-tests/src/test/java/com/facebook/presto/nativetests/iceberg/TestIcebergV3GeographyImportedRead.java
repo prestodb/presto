@@ -70,6 +70,9 @@ import static org.testng.Assert.assertEquals;
 public class TestIcebergV3GeographyImportedRead
         extends IcebergImportedTableTestBase
 {
+    // Not the base class's iceberg_v3, which the AbstractNativeIcebergV3Test classes also create
+    // tables in through the metastore this class shares with them.
+    private static final String SCHEMA = "geography_imported";
     private static final String LOGICAL_TYPE_TABLE = "geography_arrow_logical";
     private static final String PLAIN_BINARY_TABLE = "geography_arrow_plain";
     private static final String NULL_FILE_TABLE = "geography_arrow_null_file";
@@ -104,6 +107,12 @@ public class TestIcebergV3GeographyImportedRead
                 .setStorageFormat(ICEBERG_DEFAULT_STORAGE_FORMAT)
                 .setAddStorageFormatToPath(true)
                 .build();
+    }
+
+    @Override
+    protected String getSchemaName()
+    {
+        return SCHEMA;
     }
 
     @DataProvider(name = "tables")
@@ -141,7 +150,7 @@ public class TestIcebergV3GeographyImportedRead
         Session session = sessionWithPushdown(pushdownFilterEnabled);
         String tablePath = setupAndRegisterTable(tableName);
         try {
-            String table = format("%s.%s.%s", CATALOGNAME, SCHEMANAME, tableName);
+            String table = format("%s.%s.%s", CATALOGNAME, SCHEMA, tableName);
 
             // The column reads back as a geography, not as the binary it is stored as.
             MaterializedResult result = computeActual(session, format("SELECT geog FROM %s WHERE id = 0", table));
@@ -220,7 +229,7 @@ public class TestIcebergV3GeographyImportedRead
         Session session = sessionWithPushdown(pushdownFilterEnabled);
         String tablePath = setupAndRegisterTable(NULL_FILE_TABLE);
         try {
-            String table = format("%s.%s.%s", CATALOGNAME, SCHEMANAME, NULL_FILE_TABLE);
+            String table = format("%s.%s.%s", CATALOGNAME, SCHEMA, NULL_FILE_TABLE);
 
             assertQuery(
                     session,
@@ -269,7 +278,7 @@ public class TestIcebergV3GeographyImportedRead
     {
         String tablePath = setupAndRegisterTable(tableName);
         try {
-            assertQueryFails(format("SELECT id, geog FROM %s.%s.%s", CATALOGNAME, SCHEMANAME, tableName), expectedMessage);
+            assertQueryFails(format("SELECT id, geog FROM %s.%s.%s", CATALOGNAME, SCHEMA, tableName), expectedMessage);
         }
         finally {
             dropAndCleanupTable(tableName, tablePath);
@@ -287,7 +296,7 @@ public class TestIcebergV3GeographyImportedRead
         Session session = sessionWithPushdown(pushdownFilterEnabled);
         String tablePath = setupAndRegisterTable(GEOMETRY_TABLE);
         try {
-            String table = format("%s.%s.%s", CATALOGNAME, SCHEMANAME, GEOMETRY_TABLE);
+            String table = format("%s.%s.%s", CATALOGNAME, SCHEMA, GEOMETRY_TABLE);
 
             assertNullPredicateInScan(
                     getQueryRunner(),
