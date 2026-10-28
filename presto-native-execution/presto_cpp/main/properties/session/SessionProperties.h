@@ -15,6 +15,10 @@
 
 #include "presto_cpp/main/properties/session/SessionPropertiesProvider.h"
 
+namespace facebook::velox::core {
+class QueryCtx;
+} // namespace facebook::velox::core
+
 namespace facebook::presto {
 
 /// Defines all system session properties supported by native worker to ensure
@@ -22,6 +26,57 @@ namespace facebook::presto {
 /// session properties. Also maps the native session properties to velox.
 class SessionProperties : public SessionPropertiesProvider {
  public:
+  /// Whether this query may run on the GPU. Unset means the worker decides,
+  /// which is what isCudfAvailable() answers; false keeps the whole query on
+  /// CPU operators and the in-memory exchange; true on a worker that has no
+  /// cuDF registered fails the query rather than silently running it on the
+  /// CPU.
+  static constexpr const char* kCudfEnabled = "native_cudf_enabled";
+
+  /// Velox query-config key kCudfEnabled maps to. This is cuDF's own
+  /// 'cudf.enabled': that key is both the worker-level switch, read once at
+  /// registerCudf() to decide whether cuDF is registered at all, and a
+  /// per-query override that the cuDF driver adapter and the cuDF connectors
+  /// honor. Spelled out rather than taken from CudfConfig::kCudfEnabled
+  /// because that header needs the cuDF toolkit, which a CPU-only build of
+  /// this file does not have.
+  static constexpr const char* kCudfEnabledConfig = "cudf.enabled";
+
+  /// True when this worker can run a query on the GPU, that is when
+  /// registerCudf() has registered the cuDF operators, functions and memory
+  /// resources. That happens at startup on a worker with 'cudf.enabled' set in
+  /// its system config in a build with cuDF, and nothing registers them later,
+  /// so this one question covers both configuration and build.
+  static bool isCudfAvailable();
+
+  /// Whether this query's worker-to-worker exchanges may use the cuDF UCX
+  /// transport. Unset means the worker decides, which is what
+  /// isCudfExchangeAvailable() answers; false always uses the in-memory
+  /// transport; true on a worker that has no UCX transport registered fails the
+  /// query rather than silently using the in-memory transport.
+  static constexpr const char* kCudfExchangeEnabled =
+      "native_cudf_exchange_enabled";
+
+  /// Velox query-config key kCudfExchangeEnabled maps to. Deliberately NOT
+  /// cuDF's own "cudf.exchange": that one is a worker-level switch read once at
+  /// registerCudf() to decide whether the UCX transports are registered at all,
+  /// whereas this is a per-query choice evaluated for each exchange edge.
+  static constexpr const char* kCudfExchangeEnabledConfig =
+      "cudf.exchange_enabled";
+
+  /// True when this worker can build both ends of a UCX exchange edge, that is
+  /// when the cuDF UCX transport is registered in the exchange (receive) and
+  /// the output (send) transport registry. registerCudf() registers it at
+  /// startup when 'cudf.exchange' is enabled and the worker was built with the
+  /// UCX exchange, so this one question covers both configuration and build.
+  ///
+  /// Pass the query's QueryCtx to honor its per-query transport registries, the
+  /// way exec::Task resolves a transport; null consults only the global
+  /// registries, which is what the default value of kCudfExchangeEnabled is
+  /// derived from.
+  static bool isCudfExchangeAvailable(
+      const velox::core::QueryCtx* queryCtx = nullptr);
+
   /// Enable simplified path in expression evaluation.
   static constexpr const char* kExprEvalSimplified =
       "native_simplified_expression_evaluation_enabled";

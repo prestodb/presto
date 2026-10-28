@@ -23,6 +23,12 @@ add_library(presto_session_properties SessionProperties.cpp)
 
 target_link_libraries(presto_session_properties presto_session_properties_provider)
 
+if(PRESTO_ENABLE_CUDF)
+  # isCudfAvailable() asks cuDF whether registerCudf() has run. Those symbols
+  # are not part of the Velox mono library, so link them here as well.
+  target_link_libraries(presto_session_properties velox_cudf_exec)
+endif()
+
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)
 endif()

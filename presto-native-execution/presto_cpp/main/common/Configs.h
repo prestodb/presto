@@ -1026,6 +1026,9 @@ class SystemConfig : public ConfigBase {
 
   int httpServerHttpPort() const;
 
+  /// Returns the UCX listener port derived from the HTTP server port.
+  int cudfExchangeServerPort() const;
+
   bool httpServerReusePort() const;
 
   bool httpServerReportBoundPortToFile() const;
