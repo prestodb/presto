@@ -43,9 +43,12 @@ RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
         export SCCACHE_BUCKET="${SCCACHE_BUCKET}" SCCACHE_CACHE_SIZE=2G SCCACHE_IDLE_TIMEOUT=0 SCCACHE_ERROR_LOG=/tmp/sccache-server.log SCCACHE_LOG=warn; \
         [ -n "${SCCACHE_REGION}" ] && export SCCACHE_REGION="${SCCACHE_REGION}"; \
         [ -n "${SCCACHE_S3_KEY_PREFIX}" ] && export SCCACHE_S3_KEY_PREFIX="${SCCACHE_S3_KEY_PREFIX}"; \
-        sccache --start-server && \
-        COMPILER_LAUNCHER_FLAGS="-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_CUDA_COMPILER_LAUNCHER=sccache" && \
-        echo "Using sccache with S3 backend: s3://${SCCACHE_BUCKET}/${SCCACHE_S3_KEY_PREFIX:-}"; \
+        if sccache --start-server; then \
+            COMPILER_LAUNCHER_FLAGS="-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_CUDA_COMPILER_LAUNCHER=sccache"; \
+            echo "Using sccache with S3 backend: s3://${SCCACHE_BUCKET}/${SCCACHE_S3_KEY_PREFIX:-}"; \
+        else \
+            echo "sccache failed to start. Using ccache (local)"; \
+        fi; \
     else \
         echo "Using ccache (local)"; \
     fi && \
