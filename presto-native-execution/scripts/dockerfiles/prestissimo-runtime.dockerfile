@@ -60,7 +60,10 @@ RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
 RUN !(LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | grep "not found" | grep -v libcuda) && \
     LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server | awk 'NF == 4 { system("cp " $3 " /runtime-libraries") }'
 
-RUN cp -rf /usr/local/lib/ucx /runtime-libraries/ucx
+# Only the CentOS dependency image runs install_ucx. Always create the directory so the
+# COPY in the runtime stage finds it.
+RUN mkdir -p /runtime-libraries/ucx && \
+    if [ "${OSNAME}" = "centos" ]; then cp -rf /usr/local/lib/ucx/. /runtime-libraries/ucx/; fi
 RUN echo "${CUDA_VERSION}" > /cuda_version
 
 #/////////////////////////////////////////////
@@ -69,6 +72,7 @@ RUN echo "${CUDA_VERSION}" > /cuda_version
 
 FROM ${BASE_IMAGE}
 
+ARG OSNAME=centos
 ENV BUILD_BASE_DIR=_build
 ENV BUILD_DIR=""
 
@@ -76,13 +80,16 @@ ENV BUILD_DIR=""
 COPY --from=prestissimo-image /prestissimo/velox/scripts/ /tmp/scripts/
 COPY --from=prestissimo-image /cuda_version /tmp/
 
-# Install CUDA runtime packages and RDMA libraries
-RUN CUDA_VERSION=$(cat /tmp/cuda_version) && \
-    source /tmp/scripts/setup-centos-adapters.sh && \
-    install_cuda_runtime "${CUDA_VERSION}" && \
-    dnf install -y librdmacm libibverbs && \
-    dnf clean all && \
-    rm -rf /var/cache/dnf /tmp/scripts /tmp/cuda_version
+# Install CUDA runtime packages and RDMA libraries (CentOS only)
+RUN if [ "${OSNAME}" = "centos" ]; then \
+        CUDA_VERSION=$(cat /tmp/cuda_version) && \
+        source /tmp/scripts/setup-centos-adapters.sh && \
+        install_cuda_runtime "${CUDA_VERSION}" && \
+        dnf install -y librdmacm libibverbs && \
+        dnf clean all && \
+        rm -rf /var/cache/dnf; \
+    fi && \
+    rm -rf /tmp/scripts /tmp/cuda_version
 
 COPY --chmod=0775 --from=prestissimo-image /prestissimo/${BUILD_BASE_DIR}/${BUILD_DIR}/presto_cpp/main/presto_server /usr/bin/
 COPY --chmod=0775 --from=prestissimo-image /runtime-libraries/* /usr/lib64/prestissimo-libs/
