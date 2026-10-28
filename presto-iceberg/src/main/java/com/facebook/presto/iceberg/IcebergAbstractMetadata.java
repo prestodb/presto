@@ -1046,18 +1046,14 @@ public abstract class IcebergAbstractMetadata
      * file can be reconstructed with a matching spec and partition; see
      * {@link #replaceDeletionVectors}.
      *
-     * <p>Iceberg V3 allows at most one deletion vector per data file, so two fragments in the
-     * same commit referencing one data file cannot both be kept: only the last would be recorded
-     * here, only one prior DV would be removed, and the table would end up with two DVs on that
-     * file. Reads would still be correct (the union of both DVs), but the table would violate the
-     * spec, so fail the commit instead. The Velox sink keeps one DV writer per data file within a
-     * task, but nothing partitions delete rows by data file across tasks, and
-     * {@code IcebergSplitSource} splits data files larger than the target split size, so this is
-     * reachable on large files.
-     *
-     * <p>Merging duplicate vectors is not possible at the pinned Iceberg version (1.10.1 has
-     * no {@code DVUtil.mergeDVs}); the commit fails loudly instead. See the Iceberg connector
-     * docs (format-version 3 limitations).
+     * <p>One commit can add more than one DV for the same data file: the Velox sink keeps one DV
+     * writer per data file within a task, but nothing partitions delete rows by data file across
+     * tasks (for example a DELETE planned as a partitioned join), and {@code IcebergSplitSource}
+     * splits data files larger than the target split size. Each such DV is seeded from the same
+     * prior DV, so all of them share its spec and partition and any one of them can reconstruct
+     * it; the first is kept. Iceberg then merges the DVs added for one data file into a single DV
+     * when it commits the row delta ({@code MergingSnapshotProducer.mergeDVs}), which keeps the
+     * one-DV-per-data-file invariant without the connector having to reject the commit.
      */
     @VisibleForTesting
     static void recordAddedDeletionVector(
@@ -1065,13 +1061,7 @@ public abstract class IcebergAbstractMetadata
             String referencedDataFile,
             org.apache.iceberg.DeleteFile addedDeletionVector)
     {
-        org.apache.iceberg.DeleteFile previous = addedDeletionVectors.put(deletionVectorKey(referencedDataFile), addedDeletionVector);
-        if (previous != null) {
-            throw new PrestoException(ICEBERG_COMMIT_ERROR, format(
-                    "Iceberg V3 allows one deletion vector per data file, but this commit produced two (%s and %s) for data file %s. " +
-                            "This happens when a single data file is read by more than one writer task.",
-                    previous.location(), addedDeletionVector.location(), referencedDataFile));
-        }
+        addedDeletionVectors.putIfAbsent(deletionVectorKey(referencedDataFile), addedDeletionVector);
     }
 
     /**
@@ -1214,7 +1204,7 @@ public abstract class IcebergAbstractMetadata
                 icebergTableHandle.getIcebergTableName(),
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
-                getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
+                getColumnsForWrite(icebergTable.schema(), icebergTable.spec(), typeManager),
                 icebergTable.location(),
                 getFileFormat(icebergTable),
                 getCompressionCodec(session),

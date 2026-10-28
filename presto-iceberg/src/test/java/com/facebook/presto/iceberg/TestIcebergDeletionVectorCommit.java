@@ -40,6 +40,7 @@ import static com.facebook.presto.iceberg.IcebergAbstractMetadata.replaceDeletio
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.toIcebergDeletionVector;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
@@ -223,20 +224,21 @@ public class TestIcebergDeletionVectorCommit
     }
 
     /**
-     * Iceberg V3 allows one deletion vector per data file. Two fragments in the same commit for
-     * one data file would silently leave that file with two DVs, so the commit must fail.
+     * Two fragments in one commit can each carry a DV for the same data file. Both are added to
+     * the row delta, where Iceberg merges them; the first is kept for reconstructing the prior DV.
      */
     @Test
-    public void testTwoDeletionVectorsForOneDataFileFailTheCommit()
+    public void testDuplicateDeletionVectorsForOneDataFileKeepTheFirst()
     {
         Map<String, org.apache.iceberg.DeleteFile> addedDeletionVectors = new HashMap<>();
         org.apache.iceberg.DeleteFile first = buildDeletionVectorEntry(
                 deletionVectorFragment(Optional.of(0L), Optional.of(128L)), PartitionSpec.unpartitioned(), new Type[0]);
+        org.apache.iceberg.DeleteFile second = buildDeletionVectorEntry(
+                deletionVectorFragment(Optional.of(128L), Optional.of(64L)), PartitionSpec.unpartitioned(), new Type[0]);
         recordAddedDeletionVector(addedDeletionVectors, DATA_FILE, first);
+        recordAddedDeletionVector(addedDeletionVectors, DATA_FILE, second);
 
-        PrestoException e = expectThrows(PrestoException.class, () ->
-                recordAddedDeletionVector(addedDeletionVectors, DATA_FILE, first));
-        assertTrue(e.getMessage().contains("one deletion vector per data file"), e.getMessage());
-        assertTrue(e.getMessage().contains(DATA_FILE), e.getMessage());
+        assertEquals(addedDeletionVectors.size(), 1);
+        assertSame(addedDeletionVectors.get(DATA_FILE), first);
     }
 }

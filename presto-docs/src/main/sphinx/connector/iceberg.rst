@@ -2581,10 +2581,6 @@ Format version 3 tables always use deletion vectors for row-level writes, regard
 the ``write.delete.mode`` / ``write.update.mode`` table properties; those modes only
 apply to format version 2 tables. The following limitations apply to version 3 tables:
 
-* A single data file split across more than one writer task fails the commit: Iceberg
-  allows at most one deletion vector per data file, and the pinned Iceberg library
-  cannot merge duplicate vectors, so the commit fails loudly instead of corrupting the
-  table. Keep data files below the target split size to avoid this.
 * The set of existing deletion vectors is enumerated from the read snapshot on every
   mutation and carried on the delete/insert handle to each writer task; on tables with
   very many files carrying deletion vectors this handle payload grows accordingly.
