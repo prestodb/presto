@@ -15,10 +15,10 @@ FROM quay.io/centos/centos:stream9
 # Set this when build arm with common flags
 # from https://github.com/facebookincubator/velox/pull/14366
 ARG ARM_BUILD_TARGET
-ARG CUDA_VERSION
 
 ARG CUDA_VERSION
 
+# Optional override; when unset, Velox's install_ucx picks its own default version.
 ARG UCX_VERSION
 
 ENV PROMPT_ALWAYS_RESPOND=y
@@ -26,7 +26,6 @@ ENV CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 ENV CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 ENV ARM_BUILD_TARGET=${ARM_BUILD_TARGET}
 ENV CUDA_VERSION=${CUDA_VERSION:-13.0}
-ENV UCX_VERSION=${UCX_VERSION:-1.20.1}
 
 RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts
