@@ -716,13 +716,19 @@ Session properties set behavior changes for queries executed within the given se
 
        - ``NEVER`` (default): never use row-level.
        - ``ALWAYS``: use row-level whenever it is eligible.
-       - ``AUTOMATIC``: the cost-based optimizer chooses among row-level, partition-level
-         and full recompute. When row-level is eligible and another plan costs less, a
+       - ``AUTOMATIC``: the cost-based optimizer chooses the stitching granularity. What it
+         chooses between depends on
+         :ref:`materialized_view_stitching_strategy <iceberg-sess-materialized-view-stitching-strategy>`:
+         when that is also ``AUTOMATIC`` the full view query is in the running too, but when
+         it is ``ALWAYS`` -- the default -- stitching has already been asked for, so the
+         choice is only between row-level and partition-level. Cost does not override an
+         explicit ``ALWAYS``. When row-level is eligible and the plan that wins costs less, a
          ``MATERIALIZED_VIEW_ROW_LEVEL_REJECTED_ON_COST`` warning reports the choice.
-         On a stale read ``AUTOMATIC`` does not currently select row-level at all: the
-         delta is selected by a predicate on ``$data_sequence_number``, a metadata column
-         that carries no statistics, so the optimizer cannot estimate the filter and skips
-         a candidate it cannot price. A refresh does not consult cost; it uses row-level
+         Requires table statistics on the base table *and* on the view's storage table --
+         run ``ANALYZE`` on both -- because the merged plan's cost depends on the
+         cardinality of their union. Without them the optimizer compares output row
+         counts, which are identical for every plan computing the same view, and
+         row-level is not selected. A refresh does not consult cost; it uses row-level
          whenever it is eligible, as ``ALWAYS`` does.
 
        On a refresh, row-level reads less but writes every group rather than only the

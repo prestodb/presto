@@ -38,6 +38,7 @@ import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.StringRange;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -57,6 +58,7 @@ import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.StatisticsFile;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.expressions.InclusiveMetricsEvaluator;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
@@ -80,12 +82,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -101,7 +105,11 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ER
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getStatisticSnapshotRecordDifferenceWeight;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getStatisticsKllSketchKParameter;
+import static com.facebook.presto.iceberg.IcebergUtil.buildLastUpdatedSequenceNumberEvaluator;
+import static com.facebook.presto.iceberg.IcebergUtil.getAppendSequenceNumbers;
+import static com.facebook.presto.iceberg.IcebergUtil.getDataSequenceNumber;
 import static com.facebook.presto.iceberg.IcebergUtil.getIdentityPartitions;
+import static com.facebook.presto.iceberg.IcebergUtil.metadataColumnsMatchPredicates;
 import static com.facebook.presto.iceberg.Partition.toMap;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
 import static com.facebook.presto.iceberg.statistics.KllHistogram.isKllHistogramSupportedType;
@@ -135,6 +143,8 @@ public class TableStatisticsMaker
     private final Table icebergTable;
     private final ConnectorSession session;
     private final TypeManager typeManager;
+    // Walks every snapshot, so it is memoized: the file filters below consult it once per file.
+    private final Supplier<Set<Long>> appendSequenceNumbers;
 
     private static final String STATISITCS_CACHE_METRIC_FILE_SIZE_FORMAT = "StatisticsFileCache/PuffinFileSize/%s/%s";
     private static final String STATISITCS_CACHE_METRIC_FILE_COLUMN_COUNT_FORMAT = "StatisticsFileCache/ColumnCount/%s/%s";
@@ -145,6 +155,7 @@ public class TableStatisticsMaker
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         this.session = requireNonNull(session, "session is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.appendSequenceNumbers = Suppliers.memoize(() -> getAppendSequenceNumbers(icebergTable));
     }
 
     private static final Map<ColumnStatisticType, PuffinBlobGenerator> puffinStatWriters = ImmutableMap.<ColumnStatisticType, PuffinBlobGenerator>builder()
@@ -253,6 +264,18 @@ public class TableStatisticsMaker
             int fieldId = columnHandle.getId();
             ColumnStatistics.Builder columnBuilder = tableStats.getOrDefault(fieldId, ColumnStatistics.builder());
 
+            // A metadata column has no Parquet column metrics, so the block below would leave it with
+            // an unknown range. FilterStatsCalculator then cannot estimate a predicate over it, and
+            // every node above the filter becomes unknown too -- which is what stops a row-level
+            // materialized view delta from ever being costed. Manifest metadata has what it needs.
+            if (columnHandle.isDataSequenceNumberColumn()) {
+                Optional<ColumnStatistics> sequenceStatistics = dataSequenceNumberStatistics(tableHandle, intersection);
+                if (sequenceStatistics.isPresent()) {
+                    result.setColumnStatistics(columnHandle, sequenceStatistics.get());
+                    continue;
+                }
+            }
+
             if (summary.hasValidColumnMetrics()) {
                 Long nullCount = summary.getNullCounts().get(fieldId);
                 if (nullCount != null) {
@@ -285,6 +308,88 @@ public class TableStatisticsMaker
         return calculateAndSetTableSize(result).build();
     }
 
+    /**
+     * Statistics for {@code $data_sequence_number}, taken from manifest metadata.
+     *
+     * <p>Every manifest entry records the sequence number of the commit that added its file, so the
+     * range of sequence numbers and the number of distinct ones are both available without reading
+     * data. That is enough for the cost model to estimate a predicate on the column at all, which it
+     * otherwise cannot do.
+     *
+     * <p>The estimate is only a uniform interpolation across that range, which understates how
+     * skewed this column is: sequence numbers are assigned per commit, not per row, so a bulk load
+     * followed by a small append gives two values whose row counts differ by orders of magnitude, and
+     * a {@code > recordedSequence} delta can be priced at roughly half the table. That is enough for
+     * the delta to be costed at all -- without it the predicate is unestimable and row-level is never
+     * considered -- but it can still lose to a partition-level plan that reads far more. Encoding the
+     * per-commit frequencies as a histogram would fix the skew; the statistics API used here carries
+     * no frequency representation for this column, so it is left as a known limitation rather than
+     * described as a precise delta estimate.
+     */
+    private Optional<ColumnStatistics> dataSequenceNumberStatistics(IcebergTableHandle tableHandle, TupleDomain<IcebergColumnHandle> intersection)
+    {
+        Set<Long> sequenceNumbers = dataSequenceNumbers(tableHandle, intersection);
+        if (sequenceNumbers.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(ColumnStatistics.builder()
+                .setNullsFraction(Estimate.of(0))
+                .setDistinctValuesCount(Estimate.of(sequenceNumbers.size()))
+                .setRange(Optional.of(new DoubleRange(
+                        Collections.min(sequenceNumbers),
+                        Collections.max(sequenceNumbers))))
+                // Zero, explicitly. This column is synthetic -- it is derived from the manifest entry
+                // rather than stored in the data file -- so it occupies no space in the table. Leaving
+                // the data size unset instead makes calculateAndSetTableSize fall through to
+                // rowCount * (1 - nullsFraction) * 8 for a BIGINT, which would attribute eight bytes a
+                // row to a column that does not exist on disk and inflate the estimated size of every
+                // plan reading the table.
+                .setDataSize(Estimate.of(0))
+                .build());
+    }
+
+    /**
+     * The distribution of rows over data sequence numbers, across the same files the row count is
+     * taken from -- that is, after the metadata-column predicates have been applied.
+     *
+     * <p>Both have to describe the scan at the same point. The engine keeps the metadata predicate as
+     * a {@code FilterNode} above the scan and estimates it as
+     * {@code scanRows * selectivity(predicate, theseStatistics)}. The scan row count is already
+     * filtered, so the selectivity has to come out at one; statistics taken before the filter would
+     * make it less than one and understate an already-filtered count by roughly its own factor.
+     *
+     * <p>The cost is one extra walk of the manifest entries, taken only when a scan actually selects
+     * {@code $data_sequence_number} -- in practice only a row-level materialized view plan. No data
+     * file is opened: a manifest entry already carries its file's sequence number and record count.
+     */
+    private Set<Long> dataSequenceNumbers(IcebergTableHandle tableHandle, TupleDomain<IcebergColumnHandle> intersection)
+    {
+        TupleDomain<IcebergColumnHandle> nonMetadataIntersection = IcebergUtil.getNonMetadataColumnConstraints(intersection);
+        TableScan tableScan = icebergTable.newScan()
+                .metricsReporter(new RuntimeStatsMetricsReporter(session.getRuntimeStats()))
+                .filter(toIcebergExpression(nonMetadataIntersection))
+                .useSnapshot(tableHandle.getIcebergTableName().getSnapshotId().get());
+
+        Set<Long> dataSequenceNumbers = new HashSet<>();
+        TupleDomain<IcebergColumnHandle> metadataColumnConstraints = IcebergUtil.getMetadataColumnConstraints(intersection);
+        InclusiveMetricsEvaluator lineageEvaluator = metadataColumnConstraints.isAll()
+                ? null
+                : buildLastUpdatedSequenceNumberEvaluator(metadataColumnConstraints);
+        try (CloseableIterable<ContentFile<?>> files = CloseableIterable.transform(tableScan.planFiles(), ContentScanTask::file)) {
+            for (ContentFile<?> file : files) {
+                if (lineageEvaluator != null && !metadataColumnsMatchPredicates(
+                        metadataColumnConstraints, file.path().toString(), getDataSequenceNumber(file), file, lineageEvaluator, appendSequenceNumbers)) {
+                    continue;
+                }
+                dataSequenceNumbers.add(getDataSequenceNumber(file));
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return dataSequenceNumbers;
+    }
+
     private Partition getDataTableSummary(IcebergTableHandle tableHandle,
             List<IcebergColumnHandle> selectedColumns,
             TupleDomain<IcebergColumnHandle> intersection,
@@ -302,6 +407,22 @@ public class TableStatisticsMaker
                 .includeColumnStats();
 
         CloseableIterable<ContentFile<?>> files = CloseableIterable.transform(tableScan.planFiles(), ContentScanTask::file);
+
+        // Iceberg could not apply the metadata-column predicates above, so apply them here, per file,
+        // the same way IcebergSplitSource does when it decides which splits to emit. Without this the
+        // estimate for a scan bounded by $data_sequence_number counts every file in the snapshot, so a
+        // delta scan prices identically to a full scan.
+        TupleDomain<IcebergColumnHandle> metadataColumnConstraints = IcebergUtil.getMetadataColumnConstraints(intersection);
+        if (!metadataColumnConstraints.isAll()) {
+            InclusiveMetricsEvaluator lineageEvaluator = buildLastUpdatedSequenceNumberEvaluator(metadataColumnConstraints);
+            files = CloseableIterable.filter(files, file -> metadataColumnsMatchPredicates(
+                    metadataColumnConstraints,
+                    file.path().toString(),
+                    getDataSequenceNumber(file),
+                    file,
+                    lineageEvaluator,
+                    appendSequenceNumbers));
+        }
         return getSummaryFromFiles(files, idToTypeMapping, nonPartitionPrimitiveColumns, partitionFields);
     }
 

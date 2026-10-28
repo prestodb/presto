@@ -83,6 +83,7 @@ import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_STIT
 import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.facebook.presto.sql.planner.iterative.rule.PickTableLayout.pushPredicateIntoTableScan;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
 import static com.facebook.presto.sql.relational.Expressions.not;
@@ -1257,6 +1258,23 @@ public class DifferentialPlanRewriter
         return new NodeWithMapping(result.delta().getNode(), composedMapping.build());
     }
 
+    /**
+     * A delta leaf whose predicate has been offered to the connector's table layout, so that a cost
+     * comparison prices it against the files it will read rather than the whole snapshot.
+     *
+     * <p>This is the same helper {@code PickTableLayout} calls, with the same arguments, and that pass
+     * still runs afterwards and converges on the same layout. Iceberg reports the predicate as
+     * unenforced, so it remains a {@code FilterNode} here, but it records it in the layout handle and
+     * the statistics path reads it back from there.
+     */
+    private PlanNode deltaLeaf(PlanNode scan, RowExpression predicate)
+    {
+        if (scan instanceof TableScanNode) {
+            return pushPredicateIntoTableScan((TableScanNode) scan, predicate, false, session, idAllocator, metadata);
+        }
+        return new FilterNode(scan.getSourceLocation(), idAllocator.getNextId(), scan, predicate);
+    }
+
     private class DeltaBuilder
             extends InternalPlanVisitor<PlanVariants, Void>
     {
@@ -1297,7 +1315,7 @@ public class DifferentialPlanRewriter
                     buildStalePredicate(node, stalePredicates, unchangedResult.getMapping()));
 
             // Apply stale/non-stale filters
-            PlanNode deltaNode = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), deltaResult.getNode(), stalePredicate);
+            PlanNode deltaNode = deltaLeaf(deltaResult.getNode(), stalePredicate);
             PlanNode unchangedNode = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), unchangedResult.getNode(), unchangedPredicate);
 
             return new PlanVariants(
@@ -2201,7 +2219,7 @@ public class DifferentialPlanRewriter
          */
         NodeWithMapping filterAndRestore(TableScanNode original, RowExpression predicate)
         {
-            FilterNode filtered = new FilterNode(scan.getSourceLocation(), idAllocator.getNextId(), scan, predicate);
+            PlanNode filtered = deltaLeaf(scan, predicate);
             List<VariableReferenceExpression> restored = original.getOutputVariables().stream()
                     .map(mapping::get)
                     .collect(toImmutableList());
