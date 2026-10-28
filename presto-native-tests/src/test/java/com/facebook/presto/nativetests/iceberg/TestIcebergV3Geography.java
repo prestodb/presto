@@ -30,6 +30,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static com.facebook.presto.nativetests.iceberg.IcebergNullDomainAssertions.assertNullPredicateInScan;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.javaIcebergQueryRunnerBuilder;
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.nativeIcebergQueryRunnerBuilder;
@@ -135,13 +136,33 @@ public class TestIcebergV3Geography
             // pinned Velox renders its well-known text differently from Java (fixed upstream by
             // facebookincubator/velox#18506), which is a function difference, not a read one;
             // the next query still covers it by comparing within the native engine.
+            // TODO: Drop the MULTIPOINT exclusion once Velox is advanced past velox#18506.
             @Language("SQL") String everyKind = format("SELECT id, ST_AsText(geog) FROM %s WHERE source IS NULL OR source NOT LIKE 'MULTIPOINT%%'", table);
             assertQuery(session, everyKind, javaSession(), everyKind);
             assertQuery(
                     session,
                     format("SELECT count(*) FROM %s WHERE geog IS NOT NULL AND ST_AsText(geog) <> ST_AsText(to_spherical_geography(ST_GeometryFromText(source)))", table),
                     "SELECT 0");
-            assertQuery(session, format("SELECT id FROM %s WHERE geog IS NULL", table), "SELECT 8");
+            // The IS NULL and IS NOT NULL predicates reach the scan as an AllOrNoneValueSet domain,
+            // which the native worker converts to a Velox IsNull or IsNotNull filter.
+            assertNullPredicateInScan(
+                    getQueryRunner(),
+                    session,
+                    format("SELECT id FROM %s WHERE geog IS NULL", table),
+                    getExpectedQueryRunner(),
+                    javaSession(),
+                    format("SELECT %d", GEOGRAPHIES.size()),
+                    "geog",
+                    true);
+            assertNullPredicateInScan(
+                    getQueryRunner(),
+                    session,
+                    format("SELECT count(*) FROM %s WHERE geog IS NOT NULL", table),
+                    getExpectedQueryRunner(),
+                    javaSession(),
+                    format("SELECT %d", GEOGRAPHIES.size()),
+                    "geog",
+                    false);
 
             // The column reads back as a geography, not as the binary it is stored as.
             MaterializedResult result = computeActual(session, format("SELECT geog FROM %s WHERE id = 0", table));
@@ -192,8 +213,24 @@ public class TestIcebergV3Geography
                     session,
                     format("SELECT city FROM %s WHERE ST_Distance(location, to_spherical_geography(ST_Point(-122.4194, 37.7749))) < 50000", table),
                     "VALUES 'San Francisco', 'Oakland'");
-            assertQuery(session, format("SELECT city FROM %s WHERE location IS NULL", table), "VALUES 'Nowhere'");
-            assertQuery(session, format("SELECT city FROM %s WHERE location IS NOT NULL AND city > 'M'", table), "VALUES 'Oakland', 'San Francisco'");
+            assertNullPredicateInScan(
+                    getQueryRunner(),
+                    session,
+                    format("SELECT city FROM %s WHERE location IS NULL", table),
+                    getExpectedQueryRunner(),
+                    javaSession(),
+                    "VALUES 'Nowhere'",
+                    "location",
+                    true);
+            assertNullPredicateInScan(
+                    getQueryRunner(),
+                    session,
+                    format("SELECT city FROM %s WHERE location IS NOT NULL AND city > 'M'", table),
+                    getExpectedQueryRunner(),
+                    javaSession(),
+                    "VALUES 'Oakland', 'San Francisco'",
+                    "location",
+                    false);
         }
         finally {
             dropTableIfExists(session, table);

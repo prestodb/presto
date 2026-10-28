@@ -742,7 +742,6 @@ TEST_F(PrestoToVeloxConnectorTest, dateOverflowHighBelowMin) {
 TEST_F(PrestoToVeloxConnectorTest, allOrNoneValueSet) {
   auto makeDomain = [](bool all, bool nullAllowed) {
     auto values = std::make_shared<protocol::AllOrNoneValueSet>();
-    values->type = "SphericalGeography";
     values->all = all;
     protocol::Domain domain;
     domain.values = values;
@@ -753,16 +752,20 @@ TEST_F(PrestoToVeloxConnectorTest, allOrNoneValueSet) {
   auto isNull =
       toFilter(makeDomain(false, true), *exprConverter_, *typeParser_);
   EXPECT_EQ(isNull->kind(), common::FilterKind::kIsNull);
+  EXPECT_TRUE(isNull->testNull());
 
   auto isNotNull =
       toFilter(makeDomain(true, false), *exprConverter_, *typeParser_);
   EXPECT_EQ(isNotNull->kind(), common::FilterKind::kIsNotNull);
+  EXPECT_FALSE(isNotNull->testNull());
 
   auto none = toFilter(makeDomain(false, false), *exprConverter_, *typeParser_);
   EXPECT_EQ(none->kind(), common::FilterKind::kAlwaysFalse);
+  EXPECT_FALSE(none->testNull());
 
   auto all = toFilter(makeDomain(true, true), *exprConverter_, *typeParser_);
   EXPECT_EQ(all->kind(), common::FilterKind::kAlwaysTrue);
+  EXPECT_TRUE(all->testNull());
 }
 
 namespace {

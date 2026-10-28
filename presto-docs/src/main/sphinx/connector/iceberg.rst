@@ -3269,6 +3269,8 @@ with ``ALTER TABLE ... ADD COLUMN``.
   ``GEOGRAPHY`` columns.
 * A ``GEOGRAPHY`` column cannot be used as a partition column, because no Iceberg
   partition transform, including ``identity``, accepts geospatial types.
+* On Presto C++ (native execution), ``GEOGRAPHY`` columns can be read but not written.
+  Writes must go through a Java worker.
 
 PrestoDB to Iceberg type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
