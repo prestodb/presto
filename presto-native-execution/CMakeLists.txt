@@ -12,39 +12,56 @@
 cmake_minimum_required(VERSION 3.24)
 
 # Use rapids-cmake to configure CUDA architectures
+set(_cuda_lang "")
 if(PRESTO_ENABLE_CUDF)
+  # Declare rapids-cmake exactly as Velox's cudf.cmake does, including the
+  # checksum and the VELOX_rapids_cmake_URL/VELOX_rapids_cmake_SHA256 environment
+  # overrides. FetchContent keeps the first declaration of a name, so this one is
+  # the one cuDF ends up using.
   file(
     READ
     "${CMAKE_SOURCE_DIR}/velox/CMake/resolve_dependency_modules/cudf.cmake"
     _dep_cmake_content
   )
-  string(REGEX MATCH "VELOX_rapids_cmake_VERSION ([0-9.]+)" _match "${_dep_cmake_content}")
-  set(PRESTO_rapids_cmake_VERSION "${CMAKE_MATCH_1}")
-  message(STATUS "Rapids CMake version: ${PRESTO_rapids_cmake_VERSION}")
   string(REGEX MATCH "VELOX_rapids_cmake_COMMIT ([0-9a-fA-F]+)" _match "${_dep_cmake_content}")
-  set(PRESTO_rapids_cmake_COMMIT "${CMAKE_MATCH_1}")
-  message(STATUS "Rapids CMake commit: ${PRESTO_rapids_cmake_COMMIT}")
-
-  set(rapids-cmake-version ${PRESTO_rapids_cmake_VERSION})
-  set(
-    rapids-cmake-url
-    "https://github.com/rapidsai/rapids-cmake/archive/${PRESTO_rapids_cmake_COMMIT}.tar.gz"
+  set(VELOX_rapids_cmake_COMMIT "${CMAKE_MATCH_1}")
+  string(
+    REGEX MATCH
+    "VELOX_rapids_cmake_BUILD_SHA256_CHECKSUM[ \t\r\n]+([0-9a-fA-F]+)"
+    _match
+    "${_dep_cmake_content}"
   )
-  if(NOT EXISTS ${CMAKE_CURRENT_BINARY_DIR}/PrestoCpp_RAPIDS.cmake)
-    file(
-      DOWNLOAD
-        https://raw.githubusercontent.com/rapidsai/rapids-cmake/${PRESTO_rapids_cmake_COMMIT}/RAPIDS.cmake
-        ${CMAKE_CURRENT_BINARY_DIR}/PrestoCpp_RAPIDS.cmake
+  set(VELOX_rapids_cmake_BUILD_SHA256_CHECKSUM "${CMAKE_MATCH_1}")
+  if(NOT VELOX_rapids_cmake_COMMIT OR NOT VELOX_rapids_cmake_BUILD_SHA256_CHECKSUM)
+    message(
+      FATAL_ERROR
+      "Could not read the rapids-cmake commit and checksum from Velox's cudf.cmake"
     )
   endif()
-  include(${CMAKE_CURRENT_BINARY_DIR}/PrestoCpp_RAPIDS.cmake)
+  set(
+    VELOX_rapids_cmake_SOURCE_URL
+    "https://github.com/rapidsai/rapids-cmake/archive/${VELOX_rapids_cmake_COMMIT}.tar.gz"
+  )
+  include(${CMAKE_SOURCE_DIR}/velox/CMake/ResolveDependency.cmake)
+  velox_resolve_dependency_url(rapids_cmake)
+  message(STATUS "Rapids CMake: ${VELOX_rapids_cmake_SOURCE_URL}")
+
+  FetchContent_Declare(
+    rapids-cmake
+    URL ${VELOX_rapids_cmake_SOURCE_URL}
+    URL_HASH ${VELOX_rapids_cmake_BUILD_SHA256_CHECKSUM}
+    UPDATE_DISCONNECTED 1
+  )
+  FetchContent_MakeAvailable(rapids-cmake)
   include(rapids-cuda)
   rapids_cuda_init_architectures(PrestoCpp)
-  enable_language(CUDA)
+  # Enable CUDA in project() itself: rapids_cuda_set_architectures, which runs
+  # from project(), returns early unless the CUDA compiler is already known.
+  set(_cuda_lang CUDA)
 endif()
 
 # set the project name
-project(PrestoCpp)
+project(PrestoCpp LANGUAGES C CXX ${_cuda_lang})
 
 set(VELOX_ROOT ${CMAKE_BINARY_DIR}/velox)
 list(PREPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/velox/CMake")
@@ -146,7 +163,6 @@ endif()
 set(VELOX_ENABLE_CUDF ${PRESTO_ENABLE_CUDF} CACHE BOOL "Enable cuDF support")
 if(PRESTO_ENABLE_CUDF)
   add_compile_definitions(PRESTO_ENABLE_CUDF)
-  enable_language(CUDA)
   # Determine CUDA_ARCHITECTURES automatically.
   cmake_policy(SET CMP0104 NEW)
 endif()
