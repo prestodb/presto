@@ -46,6 +46,12 @@ public class ReduceAggregationStateSerializer
     @Override
     public void deserialize(Block block, int index, ReduceAggregationState state)
     {
-        state.setValue(TypeUtils.readNativeValue(type, block, index));
+        if (type.getJavaType().isPrimitive()) {
+            state.setValue(TypeUtils.readNativeValue(type, block, index));
+            return;
+        }
+        // Read in place, a Block or Slice is a view retaining the whole intermediate page. A group's first
+        // combine keeps it as its state, so every group would pin, and be charged for, the entire page.
+        state.setValue(TypeUtils.readNativeValue(type, block.getSingleValueBlock(index), 0));
     }
 }
