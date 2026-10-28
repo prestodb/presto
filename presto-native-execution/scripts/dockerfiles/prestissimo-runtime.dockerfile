@@ -44,7 +44,7 @@ RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
         [ -n "${SCCACHE_REGION}" ] && export SCCACHE_REGION="${SCCACHE_REGION}"; \
         [ -n "${SCCACHE_S3_KEY_PREFIX}" ] && export SCCACHE_S3_KEY_PREFIX="${SCCACHE_S3_KEY_PREFIX}"; \
         sccache --start-server && \
-        COMPILER_LAUNCHER_FLAGS="-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_CUDA_COMPILER_LAUNCHER=sccache"; \
+        COMPILER_LAUNCHER_FLAGS="-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_CUDA_COMPILER_LAUNCHER=sccache" && \
         echo "Using sccache with S3 backend: s3://${SCCACHE_BUCKET}/${SCCACHE_S3_KEY_PREFIX:-}"; \
     else \
         echo "Using ccache (local)"; \
