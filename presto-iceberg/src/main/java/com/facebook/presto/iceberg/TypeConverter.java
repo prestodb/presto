@@ -277,6 +277,9 @@ public final class TypeConverter
         if (type instanceof UuidType) {
             return Types.UUIDType.get();
         }
+        if (isGeometryType(type)) {
+            return Types.GeometryType.crs84();
+        }
         if (isSphericalGeographyType(type)) {
             // Presto's SPHERICAL_GEOGRAPHY is always WGS84 with spherical edges, which are
             // Iceberg's defaults. crs84() leaves both unset so the schema serializes as the

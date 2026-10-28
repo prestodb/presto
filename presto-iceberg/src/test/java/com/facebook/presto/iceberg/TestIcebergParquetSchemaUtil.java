@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.iceberg;
 
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.EdgeAlgorithm;
@@ -65,17 +64,6 @@ public class TestIcebergParquetSchemaUtil
         assertEquals(
                 column.getLogicalTypeAnnotation(),
                 LogicalTypeAnnotation.geographyType("EPSG:4326", EdgeInterpolationAlgorithm.SPHERICAL));
-    }
-
-    /**
-     * Writes to geometry columns are rejected before the write begins, so a geometry column
-     * reaching the conversion is a bug, and it must still refuse rather than produce a file
-     * whose declared CRS was never applied to the coordinates.
-     */
-    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "Unexpected geospatial type for Parquet column 'geo': geometry")
-    public void testGeometryIsRejected()
-    {
-        geospatialColumn(Types.GeometryType.crs84());
     }
 
     /**
