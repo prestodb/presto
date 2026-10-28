@@ -1078,6 +1078,7 @@ public class TestSignatureBinder
         assertThat("char(p)", boundVariables, "char(1)");
         assertThat("decimal(p,s)", boundVariables, "decimal(1,2)");
         assertThat("array(decimal(p,s))", boundVariables, "array(decimal(1,2))");
+        assertThat("timestamp(p) with time zone", boundVariables, "timestamp(1) with time zone");
 
         assertBindVariablesFails("T1(bigint)", boundVariables, "Unbounded parameters can not have parameters");
     }
