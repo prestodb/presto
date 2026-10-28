@@ -111,6 +111,7 @@ public class TestPrestoNativeIcebergUnknownType
             assertQuerySucceeds("INSERT INTO test_native_unknown_write (id) VALUES 2");
             assertQuerySucceeds("INSERT INTO test_native_unknown_write SELECT 3, NULL");
             assertQuery("SELECT * FROM test_native_unknown_write", "VALUES (1, NULL), (2, NULL), (3, NULL)");
+            assertQuery("SELECT count(unknown_column) FROM test_native_unknown_write", "VALUES 0");
         }
         finally {
             assertQuerySucceeds("DROP TABLE IF EXISTS test_native_unknown_write");
