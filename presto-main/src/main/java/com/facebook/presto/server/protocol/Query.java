@@ -504,6 +504,7 @@ class Query
         // the pages will be lost.
         Iterable<List<Object>> data = null;
         List<String> binaryData = null;
+        boolean producedRows = false;
         try {
             long rows = 0;
             long bytes = 0;
@@ -549,7 +550,7 @@ class Query
                 }
             }
             if (rows > 0) {
-                hasProducedResult = true;
+                producedRows = true;
             }
         }
         catch (Exception e) {
@@ -562,9 +563,12 @@ class Query
         queryManager.recordHeartbeat(queryId);
 
         // TODO: figure out a better way to do this
+        // the only output of a data manipulation statement is a single row holding the update count
+        boolean isUpdateCountResult = (queryInfo.getUpdateInfo() != null) && (columns != null) &&
+                (columns.size() == 1) && (columns.get(0).getType().equals(StandardTypes.BIGINT));
+
         // grab the update count for non-queries
-        if ((data != null) && (queryInfo.getUpdateInfo() != null) && (updateCount == null) &&
-                (columns.size() == 1) && (columns.get(0).getType().equals(StandardTypes.BIGINT))) {
+        if ((data != null) && isUpdateCountResult && (updateCount == null)) {
             Iterator<List<Object>> iterator = data.iterator();
             if (iterator.hasNext()) {
                 Number number = (Number) iterator.next().get(0);
@@ -572,6 +576,19 @@ class Query
                     updateCount = number.longValue();
                 }
             }
+        }
+
+        // A data manipulation statement returns exactly one row with one BIGINT column: the update count.
+        // A normal query can send the client part of its results before it fails.
+        // An update statement cannot, because its only output is this single count row.
+        // So when it fails here, the client has not yet received or used any results, and
+        // the statement can be retried right away.
+        // On a successful retry, the client gets the update count from that attempt.
+        // For connectors that hold writes until the auto-commit transaction commits (e.g. Iceberg),
+        // a failure after this row was produced (typically a commit conflict) means nothing was committed.
+        // Real rows, in contrast, cannot be retracted once delivered, so we must disable retries in this case.
+        if (producedRows && !isUpdateCountResult) {
+            hasProducedResult = true;
         }
 
         closeExchangeClientIfNecessary(queryInfo);

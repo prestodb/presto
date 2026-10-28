@@ -634,7 +634,8 @@ public abstract class TestIcebergDistributedQueries
         session = assertEndTransaction(txnSession2, "commit");
 
         // Fail to commit transaction1 which includes the action for renaming column "b"
-        assertQueryFails(txnSession1, "commit", "Table metadata refresh is required");
+        assertQueryFails(txnSession1, "commit", "Failed to commit changes to the Iceberg table " +
+                "tpch.test_schema_conflict_between_transactions because it was concurrently modified");
 
         assertQuery(session, "select * from " + tableName, "values(1), (5)");
         assertQuery(getSession(), "select * from " + tableName, "values(1), (5)");
@@ -763,7 +764,8 @@ public abstract class TestIcebergDistributedQueries
     @Test
     public void testMultipleConcurrentUpdatesOnTheSameRow()
     {
-        multiConcurrentUpdatesOnTheSameRow("Found new conflicting delete files that can apply to records matching .*");
+        multiConcurrentUpdatesOnTheSameRow("Failed to commit changes to the Iceberg table " +
+                "tpch.multiple_concurrent_updates_on_same_row because it was concurrently modified");
     }
 
     protected void multiConcurrentUpdatesOnTheSameRow(String commitErrorMessage)
@@ -838,8 +840,8 @@ public abstract class TestIcebergDistributedQueries
                 "values(1, '1001'), (2, '1102')");
 
         // transaction2 commission failed with conflicting delete files
-        assertQueryFails(txnSession2, "commit",
-                "Found new conflicting delete files that can apply to records matching .*");
+        assertQueryFails(txnSession2, "commit", "Failed to commit changes to the Iceberg table " +
+                "tpch.multiple_concurrent_updates_with_conflicts_non_part because it was concurrently modified");
 
         assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1002')");
 
@@ -865,8 +867,8 @@ public abstract class TestIcebergDistributedQueries
                 "values(1, '1001'), (2, '1102')");
 
         // transaction2 commission failed with conflicting delete files
-        assertQueryFails(txnSession2, "commit",
-                "Found new conflicting delete files that can apply to records matching .*");
+        assertQueryFails(txnSession2, "commit", "Failed to commit changes to the Iceberg table " +
+                "tpch.test_multiple_concurrent_updates_with_conflicts because it was concurrently modified");
 
         assertQuery(getSession(), "select * from " + tableName, "values(1, '1101'), (2, '1002')");
 
