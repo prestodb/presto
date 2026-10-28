@@ -736,6 +736,38 @@ TEST_F(PrestoToVeloxConnectorTest, dateOverflowHighBelowMin) {
   EXPECT_FALSE(filter->testNull());
 }
 
+// A type that is neither orderable nor comparable, such as SphericalGeography,
+// arrives as an AllOrNoneValueSet: 'geog IS NULL' is none of the values with
+// nulls, and 'geog IS NOT NULL' is all of them without.
+TEST_F(PrestoToVeloxConnectorTest, allOrNoneValueSet) {
+  auto makeDomain = [](bool all, bool nullAllowed) {
+    auto values = std::make_shared<protocol::AllOrNoneValueSet>();
+    values->all = all;
+    protocol::Domain domain;
+    domain.values = values;
+    domain.nullAllowed = nullAllowed;
+    return domain;
+  };
+
+  auto isNull =
+      toFilter(makeDomain(false, true), *exprConverter_, *typeParser_);
+  EXPECT_EQ(isNull->kind(), common::FilterKind::kIsNull);
+  EXPECT_TRUE(isNull->testNull());
+
+  auto isNotNull =
+      toFilter(makeDomain(true, false), *exprConverter_, *typeParser_);
+  EXPECT_EQ(isNotNull->kind(), common::FilterKind::kIsNotNull);
+  EXPECT_FALSE(isNotNull->testNull());
+
+  auto none = toFilter(makeDomain(false, false), *exprConverter_, *typeParser_);
+  EXPECT_EQ(none->kind(), common::FilterKind::kAlwaysFalse);
+  EXPECT_FALSE(none->testNull());
+
+  auto all = toFilter(makeDomain(true, true), *exprConverter_, *typeParser_);
+  EXPECT_EQ(all->kind(), common::FilterKind::kAlwaysTrue);
+  EXPECT_TRUE(all->testNull());
+}
+
 namespace {
 
 // Builds a minimal protocol::iceberg::IcebergDeleteTableHandle wrapped in a
