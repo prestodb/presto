@@ -979,7 +979,7 @@ public class TestSqlParser
 
         // trim used as a column alias
         assertStatement("SELECT 1 AS trim FROM t",
-               simpleQuery(
+                simpleQuery(
                         selectList(new SingleColumn(new LongLiteral("1"), Optional.of(new Identifier("trim")))),
                         table(QualifiedName.of("t"))));
 
