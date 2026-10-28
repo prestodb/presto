@@ -35,6 +35,7 @@ ENV BUILD_DIR=""
 RUN mkdir -p /prestissimo /runtime-libraries
 COPY . /prestissimo/
 RUN --mount=type=cache,target=/root/.ccache,sharing=locked \
+    --mount=type=cache,target=/root/.cache/sccache,sharing=locked \
     /bin/bash -c '\
     if [[ "${EXTRA_CMAKE_FLAGS}" =~ -DPRESTO_ENABLE_CUDF=ON ]] || [[ ",${PRESTO_OPTIONAL_FEATURES}," =~ ,cudf, ]]; then unset CC; unset CXX; source /opt/rh/gcc-toolset-14/enable; fi && \
     COMPILER_LAUNCHER_FLAGS="" && \
