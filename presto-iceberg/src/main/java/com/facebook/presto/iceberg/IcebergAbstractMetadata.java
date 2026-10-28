@@ -758,7 +758,20 @@ public abstract class IcebergAbstractMetadata
                 icebergTable.properties(),
                 getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()),
                 Optional.empty(),
-                insertColumnNames);
+                toIcebergFieldNames(session, icebergTable.schema(), insertColumnNames));
+    }
+
+    /**
+     * The engine passes normalized INSERT column names, but the page sink matches them against the
+     * case-preserved Iceberg field names, so a mixed-case column would otherwise look omitted.
+     */
+    private List<String> toIcebergFieldNames(ConnectorSession session, Schema schema, List<String> insertColumnNames)
+    {
+        Set<String> normalizedNames = ImmutableSet.copyOf(insertColumnNames);
+        return schema.columns().stream()
+                .map(NestedField::name)
+                .filter(name -> normalizedNames.contains(normalizeIdentifier(session, name)))
+                .collect(toImmutableList());
     }
 
     public static List<SortField> getSupportedSortFields(Schema schema, SortOrder sortOrder)

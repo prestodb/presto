@@ -752,6 +752,27 @@ public class TestIcebergV3
     }
 
     @Test
+    public void testInsertIntoMixedCaseWriteDefaultColumn()
+    {
+        String tableName = "test_insert_mixed_case_write_default";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN status VARCHAR DEFAULT 'ACTIVE'");
+            // Engines such as Spark preserve the case of field names; Presto lowercases them
+            loadTable(tableName).updateSchema().renameColumn("status", "Status").commit();
+
+            assertUpdate("INSERT INTO " + tableName + " (id, \"Status\") VALUES (1, 'PAUSED'), (2, NULL)", 2);
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES (3)", 1);
+
+            assertQuery("SELECT id, status FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'PAUSED'), (2, NULL), (3, 'ACTIVE')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
     public void testInsertWithMultipleWriteDefaultColumns()
     {
         String tableName = "test_insert_multiple_write_default_columns";
