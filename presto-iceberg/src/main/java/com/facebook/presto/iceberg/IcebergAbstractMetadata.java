@@ -2908,6 +2908,8 @@ public abstract class IcebergAbstractMetadata
     public Optional<List<SchemaTableName>> getReferencedMaterializedViews(ConnectorSession session, SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
+        // TODO: Replace the full-scan approach with a reverse index (like Hive's REFERENCED_MATERIALIZED_VIEWS
+        // table property) to avoid O(schemas * views) planning overhead per base-table reference.
         ImmutableList.Builder<SchemaTableName> referencingViews = ImmutableList.builder();
 
         List<String> schemas;
@@ -2915,8 +2917,10 @@ public abstract class IcebergAbstractMetadata
             schemas = listSchemaNames(session);
         }
         catch (Exception e) {
-            log.warn(e, "Failed to list schema names. Falling back to the table's schema: %s", tableName.getSchemaName());
-            schemas = ImmutableList.of(tableName.getSchemaName());
+            // If we cannot enumerate schemas the catalog is likely unreachable; skip MV discovery
+            // rather than attempting a partial fallback that would also fail.
+            log.warn(e, "Failed to list schema names while looking up materialized views referencing %s; skipping MV rewrite", tableName);
+            return Optional.of(ImmutableList.of());
         }
 
         for (String schemaName : schemas) {
@@ -2937,7 +2941,7 @@ public abstract class IcebergAbstractMetadata
                     }
                 }
                 catch (Exception e) {
-                    log.warn(e, "Failed to get materialized view definition for candidate: %s", mvName);
+                    log.warn(e, "Failed to get materialized view definition for candidate: %s; skipping", mvName);
                 }
             }
         }

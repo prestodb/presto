@@ -47,7 +47,6 @@ import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Table;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import java.util.List;
 import java.util.Map;
@@ -337,22 +336,30 @@ public class MaterializedViewJoinQueryRewriter
             return true;
         }
 
-        private Set<String> getBaseTableColumnNames()
+        private Optional<Set<String>> getBaseTableColumnNames()
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, swappedTable, swappedTable.getName(), metadata);
             Optional<TableHandle> tableHandle = metadataResolver.getTableHandle(tableName);
             if (!tableHandle.isPresent()) {
-                return ImmutableSet.of();
+                return Optional.empty();
             }
-            return metadataResolver.getColumns(tableHandle.get()).stream()
+            return Optional.of(metadataResolver.getColumns(tableHandle.get()).stream()
                     .map(ColumnMetadata::getName)
-                    .collect(toImmutableSet());
+                    .collect(toImmutableSet()));
         }
 
         private boolean areColumnsCovered(QuerySpecification querySpecification, Relation joinRelation)
         {
             Map<Expression, Identifier> baseToViewColumnMap = mvInfo.getBaseToViewColumnMap();
-            Set<String> baseTableColumnNames = getBaseTableColumnNames();
+            Optional<Set<String>> baseTableColumnNamesOpt = getBaseTableColumnNames();
+            // If we cannot resolve the base table's columns, conservatively reject the rewrite
+            // to avoid replacing the base table with an MV that may not cover all queried columns.
+            if (!baseTableColumnNamesOpt.isPresent()) {
+                log.debug("JOIN MV rewrite rejected: could not resolve base table columns for %s. MV=%s",
+                        swappedTable.getName(), materializedViewName);
+                return false;
+            }
+            Set<String> baseTableColumnNames = baseTableColumnNamesOpt.get();
             AtomicBoolean covered = new AtomicBoolean(true);
 
             DefaultTraversalVisitor<Void, Void> checker = new DefaultTraversalVisitor<Void, Void>()
@@ -382,8 +389,12 @@ public class MaterializedViewJoinQueryRewriter
                 @Override
                 protected Void visitIdentifier(Identifier node, Void context)
                 {
-                    // Check if an unqualified column belongs to the base table being rewritten
-                    if (baseTableColumnNames.contains(node.getValue()) && !baseToViewColumnMap.containsKey(node)) {
+                    // Check if an unqualified column belongs to the base table being rewritten.
+                    // ColumnMetadata names are always lower-case, so use getValueLowerCase() to
+                    // avoid a case-sensitive mismatch (e.g. "ID" vs "id") that would silently
+                    // skip the check and allow a rewrite with an MV that doesn't cover the column.
+                    Identifier lowerNode = new Identifier(node.getValueLowerCase(), node.isDelimited());
+                    if (baseTableColumnNames.contains(node.getValueLowerCase()) && !baseToViewColumnMap.containsKey(lowerNode)) {
                         covered.set(false);
                     }
                     return null;
