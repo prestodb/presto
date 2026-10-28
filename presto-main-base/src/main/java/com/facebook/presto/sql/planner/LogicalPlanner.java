@@ -706,7 +706,7 @@ public class LogicalPlanner
                 components.getPlan(),
                 target,
                 components.getColumnNames(),
-                components.getColumnMetadata(),
+                components.getNullCheckColumns(),
                 components.getTableLayout(),
                 components.getStatisticsMetadata());
     }
@@ -749,7 +749,7 @@ public class LogicalPlanner
                 components.getPlan(),
                 target,
                 components.getColumnNames(),
-                components.getColumnMetadata(),
+                components.getNullCheckColumns(),
                 components.getTableLayout(),
                 components.getStatisticsMetadata());
     }
@@ -815,10 +815,15 @@ public class LogicalPlanner
         String catalogName = tableHandle.getConnectorId().getCatalogName();
         TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
 
+        // The connector writes the default into an omitted column after the writer's NOT NULL check, so the check skips that column.
+        List<ColumnMetadata> nullCheckColumns = visibleTableColumns.stream()
+                .filter(column -> columnHandles.contains(columns.get(column.getName())) || !column.getDefaultValue().isPresent())
+                .collect(toImmutableList());
+
         return new InsertPlanComponents(
                 projectedPlan,
                 visibleTableColumnNames,
-                visibleTableColumns,
+                nullCheckColumns,
                 newTableLayout,
                 statisticsMetadata);
     }
@@ -830,20 +835,21 @@ public class LogicalPlanner
     {
         private final RelationPlan plan;
         private final List<String> columnNames;
-        private final List<ColumnMetadata> columnMetadata;
+        // The columns the table writer checks for NOT NULL; an omitted column that the connector fills with its default is not one of them.
+        private final List<ColumnMetadata> nullCheckColumns;
         private final Optional<NewTableLayout> tableLayout;
         private final TableStatisticsMetadata statisticsMetadata;
 
         InsertPlanComponents(
                 RelationPlan plan,
                 List<String> columnNames,
-                List<ColumnMetadata> columnMetadata,
+                List<ColumnMetadata> nullCheckColumns,
                 Optional<NewTableLayout> tableLayout,
                 TableStatisticsMetadata statisticsMetadata)
         {
             this.plan = requireNonNull(plan, "plan is null");
             this.columnNames = requireNonNull(columnNames, "columnNames is null");
-            this.columnMetadata = requireNonNull(columnMetadata, "columnMetadata is null");
+            this.nullCheckColumns = requireNonNull(nullCheckColumns, "nullCheckColumns is null");
             this.tableLayout = requireNonNull(tableLayout, "tableLayout is null");
             this.statisticsMetadata = requireNonNull(statisticsMetadata, "statisticsMetadata is null");
         }
@@ -858,9 +864,9 @@ public class LogicalPlanner
             return columnNames;
         }
 
-        public List<ColumnMetadata> getColumnMetadata()
+        public List<ColumnMetadata> getNullCheckColumns()
         {
-            return columnMetadata;
+            return nullCheckColumns;
         }
 
         public Optional<NewTableLayout> getTableLayout()

@@ -28,6 +28,10 @@ import static java.util.Objects.requireNonNull;
 
 public class ColumnMetadata
 {
+    /**
+     * Holds a column's default as a native value. A connector that reports it in table metadata must write it into
+     * every row of a column that an INSERT omits, because the engine skips the NOT NULL check for that column.
+     */
     public static final String DEFAULT_VALUE_PROPERTY = "default_value";
 
     private final String name;

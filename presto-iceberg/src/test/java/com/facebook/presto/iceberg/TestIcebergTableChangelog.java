@@ -238,6 +238,13 @@ public class TestIcebergTableChangelog
     }
 
     @Test
+    public void testDisallowedAlterColumnNotNull()
+    {
+        assertQueryFails(String.format("ALTER TABLE \"ctas_orders@%d$changelog\" ALTER COLUMN ordinal SET NOT NULL", snapshots[0]), "only the data table can have constraints added");
+        assertQueryFails(String.format("ALTER TABLE \"ctas_orders@%d$changelog\" ALTER COLUMN ordinal DROP NOT NULL", snapshots[0]), "only the data table can have constraints dropped");
+    }
+
+    @Test
     public void testDisallowedDropTable()
     {
         assertQueryFails(String.format("DROP TABLE \"ctas_orders@%d$changelog\"", snapshots[0]), "only the data table can be dropped");

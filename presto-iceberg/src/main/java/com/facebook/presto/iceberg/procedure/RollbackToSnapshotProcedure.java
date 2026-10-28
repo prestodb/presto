@@ -22,6 +22,7 @@ import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
+import org.apache.iceberg.ManageSnapshots;
 
 import javax.inject.Provider;
 
@@ -31,6 +32,7 @@ import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.moveMainBranch;
 import static java.util.Objects.requireNonNull;
 
 public class RollbackToSnapshotProcedure
@@ -70,8 +72,7 @@ public class RollbackToSnapshotProcedure
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
             SchemaTableName schemaTableName = new SchemaTableName(schema, table);
             IcebergTransactionMetadata metadata = metadataFactory.create();
-            getIcebergTable(metadata, clientSession, schemaTableName)
-                    .manageSnapshots().rollbackTo(snapshotId).commit();
+            moveMainBranch(getIcebergTable(metadata, clientSession, schemaTableName), schemaTableName, icebergTable -> snapshotId, ManageSnapshots::rollbackTo);
             metadata.commit();
         }
     }

@@ -22,6 +22,7 @@ import com.facebook.presto.spi.procedure.Procedure;
 import com.facebook.presto.spi.procedure.Procedure.Argument;
 import com.google.common.collect.ImmutableList;
 import jakarta.inject.Inject;
+import org.apache.iceberg.ManageSnapshots;
 import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.Table;
 
@@ -33,6 +34,7 @@ import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.iceberg.IcebergUtil.getIcebergTable;
+import static com.facebook.presto.iceberg.IcebergUtil.moveMainBranch;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -77,9 +79,11 @@ public class SetCurrentSnapshotProcedure
                     "Either snapshot_id or reference must be provided, not both");
             SchemaTableName schemaTableName = new SchemaTableName(schema, table);
             IcebergTransactionMetadata metadata = metadataFactory.create();
-            Table icebergTable = getIcebergTable(metadata, clientSession, schemaTableName);
-            long targetSnapshotId = snapshotId != null ? snapshotId : getSnapshotIdFromReference(icebergTable, reference);
-            icebergTable.manageSnapshots().setCurrentSnapshot(targetSnapshotId).commit();
+            moveMainBranch(
+                    getIcebergTable(metadata, clientSession, schemaTableName),
+                    schemaTableName,
+                    icebergTable -> snapshotId != null ? snapshotId : getSnapshotIdFromReference(icebergTable, reference),
+                    ManageSnapshots::setCurrentSnapshot);
             metadata.commit();
         }
     }
