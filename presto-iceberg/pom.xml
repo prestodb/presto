@@ -14,7 +14,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>17</project.build.targetJdk>
-        <dep.nessie.version>0.105.0</dep.nessie.version>
+        <dep.nessie.version>0.108.8</dep.nessie.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
     </properties>
 
@@ -96,7 +96,7 @@
         <dependency>
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-jackson</artifactId>
-            <version>1.17.1</version>
+            <version>${dep.parquet.version}</version>
             <scope>runtime</scope>
         </dependency>
 
