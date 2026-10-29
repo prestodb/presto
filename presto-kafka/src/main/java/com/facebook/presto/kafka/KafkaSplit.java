@@ -44,7 +44,7 @@ public class KafkaSplit
     private final int partitionId;
     private final long start;
     private final long end;
-    private final HostAddress leader;
+    private final List<String> nodes;
 
     @JsonCreator
     public KafkaSplit(
@@ -57,7 +57,7 @@ public class KafkaSplit
             @JsonProperty("partitionId") int partitionId,
             @JsonProperty("start") long start,
             @JsonProperty("end") long end,
-            @JsonProperty("leader") HostAddress leader)
+            @JsonProperty("nodes") List<String> nodes)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.topicName = requireNonNull(topicName, "topicName is null");
@@ -68,7 +68,7 @@ public class KafkaSplit
         this.partitionId = partitionId;
         this.start = start;
         this.end = end;
-        this.leader = requireNonNull(leader, "leader address is null");
+        this.nodes = ImmutableList.copyOf(requireNonNull(nodes, "addresses is null"));
     }
 
     @JsonProperty
@@ -126,9 +126,9 @@ public class KafkaSplit
     }
 
     @JsonProperty
-    public HostAddress getLeader()
+    public List<String> getNodes()
     {
-        return leader;
+        return nodes;
     }
 
     @Override
@@ -140,7 +140,7 @@ public class KafkaSplit
     @Override
     public List<HostAddress> getPreferredNodes(NodeProvider nodeProvider)
     {
-        return ImmutableList.of(leader);
+        return ImmutableList.of();
     }
 
     @Override
@@ -162,7 +162,7 @@ public class KafkaSplit
                 .add("partitionId", partitionId)
                 .add("start", start)
                 .add("end", end)
-                .add("leader", leader)
+                .add("nodes", nodes)
                 .toString();
     }
 }
