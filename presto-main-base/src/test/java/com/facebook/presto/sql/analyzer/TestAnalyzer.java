@@ -43,6 +43,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.SystemSessionProperties.WARN_ON_WINDOW_WITHOUT_PARTITION_BY;
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
@@ -125,16 +126,43 @@ public class TestAnalyzer
     private static void assertHasWarning(WarningCollector warningCollector, StandardWarningCode code, String match)
     {
         List<PrestoWarning> warnings = warningCollector.getWarnings();
-        assertTrue(warnings.size() > 0);
-        PrestoWarning warning = warnings.get(0);
-        assertEquals(warning.getWarningCode(), code.toWarningCode());
-        assertTrue(warning.getMessage().startsWith(match));
+        assertTrue(
+                warnings.stream().anyMatch(warning -> warning.getWarningCode().equals(code.toWarningCode()) && warning.getMessage().startsWith(match)),
+                format("Expected a %s warning starting with '%s' but got: %s", code, match, warnings));
     }
 
     private static void assertNoWarning(WarningCollector warningCollector)
     {
         List<PrestoWarning> warnings = warningCollector.getWarnings();
-        assertTrue(warnings.isEmpty());
+        assertTrue(warnings.isEmpty(), "Expected no warnings but got: " + warnings);
+    }
+
+    private static void assertNoWarning(WarningCollector warningCollector, StandardWarningCode code)
+    {
+        List<PrestoWarning> warnings = warningCollector.getWarnings();
+        assertTrue(
+                warnings.stream().noneMatch(warning -> warning.getWarningCode().equals(code.toWarningCode())),
+                format("Expected no %s warning but got: %s", code, warnings));
+    }
+
+    private static void assertPerformanceWarnings(WarningCollector warningCollector, String... expectedMessages)
+    {
+        ImmutableList.Builder<String> messages = ImmutableList.builder();
+        for (PrestoWarning warning : warningCollector.getWarnings()) {
+            assertEquals(warning.getWarningCode(), PERFORMANCE_WARNING.toWarningCode(), "Unexpected warning: " + warning);
+            messages.add(warning.getMessage());
+        }
+        assertEquals(messages.build(), ImmutableList.copyOf(expectedMessages));
+    }
+
+    private static String windowWithoutPartitionByWarning(String location, String functionName)
+    {
+        return format("line %s: Window function '%s' has no PARTITION BY, so the window is evaluated on a single node, which can be slow for large inputs", location, functionName);
+    }
+
+    private static String aggregateWindowWithoutPartitionByWarning(String location, String functionName)
+    {
+        return windowWithoutPartitionByWarning(location, functionName) + ". Consider computing the aggregate in a separate query and joining it back with a CROSS JOIN";
     }
 
     @Test
@@ -223,8 +251,10 @@ public class TestAnalyzer
                 "LAG(c, 1)");
 
         for (String function : valueFunctions) {
-            assertNoWarning(analyzeWithWarnings("SELECT a, " + function + " IGNORE NULLS OVER\n" +
-                    "(ORDER BY b) FROM (VALUES (1, 1, 3), (1, 2, null), (1, 4, 2)) AS t(a, b, c)"));
+            assertNoWarning(
+                    analyzeWithWarnings("SELECT a, " + function + " IGNORE NULLS OVER\n" +
+                            "(ORDER BY b) FROM (VALUES (1, 1, 3), (1, 2, null), (1, 4, 2)) AS t(a, b, c)"),
+                    SEMANTIC_WARNING);
         }
 
         List<String> aggAndRankingFunctions = ImmutableList.of(
@@ -274,6 +304,116 @@ public class TestAnalyzer
 
         analyze(session, "SELECT SUM(x) OVER (PARTITION BY y ORDER BY y) AS s\n" +
                 "FROM (values (1,10), (2, 10)) AS T(x, y)");
+    }
+
+    @Test
+    public void testWindowWithoutPartitionByWarning()
+    {
+        // an aggregate without ORDER BY or a frame has the same value for every row, so a CROSS JOIN is suggested
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT sum(a) OVER () FROM t1"),
+                aggregateWindowWithoutPartitionByWarning("1:8", "sum"));
+
+        // a running aggregate, a framed aggregate and a non top-N window function differ per row, so no CROSS JOIN is suggested
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT sum(a) OVER (ORDER BY b) FROM t1"),
+                windowWithoutPartitionByWarning("1:8", "sum"));
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT sum(a) OVER (ORDER BY b ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) FROM t1"),
+                windowWithoutPartitionByWarning("1:8", "sum"));
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT ntile(4) OVER (ORDER BY b) FROM t1"),
+                windowWithoutPartitionByWarning("1:8", "ntile"));
+
+        // named windows are checked after resolution
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT sum(a) OVER w FROM t1 WINDOW w AS ()"),
+                aggregateWindowWithoutPartitionByWarning("1:8", "sum"));
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT sum(a) OVER w FROM t1 WINDOW w AS (ORDER BY b)"),
+                windowWithoutPartitionByWarning("1:8", "sum"));
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT sum(a) OVER (w ORDER BY b) FROM t1 WINDOW w AS ()"),
+                windowWithoutPartitionByWarning("1:8", "sum"));
+
+        // window functions in ORDER BY, in subqueries and in views
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT a FROM t1 ORDER BY sum(a) OVER ()"),
+                aggregateWindowWithoutPartitionByWarning("1:27", "sum"));
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT * FROM (SELECT sum(a) OVER () FROM t1)"),
+                aggregateWindowWithoutPartitionByWarning("1:23", "sum"));
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT * FROM v_window_without_partition_by"),
+                aggregateWindowWithoutPartitionByWarning("1:11", "sum"));
+
+        // one warning per window function occurrence: an alias referenced from ORDER BY is reported once,
+        // while a window function repeated in SELECT and ORDER BY is reported for each occurrence
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT sum(a) OVER (), count(*) OVER () FROM t1"),
+                aggregateWindowWithoutPartitionByWarning("1:8", "sum"),
+                aggregateWindowWithoutPartitionByWarning("1:24", "count"));
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT sum(a) OVER () AS s FROM t1 ORDER BY s"),
+                aggregateWindowWithoutPartitionByWarning("1:8", "sum"));
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT sum(a) OVER () FROM t1 ORDER BY sum(a) OVER ()"),
+                aggregateWindowWithoutPartitionByWarning("1:8", "sum"),
+                aggregateWindowWithoutPartitionByWarning("1:40", "sum"));
+
+        assertNoWarning(analyzeWithWarnings("SELECT sum(a) OVER (PARTITION BY b) FROM t1"));
+        assertNoWarning(analyzeWithWarnings("SELECT sum(a) OVER (PARTITION BY b ORDER BY c) FROM t1"));
+        assertNoWarning(analyzeWithWarnings("SELECT sum(a) OVER w FROM t1 WINDOW w AS (PARTITION BY b)"));
+        assertNoWarning(analyzeWithWarnings("SELECT sum(a) OVER (w ORDER BY c) FROM t1 WINDOW w AS (PARTITION BY b)"));
+        // a named window that is never used is not evaluated
+        assertNoWarning(analyzeWithWarnings("SELECT a FROM t1 WINDOW w AS (ORDER BY b)"));
+        assertNoWarning(analyzeWithWarnings("SELECT sum(a) FROM t1"));
+    }
+
+    @Test
+    public void testWindowWithoutPartitionByWarningSkipsTopNRankingFunctions()
+    {
+        // ranking functions with ORDER BY usually express a top-N query, which the planner evaluates in parallel
+        assertNoWarning(analyzeWithWarnings("SELECT row_number() OVER (ORDER BY a) FROM t1"));
+        assertNoWarning(analyzeWithWarnings("SELECT rank() OVER (ORDER BY a) FROM t1"));
+        assertNoWarning(analyzeWithWarnings("SELECT dense_rank() OVER (ORDER BY a) FROM t1"));
+        assertNoWarning(analyzeWithWarnings("SELECT row_number() OVER w FROM t1 WINDOW w AS (ORDER BY a)"));
+        assertNoWarning(analyzeWithWarnings("SELECT * FROM (SELECT a, row_number() OVER (ORDER BY b DESC) AS rn FROM t1) WHERE rn <= 10"));
+
+        // without ORDER BY there is no top-N to push down, so the ranking function is still reported
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT row_number() OVER () FROM t1"),
+                windowWithoutPartitionByWarning("1:8", "row_number"));
+        assertPerformanceWarnings(
+                analyzeWithWarnings("SELECT rank() OVER () FROM t1"),
+                windowWithoutPartitionByWarning("1:8", "rank"));
+    }
+
+    @Test
+    public void testWindowWithoutPartitionByWarningDisabled()
+    {
+        Session session = Session.builder(CLIENT_SESSION)
+                .setSystemProperty(WARN_ON_WINDOW_WITHOUT_PARTITION_BY, "false")
+                .build();
+
+        assertNoWarning(analyzeWithWarnings(session, "SELECT sum(a) OVER () FROM t1"));
+        assertNoWarning(analyzeWithWarnings(session, "SELECT sum(a) OVER (ORDER BY b) FROM t1"));
+        assertNoWarning(analyzeWithWarnings(session, "SELECT sum(a) OVER w FROM t1 WINDOW w AS ()"));
+        assertNoWarning(analyzeWithWarnings(session, "SELECT a FROM t1 ORDER BY sum(a) OVER ()"));
+        assertNoWarning(analyzeWithWarnings(session, "SELECT * FROM (SELECT sum(a) OVER () FROM t1)"));
+
+        // System session properties are not propagated to the session that analyzes a view definition
+        // (see StatementAnalyzer.createViewSession), so a window inside a view is still reported and can only
+        // be silenced through the analyzer.warn-on-window-without-partition-by config property
+        assertPerformanceWarnings(
+                analyzeWithWarnings(session, "SELECT * FROM v_window_without_partition_by"),
+                aggregateWindowWithoutPartitionByWarning("1:11", "sum"));
+
+        // other window warnings are unaffected by the flag
+        assertHasWarning(
+                analyzeWithWarnings(session, "SELECT sum(a) OVER (ORDER BY 1) FROM t1"),
+                PERFORMANCE_WARNING,
+                "ORDER BY literals/constants with window function:");
     }
 
     @Test

@@ -579,6 +579,24 @@ public class AbstractAnalyzerTest
                 ImmutableList.of(ColumnMetadata.builder().setName("a").setType(BIGINT).build()));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadata5, viewData5, false));
 
+        // view containing a window function without PARTITION BY
+        String viewDataWindowWithoutPartitionBy = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select a, sum(b) over () as s from t1",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(
+                                new ViewDefinition.ViewColumn("a", BIGINT),
+                                new ViewDefinition.ViewColumn("s", BIGINT)),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataWindowWithoutPartitionBy = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_window_without_partition_by"),
+                ImmutableList.of(
+                        ColumnMetadata.builder().setName("a").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("s").setType(BIGINT).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataWindowWithoutPartitionBy, viewDataWindowWithoutPartitionBy, false));
+
         String viewDataInvoker1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
                         "select a,b,c from t1",
@@ -692,8 +710,13 @@ public class AbstractAnalyzerTest
 
     protected WarningCollector analyzeWithWarnings(@Language("SQL") String query)
     {
+        return analyzeWithWarnings(CLIENT_SESSION, query);
+    }
+
+    protected WarningCollector analyzeWithWarnings(Session clientSession, @Language("SQL") String query)
+    {
         WarningCollector warningCollector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig());
-        analyze(CLIENT_SESSION, warningCollector, query);
+        analyze(clientSession, warningCollector, query);
         return warningCollector;
     }
 

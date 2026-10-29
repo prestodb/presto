@@ -233,6 +233,7 @@ public class FeaturesConfig
     private boolean alwaysAnalyzeCreateTableQueryEnabled;
     private boolean skipRedundantSort = true;
     private boolean isAllowWindowOrderByLiterals = true;
+    private boolean warnOnWindowWithoutPartitionBy = true;
 
     private boolean spoolingOutputBufferEnabled;
     private DataSize spoolingOutputBufferThreshold = new DataSize(8, MEGABYTE);
@@ -2352,6 +2353,19 @@ public class FeaturesConfig
     public FeaturesConfig setAllowWindowOrderByLiterals(boolean value)
     {
         this.isAllowWindowOrderByLiterals = value;
+        return this;
+    }
+
+    public boolean isWarnOnWindowWithoutPartitionBy()
+    {
+        return warnOnWindowWithoutPartitionBy;
+    }
+
+    @Config("analyzer.warn-on-window-without-partition-by")
+    @ConfigDescription("Emit a performance warning for window functions whose window has no PARTITION BY, because such a window is evaluated on a single node")
+    public FeaturesConfig setWarnOnWindowWithoutPartitionBy(boolean warnOnWindowWithoutPartitionBy)
+    {
+        this.warnOnWindowWithoutPartitionBy = warnOnWindowWithoutPartitionBy;
         return this;
     }
 
