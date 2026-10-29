@@ -96,7 +96,7 @@
         <dependency>
             <groupId>org.apache.parquet</groupId>
             <artifactId>parquet-jackson</artifactId>
-            <version>1.17.1</version>
+            <version>1.18.0</version>
             <scope>runtime</scope>
         </dependency>
 
