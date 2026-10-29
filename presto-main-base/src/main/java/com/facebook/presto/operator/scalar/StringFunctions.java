@@ -685,12 +685,14 @@ public final class StringFunctions
         return upper(slice);
     }
 
+    public static final int MAX_PAD_LENGTH = 1_048_576;
+
     private static Slice pad(Slice text, long targetLength, Slice padString, int paddingOffset)
     {
         checkCondition(
-                0 <= targetLength && targetLength <= Integer.MAX_VALUE,
+                0 <= targetLength && targetLength <= MAX_PAD_LENGTH,
                 INVALID_FUNCTION_ARGUMENT,
-                "Target length must be in the range [0.." + Integer.MAX_VALUE + "]");
+                "Target length must be in the range [0.." + MAX_PAD_LENGTH + "]");
         checkCondition(padString.length() > 0, INVALID_FUNCTION_ARGUMENT, "Padding string must not be empty");
 
         int textLength = countCodePoints(text);
