@@ -1015,7 +1015,7 @@ public class TestStringFunctions
         assertInvalidFunction("LPAD('abc', 3, '')", "Padding string must not be empty");
 
         // invalid target lengths
-        long maxSize = Integer.MAX_VALUE;
+        long maxSize = 1_048_576;
         assertInvalidFunction("LPAD('abc', -1, 'foo')", "Target length must be in the range [0.." + maxSize + "]");
         assertInvalidFunction("LPAD('abc', " + (maxSize + 1) + ", '')", "Target length must be in the range [0.." + maxSize + "]");
     }
@@ -1046,7 +1046,7 @@ public class TestStringFunctions
         assertInvalidFunction("RPAD('abc', 3, '')", "Padding string must not be empty");
 
         // invalid target lengths
-        long maxSize = Integer.MAX_VALUE;
+        long maxSize = 1_048_576;
         assertInvalidFunction("RPAD('abc', -1, 'foo')", "Target length must be in the range [0.." + maxSize + "]");
         assertInvalidFunction("RPAD('abc', " + (maxSize + 1) + ", '')", "Target length must be in the range [0.." + maxSize + "]");
     }
