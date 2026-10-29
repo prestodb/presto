@@ -22,6 +22,8 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.delta.deletionvector.DeletionVectorEntry;
+import com.facebook.presto.delta.deletionvector.DeletionVectors;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -48,6 +50,7 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.delta.kernel.internal.deletionvectors.RoaringBitmapArray;
 import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -82,6 +85,7 @@ import static com.facebook.presto.delta.DeltaColumnHandle.getPushedDownSubfield;
 import static com.facebook.presto.delta.DeltaColumnHandle.isPushedDownSubfield;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_BAD_DATA;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_CANNOT_OPEN_SPLIT;
+import static com.facebook.presto.delta.DeltaErrorCode.DELTA_ERROR_LOADING_METADATA;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_MISSING_DATA;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_PARQUET_SCHEMA_MISMATCH;
 import static com.facebook.presto.delta.DeltaTypeUtils.convertPartitionValue;
@@ -120,16 +124,44 @@ public class DeltaPageSourceProvider
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final FileFormatDataSourceStats fileFormatDataSourceStats;
+    private final DeltaConfig deltaConfig;
+
+    /**
+     * Wrapper class to return both the page source and metadata about row group pruning
+     */
+    private static class ParquetPageSourceWithStartingOffset
+    {
+        private final ConnectorPageSource pageSource;
+        private final long startingRowOffset;
+
+        public ParquetPageSourceWithStartingOffset(ConnectorPageSource pageSource, long startingRowOffset)
+        {
+            this.pageSource = pageSource;
+            this.startingRowOffset = startingRowOffset;
+        }
+
+        public ConnectorPageSource getPageSource()
+        {
+            return pageSource;
+        }
+
+        public long getStartingRowOffset()
+        {
+            return startingRowOffset;
+        }
+    }
 
     @Inject
     public DeltaPageSourceProvider(
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            FileFormatDataSourceStats fileFormatDataSourceStats)
+            FileFormatDataSourceStats fileFormatDataSourceStats,
+            DeltaConfig deltaConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.fileFormatDataSourceStats = requireNonNull(fileFormatDataSourceStats, "fileFormatDataSourceStats is null");
+        this.deltaConfig = requireNonNull(deltaConfig, "deltaConfig is null");
     }
 
     @Override
@@ -161,7 +193,7 @@ public class DeltaPageSourceProvider
                 .filter(columnHandle -> columnHandle.getColumnType() != PARTITION)
                 .collect(Collectors.toList());
 
-        ConnectorPageSource dataPageSource = createParquetPageSource(
+        ParquetPageSourceWithStartingOffset parquetPageSourceWithMetadata = createParquetPageSource(
                 hdfsEnvironment,
                 session,
                 hdfsEnvironment.getConfiguration(hdfsContext, filePath),
@@ -175,10 +207,26 @@ public class DeltaPageSourceProvider
                 deltaTableLayoutHandle.getPredicate(),
                 fileFormatDataSourceStats);
 
+        RoaringBitmapArray deletedRows = null;
+        Optional<DeletionVectorEntry> optionalDeletionVectorEntry = deltaSplit.getDeletionVector();
+        if (optionalDeletionVectorEntry.isPresent()) {
+            try {
+                deletedRows = DeletionVectors.readDeletionVectors(
+                        hdfsEnvironment.getFileSystem(hdfsContext, new Path(deltaSplit.getLocation())),
+                        deltaSplit.getLocation(),
+                        optionalDeletionVectorEntry.get(),
+                        deltaConfig.getDeletionVectorsMaxSize());
+            }
+            catch (IOException e) {
+                throw new PrestoException(DELTA_ERROR_LOADING_METADATA, "Failed to read deletion vectors", e);
+            }
+        }
         return new DeltaPageSource(
                 deltaColumnHandles,
                 convertPartitionValues(deltaColumnHandles, deltaSplit.getPartitionValues()),
-                dataPageSource);
+                parquetPageSourceWithMetadata.getPageSource(),
+                deletedRows,
+                parquetPageSourceWithMetadata.getStartingRowOffset());
     }
 
     /**
@@ -201,7 +249,7 @@ public class DeltaPageSourceProvider
                         }));
     }
 
-    private ConnectorPageSource createParquetPageSource(
+    private ParquetPageSourceWithStartingOffset createParquetPageSource(
             HdfsEnvironment hdfsEnvironment,
             ConnectorSession session,
             Configuration configuration,
@@ -272,12 +320,20 @@ public class DeltaPageSourceProvider
             final ParquetDataSource finalDataSource = dataSource;
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             List<ColumnIndexStore> blockIndexStores = new ArrayList<>();
+            long startingRowOffset = 0;
+            long currentRowOffset = 0;
+            boolean foundFirstBlock = false;
             for (BlockMetaData block : footerBlocks.build()) {
                 Optional<ColumnIndexStore> columnIndexStore = getColumnIndexStore(parquetPredicate, finalDataSource, block, descriptorsByPath, false);
                 if (predicateMatches(parquetPredicate, block, finalDataSource, descriptorsByPath, parquetTupleDomain, columnIndexStore, false, Optional.of(session.getWarningCollector()))) {
+                    if (!foundFirstBlock) {
+                        startingRowOffset = currentRowOffset;
+                        foundFirstBlock = true;
+                    }
                     blocks.add(block);
                     blockIndexStores.add(columnIndexStore.orElse(null));
                 }
+                currentRowOffset += block.getRowCount();
             }
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
 
@@ -329,7 +385,8 @@ public class DeltaPageSourceProvider
                     fieldsBuilder.add(Optional.empty());
                 }
             }
-            return new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), namesBuilder.build(), new RuntimeStats());
+            ParquetPageSource parquetPageSource = new ParquetPageSource(parquetReader, typesBuilder.build(), fieldsBuilder.build(), namesBuilder.build(), new RuntimeStats());
+            return new ParquetPageSourceWithStartingOffset(parquetPageSource, startingRowOffset);
         }
         catch (Exception exception) {
             try {

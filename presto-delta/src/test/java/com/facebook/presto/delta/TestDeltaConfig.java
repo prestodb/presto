@@ -27,7 +27,9 @@ public class TestDeltaConfig
         ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(DeltaConfig.class)
                 .setMaxSplitsBatchSize(200)
                 .setParquetDereferencePushdownEnabled(true)
-                .setCaseSensitivePartitionsEnabled(true));
+                .setCaseSensitivePartitionsEnabled(true)
+                .setDeletionVectorsEnabled(false)
+                .setDeletionVectorsMaxSize(100 * 1024 * 1024));
     }
 
     @Test
@@ -37,12 +39,16 @@ public class TestDeltaConfig
                 .put("delta.max-splits-batch-size", "400")
                 .put("delta.parquet-dereference-pushdown-enabled", "false")
                 .put("delta.case-sensitive-partitions-enabled", "false")
+                .put("delta.deletion-vectors-enabled", "true")
+                .put("delta.deletion-vectors-max-size", "52428800")
                 .build();
 
         DeltaConfig expected = new DeltaConfig()
                 .setMaxSplitsBatchSize(400)
                 .setParquetDereferencePushdownEnabled(false)
-                .setCaseSensitivePartitionsEnabled(false);
+                .setCaseSensitivePartitionsEnabled(false)
+                .setDeletionVectorsEnabled(true)
+                .setDeletionVectorsMaxSize(52428800);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
