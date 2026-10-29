@@ -922,6 +922,14 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kRemoteFunctionServerSerde{
       "remote-function-server.serde"};
 
+  /// Whether intra-cluster requests use HTTPS: announcements and heartbeats to
+  /// the coordinator, fetches of task output from other nodes, and the task
+  /// URIs this worker reports. Defaults to http-server.https.enabled, which
+  /// must be true when this is true. Must match the coordinator's
+  /// internal-communication.https.required.
+  static constexpr std::string_view kInternalCommunicationHttpsRequired{
+      "internal-communication.https.required"};
+
   /// Options to configure the internal (in-cluster) JWT authentication.
   static constexpr std::string_view kInternalCommunicationJwtEnabled{
       "internal-communication.jwt.enabled"};
@@ -1351,6 +1359,8 @@ class SystemConfig : public ConfigBase {
   uint64_t taskSyncTerminateTimeoutMs() const;
 
   bool enableOldTaskCleanUp() const;
+
+  bool internalCommunicationHttpsRequired() const;
 
   bool internalCommunicationJwtEnabled() const;
 

@@ -303,6 +303,18 @@ void writeBoundHttpPortFile(
   PRESTO_STARTUP_LOG(INFO) << "HTTP server bound to port " << boundPort;
 }
 
+// Returns the port the plaintext listener is bound to. Unlike the configured
+// port, this is correct when the server was asked for an ephemeral port (0).
+int boundHttpPort(
+    const std::vector<proxygen::HTTPServer::IPConfig>& addresses) {
+  for (const auto& address : addresses) {
+    if (address.sslConfigs.empty()) {
+      return address.address.getPort();
+    }
+  }
+  VELOX_FAIL("The HTTP server has no plaintext listener");
+}
+
 } // namespace
 
 std::string nodeState2String(NodeState nodeState) {
@@ -444,19 +456,25 @@ void PrestoServer::initializeConfigs() {
       }
       keyPath_ = optionalKeyPath.value();
 
-      auto optionalClientCertPath = systemConfig->httpsClientCertAndKeyPath();
-      if (!optionalClientCertPath.has_value()) {
-        // This config is not used in server but validated here, otherwise, it
-        // will fail later in the HttpClient during query execution.
-        VELOX_USER_FAIL(
-            "Https Client Certificates are not configured correctly");
-      }
+      if (systemConfig->internalCommunicationHttpsRequired()) {
+        auto optionalClientCertPath = systemConfig->httpsClientCertAndKeyPath();
+        if (!optionalClientCertPath.has_value()) {
+          // This config is not used in server but validated here, otherwise, it
+          // will fail later in the HttpClient during query execution.
+          VELOX_USER_FAIL(
+              "Https Client Certificates are not configured correctly");
+        }
 
-      sslContext_ = util::createSSLContext(
-          optionalClientCertPath.value(),
-          ciphers_,
-          systemConfig->httpClientHttp2Enabled());
+        sslContext_ = util::createSSLContext(
+            optionalClientCertPath.value(),
+            ciphers_,
+            systemConfig->httpClientHttp2Enabled());
+      }
     }
+    VELOX_USER_CHECK(
+        !systemConfig->internalCommunicationHttpsRequired() ||
+            httpsPort_.has_value(),
+        "internal-communication.https.required requires http-server.https.enabled");
 
     if (systemConfig->internalCommunicationJwtEnabled()) {
 #ifndef PRESTO_ENABLE_JWT
@@ -764,6 +782,9 @@ void PrestoServer::startServer(const std::vector<std::string>& catalogNames) {
                 address_,
                 httpsPort_.has_value(),
                 address.address.getPort(),
+                httpsPort_.has_value()
+                    ? std::optional<int>(boundHttpPort(addresses))
+                    : std::nullopt,
                 coordinatorDiscoverer_,
                 nodeVersion_,
                 environment_,
@@ -792,12 +813,12 @@ void PrestoServer::startServer(const std::vector<std::string>& catalogNames) {
           }
 
           std::string taskUri;
-          if (httpsPort_.has_value()) {
+          if (systemConfig->internalCommunicationHttpsRequired()) {
             taskUri = fmt::format(
                 kTaskUriFormat, kHttps, address_, address.address.getPort());
           } else {
             taskUri = fmt::format(
-                kTaskUriFormat, kHttp, address_, address.address.getPort());
+                kTaskUriFormat, kHttp, address_, boundHttpPort(addresses));
           }
           taskManager_->setBaseUri(taskUri);
           if (systemConfig->httpServerReportBoundPortToFile()) {
