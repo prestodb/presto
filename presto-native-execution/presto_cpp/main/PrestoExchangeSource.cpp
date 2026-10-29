@@ -600,7 +600,6 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
   folly::Uri uri(url);
   auto* eventBase = ioExecutor->getEventBase();
   if (uri.scheme() == "http") {
-    VELOX_CHECK_NULL(sslContext);
     proxygen::Endpoint ep(uri.host(), uri.port(), false);
     return std::make_shared<PrestoExchangeSource>(
         uri,
@@ -611,10 +610,13 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
         eventBase,
         connPool,
         ep,
-        sslContext);
+        nullptr);
   }
   if (uri.scheme() == "https") {
-    VELOX_CHECK_NOT_NULL(sslContext);
+    VELOX_CHECK_NOT_NULL(
+        sslContext,
+        "Fetching task output over HTTPS requires a client TLS context: {}",
+        url);
     proxygen::Endpoint ep(uri.host(), uri.port(), true);
     return std::make_shared<PrestoExchangeSource>(
         uri,

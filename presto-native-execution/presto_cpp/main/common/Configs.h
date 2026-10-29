@@ -922,10 +922,12 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kRemoteFunctionServerSerde{
       "remote-function-server.serde"};
 
-  /// Whether intra-cluster requests use HTTPS: announcements and heartbeats to
-  /// the coordinator, fetches of task output from other nodes, and the task
-  /// URIs this worker reports. Defaults to http-server.https.enabled, which
-  /// must be true when this is true. Must match the coordinator's
+  /// Whether the worker's requests to the coordinator (announcements and
+  /// heartbeats) use HTTPS, and whether the task URIs it reports are https
+  /// URIs. Also gives the worker the client TLS context it needs to fetch task
+  /// output from https locations; fetches of task output use the scheme of the
+  /// location the coordinator gives. Defaults to http-server.https.enabled,
+  /// which must be true when this is true. Must match the coordinator's
   /// internal-communication.https.required.
   static constexpr std::string_view kInternalCommunicationHttpsRequired{
       "internal-communication.https.required"};

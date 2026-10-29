@@ -304,11 +304,16 @@ Internal communication over HTTP
 * **Type** ``boolean``
 * **Default value:** value of ``http-server.https.enabled``
 
-Whether intra-cluster requests use HTTPS: announcements and heartbeats to the
-coordinator, fetches of task output from other nodes, and the task URIs the
-worker reports to the coordinator. Setting it to ``true`` requires
-``http-server.https.enabled``. When ``false``, these requests use plaintext
-HTTP, while the HTTPS listener keeps serving other clients.
+Whether the worker's requests to the coordinator, announcements and
+heartbeats, use HTTPS, and whether the task URIs the worker reports to the
+coordinator are ``https`` URIs. Setting it to ``true`` requires
+``http-server.https.enabled``. When ``false``, these use plaintext HTTP, while
+the HTTPS listener keeps serving other clients.
+
+Fetches of task output use the scheme of the location that the coordinator
+gives for the output, so a worker can fetch some output over HTTPS and some over
+plaintext. Fetching from ``https`` locations needs the client TLS context that
+the worker sets up only when this property is ``true``.
 
 The worker announces both its ``http`` and ``https`` URIs, so the coordinator
 can reach it with either setting. The value must match the coordinator's
