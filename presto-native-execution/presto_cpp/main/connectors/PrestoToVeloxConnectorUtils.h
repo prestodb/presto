@@ -46,8 +46,11 @@ std::string toJsonString(const T& value) {
 std::vector<velox::common::Subfield> toRequiredSubfields(
     const protocol::List<protocol::Subfield>& subfields);
 
+/// The codec maps to a different compression kind depending on the file
+/// format: Parquet's LZ4 codec is Hadoop framed, while ORC and DWRF LZ4 is raw.
 velox::common::CompressionKind toFileCompressionKind(
-    const protocol::hive::HiveCompressionCodec& hiveCompressionCodec);
+    const protocol::hive::HiveCompressionCodec& hiveCompressionCodec,
+    velox::dwio::common::FileFormat fileFormat);
 
 velox::connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
     protocol::hive::ColumnType type);
