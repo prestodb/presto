@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.delta;
 
+import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.hive.HdfsContext;
 import com.facebook.presto.hive.HdfsEnvironment;
@@ -20,27 +23,27 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.StandardErrorCode;
+import io.delta.kernel.Scan;
+import io.delta.kernel.ScanBuilder;
 import io.delta.kernel.Snapshot;
 import io.delta.kernel.Table;
+import io.delta.kernel.clustering.ClusteringColumnInfo;
 import io.delta.kernel.data.FilteredColumnarBatch;
-import io.delta.kernel.data.Row;
 import io.delta.kernel.defaults.engine.DefaultEngine;
 import io.delta.kernel.engine.Engine;
 import io.delta.kernel.exceptions.TableNotFoundException;
-import io.delta.kernel.internal.InternalScanFileUtils;
-import io.delta.kernel.internal.SnapshotImpl;
+import io.delta.kernel.expressions.Predicate;
 import io.delta.kernel.utils.CloseableIterator;
 import jakarta.inject.Inject;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.time.Instant;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.delta.DeltaTable.DataFormat.PARQUET;
@@ -54,6 +57,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class DeltaClient
 {
+    private static final Logger logger = Logger.get(DeltaExpressionUtils.class);
     private static final String TABLE_NOT_FOUND_ERROR_TEMPLATE = "Delta table (%s.%s) no longer exists.";
     private final HdfsEnvironment hdfsEnvironment;
 
@@ -83,7 +87,7 @@ public class DeltaClient
     {
         Path location = new Path(tableLocation);
         Optional<Engine> deltaEngine = loadDeltaEngine(session, location, schemaTableName);
-        if (!deltaEngine.isPresent()) {
+        if (deltaEngine.isEmpty()) {
             return Optional.empty();
         }
 
@@ -95,7 +99,7 @@ public class DeltaClient
                 schemaTableName.getTableName(),
                 tableLocation,
                 Optional.of(snapshot.getVersion()), // lock the snapshot version
-                getSchema(config, schemaTableName, deltaEngine.get(), snapshot)));
+                getSchema(config, schemaTableName, snapshot)));
     }
 
     private Snapshot getSnapshot(
@@ -128,12 +132,10 @@ public class DeltaClient
             }
         }
 
-        if (snapshot instanceof SnapshotImpl) {
-            String format = ((SnapshotImpl) snapshot).getMetadata().getFormat().getProvider();
-            if (!PARQUET.name().equalsIgnoreCase(format)) {
-                throw new PrestoException(DeltaErrorCode.DELTA_UNSUPPORTED_DATA_FORMAT,
-                        format("Delta table %s has unsupported data format: %s. Only the Parquet data format is supported", schemaTableName, format));
-            }
+        String format = snapshot.getMetadata().getFormat().getProvider();
+        if (!PARQUET.name().equalsIgnoreCase(format)) {
+            throw new PrestoException(DeltaErrorCode.DELTA_UNSUPPORTED_DATA_FORMAT,
+                    format("Delta table %s has unsupported data format: %s. Only the Parquet data format is supported", schemaTableName, format));
         }
         return snapshot;
     }
@@ -143,27 +145,53 @@ public class DeltaClient
      *
      * @return Closeable iterator of files. It is responsibility of the caller to close the iterator.
      */
-    public CloseableIterator<FilteredColumnarBatch> listFiles(ConnectorSession session, DeltaTable deltaTable)
+    public CloseableIterator<FilteredColumnarBatch> listFiles(ConnectorSession session, DeltaConfig deltaConfig,
+            DeltaTableLayoutHandle deltaTableHandle, TypeManager typeManager)
     {
+        DeltaTable deltaTable = deltaTableHandle.getTable().getDeltaTable();
         requireNonNull(deltaTable, "deltaTable is null");
         checkArgument(deltaTable.getSnapshotId().isPresent(), "Snapshot id is missing from the Delta table");
         Optional<Engine> deltaEngine = loadDeltaEngine(session,
                 new Path(deltaTable.getTableLocation()),
                 new SchemaTableName(deltaTable.getSchemaName(), deltaTable.getTableName()));
-        if (!deltaEngine.isPresent()) {
+        if (deltaEngine.isEmpty()) {
             throw new PrestoException(DeltaErrorCode.DELTA_ERROR_LOADING_METADATA,
                     format("Could not obtain Delta engine in '%s'", deltaTable.getTableLocation()));
         }
         Table sourceTable = loadDeltaTable(deltaTable.getTableLocation(), deltaEngine.get());
 
-        if (!deltaTable.getSnapshotId().isPresent()) {
+        if (deltaTable.getSnapshotId().isEmpty()) {
             throw new PrestoException(DeltaErrorCode.DELTA_ERROR_LOADING_SNAPSHOT, "Could not obtain snapshot id");
         }
 
+        Scan scan = null;
         try {
-            return sourceTable.getSnapshotAsOfVersion(deltaEngine.get(),
-                            deltaTable.getSnapshotId().get()).getScanBuilder().build()
-                    .getScanFiles(deltaEngine.get());
+            boolean enablePushdown = DeltaSessionProperties.isDeltaKernelPredicatePushdownEnabled(session) == null ?
+                    deltaConfig.isKernelPredicatePushdownEnabled() : DeltaSessionProperties.isDeltaKernelPredicatePushdownEnabled(session);
+            ScanBuilder scanBuilder = sourceTable.getSnapshotAsOfVersion(deltaEngine.get(),
+                    deltaTable.getSnapshotId().get()).getScanBuilder();
+            if (enablePushdown) {
+                try {
+                    TupleDomain<DeltaColumnHandle> tupleDomain = deltaTableHandle.getPredicate();
+                    Optional<List<TupleDomain.ColumnDomain<DeltaColumnHandle>>> columnDomains = tupleDomain.getColumnDomains();
+                    ScanFilter.Builder scanFilterBuilder = new ScanFilter.Builder(typeManager);
+                    columnDomains.ifPresent(columnDomainList -> columnDomainList.forEach((scanFilterBuilder::withDomain)));
+                    Optional<Predicate> predicate = scanFilterBuilder.build().getPredicate();
+                    logger.debug("Pushdown enabled: true - Predicate pushdown: " + (predicate.isPresent() ? predicate.get().toString() : " - "));
+                    scan = predicate.isPresent() ?
+                            scanBuilder.withFilter(predicate.get()).build() : scanBuilder.build();
+                }
+                catch (UnsupportedOperationException e) {
+                    logger.debug("Pushdown enabled: true - Skipping predicate pushdown: " + e.getMessage());
+                    scan = scanBuilder.build();
+                }
+            }
+            else {
+                logger.debug("Pushdown enabled: false");
+                scan = scanBuilder.build();
+            }
+
+            return scan.getScanFiles(deltaEngine.get());
         }
         catch (TableNotFoundException e) {
             throw new PrestoException(StandardErrorCode.NOT_FOUND,
@@ -242,42 +270,51 @@ public class DeltaClient
      * Utility method that returns the columns in given Delta metadata. Returned columns include regular and partition types.
      * Data type from Delta is mapped to appropriate Presto data type.
      */
-    private static List<DeltaColumn> getSchema(DeltaConfig config, SchemaTableName tableName, Engine deltaEngine,
-                                               Snapshot snapshot)
+    private static List<DeltaColumn> getSchema(DeltaConfig config, SchemaTableName tableName, Snapshot snapshot)
     {
-        try (CloseableIterator<FilteredColumnarBatch> columnBatches = snapshot.getScanBuilder().build()
-                    .getScanFiles(deltaEngine)) {
-            Row row = null;
-            while (columnBatches.hasNext()) {
-                CloseableIterator<Row> rows = columnBatches.next().getRows();
-                if (rows.hasNext()) {
-                    row = rows.next();
-                    break;
+        // Extract partition columns directly from metadata without scanning files
+        List<String> partitionColumns = snapshot.getPartitionColumnNames();
+
+        // Extract clustering columns if no partitioning
+        Set<String> clusterColumns = new HashSet<>(0);
+        if (partitionColumns.isEmpty()) {
+            // check for Liquid Clustering as it will only be active if the data is not partitioned
+            Optional<List<ClusteringColumnInfo>> optionalClusteringColumnInfoList = snapshot.getClusteringColumnInfos();
+            if (optionalClusteringColumnInfoList.isPresent()) {
+                List<ClusteringColumnInfo> clusteringColumnInfoList = optionalClusteringColumnInfoList.get();
+                for (ClusteringColumnInfo clusteringColumnInfo : clusteringColumnInfoList) {
+                    String columnName = clusteringColumnInfo.getLogicalColumn().getNames()[0];
+                    clusterColumns.add(columnName);
                 }
             }
-            Map<String, String> partitionValues = row != null ?
-                    InternalScanFileUtils.getPartitionValues(row) : new HashMap<>(0);
-            return snapshot.getSchema().fields().stream()
-                    .map(field -> {
-                        String columnName = config.isCaseSensitivePartitionsEnabled() ? field.getName() :
-                                field.getName().toLowerCase(US);
-                        TypeSignature prestoType = DeltaTypeUtils.convertDeltaDataTypePrestoDataType(tableName,
-                                columnName, field.getDataType());
-                        return new DeltaColumn(
-                                DeltaColumnMetadataUtil.getColumnIdFromMetadata(field.getMetadata()),
-                                DeltaColumnMetadataUtil.getPhysicalNameFromMetadata(field.getMetadata()),
-                                columnName,
-                                prestoType,
-                                field.isNullable(),
-                                partitionValues.containsKey(columnName));
-                    }).collect(Collectors.toList());
         }
-        catch (TableNotFoundException e) {
-            throw new PrestoException(StandardErrorCode.NOT_FOUND,
-                    format(TABLE_NOT_FOUND_ERROR_TEMPLATE, tableName.getSchemaName(), tableName.getTableName()));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException("Could not close columnar batch row", e);
-        }
+
+        return snapshot.getSchema().fields().stream()
+                .map(field -> {
+                    String columnName = config.isCaseSensitivePartitionsEnabled() ? field.getName() :
+                            field.getName().toLowerCase(US);
+                    TypeSignature prestoType = DeltaTypeUtils.convertDeltaDataTypePrestoDataType(tableName,
+                            columnName, field.getDataType());
+                    // this is needed as column mapping + partitioning generate non hive stile partitions, so
+                    // we must treat them as regular columns.
+                    // (https://docs.databricks.com/aws/en/tables/partitions#delta-lake-and-parquet-partitioning-compatibility)
+                    // previous code does also treat them as regular columns (because with column mapping enabled
+                    // the physical name was returned from the delta kernel library for partition columns, which
+                    // won't match logical name, so partitionColumns.contains(columnName) would always be false
+                    // treating them as regular columns)
+                    // Partition pruning of partitioned columns with column mapping enabled for those columns has
+                    // to be added as a separate task.
+                    // for now, we do this in order to keep the old behavior
+                    String physicalName = DeltaColumnMetadataUtil.getPhysicalNameFromMetadata(field.getMetadata());
+                    String hivePartitioningColumnName = physicalName == null ? columnName : physicalName;
+                    return new DeltaColumn(
+                            DeltaColumnMetadataUtil.getColumnIdFromMetadata(field.getMetadata()),
+                            physicalName,
+                            columnName,
+                            prestoType,
+                            field.isNullable(),
+                            partitionColumns.contains(hivePartitioningColumnName),
+                            clusterColumns.contains(columnName));
+                }).collect(Collectors.toList());
     }
 }

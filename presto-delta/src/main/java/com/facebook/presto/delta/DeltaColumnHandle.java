@@ -44,6 +44,7 @@ public final class DeltaColumnHandle
         REGULAR,
         PARTITION,
         SUBFIELD,
+        CLUSTER
     }
 
     @JsonCreator
