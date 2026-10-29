@@ -31,52 +31,38 @@
             <groupId>com.facebook.airlift</groupId>
             <artifactId>units</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.facebook.presto</groupId>
+            <artifactId>presto-spark-classloader-spark3</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
-    <profiles>
-        <profile>
-            <id>spark2</id>
-
-            <activation>
-                <activeByDefault>true</activeByDefault>
-                <property>
-                    <name>!spark-version</name>
-                </property>
-            </activation>
-
-            <dependencies>
-                <dependency>
-                    <groupId>com.facebook.presto</groupId>
-                    <artifactId>presto-spark-classloader-spark2</artifactId>
-                    <version>${project.version}</version>
-                </dependency>
-            </dependencies>
-
-        </profile>
-        <profile>
-            <id>spark3</id>
-
-            <activation>
-                <property>
-                    <name>spark-version</name>
-                    <value>3</value>
-                </property>
-            </activation>
-
-            <dependencies>
-                <dependency>
-                    <groupId>com.facebook.presto</groupId>
-                    <artifactId>presto-spark-classloader-spark3</artifactId>
-                    <version>${project.version}</version>
-                </dependency>
-                <dependency>
-                    <groupId>org.scala-lang</groupId>
-                    <artifactId>scala-library</artifactId>
-                    <scope>provided</scope>
-                </dependency>
-            </dependencies>
-
-        </profile>
-    </profiles>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <ignoredUnusedDeclaredDependencies>
+                        <ignoredUnusedDeclaredDependency>com.google.code.findbugs:jsr305</ignoredUnusedDeclaredDependency>
+                    </ignoredUnusedDeclaredDependencies>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
