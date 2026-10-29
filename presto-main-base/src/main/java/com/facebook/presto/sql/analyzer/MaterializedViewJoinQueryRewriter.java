@@ -18,8 +18,10 @@ import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewStatus;
+import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.analyzer.MetadataResolver;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -62,6 +64,7 @@ import static com.facebook.presto.sql.MaterializedViewUtils.NON_ASSOCIATIVE_REWR
 import static com.facebook.presto.sql.MaterializedViewUtils.SUPPORTED_FUNCTION_CALLS;
 import static com.facebook.presto.sql.analyzer.MaterializedViewInformationExtractor.MaterializedViewInfo;
 import static com.facebook.presto.util.AnalyzerUtil.createParsingOptions;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class MaterializedViewJoinQueryRewriter
@@ -136,13 +139,13 @@ public class MaterializedViewJoinQueryRewriter
         }
         if (relation instanceof Table) {
             Table table = (Table) relation;
-            leaves.add(new JoinLeafInfo(table, new Identifier(table.getName().toString())));
+            leaves.add(new JoinLeafInfo(table, new Identifier(table.getName().toString()), false));
             return;
         }
         if (relation instanceof AliasedRelation) {
             AliasedRelation aliased = (AliasedRelation) relation;
             if (aliased.getRelation() instanceof Table) {
-                leaves.add(new JoinLeafInfo((Table) aliased.getRelation(), aliased.getAlias()));
+                leaves.add(new JoinLeafInfo((Table) aliased.getRelation(), aliased.getAlias(), true));
             }
             // AliasedRelation wrapping a subquery: opaque, do not descend.
         }
@@ -153,11 +156,13 @@ public class MaterializedViewJoinQueryRewriter
     {
         final Table table;
         final Identifier prefix;
+        final boolean aliased;
 
-        JoinLeafInfo(Table table, Identifier prefix)
+        JoinLeafInfo(Table table, Identifier prefix, boolean aliased)
         {
             this.table = requireNonNull(table, "table is null");
             this.prefix = requireNonNull(prefix, "prefix is null");
+            this.aliased = aliased;
         }
     }
 
@@ -166,6 +171,7 @@ public class MaterializedViewJoinQueryRewriter
         private final QualifiedObjectName materializedViewName;
         private final Identifier swappedPrefix;
         private final Table swappedTable;
+        private final boolean swappedLeafAliased;
         private Table materializedViewTable;
         private Identifier mvPrefix;
         private MaterializedViewInfo mvInfo;
@@ -176,6 +182,7 @@ public class MaterializedViewJoinQueryRewriter
             this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
             this.swappedPrefix = swappedLeaf.prefix;
             this.swappedTable = swappedLeaf.table;
+            this.swappedLeafAliased = swappedLeaf.aliased;
         }
 
         public QuerySpecification rewrite(QuerySpecification querySpecification, Relation joinRelation)
@@ -283,7 +290,7 @@ public class MaterializedViewJoinQueryRewriter
 
         private boolean isAliasedLeaf()
         {
-            return !swappedPrefix.equals(new Identifier(swappedTable.getName().toString()));
+            return swappedLeafAliased;
         }
 
         // --- Validation ---
@@ -329,9 +336,30 @@ public class MaterializedViewJoinQueryRewriter
             return true;
         }
 
+        private Optional<Set<String>> getBaseTableColumnNames()
+        {
+            QualifiedObjectName tableName = createQualifiedObjectName(session, swappedTable, swappedTable.getName(), metadata);
+            Optional<TableHandle> tableHandle = metadataResolver.getTableHandle(tableName);
+            if (!tableHandle.isPresent()) {
+                return Optional.empty();
+            }
+            return Optional.of(metadataResolver.getColumns(tableHandle.get()).stream()
+                    .map(ColumnMetadata::getName)
+                    .collect(toImmutableSet()));
+        }
+
         private boolean areColumnsCovered(QuerySpecification querySpecification, Relation joinRelation)
         {
             Map<Expression, Identifier> baseToViewColumnMap = mvInfo.getBaseToViewColumnMap();
+            Optional<Set<String>> baseTableColumnNamesOpt = getBaseTableColumnNames();
+            // If we cannot resolve the base table's columns, conservatively reject the rewrite
+            // to avoid replacing the base table with an MV that may not cover all queried columns.
+            if (!baseTableColumnNamesOpt.isPresent()) {
+                log.debug("JOIN MV rewrite rejected: could not resolve base table columns for %s. MV=%s",
+                        swappedTable.getName(), materializedViewName);
+                return false;
+            }
+            Set<String> baseTableColumnNames = baseTableColumnNamesOpt.get();
             AtomicBoolean covered = new AtomicBoolean(true);
 
             DefaultTraversalVisitor<Void, Void> checker = new DefaultTraversalVisitor<Void, Void>()
@@ -354,6 +382,20 @@ public class MaterializedViewJoinQueryRewriter
                         if (!baseToViewColumnMap.containsKey(node.getField())) {
                             covered.set(false);
                         }
+                    }
+                    return null;
+                }
+
+                @Override
+                protected Void visitIdentifier(Identifier node, Void context)
+                {
+                    // Check if an unqualified column belongs to the base table being rewritten.
+                    // ColumnMetadata names are always lower-case, so use getValueLowerCase() to
+                    // avoid a case-sensitive mismatch (e.g. "ID" vs "id") that would silently
+                    // skip the check and allow a rewrite with an MV that doesn't cover the column.
+                    Identifier lowerNode = new Identifier(node.getValueLowerCase(), node.isDelimited());
+                    if (baseTableColumnNames.contains(node.getValueLowerCase()) && !baseToViewColumnMap.containsKey(lowerNode)) {
+                        covered.set(false);
                     }
                     return null;
                 }

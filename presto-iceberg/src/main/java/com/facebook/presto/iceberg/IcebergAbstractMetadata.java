@@ -2947,6 +2947,51 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
+    public Optional<List<SchemaTableName>> getReferencedMaterializedViews(ConnectorSession session, SchemaTableName tableName)
+    {
+        requireNonNull(tableName, "tableName is null");
+        // TODO: Replace the full-scan approach with a reverse index (like Hive's REFERENCED_MATERIALIZED_VIEWS
+        // table property) to avoid O(schemas * views) planning overhead per base-table reference.
+        ImmutableList.Builder<SchemaTableName> referencingViews = ImmutableList.builder();
+
+        List<String> schemas;
+        try {
+            schemas = listSchemaNames(session);
+        }
+        catch (Exception e) {
+            // If we cannot enumerate schemas the catalog is likely unreachable; skip MV discovery
+            // rather than attempting a partial fallback that would also fail.
+            log.warn(e, "Failed to list schema names while looking up materialized views referencing %s; skipping MV rewrite", tableName);
+            return Optional.of(ImmutableList.of());
+        }
+
+        for (String schemaName : schemas) {
+            List<SchemaTableName> candidateViews;
+            try {
+                candidateViews = listMaterializedViews(session, schemaName);
+            }
+            catch (Exception e) {
+                log.warn(e, "Failed to list materialized views in schema: %s", schemaName);
+                continue;
+            }
+
+            for (SchemaTableName mvName : candidateViews) {
+                try {
+                    Optional<MaterializedViewDefinition> mvDefinition = getMaterializedView(session, mvName);
+                    if (mvDefinition.isPresent() && mvDefinition.get().getBaseTables().contains(tableName)) {
+                        referencingViews.add(mvName);
+                    }
+                }
+                catch (Exception e) {
+                    log.warn(e, "Failed to get materialized view definition for candidate: %s; skipping", mvName);
+                }
+            }
+        }
+
+        return Optional.of(referencingViews.build());
+    }
+
+    @Override
     public Optional<MaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         Optional<IcebergViewMetadata> viewMetadata = getViewMetadata(session, viewName);
