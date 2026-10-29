@@ -32,11 +32,13 @@
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/main/common/JavaWriterConfigKeys.h"
 #include "presto_cpp/main/common/LegacyHiveConfigKeys.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/connectors/Registration.h"
 #include "presto_cpp/main/connectors/SystemConnector.h"
 #include "presto_cpp/main/connectors/hive/functions/HiveFunctionRegistration.h"
+#include "presto_cpp/main/connectors/iceberg/functions/IcebergFunctionRegistration.h"
 #include "presto_cpp/main/functions/FunctionMetadata.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
@@ -1477,6 +1479,7 @@ std::vector<std::string> PrestoServer::registerVeloxConnectors(
           util::requiredProperty(connectorConf, kConnectorName);
 
       util::migrateLegacyHiveParquetKeys(connectorName, connectorConf);
+      util::mapJavaWriterConnectorConfigs(connectorName, connectorConf);
 
       PRESTO_STARTUP_LOG(INFO)
           << "Registered catalog property keys from " << entry.path() << ":\n"
@@ -1575,6 +1578,11 @@ void PrestoServer::registerFunctions() {
       velox::connector::hasConnector("hive-hadoop2")) {
     hive::functions::registerHiveNativeFunctions();
   }
+
+  // The Iceberg plugin adds its functions to the built-in namespace whether or
+  // not an Iceberg catalog is configured, so they are registered the same way.
+  iceberg::functions::registerIcebergNativeFunctions(
+      prestoBuiltinFunctionPrefix_);
 
 #ifdef PRESTO_ENABLE_THETA_SKETCH
   functions::aggregate::theta_sketch::registerAllThetaSketchFunctions(

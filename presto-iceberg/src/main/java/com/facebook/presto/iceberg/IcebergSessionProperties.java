@@ -51,6 +51,8 @@ public final class IcebergSessionProperties
 {
     private static final String PARQUET_WRITER_BLOCK_SIZE = "parquet_writer_block_size";
     private static final String PARQUET_WRITER_PAGE_SIZE = "parquet_writer_page_size";
+    public static final String NATIVE_PARQUET_WRITER_ROW_GROUP_MAX_ROWS = "native_parquet_writer_row_group_max_rows";
+    public static final String NATIVE_PARQUET_WRITER_PAGE_MAX_ROWS = "native_parquet_writer_page_max_rows";
     private static final String PARQUET_WRITER_VERSION = "parquet_writer_version";
     private static final String ORC_STRING_STATISTICS_LIMIT = "orc_string_statistics_limit";
     private static final String ORC_OPTIMIZED_WRITER_MIN_STRIPE_SIZE = "orc_optimized_writer_min_stripe_size";
@@ -79,6 +81,7 @@ public final class IcebergSessionProperties
     public static final String MATERIALIZED_VIEW_DEFAULT_MAX_SNAPSHOTS_PER_REFRESH = "materialized_view_default_max_snapshots_per_refresh";
     public static final String AGGREGATE_PUSH_DOWN_ENABLED = "aggregate_push_down_enabled";
     public static final String TARGET_MAX_FILE_SIZE = "target_max_file_size";
+    public static final String SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE = "shuffle_partitioned_columns_for_table_write";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -109,6 +112,18 @@ public final class IcebergSessionProperties
                         PARQUET_WRITER_PAGE_SIZE,
                         "Parquet: Writer page size",
                         parquetFileWriterConfig.getPageSize(),
+                        false))
+                .add(longProperty(
+                        NATIVE_PARQUET_WRITER_ROW_GROUP_MAX_ROWS,
+                        "Native Execution only. Parquet: Maximum number of rows in a row group. A row group closes at " +
+                                "this many rows or at the writer block size, whichever comes first.",
+                        1_048_576L,
+                        false))
+                .add(longProperty(
+                        NATIVE_PARQUET_WRITER_PAGE_MAX_ROWS,
+                        "Native Execution only. Parquet: Maximum number of rows in a data page. A page closes at " +
+                                "this many rows or at the writer page size, whichever comes first.",
+                        Long.MAX_VALUE,
                         false))
                 .add(new PropertyMetadata<>(
                         PARQUET_WRITER_VERSION,
@@ -272,6 +287,12 @@ public final class IcebergSessionProperties
                         AGGREGATE_PUSH_DOWN_ENABLED,
                         "Controls whether to push down aggregate (MIN/MAX/COUNT) to Iceberg based on data file stats",
                         icebergConfig.isAggregatePushDownEnabled(),
+                        false))
+                .add(booleanProperty(
+                        SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE,
+                        "Shuffle the data on partitioned columns, so each partition is written by a single writer. " +
+                                "Applies to tables whose partition fields are all identity transforms.",
+                        false,
                         false))
                 .add(new PropertyMetadata<>(
                         TARGET_MAX_FILE_SIZE,
@@ -465,6 +486,11 @@ public final class IcebergSessionProperties
     public static boolean isAggregatePushDownEnabled(ConnectorSession session)
     {
         return session.getProperty(AGGREGATE_PUSH_DOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isShufflePartitionedColumnsForTableWriteEnabled(ConnectorSession session)
+    {
+        return session.getProperty(SHUFFLE_PARTITIONED_COLUMNS_FOR_TABLE_WRITE, Boolean.class);
     }
 
     public static DataSize getTargetMaxFileSize(ConnectorSession session)

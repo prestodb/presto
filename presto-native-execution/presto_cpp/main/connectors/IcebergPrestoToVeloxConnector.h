@@ -40,6 +40,16 @@ class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const VeloxExprConverter& exprConverter,
       const TypeParser& typeParser) const final;
 
+  /// Partitioned writes hash rows with a Hive-compatible bucket function on the
+  /// identity partition columns.
+  std::unique_ptr<velox::core::PartitionFunctionSpec>
+  createVeloxPartitionFunctionSpec(
+      const protocol::ConnectorPartitioningHandle* partitioningHandle,
+      const std::vector<int>& bucketToPartition,
+      const std::vector<velox::column_index_t>& channels,
+      const std::vector<velox::VectorPtr>& constValues,
+      bool& effectivelyGather) const final;
+
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;
 

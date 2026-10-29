@@ -456,12 +456,13 @@ Property Name                                           Description             
 ``iceberg.aggregate-push-down-enabled``                 Controls whether to push down aggregate (MIN/MAX/COUNT) to    ``true``                           Yes                 Yes
                                                         Iceberg based on data file stats.
 
-``iceberg.target-max-file-size``                        Target maximum size of written files; the actual size may     ``1GB``                            Yes                 No, write is not supported
+``iceberg.target-max-file-size``                        Target maximum size of written files; the actual size may     ``1GB``                            Yes                 Yes
                                                         be larger. This property accepts values in the format of a
                                                         number immediately followed by a unit (``40kB``,
                                                         ``256MB``, ``1GB``). Supported units are: ``B`` (bytes),
                                                         ``kB`` (kilobytes), ``MB`` (megabytes), ``GB`` (gigabytes),
-                                                        ``TB`` (terabytes), ``PB`` (petabytes).
+                                                        ``TB`` (terabytes), ``PB`` (petabytes). Presto C++
+                                                        workers read it from their own Iceberg catalog file.
 ======================================================= ============================================================= ================================== =================== =============================================
 
 Table Properties
@@ -620,7 +621,36 @@ Session properties set behavior changes for queries executed within the given se
      - Overrides the behavior of the connector property
        ``iceberg.target-max-file-size`` in the current session.
      - Yes
+     - Yes
+   * - .. _iceberg-sess-shuffle-partitioned-columns-for-table-write:
+
+       ``iceberg.shuffle_partitioned_columns_for_table_write``
+     - Shuffles the rows of an INSERT or CREATE TABLE AS on their partition values, so each partition
+       is written by a single writer and ends up in fewer files. Applies to tables whose partition
+       fields are all identity transforms of BOOLEAN, TINYINT, SMALLINT, INTEGER, BIGINT, REAL,
+       DOUBLE, VARCHAR, DATE or TIMESTAMP columns; other tables are written as without it. A large
+       partition is then written by one writer. The default value is ``false``.
+     - Yes
+     - Yes
+   * - .. _iceberg-sess-native-parquet-writer-row-group-max-rows:
+
+       ``iceberg.native_parquet_writer_row_group_max_rows``
+     - Maximum number of rows in a Parquet row group. A row group closes at this many rows or at
+       ``iceberg.parquet_writer_block_size``, whichever comes first, so raise it to reach a large
+       block size with narrow rows. Overrides the Presto C++ worker catalog property
+       ``iceberg.parquet.writer.row-group-max-rows``. The default value is ``1048576``.
      - No
+     - Yes
+   * - .. _iceberg-sess-native-parquet-writer-page-max-rows:
+
+       ``iceberg.native_parquet_writer_page_max_rows``
+     - Maximum number of rows in a Parquet data page. A page closes at this many rows or at
+       ``iceberg.parquet_writer_page_size``, whichever comes first. Pages of repeated columns
+       close at a row boundary, so they can hold a row more. Overrides the Presto C++ worker
+       catalog property ``iceberg.parquet.writer.page-max-rows``. By default pages close by size
+       only.
+     - No
+     - Yes
    * - .. _iceberg-sess-target-split-size-bytes:
 
        ``iceberg.target_split_size_bytes``
@@ -3468,6 +3498,11 @@ For example::
 
 If a user creates a table externally with non-identity sort columns and then inserts data, the following warning message will be shown.
 ``Iceberg table sort order has sort fields of <X>, <Y>, ... which are not currently supported by Presto``
+
+Presto C++ workers also sort the rows of each data file by the table's sort order, and support
+``rewrite_data_files`` with a ``zorder(...)`` sort. On Presto C++ workers,
+``iceberg.target_max_file_size`` also splits the files of a sorted table, so each file holds a
+contiguous range of the sort order. Java workers write one file per writer for a sorted table.
 
 Materialized Views
 ------------------
