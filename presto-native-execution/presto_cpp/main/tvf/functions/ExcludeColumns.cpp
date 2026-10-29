@@ -170,14 +170,9 @@ void registerExcludeColumns(const std::string& name) {
   argSpecs.push_back(
       std::make_shared<TableArgumentSpecification>(
           TABLE_ARGUMENT_NAME, true, true, false));
-  std::vector<std::string> excludeColumnNames = {"columns"};
-  auto excludeColumnsNamesDesc =
-      std::make_shared<Descriptor>(excludeColumnNames);
-  auto excludeColumnsArg =
-      std::make_shared<DescriptorArgument>(excludeColumnsNamesDesc);
   argSpecs.push_back(
       std::make_shared<DescriptorArgumentSpecification>(
-          DESCRIPTOR_ARGUMENT_NAME, excludeColumnsArg, true));
+          DESCRIPTOR_ARGUMENT_NAME, nullptr, true));
   registerTableFunction(
       name,
       argSpecs,

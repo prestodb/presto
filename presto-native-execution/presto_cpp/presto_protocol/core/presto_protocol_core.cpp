@@ -4317,13 +4317,9 @@ void to_json(json& j, const DescriptorArgumentSpecification& p) {
       "DescriptorArgumentSpecification",
       "bool",
       "required");
-  to_json_key(
-      j,
-      "defaultValue",
-      p.defaultValue,
-      "DescriptorArgumentSpecification",
-      "Descriptor",
-      "defaultValue");
+  if (!p.defaultValue.fields.empty()) {
+    j["defaultValue"] = p.defaultValue;
+  }
 }
 
 void from_json(const json& j, DescriptorArgumentSpecification& p) {

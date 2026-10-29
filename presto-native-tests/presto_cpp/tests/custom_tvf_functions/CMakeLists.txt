@@ -20,10 +20,15 @@ set(PRESTO_AND_VELOX_INCLUDE_DIRS
 find_package(xsimd)
 find_package(fmt REQUIRED)
 
+# folly headers use double-conversion inline. presto_server does not export
+# these symbols, so link a private copy into the plugin.
+find_library(DOUBLE_CONVERSION double-conversion REQUIRED)
+
 # Set link libraries
-set(CMAKE_DYLIB_TEST_LINK_LIBRARIES 
+set(CMAKE_DYLIB_TEST_LINK_LIBRARIES
     fmt::fmt
-    xsimd)
+    xsimd
+    ${DOUBLE_CONVERSION})
 
 # On macOS, gflags is required
 if(APPLE)

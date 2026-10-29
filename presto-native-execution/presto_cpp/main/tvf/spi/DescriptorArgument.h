@@ -46,6 +46,10 @@ class DescriptorArgumentSpecification : public ArgumentSpecification {
       : ArgumentSpecification(name, required),
         descriptorArgument_(descriptorArgument) {};
 
+  bool hasDefaultValue() const {
+    return descriptorArgument_ != nullptr;
+  }
+
   const Descriptor descriptor() const {
     return descriptorArgument_->descriptor();
   }

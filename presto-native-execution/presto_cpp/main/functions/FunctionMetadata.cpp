@@ -406,9 +406,12 @@ buildArgumentSpecsList(TableArgumentSpecList argumentsSpec) {
       auto descriptorArgumentSpecification =
           std::make_shared<protocol::DescriptorArgumentSpecification>();
       descriptorArgumentSpecification->name = descriptorArgumentSpec->name();
-      descriptorArgumentSpecification->defaultValue =
-          buildDescriptor(descriptorArgumentSpec->descriptor());
-      descriptorArgumentSpecification->required = false;
+      if (descriptorArgumentSpec->hasDefaultValue()) {
+        descriptorArgumentSpecification->defaultValue =
+            buildDescriptor(descriptorArgumentSpec->descriptor());
+      }
+      descriptorArgumentSpecification->required =
+          descriptorArgumentSpec->required();
       argumentsSpecsList.emplace_back(descriptorArgumentSpecification);
     } else {
       VELOX_FAIL("Failed to convert to a valid argumentSpec");
