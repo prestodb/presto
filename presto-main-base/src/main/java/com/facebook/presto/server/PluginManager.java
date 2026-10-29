@@ -103,6 +103,7 @@ public class PluginManager
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
     private final AtomicBoolean pluginsLoaded = new AtomicBoolean();
     private final ImmutableSet<String> disabledConnectors;
+    private final ImmutableSet<String> excludedJars;
     private final HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager;
     private final TracerProviderManager tracerProviderManager;
     private final AnalyzerProviderManager analyzerProviderManager;
@@ -166,6 +167,7 @@ public class PluginManager
         this.nodeTtlFetcherManager = requireNonNull(nodeTtlFetcherManager, "nodeTtlFetcherManager is null");
         this.clusterTtlProviderManager = requireNonNull(clusterTtlProviderManager, "clusterTtlProviderManager is null");
         this.disabledConnectors = requireNonNull(config.getDisabledConnectors(), "disabledConnectors is null");
+        this.excludedJars = requireNonNull(config.getExcludedJars(), "excludedJars is null");
         this.historyBasedPlanStatisticsManager = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null");
         this.tracerProviderManager = requireNonNull(tracerProviderManager, "tracerProviderManager is null");
         this.analyzerProviderManager = requireNonNull(analyzerProviderManager, "analyzerProviderManager is null");
@@ -383,6 +385,7 @@ public class PluginManager
             return PluginManagerUtil.buildClassLoaders(
                     installedPluginsDir,
                     plugins,
+                    excludedJars,
                     resolver,
                     SPI_PACKAGES,
                     COORDINATOR_PLUGIN_SERVICES_FILE,

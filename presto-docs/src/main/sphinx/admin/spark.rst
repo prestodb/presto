@@ -67,3 +67,66 @@ When the executors run on a native (Velox) execution engine, the driver can laun
 short-lived ``presto_server`` sidecar at bootstrap to register native-only functions
 into the planner. See :ref:`Driver-side Metadata Sidecar Properties
 <admin/properties:Driver-side Metadata Sidecar Properties>` for the configuration.
+
+Executor Classpath Manifest
+---------------------------
+
+When executors run on a native (Velox) execution engine, the executor JVM only coordinates
+the native worker and never uses most of the jars in the package. Every jar the JVM opens
+keeps a copy of the jar's ZIP central directory on the heap for the life of the process, so
+a few large unused jars can cost tens of MiB of executor heap. An executor classpath manifest
+lists jars that executors leave off their classpath.
+
+To use one, set ``presto.spark.executor-classpath-manifest`` in ``config.properties`` to the
+path of the manifest. A relative path is resolved against the Presto on Spark package
+directory:
+
+.. code-block:: none
+
+    presto.spark.executor-classpath-manifest=native-executor-classpath.txt
+
+The property is not set by default, and when it is not set every executor keeps the full
+classpath. The manifest is applied only on cluster executors -- never on the driver, and
+never on a local-mode executor -- and only when ``native-execution-enabled`` is ``true`` and
+a native worker configuration is provided.
+
+The manifest has two sections, each listing one Java regular expression per line. A pattern
+must match the whole jar file name, so it needs no ``^`` or ``$`` anchors, and must end in
+``.jar``, normally written ``\.jar``. Only files whose names end in ``.jar`` are matched.
+``#`` starts a comment:
+
+.. code-block:: none
+
+    # jars the executor's lib/ class loader leaves out
+    [lib-exclude]
+    spark-core-[0-9].*\.jar
+
+    # jars left out of every plugin directory
+    [plugin-exclude]
+    hudi-presto-bundle-[0-9].*\.jar
+
+Writing the version as a pattern keeps an entry valid when the jar's version changes, so the
+manifest does not need editing on every dependency upgrade. Anchor the pattern on the
+artifact name, as with ``-[0-9]`` above, so that it does not also match a different artifact
+whose name starts the same way. A plain file name such as ``spark-core-3.4.1-1.jar`` is also
+a valid pattern and matches that file, although each unescaped ``.`` in it matches any
+character.
+
+Every jar that no pattern matches stays on the classpath, including jars added to the package
+later, and a pattern that matches nothing is ignored. ``[plugin-exclude]`` patterns are matched
+against the jar file names in every plugin directory, and the matching names are applied
+through :ref:`admin/properties:\`\`plugin.excluded-jars\`\``. A missing or empty section
+excludes nothing.
+
+If the manifest cannot be read or is malformed -- a line that is neither a section header nor
+a ``.jar`` file name pattern, a pattern that is not a valid regular expression, an unknown
+section, or an entry before the first section -- the executor
+keeps the full classpath and writes the reason to its standard error. The same happens if the
+manifest excludes the jar that provides the Presto on Spark service, or a jar holding a class
+that service provider needs to load. If the plugin directories
+cannot be listed to resolve ``[plugin-exclude]``, the manifest excludes no plugin jars, again
+with the reason on standard error.
+
+A query that runs on the Java engine (``native_execution_enabled=false``) is refused on an
+executor whose classpath was narrowed, because the Java engine needs jars that native
+execution does not. To run such queries, keep native execution enabled or remove the setting.

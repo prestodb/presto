@@ -20,8 +20,10 @@ import com.facebook.presto.spi.CoordinatorPlugin;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.RouterPlugin;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
@@ -42,6 +44,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.facebook.presto.server.PluginDiscovery.discoverPlugins;
 import static com.facebook.presto.server.PluginDiscovery.writePluginServices;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Objects.requireNonNull;
 
 public class PluginManagerUtil
 {
@@ -159,6 +162,33 @@ public class PluginManagerUtil
             ClassLoader parent)
             throws Exception
     {
+        return buildClassLoaders(
+                installedPluginsDir,
+                plugins,
+                ImmutableSet.of(),
+                resolver,
+                spiPackages,
+                coordinatorPluginServicesFile,
+                pluginServicesFile,
+                parent);
+    }
+
+    /**
+     * @param excludedJars file names of the jars a plugin loaded from a directory must not open;
+     *         empty excludes nothing. See {@link #selectPluginJars}.
+     */
+    public static List<PluginClassLoaderHandle> buildClassLoaders(
+            File installedPluginsDir,
+            List<String> plugins,
+            Set<String> excludedJars,
+            Supplier<ArtifactResolver> resolver,
+            List<String> spiPackages,
+            String coordinatorPluginServicesFile,
+            String pluginServicesFile,
+            ClassLoader parent)
+            throws Exception
+    {
+        requireNonNull(excludedJars, "excludedJars is null");
         List<String> pluginsToLoad = new ArrayList<>();
         for (File file : listFiles(installedPluginsDir)) {
             if (file.isDirectory()) {
@@ -174,6 +204,7 @@ public class PluginManagerUtil
                         plugin,
                         buildClassLoader(
                                 plugin,
+                                excludedJars,
                                 resolver,
                                 spiPackages,
                                 coordinatorPluginServicesFile,
@@ -235,6 +266,7 @@ public class PluginManagerUtil
 
     private static URLClassLoader buildClassLoader(
             String plugin,
+            Set<String> excludedJars,
             Supplier<ArtifactResolver> resolver,
             List<String> spiPackages,
             String coordinatorPluginServicesFile,
@@ -247,7 +279,7 @@ public class PluginManagerUtil
             return buildClassLoaderFromPom(file, resolver.get(), spiPackages, coordinatorPluginServicesFile, pluginServicesFile, parent);
         }
         if (file.isDirectory()) {
-            return buildClassLoaderFromDirectory(file, spiPackages, parent);
+            return buildClassLoaderFromDirectory(file, excludedJars, spiPackages, parent);
         }
         return buildClassLoaderFromCoordinates(plugin, resolver.get(), spiPackages, parent);
     }
@@ -274,16 +306,55 @@ public class PluginManagerUtil
         return classLoader;
     }
 
-    private static URLClassLoader buildClassLoaderFromDirectory(File dir, List<String> spiPackages, ClassLoader parent)
+    private static URLClassLoader buildClassLoaderFromDirectory(File dir, Set<String> excludedJars, List<String> spiPackages, ClassLoader parent)
             throws Exception
     {
         log.debug("Classpath for %s:", dir.getName());
         List<URL> urls = new ArrayList<>();
-        for (File file : listFiles(dir)) {
+        for (File file : selectPluginJars(dir, listFiles(dir), excludedJars)) {
             log.debug("    %s", file);
             urls.add(file.toURI().toURL());
         }
         return createClassLoader(urls, spiPackages, parent);
+    }
+
+    /**
+     * The files of one plugin directory to put on its class loader: all of them except those named
+     * in {@code excludedJars}.
+     *
+     * <p>Every jar on a class loader's path can be opened by any lookup that reaches it --
+     * misses walk the whole path -- and an opened jar keeps a permanent on-heap copy of its ZIP
+     * central directory ({@code ZipFile$Source.cen}) whether or not a class is ever loaded from
+     * it. On a native Presto-on-Spark executor a few large plugin jars it never uses account for
+     * most of that, which is what {@code plugin.excluded-jars} removes.
+     *
+     * <p>A directory that the list would leave with no jars is loaded whole instead -- even if
+     * non-jar files would remain: a loader without jars finds no Plugin, and a catalog that needs
+     * the connector would fail at startup.
+     */
+    @VisibleForTesting
+    static List<File> selectPluginJars(File dir, List<File> files, Set<String> excludedJars)
+    {
+        if (excludedJars.isEmpty()) {
+            return files;
+        }
+        List<File> selected = new ArrayList<>();
+        boolean hasJars = false;
+        boolean keepsJars = false;
+        for (File file : files) {
+            boolean jar = file.getName().endsWith(".jar");
+            hasJars |= jar;
+            if (!excludedJars.contains(file.getName())) {
+                selected.add(file);
+                keepsJars |= jar;
+            }
+        }
+        // Decided on jars, not files: a directory left with only non-jar files has no Plugin to find.
+        if (hasJars && !keepsJars) {
+            log.warn("plugin.excluded-jars excludes every jar in %s; loading the whole directory", dir);
+            return files;
+        }
+        return selected;
     }
 
     private static URLClassLoader buildClassLoaderFromCoordinates(
