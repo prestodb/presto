@@ -1931,7 +1931,7 @@ public abstract class IcebergAbstractMetadata
             boolean isLast = i == fieldPath.size() - 1;
 
             if (currentType.isStructType()) {
-                Optional<NestedField> child = findFieldToDrop(currentType.asStructType(), segment, String.join(".", fieldPath.subList(0, i + 1)), tableName);
+                Optional<NestedField> child = findFieldByName(currentType.asStructType(), segment, String.join(".", fieldPath.subList(0, i + 1)), tableName);
                 if (!child.isPresent()) {
                     if (ignoreNonExistent) {
                         return Optional.empty();
@@ -1987,7 +1987,7 @@ public abstract class IcebergAbstractMetadata
         return Optional.of(field);
     }
 
-    private static Optional<NestedField> findFieldToDrop(Types.StructType structType, String fieldName, String fieldPath, SchemaTableName tableName)
+    private static Optional<NestedField> findFieldByName(Types.StructType structType, String fieldName, String fieldPath, SchemaTableName tableName)
     {
         Optional<NestedField> exactMatch = structType.fields().stream()
                 .filter(field -> field.name().equals(fieldName))
@@ -2055,7 +2055,7 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
-    public void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
+    public void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target, boolean ignoreNonExistent)
     {
         checkArgument(fieldPath.size() >= 2, "fieldPath must have at least 2 elements, got: %s", fieldPath);
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
@@ -2064,7 +2064,12 @@ public abstract class IcebergAbstractMetadata
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
         // Iceberg's renameColumn() is case-sensitive; resolve the field first to get its canonical name.
-        ResolvedField resolved = resolveFieldToRename(icebergTable.schema(), fieldPath, handle.getSchemaTableName());
+        Optional<ResolvedField> resolvedOpt = resolveFieldToRename(icebergTable.schema(), fieldPath, handle.getSchemaTableName(), ignoreNonExistent);
+        if (!resolvedOpt.isPresent()) {
+            // ignoreNonExistent is true and the field was not found; silently return.
+            return;
+        }
+        ResolvedField resolved = resolvedOpt.get();
         String dottedPath = String.join(".", fieldPath);
         String canonicalPath = icebergTable.schema().findColumnName(resolved.field.fieldId());
 
@@ -2089,17 +2094,23 @@ public abstract class IcebergAbstractMetadata
      * only, so a case collision elsewhere in the schema cannot affect the lookup (unlike
      * {@link Schema#caseInsensitiveFindField}). Fields that differ only by case are never guessed between.
      * Only struct fields are traversed; a path through a list or map is rejected.
+     *
+     * @param ignoreNonExistent when {@code true}, returns {@link Optional#empty()} instead of throwing
+     *        {@code COLUMN_NOT_FOUND} if the field or a parent step does not exist
      */
     @VisibleForTesting
-    static ResolvedField resolveFieldToRename(Schema schema, List<String> fieldPath, SchemaTableName tableName)
+    static Optional<ResolvedField> resolveFieldToRename(Schema schema, List<String> fieldPath, SchemaTableName tableName, boolean ignoreNonExistent)
     {
         Types.StructType currentStruct = schema.asStruct();
         NestedField field = null;
         for (int i = 0; i < fieldPath.size(); i++) {
             String segment = fieldPath.get(i);
             String pathSoFar = String.join(".", fieldPath.subList(0, i + 1));
-            Optional<NestedField> child = findFieldToDrop(currentStruct, segment, pathSoFar, tableName);
+            Optional<NestedField> child = findFieldByName(currentStruct, segment, pathSoFar, tableName);
             if (!child.isPresent()) {
+                if (ignoreNonExistent) {
+                    return Optional.empty();
+                }
                 if (i == fieldPath.size() - 1) {
                     throw new PrestoException(COLUMN_NOT_FOUND,
                             format("Field '%s' does not exist in table '%s'", String.join(".", fieldPath), tableName));
@@ -2116,7 +2127,7 @@ public abstract class IcebergAbstractMetadata
                 currentStruct = field.type().asStructType();
             }
         }
-        return new ResolvedField(currentStruct, field);
+        return Optional.of(new ResolvedField(currentStruct, field));
     }
 
     @VisibleForTesting

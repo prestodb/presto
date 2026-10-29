@@ -268,9 +268,9 @@ public abstract class DelegatingMetadataManager
     }
 
     @Override
-    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target)
+    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target, boolean ignoreNonExistent)
     {
-        delegate.renameField(session, tableHandle, fieldPath, target);
+        delegate.renameField(session, tableHandle, fieldPath, target, ignoreNonExistent);
     }
 
     @Override

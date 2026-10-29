@@ -253,11 +253,11 @@ public interface Metadata
      * (using the pseudo-step {@code element}) or map values (using the pseudo-step {@code value})
      * are supported is connector-specific.
      *
-     * <p>The connector must throw {@code COLUMN_NOT_FOUND} if the target field or any parent step
-     * does not exist; the engine's execution task catches this error and suppresses it when {@code IF EXISTS}
-     * is specified on the statement.
+     * <p>When {@code ignoreNonExistent} is {@code true} the connector silently returns without
+     * error if the field or any parent step does not exist ({@code IF EXISTS} semantics).
+     * When {@code false} the connector throws {@code COLUMN_NOT_FOUND}.
      */
-    void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target);
+    void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target, boolean ignoreNonExistent);
 
     /**
      * Set the default value for the specified column

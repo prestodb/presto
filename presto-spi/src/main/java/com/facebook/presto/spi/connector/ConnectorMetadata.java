@@ -479,11 +479,13 @@ public interface ConnectorMetadata
      * (using the pseudo-step {@code element}) or map values (using the pseudo-step {@code value})
      * are supported is connector-specific.
      *
-     * <p>The connector must throw {@code COLUMN_NOT_FOUND} if the target field or any parent step
-     * does not exist; the engine's execution task catches this error and suppresses it when {@code IF EXISTS}
-     * is specified on the statement.
+     * <p>When {@code ignoreNonExistent} is {@code true} the connector should silently return without
+     * error if the field or any parent step does not exist, consistent with {@code IF EXISTS} semantics.
+     * When {@code ignoreNonExistent} is {@code false}, the connector should report
+     * {@code COLUMN_NOT_FOUND} if the requested field or any parent step does not exist.
+     * Connectors may report {@code NOT_SUPPORTED} if nested field renaming is not supported.
      */
-    default void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
+    default void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target, boolean ignoreNonExistent)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming nested fields");
     }

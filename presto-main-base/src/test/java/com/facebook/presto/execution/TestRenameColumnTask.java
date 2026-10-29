@@ -293,12 +293,16 @@ public class TestRenameColumnTask
         }
 
         @Override
-        public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target)
+        public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target, boolean ignoreNonExistent)
         {
             this.receivedFieldPath = fieldPath;
             this.receivedFieldTarget = target;
             this.renameFieldCalls++;
             if (renameFieldFailure != null) {
+                if (ignoreNonExistent && renameFieldFailure.getErrorCode().equals(COLUMN_NOT_FOUND.toErrorCode())) {
+                    // Connector honours ignoreNonExistent: silently absorb COLUMN_NOT_FOUND.
+                    return;
+                }
                 throw renameFieldFailure;
             }
         }

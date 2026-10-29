@@ -316,7 +316,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target)
+    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target, boolean ignoreNonExistent)
     {
         throw new UnsupportedOperationException();
     }

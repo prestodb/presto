@@ -22,6 +22,8 @@ import com.facebook.presto.common.predicate.NullableValue;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.TimeType;
@@ -80,6 +82,7 @@ import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SplitContext;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -117,6 +120,7 @@ import org.roaringbitmap.longlong.Roaring64Bitmap;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -562,40 +566,22 @@ public class IcebergPageSourceProvider
         if (!tableSchema.isPresent() || namePath.isEmpty()) {
             return Optional.empty();
         }
-        Schema schema = tableSchema.get();
-        Types.NestedField currentField = schema.columns().stream()
-                .filter(field -> field.name().equals(rootName))
-                .findFirst()
-                .orElseGet(() -> {
-                    List<Types.NestedField> matches = schema.columns().stream()
-                            .filter(field -> field.name().equalsIgnoreCase(rootName))
-                            .collect(toImmutableList());
-                    return matches.size() == 1 ? matches.get(0) : null;
-                });
-        if (currentField == null) {
+        Optional<Types.NestedField> rootField = resolveNestedField(tableSchema.get().columns(), rootName);
+        if (!rootField.isPresent()) {
             return Optional.empty();
         }
-
+        Types.NestedField currentField = rootField.get();
         ImmutableList.Builder<Integer> idSequence = ImmutableList.builder();
         for (String step : namePath) {
             if (!currentField.type().isStructType()) {
                 return Optional.empty();
             }
-            Types.StructType structType = currentField.type().asStructType();
-            Types.NestedField nextField = structType.fields().stream()
-                    .filter(field -> field.name().equals(step))
-                    .findFirst()
-                    .orElseGet(() -> {
-                        List<Types.NestedField> matches = structType.fields().stream()
-                                .filter(field -> field.name().equalsIgnoreCase(step))
-                                .collect(toImmutableList());
-                        return matches.size() == 1 ? matches.get(0) : null;
-                    });
-            if (nextField == null) {
+            Optional<Types.NestedField> nextField = resolveNestedField(currentField.type().asStructType().fields(), step);
+            if (!nextField.isPresent()) {
                 return Optional.empty();
             }
-            idSequence.add(nextField.fieldId());
-            currentField = nextField;
+            currentField = nextField.get();
+            idSequence.add(currentField.fieldId());
         }
         return Optional.of(idSequence.build());
     }
@@ -605,40 +591,41 @@ public class IcebergPageSourceProvider
         if (!tableSchema.isPresent() || namePath.isEmpty()) {
             return Optional.empty();
         }
-        Schema schema = tableSchema.get();
-        Types.NestedField currentField = schema.columns().stream()
-                .filter(field -> field.name().equals(rootName))
-                .findFirst()
-                .orElseGet(() -> {
-                    List<Types.NestedField> matches = schema.columns().stream()
-                            .filter(field -> field.name().equalsIgnoreCase(rootName))
-                            .collect(toImmutableList());
-                    return matches.size() == 1 ? matches.get(0) : null;
-                });
-        if (currentField == null) {
+        Optional<Types.NestedField> rootField = resolveNestedField(tableSchema.get().columns(), rootName);
+        if (!rootField.isPresent()) {
             return Optional.empty();
         }
-
+        Types.NestedField currentField = rootField.get();
         for (String step : namePath) {
             if (!currentField.type().isStructType()) {
                 return Optional.empty();
             }
-            Types.StructType structType = currentField.type().asStructType();
-            Types.NestedField nextField = structType.fields().stream()
-                    .filter(field -> field.name().equals(step))
-                    .findFirst()
-                    .orElseGet(() -> {
-                        List<Types.NestedField> matches = structType.fields().stream()
-                                .filter(field -> field.name().equalsIgnoreCase(step))
-                                .collect(toImmutableList());
-                        return matches.size() == 1 ? matches.get(0) : null;
-                    });
-            if (nextField == null) {
+            Optional<Types.NestedField> nextField = resolveNestedField(currentField.type().asStructType().fields(), step);
+            if (!nextField.isPresent()) {
                 return Optional.empty();
             }
-            currentField = nextField;
+            currentField = nextField.get();
         }
         return Optional.of(ColumnIdentity.createColumnIdentity(currentField));
+    }
+
+    /**
+     * Resolves a single field name from a list of Iceberg {@link Types.NestedField}s using
+     * exact-match first, then a case-insensitive fallback that is accepted only when exactly
+     * one field matches.  Ambiguous case-insensitive matches return empty.
+     */
+    private static Optional<Types.NestedField> resolveNestedField(List<Types.NestedField> fields, String name)
+    {
+        Optional<Types.NestedField> exactMatch = fields.stream()
+                .filter(field -> field.name().equals(name))
+                .findFirst();
+        if (exactMatch.isPresent()) {
+            return exactMatch;
+        }
+        List<Types.NestedField> caseInsensitiveMatches = fields.stream()
+                .filter(field -> field.name().equalsIgnoreCase(name))
+                .collect(toImmutableList());
+        return caseInsensitiveMatches.size() == 1 ? Optional.of(caseInsensitiveMatches.get(0)) : Optional.empty();
     }
 
     private static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<IcebergColumnHandle> effectivePredicate)
@@ -896,27 +883,68 @@ public class IcebergPageSourceProvider
      * <p>The mapping at each level is: logical name → Iceberg field ID (from
      * {@code columnIdentity.getChildren()}) → physical name (from the ORC type's
      * {@code iceberg.id} attribute on each nested sub-type).  Recursion handles arbitrarily
-     * deep struct nesting.
+     * deep struct nesting, including ROW types nested inside ARRAY and MAP containers.
      *
-     * <p>Non-struct types are returned unchanged.  When the ORC file has no {@code iceberg.id}
-     * attributes (migrated tables) all names are left as-is, which preserves the existing
-     * behaviour.
+     * <p>Non-struct types that contain no nested ROW are returned unchanged.  When the ORC file
+     * has no {@code iceberg.id} attributes (migrated tables) all names are left as-is, which
+     * preserves the existing behaviour.
      */
-    private static Type toPhysicalOrcType(Type logicalType, ColumnIdentity columnIdentity, List<OrcType> orcTypes, int physicalStructTypeIndex)
+    @VisibleForTesting
+    static Type toPhysicalOrcType(Type logicalType, ColumnIdentity columnIdentity, List<OrcType> orcTypes, int physicalTypeIndex)
     {
+        if (physicalTypeIndex >= orcTypes.size()) {
+            return logicalType;
+        }
+        OrcType physicalType = orcTypes.get(physicalTypeIndex);
+
+        if (logicalType instanceof ArrayType) {
+            // ARRAY<element>: recurse into the element type if it contains nested ROW fields.
+            if (physicalType.getOrcTypeKind() != OrcType.OrcTypeKind.LIST || physicalType.getFieldCount() < 1) {
+                return logicalType;
+            }
+            List<ColumnIdentity> elementIdentities = columnIdentity.getChildren();
+            if (elementIdentities.size() != 1) {
+                return logicalType;
+            }
+            int elementTypeIndex = physicalType.getFieldTypeIndex(0);
+            Type elementType = ((ArrayType) logicalType).getElementType();
+            Type rewrittenElementType = toPhysicalOrcType(elementType, elementIdentities.get(0), orcTypes, elementTypeIndex);
+            if (rewrittenElementType == elementType) {
+                return logicalType;
+            }
+            return new ArrayType(rewrittenElementType);
+        }
+
+        if (logicalType instanceof MapType) {
+            // MAP<key, value>: recurse into both key and value types.
+            if (physicalType.getOrcTypeKind() != OrcType.OrcTypeKind.MAP || physicalType.getFieldCount() < 2) {
+                return logicalType;
+            }
+            List<ColumnIdentity> keyValueIdentities = columnIdentity.getChildren();
+            if (keyValueIdentities.size() != 2) {
+                return logicalType;
+            }
+            MapType mapType = (MapType) logicalType;
+            int keyTypeIndex = physicalType.getFieldTypeIndex(0);
+            int valueTypeIndex = physicalType.getFieldTypeIndex(1);
+            Type rewrittenKeyType = toPhysicalOrcType(mapType.getKeyType(), keyValueIdentities.get(0), orcTypes, keyTypeIndex);
+            Type rewrittenValueType = toPhysicalOrcType(mapType.getValueType(), keyValueIdentities.get(1), orcTypes, valueTypeIndex);
+            if (rewrittenKeyType == mapType.getKeyType() && rewrittenValueType == mapType.getValueType()) {
+                return logicalType;
+            }
+            return new MapType(rewrittenKeyType, rewrittenValueType, mapType.getKeyBlockEquals(), mapType.getKeyBlockHashCode());
+        }
+
         if (!(logicalType instanceof RowType)) {
             return logicalType;
         }
-        if (physicalStructTypeIndex >= orcTypes.size()) {
+        if (physicalType.getOrcTypeKind() != OrcType.OrcTypeKind.STRUCT) {
             return logicalType;
         }
-        OrcType physicalStructType = orcTypes.get(physicalStructTypeIndex);
-        if (physicalStructType.getOrcTypeKind() != OrcType.OrcTypeKind.STRUCT) {
-            return logicalType;
-        }
+        OrcType physicalStructType = physicalType;
 
-        Map<Integer, String> icebergIdToPhysicalName = new java.util.HashMap<>();
-        Map<Integer, Integer> icebergIdToSubTypeIndex = new java.util.HashMap<>();
+        Map<Integer, String> icebergIdToPhysicalName = new HashMap<>();
+        Map<Integer, Integer> icebergIdToSubTypeIndex = new HashMap<>();
         for (int i = 0; i < physicalStructType.getFieldCount(); i++) {
             int subTypeIndex = physicalStructType.getFieldTypeIndex(i);
             String physicalName = physicalStructType.getFieldName(i);
@@ -934,7 +962,7 @@ public class IcebergPageSourceProvider
             return logicalType;
         }
 
-        Map<String, ColumnIdentity> logicalNameToChildIdentity = new java.util.HashMap<>();
+        Map<String, ColumnIdentity> logicalNameToChildIdentity = new HashMap<>();
         for (ColumnIdentity child : columnIdentity.getChildren()) {
             logicalNameToChildIdentity.put(child.getName().toLowerCase(ENGLISH), child);
         }
@@ -943,14 +971,14 @@ public class IcebergPageSourceProvider
         ImmutableList.Builder<RowType.Field> rewrittenFields = ImmutableList.builder();
         for (RowType.Field field : rowType.getFields()) {
             String logicalName = field.getName()
-                    .map(n -> n.toLowerCase(ENGLISH))
+                    .map(name -> name.toLowerCase(ENGLISH))
                     .orElse(null);
             ColumnIdentity childIdentity = logicalName != null ? logicalNameToChildIdentity.get(logicalName) : null;
             Integer icebergId = childIdentity != null ? childIdentity.getId() : null;
             String physicalName = icebergId != null ? icebergIdToPhysicalName.get(icebergId) : null;
 
             Type fieldType = field.getType();
-            if (childIdentity != null && icebergId != null && fieldType instanceof RowType) {
+            if (childIdentity != null && icebergId != null) {
                 Integer subTypeIndex = icebergIdToSubTypeIndex.get(icebergId);
                 if (subTypeIndex != null) {
                     fieldType = toPhysicalOrcType(fieldType, childIdentity, orcTypes, subTypeIndex);

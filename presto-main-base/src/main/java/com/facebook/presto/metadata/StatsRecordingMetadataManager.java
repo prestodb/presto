@@ -1244,11 +1244,11 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
-    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target)
+    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target, boolean ignoreNonExistent)
     {
         long startTime = System.nanoTime();
         try {
-            delegate.renameField(session, tableHandle, fieldPath, target);
+            delegate.renameField(session, tableHandle, fieldPath, target, ignoreNonExistent);
         }
         finally {
             stats.recordRenameColumnCall(System.nanoTime() - startTime);

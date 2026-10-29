@@ -812,11 +812,11 @@ public class MetadataManager
     }
 
     @Override
-    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target)
+    public void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target, boolean ignoreNonExistent)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
-        metadata.renameField(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fieldPath, normalizeIdentifier(session, connectorId.getCatalogName(), target));
+        metadata.renameField(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fieldPath, normalizeIdentifier(session, connectorId.getCatalogName(), target), ignoreNonExistent);
     }
 
     @Override

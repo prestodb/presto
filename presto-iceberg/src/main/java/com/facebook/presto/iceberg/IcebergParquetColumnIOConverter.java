@@ -53,12 +53,14 @@ import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
  * Parquet files still store the field under its original name, but Iceberg assigns each
  * field a stable numeric ID. Matching by ID ensures historical data is readable after a rename.
  *
- * MAP and ARRAY children are matched positionally (as in the shared converter), since
- * Iceberg does not expose renameable child identifiers for those container types in the
- * same way, and the shared converter's positional approach works correctly for them.
+ * MAP and ARRAY container children (key, value, element) are resolved positionally, exactly
+ * as the shared converter does. This is correct because those positions are fixed by the
+ * Parquet/Iceberg physical layout; they are not renameable identifiers. Field-ID-based
+ * matching is applied only inside nested ROW (struct) types, where renames change the
+ * physical child names stored in the file.
  *
  * The JSON (variant) branch is kept identical to the shared converter since it is
- * positional, not name-based.
+ * name-based but stable (Iceberg always writes "value" and "metadata").
  */
 public final class IcebergParquetColumnIOConverter
 {
@@ -81,6 +83,9 @@ public final class IcebergParquetColumnIOConverter
             if (ROW.equals(typeBase)) {
                 List<RowType.Field> fields = ((RowType) type).getFields();
                 List<ColumnIdentity> childIdentities = columnIdentity.getChildren();
+                if (childIdentities.size() != fields.size()) {
+                    return Optional.empty();
+                }
                 ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
                 boolean structHasParameters = false;
                 for (int i = 0; i < fields.size(); i++) {

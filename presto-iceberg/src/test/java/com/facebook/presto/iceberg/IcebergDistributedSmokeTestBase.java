@@ -1539,7 +1539,12 @@ public abstract class IcebergDistributedSmokeTestBase
     public void testRenameNestedField()
     {
         testWithAllFileFormats(this::testRenameNestedField);
-        testRenameNestedFieldHistoricalData();
+    }
+
+    @Test
+    public void testRenameNestedFieldHistoricalData()
+    {
+        runRenameNestedFieldHistoricalData();
     }
 
     private void testRenameNestedField(Session session, FileFormat fileFormat)
@@ -1563,7 +1568,7 @@ public abstract class IcebergDistributedSmokeTestBase
         // old name is no longer accessible
         assertQueryFails(session,
                 "SELECT info.age FROM test_nested_rename_field",
-                ".*'info.age' cannot be resolved.*|.*Field 'age' does not exist.*");
+                ".*'info\\.age' cannot be resolved.*");
 
         MaterializedResult infoAfterRename = computeActual(session,
                 "SELECT info FROM test_nested_rename_field");
@@ -1607,7 +1612,7 @@ public abstract class IcebergDistributedSmokeTestBase
                 ") WITH (" + format + ")");
         assertQueryFails(session,
                 "ALTER TABLE test_nested_rename_missing RENAME COLUMN info.nonexistent TO new_name",
-                ".*Field 'info.nonexistent' does not exist.*|.*Failed to rename field.*");
+                ".*Field 'info\\.nonexistent' does not exist.*");
         dropTable(session, "test_nested_rename_missing");
 
         // --- Error: target name already exists as a sibling field ---
@@ -1617,20 +1622,85 @@ public abstract class IcebergDistributedSmokeTestBase
                 ") WITH (" + format + ")");
         assertQueryFails(session,
                 "ALTER TABLE test_nested_rename_collision RENAME COLUMN info.age TO name",
-                ".*name.*already exists.*|.*Failed to rename field.*");
+                ".*Cannot rename field 'info\\.age'.*field with that name already exists.*");
         dropTable(session, "test_nested_rename_collision");
+
+        // --- Swap-rename: info.a→tmp, info.b→a, info.tmp→b ---
+        // Verifies that field-ID-based resolution retains correct values for each field
+        // even when names are swapped across multiple renames.
+        assertUpdate(session, "CREATE TABLE test_nested_rename_swap (" +
+                "id BIGINT, " +
+                "info ROW(a INTEGER, b INTEGER)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_rename_swap VALUES (1, ROW(10, 20))", 1);
+
+        assertUpdate(session, "ALTER TABLE test_nested_rename_swap RENAME COLUMN info.a TO tmp");
+        assertUpdate(session, "ALTER TABLE test_nested_rename_swap RENAME COLUMN info.b TO a");
+        assertUpdate(session, "ALTER TABLE test_nested_rename_swap RENAME COLUMN info.tmp TO b");
+
+        // id=1 was written before the swap: field that had value 10 is now named 'b';
+        // field that had value 20 is now named 'a'. Field IDs are preserved across renames.
+        assertQuery(session, "SELECT id, info.a, info.b FROM test_nested_rename_swap",
+                "VALUES (1, 20, 10)");
+
+        // Write a row after the swap using the new names.
+        assertUpdate(session, "INSERT INTO test_nested_rename_swap VALUES (2, ROW(200, 100))", 1);
+        assertQuery(session, "SELECT id, info.a, info.b FROM test_nested_rename_swap ORDER BY id",
+                "VALUES (1, 20, 10), (2, 200, 100)");
+
+        dropTable(session, "test_nested_rename_swap");
     }
 
     /**
-     * Regression test for reading pre-rename Parquet files after a nested field rename.
+     * Time-travel test: querying a snapshot created before a nested field rename must use the
+     * schema at that snapshot, which still exposes the original field name.
+     */
+    @Test
+    public void testRenameNestedFieldTimeTravel()
+    {
+        Session session = getSession();
+        String tableName = "test_nested_rename_timetravel";
+        assertUpdate(session, "CREATE TABLE " + tableName + " (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ")");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, ROW('alice', 30))", 1);
+
+        long snapshotBeforeRename = latestSnapshotId(tableName);
+
+        assertUpdate(session, "ALTER TABLE " + tableName + " RENAME COLUMN info.age TO years");
+
+        // Insert a row after the rename.
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, ROW('bob', 25))", 1);
+
+        // Current snapshot: new name 'years' is visible; 'age' is no longer in the schema.
+        assertQuery(session, "SELECT id, info.years FROM " + tableName + " ORDER BY id",
+                "VALUES (1, 30), (2, 25)");
+        assertQueryFails(session,
+                "SELECT info.age FROM " + tableName,
+                ".*'info\\.age' cannot be resolved.*");
+
+        // Time-travel to the snapshot before the rename: the pre-rename schema uses 'age', not 'years'.
+        assertQuery(session,
+                "SELECT id, info.age FROM " + tableName + " FOR SYSTEM_VERSION AS OF " + snapshotBeforeRename,
+                "VALUES (1, 30)");
+        assertQueryFails(session,
+                "SELECT info.years FROM " + tableName + " FOR SYSTEM_VERSION AS OF " + snapshotBeforeRename,
+                ".*'info\\.years' cannot be resolved.*");
+
+        dropTable(session, tableName);
+    }
+
+    /**
+     * Regression test for reading pre-rename Parquet/ORC files after a nested field rename.
      *
      * Covers both the regular read path (dereference pushdown disabled) and the
      * dereference-pushdown path (enabled, the default for Parquet). Both paths must
-     * return correct values — not NULL — for fields read from historical Parquet files
+     * return correct values — not NULL — for fields read from historical files
      * written before the rename. The acceptance criterion is that users should not
      * need to disable dereference pushdown to correctly read historical data.
      */
-    private void testRenameNestedFieldHistoricalData()
+    private void runRenameNestedFieldHistoricalData()
     {
         for (String fileFormat : new String[]{"PARQUET", "ORC"}) {
             String format = "\"write.format.default\" = '" + fileFormat + "'";
@@ -1720,6 +1790,32 @@ public abstract class IcebergDistributedSmokeTestBase
                 assertEquals(deepSubstruct.getMaterializedRows().get(1).getField(0), Arrays.asList("world", 99L));
 
                 dropTable(session, "test_rename_hist_deep");
+
+                // ---- Swap-rename: pushdown enabled and disabled ----
+                // Verifies that field-ID-based resolution correctly maps renamed fields even when
+                // names are swapped (a→tmp, b→a, tmp→b). Historical files must return the value
+                // originally written under each field's Iceberg ID, regardless of the current name.
+                assertUpdate(session, "CREATE TABLE test_rename_hist_swap (" +
+                        "id BIGINT, " +
+                        "info ROW(a INTEGER, b INTEGER)" +
+                        ") WITH (" + format + ")");
+
+                // id=1 written BEFORE the swap.
+                assertUpdate(session, "INSERT INTO test_rename_hist_swap VALUES (1, ROW(10, 20))", 1);
+
+                assertUpdate(session, "ALTER TABLE test_rename_hist_swap RENAME COLUMN info.a TO tmp");
+                assertUpdate(session, "ALTER TABLE test_rename_hist_swap RENAME COLUMN info.b TO a");
+                assertUpdate(session, "ALTER TABLE test_rename_hist_swap RENAME COLUMN info.tmp TO b");
+
+                // id=2 written AFTER the swap; a=200, b=100.
+                assertUpdate(session, "INSERT INTO test_rename_hist_swap VALUES (2, ROW(200, 100))", 1);
+
+                // id=1: field written as (a=10, b=20) before swap; after swap 'b' has the old 'a' value (10)
+                // and 'a' has the old 'b' value (20).
+                assertQuery(session, "SELECT id, info.a, info.b FROM test_rename_hist_swap ORDER BY id",
+                        "VALUES (1, 20, 10), (2, 200, 100)");
+
+                dropTable(session, "test_rename_hist_swap");
 
                 // ---- ORC ADD after DROP: safety note ----
                 // The "re-add a field using a recycled name produces NULL from historical files" property

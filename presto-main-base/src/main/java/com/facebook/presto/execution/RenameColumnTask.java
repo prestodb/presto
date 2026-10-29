@@ -18,7 +18,6 @@ import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.MaterializedViewDefinition;
-import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.security.AccessControl;
@@ -33,7 +32,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
-import static com.facebook.presto.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
@@ -103,15 +101,7 @@ public class RenameColumnTask
         }
         else {
             // Nested field: no ColumnHandle exists for sub-fields; delegate path-based rename.
-            try {
-                metadata.renameField(session, tableHandle, normalizedSourceParts, target);
-            }
-            catch (PrestoException e) {
-                if (e.getErrorCode().equals(COLUMN_NOT_FOUND.toErrorCode()) && statement.isColumnExists()) {
-                    return immediateFuture(null);
-                }
-                throw e;
-            }
+            metadata.renameField(session, tableHandle, normalizedSourceParts, target, statement.isColumnExists());
         }
 
         return immediateFuture(null);

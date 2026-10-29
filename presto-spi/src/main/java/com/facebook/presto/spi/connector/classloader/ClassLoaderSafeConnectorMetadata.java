@@ -437,10 +437,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target)
+    public void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target, boolean ignoreNonExistent)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.renameField(session, tableHandle, fieldPath, target);
+            delegate.renameField(session, tableHandle, fieldPath, target, ignoreNonExistent);
         }
     }
 

@@ -107,7 +107,7 @@ public class TestIcebergRenameFieldResolution
     public void testContainingStruct()
     {
         Schema schema = schema();
-        ResolvedField resolved = resolveFieldToRename(schema, path("s.b.c"), TABLE);
+        ResolvedField resolved = resolveFieldToRename(schema, path("s.b.c"), TABLE, false).get();
         assertEquals(resolved.field.name(), "c");
         assertEquals(resolved.containingStruct.fields().size(), 2);
         assertEquals(resolved.containingStruct.fields().get(0).name(), "c");
@@ -192,14 +192,14 @@ public class TestIcebergRenameFieldResolution
 
     private static void assertResolves(Schema schema, String path, String expectedCanonicalPath)
     {
-        ResolvedField resolved = resolveFieldToRename(schema, path(path), TABLE);
+        ResolvedField resolved = resolveFieldToRename(schema, path(path), TABLE, false).get();
         assertEquals(schema.findColumnName(resolved.field.fieldId()), expectedCanonicalPath);
     }
 
     private static void assertFails(Schema schema, String path, ErrorCodeSupplier expectedErrorCode, String expectedMessage)
     {
         PrestoException e = expectThrows(PrestoException.class,
-                () -> resolveFieldToRename(schema, path(path), TABLE));
+                () -> resolveFieldToRename(schema, path(path), TABLE, false));
         assertEquals(e.getErrorCode(), expectedErrorCode.toErrorCode(),
                 "error code mismatch for path " + path + ": " + e.getMessage());
         assertEquals(e.getMessage(), expectedMessage);
