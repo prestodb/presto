@@ -24,10 +24,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.ql.exec.vector.BytesColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.ColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
+import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.MetricsConfig;
+import org.apache.iceberg.OverwriteFiles;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -37,11 +43,15 @@ import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
 import org.apache.iceberg.deletes.EqualityDeleteWriter;
+import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.DataWriter;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Types;
+import org.apache.orc.OrcFile;
+import org.apache.orc.TypeDescription;
+import org.apache.orc.Writer;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -59,7 +69,9 @@ import static com.facebook.presto.SystemSessionProperties.IGNORE_STATS_CALCULATO
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.iceberg.TableProperties.DEFAULT_WRITE_METRICS_MODE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -300,6 +312,15 @@ public class TestIcebergRowLineage
         };
     }
 
+    @DataProvider(name = "fileFormat")
+    public Object[][] fileFormatProvider()
+    {
+        return new Object[][] {
+                {FileFormat.PARQUET},
+                {FileFormat.ORC}
+        };
+    }
+
     /**
      * A compacted file whose lineage columns have no bounds, only counts or no metrics at all,
      * stores values the coordinator cannot see, so it must not be pruned by its own, newer data
@@ -509,6 +530,58 @@ public class TestIcebergRowLineage
         }
     }
 
+    /**
+     * Row group and stripe statistics for a lineage column cover only the stored values, so a
+     * predicate matching an inherited value must not skip them.
+     */
+    @Test(dataProvider = "fileFormat")
+    public void testRowIdPredicatesOnMixedStoredAndInheritedFile(FileFormat fileFormat)
+            throws Exception
+    {
+        String tableName = "test_lineage_mixed_file";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            MixedLineageTuple mixed = createMixedLineageTable(catalog, tableId, tableName, fileFormat);
+
+            assertIdsForQuery(getSession(), "SELECT id FROM " + tableName + " WHERE \"_row_id\" = " + mixed.inheritedRowId, ImmutableList.of(2));
+            assertIdsForQuery(getSession(), "SELECT id FROM " + tableName + " WHERE \"_row_id\" = " + mixed.storedRowId, ImmutableList.of(1));
+            assertIdsForQuery(getSession(), "SELECT id FROM " + tableName + " WHERE \"_row_id\" >= " + mixed.inheritedRowId, ImmutableList.of(2));
+        }
+        finally {
+            catalog.dropTable(tableId, true);
+        }
+    }
+
+    @Test
+    public void testIsNullOnV3Table()
+            throws Exception
+    {
+        String inheritedTableName = "test_lineage_is_null_inherited";
+        String mixedTableName = "test_lineage_is_null_mixed";
+        Catalog catalog = loadCatalog();
+        TableIdentifier inheritedTableId = TableIdentifier.of(TEST_SCHEMA, inheritedTableName);
+        TableIdentifier mixedTableId = TableIdentifier.of(TEST_SCHEMA, mixedTableName);
+        try {
+            Table inherited = catalog.createTable(inheritedTableId, PUSHDOWN_TABLE_SCHEMA, PartitionSpec.unpartitioned(),
+                    ImmutableMap.of("format-version", "3"));
+            appendOneRow(inherited, 1, "one");
+            appendOneRow(inherited, 2, "two");
+            createMixedLineageTable(catalog, mixedTableId, mixedTableName, FileFormat.PARQUET);
+
+            for (String tableName : ImmutableList.of(inheritedTableName, mixedTableName)) {
+                for (String column : ImmutableList.of("_row_id", "_last_updated_sequence_number")) {
+                    assertIdsForQuery(getSession(), "SELECT id FROM " + tableName + " WHERE \"" + column + "\" IS NULL", ImmutableList.of());
+                    assertIdsForQuery(getSession(), "SELECT id FROM " + tableName + " WHERE \"" + column + "\" IS NOT NULL", ImmutableList.of(1, 2));
+                }
+            }
+        }
+        finally {
+            catalog.dropTable(inheritedTableId, true);
+            catalog.dropTable(mixedTableId, true);
+        }
+    }
+
     private static final Schema PUSHDOWN_TABLE_SCHEMA = new Schema(
             Types.NestedField.required(1, "id", Types.IntegerType.get()),
             Types.NestedField.optional(2, "value", Types.StringType.get()));
@@ -695,5 +768,131 @@ public class TestIcebergRowLineage
         }
         table.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
         table.refresh();
+    }
+
+    /**
+     * Commits ids 1 and 2 in separate appends, then rewrites both into one file in which id 1
+     * stores its original lineage and id 2 stores none, so id 2 inherits the new file's
+     * {@code firstRowId + 1} and data sequence number. The rewritten file is written in
+     * {@code fileFormat}.
+     */
+    private MixedLineageTuple createMixedLineageTable(Catalog catalog, TableIdentifier tableId, String tableName, FileFormat fileFormat)
+            throws Exception
+    {
+        Table table = catalog.createTable(tableId, PUSHDOWN_TABLE_SCHEMA, PartitionSpec.unpartitioned(),
+                ImmutableMap.of("format-version", "3"));
+        appendOneRow(table, 1, "one");
+        appendOneRow(table, 2, "two");
+        long storedRowId = valueForId(readIdAndLongColumn(getSession(), tableName, "_row_id"), 1);
+        long storedSequenceNumber = valueForId(readIdAndLongColumn(getSession(), tableName, "_last_updated_sequence_number"), 1);
+
+        Schema lineageSchema = MetadataColumns.schemaWithRowLineage(table.schema());
+        Record stored = GenericRecord.create(lineageSchema);
+        stored.setField("id", 1);
+        stored.setField("value", "one");
+        stored.setField(MetadataColumns.ROW_ID.name(), storedRowId);
+        stored.setField(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), storedSequenceNumber);
+        Record inherited = GenericRecord.create(lineageSchema);
+        inherited.setField("id", 2);
+        inherited.setField("value", "two-updated");
+        OverwriteFiles overwrite = table.newOverwrite();
+        for (DataFile file : dataFiles(table)) {
+            overwrite.deleteFile(file);
+        }
+        overwrite.addFile(writeFileInFormat(table, lineageSchema, fileFormat, stored, inherited)).commit();
+        table.refresh();
+
+        DataFile file = getOnlyElement(dataFiles(table));
+        MixedLineageTuple mixed = new MixedLineageTuple(storedRowId, storedSequenceNumber, file.firstRowId() + 1, file.dataSequenceNumber());
+        assertTrue(mixed.inheritedSequenceNumber > mixed.storedSequenceNumber, "the rewrite must commit at a newer sequence number");
+
+        List<long[]> idAndRowId = readIdAndLongColumn(getSession(), tableName, "_row_id");
+        assertEquals(valueForId(idAndRowId, 1), mixed.storedRowId);
+        assertEquals(valueForId(idAndRowId, 2), mixed.inheritedRowId);
+        List<long[]> idAndSequenceNumber = readIdAndLongColumn(getSession(), tableName, "_last_updated_sequence_number");
+        assertEquals(valueForId(idAndSequenceNumber, 1), mixed.storedSequenceNumber);
+        assertEquals(valueForId(idAndSequenceNumber, 2), mixed.inheritedSequenceNumber);
+        return mixed;
+    }
+
+    private DataFile writeFileInFormat(Table table, Schema writeSchema, FileFormat fileFormat, Record... records)
+            throws Exception
+    {
+        if (fileFormat == FileFormat.PARQUET) {
+            return writeFileWithSchema(table, writeSchema, records);
+        }
+        org.apache.hadoop.fs.Path filePath = new org.apache.hadoop.fs.Path(table.location(), "data/" + fileFormat.addExtension("data-" + UUID.randomUUID()));
+        return writeOrcFile(table, writeSchema, filePath, records);
+    }
+
+    /**
+     * Writes {@code records} with the Apache ORC writer bundled in hive-apache, since iceberg-orc
+     * needs a different build of the same ORC classes. Each column carries its Iceberg field id,
+     * as Iceberg's ORC writer does. The data file has no column metrics.
+     */
+    private static DataFile writeOrcFile(Table table, Schema writeSchema, org.apache.hadoop.fs.Path filePath, Record... records)
+            throws Exception
+    {
+        TypeDescription orcSchema = TypeDescription.createStruct();
+        for (Types.NestedField field : writeSchema.columns()) {
+            TypeDescription type;
+            switch (field.type().typeId()) {
+                case INTEGER:
+                    type = TypeDescription.createInt();
+                    break;
+                case LONG:
+                    type = TypeDescription.createLong();
+                    break;
+                case STRING:
+                    type = TypeDescription.createString();
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported type: " + field.type());
+            }
+            orcSchema.addField(field.name(), type.setAttribute(ORC_ICEBERG_ID_KEY, String.valueOf(field.fieldId())));
+        }
+        Configuration configuration = new Configuration();
+        VectorizedRowBatch batch = orcSchema.createRowBatch();
+        for (Record record : records) {
+            int row = batch.size++;
+            for (int column = 0; column < batch.cols.length; column++) {
+                ColumnVector vector = batch.cols[column];
+                Object value = record.get(column);
+                if (value == null) {
+                    vector.noNulls = false;
+                    vector.isNull[row] = true;
+                }
+                else if (vector instanceof BytesColumnVector) {
+                    ((BytesColumnVector) vector).setVal(row, ((String) value).getBytes(UTF_8));
+                }
+                else {
+                    ((LongColumnVector) vector).vector[row] = ((Number) value).longValue();
+                }
+            }
+        }
+        try (Writer writer = OrcFile.createWriter(filePath, OrcFile.writerOptions(configuration).setSchema(orcSchema))) {
+            writer.addRowBatch(batch);
+        }
+        return DataFiles.builder(table.spec())
+                .withInputFile(HadoopInputFile.fromPath(filePath, configuration))
+                .withFormat(org.apache.iceberg.FileFormat.ORC)
+                .withRecordCount(records.length)
+                .build();
+    }
+
+    private static class MixedLineageTuple
+    {
+        private final long storedRowId;
+        private final long storedSequenceNumber;
+        private final long inheritedRowId;
+        private final long inheritedSequenceNumber;
+
+        private MixedLineageTuple(long storedRowId, long storedSequenceNumber, long inheritedRowId, long inheritedSequenceNumber)
+        {
+            this.storedRowId = storedRowId;
+            this.storedSequenceNumber = storedSequenceNumber;
+            this.inheritedRowId = inheritedRowId;
+            this.inheritedSequenceNumber = inheritedSequenceNumber;
+        }
     }
 }
