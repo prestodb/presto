@@ -15,7 +15,7 @@ package com.facebook.presto.iceberg;
 
 import com.facebook.presto.hive.HiveCompressionCodec;
 import com.facebook.presto.iceberg.delete.DeleteFile;
-import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorRefreshMaterializedViewHandle;
 import com.facebook.presto.spi.SchemaTableName;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -30,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 
 public class IcebergInsertTableHandle
         extends IcebergWritableTableHandle
-        implements ConnectorInsertTableHandle
+        implements ConnectorRefreshMaterializedViewHandle
 {
     private final List<String> insertedColumns;
     // V3 deletion vectors keyed by the data file they reference; empty for plain INSERT/CREATE.
@@ -51,7 +51,8 @@ public class IcebergInsertTableHandle
             Optional<SchemaTableName> materializedViewName)
     {
         this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
-                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false, ImmutableList.of(), ImmutableMap.of());
+                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false, ImmutableList.of(),
+                ImmutableMap.of());
     }
 
     public IcebergInsertTableHandle(
@@ -69,7 +70,8 @@ public class IcebergInsertTableHandle
             List<String> insertedColumns)
     {
         this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
-                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false, insertedColumns, ImmutableMap.of());
+                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false, insertedColumns,
+                ImmutableMap.of());
     }
 
     public IcebergInsertTableHandle(
@@ -87,7 +89,8 @@ public class IcebergInsertTableHandle
             boolean fullRefreshRequired)
     {
         this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
-                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, fullRefreshRequired, ImmutableList.of(), ImmutableMap.of());
+                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, fullRefreshRequired, ImmutableList.of(),
+                ImmutableMap.of());
     }
 
     // Factory for the V3 merge path (beginMerge): supplies the existing DV map for
@@ -111,7 +114,28 @@ public class IcebergInsertTableHandle
             Map<String, DeleteFile> existingDeletionVectors)
     {
         return new IcebergInsertTableHandle(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
-                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false, ImmutableList.of(), existingDeletionVectors);
+                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false, ImmutableList.of(),
+                existingDeletionVectors);
+    }
+
+    public IcebergInsertTableHandle(
+            String schemaName,
+            IcebergTableName tableName,
+            PrestoIcebergSchema schema,
+            PrestoIcebergPartitionSpec partitionSpec,
+            List<IcebergColumnHandle> inputColumns,
+            String outputPath,
+            FileFormat fileFormat,
+            HiveCompressionCodec compressionCodec,
+            Map<String, String> storageProperties,
+            List<SortField> sortOrder,
+            Optional<SchemaTableName> materializedViewName,
+            boolean fullRefreshRequired,
+            List<String> insertedColumns)
+    {
+        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
+                fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName,
+                fullRefreshRequired, insertedColumns, ImmutableMap.of());
     }
 
     @JsonCreator

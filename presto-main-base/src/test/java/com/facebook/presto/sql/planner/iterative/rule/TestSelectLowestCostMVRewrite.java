@@ -22,6 +22,7 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.iterative.rule.test.RuleAssert;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,7 +34,9 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
+import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_ROW_LEVEL_REJECTED_ON_COST;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 /**
@@ -473,5 +476,83 @@ public class TestSelectLowestCostMVRewrite
                 .setOutputRowCount(rowCount)
                 .setTotalSize(totalSize)
                 .build();
+    }
+
+    @Test
+    public void testWarnsWhenRowLevelCandidateLosesOnCost()
+    {
+        // The row-level candidate is the expensive one, so a full recompute wins. Row-level having
+        // been available and not chosen is the cost picker working, and is reported separately from
+        // row-level having been ineligible.
+        RuleAssert assertion = tester.assertThat(new SelectLowestCostMVRewrite(COST_COMPARATOR))
+                .overrideStats("origSrc", statsEstimate(100, 800))
+                .overrideStats("mv1Src", statsEstimate(10000, 80000))
+                .on(p -> {
+                    VariableReferenceExpression col = p.variable("col", BIGINT);
+                    return new MVRewriteCandidatesNode(
+                            Optional.empty(),
+                            new PlanNodeId("mvnode"),
+                            p.filter(new PlanNodeId("origFilter"), TRUE_CONSTANT, p.values(new PlanNodeId("origSrc"), 1, col)),
+                            ImmutableList.of(new MVRewriteCandidate(
+                                    p.filter(new PlanNodeId("mv1Filter"), TRUE_CONSTANT, p.values(new PlanNodeId("mv1Src"), 1, col)),
+                                    "catalog", "schema", "mv1", true)),
+                            ImmutableList.of(col));
+                });
+        PlanNode result = assertion.get();
+        assertEquals(result.getId(), new PlanNodeId("origFilter"));
+        assertTrue(hasRowLevelRejectedOnCost(assertion),
+                "expected a row-level-rejected-on-cost warning, got " + assertion.getWarnings());
+    }
+
+    @Test
+    public void testDoesNotWarnWhenRowLevelCandidateWins()
+    {
+        // Same shape, costs reversed: row-level is chosen, so there is nothing to report.
+        RuleAssert assertion = tester.assertThat(new SelectLowestCostMVRewrite(COST_COMPARATOR))
+                .overrideStats("origSrc", statsEstimate(10000, 80000))
+                .overrideStats("mv1Src", statsEstimate(100, 800))
+                .on(p -> {
+                    VariableReferenceExpression col = p.variable("col", BIGINT);
+                    return new MVRewriteCandidatesNode(
+                            Optional.empty(),
+                            new PlanNodeId("mvnode"),
+                            p.filter(new PlanNodeId("origFilter"), TRUE_CONSTANT, p.values(new PlanNodeId("origSrc"), 1, col)),
+                            ImmutableList.of(new MVRewriteCandidate(
+                                    p.filter(new PlanNodeId("mv1Filter"), TRUE_CONSTANT, p.values(new PlanNodeId("mv1Src"), 1, col)),
+                                    "catalog", "schema", "mv1", true)),
+                            ImmutableList.of(col));
+                });
+        PlanNode result = assertion.get();
+        assertEquals(result.getId(), new PlanNodeId("mv1Filter"));
+        assertFalse(hasRowLevelRejectedOnCost(assertion), "row-level was chosen, so nothing should be reported");
+    }
+
+    @Test
+    public void testDoesNotWarnWhenNoRowLevelCandidateWasOffered()
+    {
+        // A partition-level candidate losing on cost is not reported: the warning exists to say
+        // row-level was available, and here it never was.
+        RuleAssert assertion = tester.assertThat(new SelectLowestCostMVRewrite(COST_COMPARATOR))
+                .overrideStats("origSrc", statsEstimate(100, 800))
+                .overrideStats("mv1Src", statsEstimate(10000, 80000))
+                .on(p -> {
+                    VariableReferenceExpression col = p.variable("col", BIGINT);
+                    return new MVRewriteCandidatesNode(
+                            Optional.empty(),
+                            new PlanNodeId("mvnode"),
+                            p.filter(new PlanNodeId("origFilter"), TRUE_CONSTANT, p.values(new PlanNodeId("origSrc"), 1, col)),
+                            ImmutableList.of(new MVRewriteCandidate(
+                                    p.filter(new PlanNodeId("mv1Filter"), TRUE_CONSTANT, p.values(new PlanNodeId("mv1Src"), 1, col)),
+                                    "catalog", "schema", "mv1")),
+                            ImmutableList.of(col));
+                });
+        assertion.get();
+        assertFalse(hasRowLevelRejectedOnCost(assertion), "no row-level candidate was offered");
+    }
+
+    private static boolean hasRowLevelRejectedOnCost(RuleAssert assertion)
+    {
+        return assertion.getWarnings().stream()
+                .anyMatch(warning -> warning.getWarningCode().equals(MATERIALIZED_VIEW_ROW_LEVEL_REJECTED_ON_COST.toWarningCode()));
     }
 }

@@ -32,6 +32,7 @@ import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_MAX_SNAPSHOTS_PER_REFRESH;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE;
+import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_ROW_LEVEL_INCREMENTAL_REFRESH;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_STALENESS_WINDOW;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_STALE_READ_BEHAVIOR;
 import static com.facebook.presto.iceberg.IcebergAbstractMetadata.PRESTO_MATERIALIZED_VIEW_STORAGE_SCHEMA;
@@ -62,6 +63,7 @@ public class IcebergMaterializedViewProperties
     public static final String REFRESH_TYPE = "refresh_type";
     public static final String USE_TIMESTAMP_BASED_STALENESS = "use_timestamp_based_staleness";
     public static final String MAX_SNAPSHOTS_PER_REFRESH = "max_snapshots_per_refresh";
+    public static final String ROW_LEVEL_INCREMENTAL_REFRESH = "row_level_incremental_refresh";
 
     private static final List<MaterializedViewProperty> MV_ONLY_PROPERTIES = ImmutableList.of(
             creationOnly(
@@ -110,6 +112,14 @@ public class IcebergMaterializedViewProperties
                             value -> value == null ? null : ((MaterializedViewRefreshType) value).name()),
                     PRESTO_MATERIALIZED_VIEW_REFRESH_TYPE,
                     value -> ((MaterializedViewRefreshType) value).name()),
+            updatable(
+                    booleanProperty(
+                            ROW_LEVEL_INCREMENTAL_REFRESH,
+                            "Opt this materialized view in to or out of row-level incremental refresh; unset leaves the choice to the session strategy",
+                            null,
+                            false),
+                    PRESTO_MATERIALIZED_VIEW_ROW_LEVEL_INCREMENTAL_REFRESH,
+                    value -> ((Boolean) value).toString()),
             creationOnly(
                     booleanProperty(
                             USE_TIMESTAMP_BASED_STALENESS,
@@ -244,6 +254,11 @@ public class IcebergMaterializedViewProperties
     public static Optional<MaterializedViewRefreshType> getRefreshType(Map<String, Object> properties)
     {
         return Optional.ofNullable((MaterializedViewRefreshType) properties.get(REFRESH_TYPE));
+    }
+
+    public static Optional<Boolean> getRowLevelIncrementalRefresh(Map<String, Object> properties)
+    {
+        return Optional.ofNullable((Boolean) properties.get(ROW_LEVEL_INCREMENTAL_REFRESH));
     }
 
     public static Optional<Boolean> getUseTimestampBasedStaleness(Map<String, Object> properties)

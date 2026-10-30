@@ -267,6 +267,7 @@ public final class IcebergUtil
     private static final Logger log = Logger.get(IcebergUtil.class);
     public static final int MIN_FORMAT_VERSION_FOR_DELETE = 2;
     public static final int MIN_FORMAT_VERSION_FOR_DELETION_VECTORS = 3;
+    public static final int MIN_FORMAT_VERSION_FOR_CHANGE_TRACKING = 2;
     public static final int MIN_FORMAT_VERSION_FOR_ROW_LINEAGE = 3;
     public static final int MAX_FORMAT_VERSION_FOR_METADATA_TABLES = 3;
     public static final int MAX_SUPPORTED_FORMAT_VERSION = 3;
@@ -370,6 +371,26 @@ public final class IcebergUtil
     public static boolean supportsRowLineage(Table table)
     {
         return opsFromTable(table).current().formatVersion() >= MIN_FORMAT_VERSION_FOR_ROW_LINEAGE;
+    }
+
+    /**
+     * Whether this table can say, per data file, when the rows in it were added.
+     *
+     * <p>Sequence numbers arrive in format version 2. A version 1 table reports zero for every
+     * snapshot and every data file, so a predicate asking for rows newer than a recorded sequence
+     * number matches nothing at all. It cannot locate a changed row, and fails silently rather than
+     * by raising: the predicate simply returns an empty change set, which reads as "nothing
+     * changed".
+     *
+     * <p>This is weaker than {@link #supportsRowLineage}, and the difference matters. A file's
+     * sequence number says when the file was added, not when each of its rows was last modified. The
+     * two agree only while rows are appended and never modified in place, which is why this gates
+     * the row-level change set -- whose caller separately requires the range to hold only appends --
+     * and not the bounded-refresh watermark, which has no such guarantee.
+     */
+    public static boolean supportsChangeTracking(Table table)
+    {
+        return opsFromTable(table).current().formatVersion() >= MIN_FORMAT_VERSION_FOR_CHANGE_TRACKING;
     }
 
     public static void validateMinimumFormatVersion(Table table, int minVersion, String errorMessage)
