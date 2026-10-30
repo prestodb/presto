@@ -1230,9 +1230,6 @@ public class IcebergPageSourceProvider
         if (!column.hasDefaultValue()) {
             return Optional.empty();
         }
-        if (column.getType().equals(UNKNOWN)) {
-            return Optional.empty();
-        }
         return Optional.ofNullable(IcebergUtil.deserializeIcebergValue(
                 column.getType(),
                 column.getDefaultValue().get(),
