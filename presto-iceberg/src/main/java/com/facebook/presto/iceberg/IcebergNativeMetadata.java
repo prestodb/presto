@@ -20,7 +20,6 @@ import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.iceberg.util.IcebergPrestoModelConverters;
-import com.facebook.presto.iceberg.UnknownFields;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -446,13 +445,6 @@ public class IcebergNativeMetadata
                 schemaTableName,
                 Optional.ofNullable(view.properties().get(VIEW_OWNER)),
                 viewData));
-    }
-
-    @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
-    {
-        UnknownFields.validateWritable(toIcebergSchema(tableMetadata.getColumns()));
-        return beginCreateTableForDdl(session, tableMetadata, layout);
     }
 
     @Override
