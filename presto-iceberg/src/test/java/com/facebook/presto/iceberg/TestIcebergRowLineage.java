@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
@@ -21,10 +22,12 @@ import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.ResultWithQueryId;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.MetadataColumns;
+import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -38,8 +41,10 @@ import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.DataWriter;
 import org.apache.iceberg.parquet.Parquet;
 import org.apache.iceberg.types.Types;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.Closeable;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -51,6 +56,8 @@ import java.util.UUID;
 
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.apache.iceberg.TableProperties.DEFAULT_WRITE_METRICS_MODE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -281,6 +288,142 @@ public class TestIcebergRowLineage
         }
     }
 
+    @DataProvider(name = "boundlessLineageMetricsMode")
+    public Object[][] boundlessLineageMetricsModeProvider()
+    {
+        return new Object[][] {
+                {"counts"},
+                {"none"}
+        };
+    }
+
+    /**
+     * A compacted file whose lineage columns have no bounds, only counts or no metrics at all,
+     * stores values the coordinator cannot see, so it must not be pruned by its own, newer data
+     * sequence number.
+     */
+    @Test(dataProvider = "boundlessLineageMetricsMode")
+    public void testCompactedFileWithoutLineageBoundsIsNotMisPruned(String lineageMetricsMode)
+            throws Exception
+    {
+        String tableName = "test_lineage_metrics_" + lineageMetricsMode;
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = catalog.createTable(tableId, PUSHDOWN_TABLE_SCHEMA, PartitionSpec.unpartitioned(),
+                    ImmutableMap.of("format-version", "3"));
+            appendOneRow(table, 1, "one");
+            appendOneRow(table, 2, "two");
+            List<long[]> idAndRowId = readIdAndLongColumn(getSession(), tableName, "_row_id");
+            List<long[]> idAndSequenceNumber = readIdAndSequenceNumber(tableName);
+            long preCompactionSequenceNumber1 = valueForId(idAndSequenceNumber, 1);
+            long preCompactionSequenceNumber2 = valueForId(idAndSequenceNumber, 2);
+            List<DataFile> preCompactionFiles = dataFiles(table);
+
+            Schema lineageSchema = MetadataColumns.schemaWithRowLineage(table.schema());
+            Record row1 = GenericRecord.create(lineageSchema);
+            row1.setField("id", 1);
+            row1.setField("value", "one");
+            row1.setField(MetadataColumns.ROW_ID.name(), valueForId(idAndRowId, 1));
+            row1.setField(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), preCompactionSequenceNumber1);
+            Record row2 = GenericRecord.create(lineageSchema);
+            row2.setField("id", 2);
+            row2.setField("value", "two");
+            row2.setField(MetadataColumns.ROW_ID.name(), valueForId(idAndRowId, 2));
+            row2.setField(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), preCompactionSequenceNumber2);
+            MetricsConfig boundlessLineage = MetricsConfig.fromProperties(ImmutableMap.of(
+                    "write.metadata.metrics.column." + MetadataColumns.ROW_ID.name(), lineageMetricsMode,
+                    "write.metadata.metrics.column." + MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), lineageMetricsMode));
+            DataFile compacted = writeFileWithMetrics(table, lineageSchema, boundlessLineage, row1, row2);
+            table.newRewrite()
+                    .rewriteFiles(ImmutableSet.copyOf(preCompactionFiles), ImmutableSet.of(compacted))
+                    .commit();
+            table.refresh();
+
+            int lineageFieldId = MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
+            DataFile committed = getOnlyElement(dataFiles(table));
+            assertEquals(committed.valueCounts() != null && committed.valueCounts().containsKey(lineageFieldId), lineageMetricsMode.equals("counts"),
+                    "compacted file should carry lineage value counts only in metrics mode counts");
+            assertTrue(committed.lowerBounds() == null || !committed.lowerBounds().containsKey(lineageFieldId),
+                    "compacted file should carry no lineage bounds");
+            assertTrue(committed.dataSequenceNumber() > preCompactionSequenceNumber2, "the rewrite must commit at a newer sequence number");
+
+            assertIdsForPredicate(tableName, "= " + preCompactionSequenceNumber1, ImmutableList.of(1));
+            assertIdsForPredicate(tableName, "= " + preCompactionSequenceNumber2, ImmutableList.of(2));
+            assertIdsForPredicate(tableName, "<= " + preCompactionSequenceNumber2, ImmutableList.of(1, 2));
+            assertIdsForPredicate(tableName, "= " + committed.dataSequenceNumber(), ImmutableList.of());
+        }
+        finally {
+            catalog.dropTable(tableId, true);
+        }
+    }
+
+    /**
+     * A file without column metrics that an APPEND snapshot added is pruned by its data sequence
+     * number, since an append stores no lineage values. The predicate admits values below the second
+     * file's sequence number, so only the APPEND snapshot lets that file be pruned.
+     */
+    @Test
+    public void testAppendedFileWithoutMetricsIsPruned()
+            throws Exception
+    {
+        String tableName = "test_lineage_append_without_metrics";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = catalog.createTable(tableId, PUSHDOWN_TABLE_SCHEMA, PartitionSpec.unpartitioned(),
+                    ImmutableMap.of("format-version", "3", DEFAULT_WRITE_METRICS_MODE, "none"));
+            appendOneRow(table, 1, "one");
+            appendOneRow(table, 2, "two");
+            assertNoColumnMetrics(table);
+            long sequenceNumber1 = sequenceNumberForId(readIdAndSequenceNumber(tableName), 1);
+
+            String selective = "SELECT id FROM " + tableName + " WHERE \"_last_updated_sequence_number\" = " + sequenceNumber1;
+            assertIdsForQuery(getSession(), selective, ImmutableList.of(1));
+            int splitsAll = completedSplitsFor("SELECT id FROM " + tableName);
+            int splitsSelective = completedSplitsFor(selective);
+            assertTrue(splitsAll > splitsSelective,
+                    "expected the second appended file to be pruned but unrestricted=" + splitsAll + " selective=" + splitsSelective);
+        }
+        finally {
+            catalog.dropTable(tableId, true);
+        }
+    }
+
+    /**
+     * No row's value exceeds its file's sequence number, so a predicate above it prunes a file without
+     * lineage metrics even after the APPEND snapshot that added the file is expired.
+     */
+    @Test
+    public void testFileFromExpiredAppendIsPrunedAboveItsSequenceNumber()
+            throws Exception
+    {
+        String tableName = "test_lineage_expired_append_pruned";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = catalog.createTable(tableId, PUSHDOWN_TABLE_SCHEMA, PartitionSpec.unpartitioned(),
+                    ImmutableMap.of("format-version", "3", DEFAULT_WRITE_METRICS_MODE, "none"));
+            appendOneRow(table, 1, "one");
+            long firstAppendSnapshotId = table.currentSnapshot().snapshotId();
+            appendOneRow(table, 2, "two");
+            assertNoColumnMetrics(table);
+            long sequenceNumber1 = sequenceNumberForId(readIdAndSequenceNumber(tableName), 1);
+            table.expireSnapshots().expireSnapshotId(firstAppendSnapshotId).commit();
+            table.refresh();
+
+            String selective = "SELECT id FROM " + tableName + " WHERE \"_last_updated_sequence_number\" > " + sequenceNumber1;
+            assertIdsForQuery(getSession(), selective, ImmutableList.of(2));
+            int splitsAll = completedSplitsFor("SELECT id FROM " + tableName);
+            int splitsSelective = completedSplitsFor(selective);
+            assertTrue(splitsAll > splitsSelective,
+                    "expected the file from the expired append to be pruned but unrestricted=" + splitsAll + " selective=" + splitsSelective);
+        }
+        finally {
+            catalog.dropTable(tableId, true);
+        }
+    }
+
     private static final Schema PUSHDOWN_TABLE_SCHEMA = new Schema(
             Types.NestedField.required(1, "id", Types.IntegerType.get()),
             Types.NestedField.optional(2, "value", Types.StringType.get()));
@@ -365,5 +508,78 @@ public class TestIcebergRowLineage
                 .getFullQueryInfo(result.getQueryId())
                 .getQueryStats();
         return stats.getCompletedSplits();
+    }
+
+    private void assertIdsForQuery(Session session, String sql, List<Integer> expectedIds)
+    {
+        assertEquals(sortedIdsOf(computeActual(session, sql)), ImmutableList.sortedCopyOf(expectedIds), "rows for \"" + sql + "\"");
+    }
+
+    private static List<Integer> sortedIdsOf(MaterializedResult result)
+    {
+        List<Integer> ids = new ArrayList<>();
+        for (MaterializedRow row : result.getMaterializedRows()) {
+            ids.add((Integer) row.getField(0));
+        }
+        ids.sort(Integer::compare);
+        return ids;
+    }
+
+    private List<long[]> readIdAndLongColumn(Session session, String tableName, String column)
+    {
+        List<long[]> rows = new ArrayList<>();
+        for (MaterializedRow row : computeActual(session, "SELECT id, \"" + column + "\" FROM " + tableName).getMaterializedRows()) {
+            rows.add(new long[] {(Integer) row.getField(0), (Long) row.getField(1)});
+        }
+        return rows;
+    }
+
+    private static long valueForId(List<long[]> rows, int id)
+    {
+        for (long[] row : rows) {
+            if (row[0] == id) {
+                return row[1];
+            }
+        }
+        throw new AssertionError("id not found: " + id);
+    }
+
+    private static List<DataFile> dataFiles(Table table)
+            throws Exception
+    {
+        List<DataFile> files = new ArrayList<>();
+        try (CloseableIterable<FileScanTask> tasks = table.newScan().includeColumnStats().planFiles()) {
+            for (FileScanTask task : tasks) {
+                files.add(task.file());
+            }
+        }
+        return files;
+    }
+
+    private static void assertNoColumnMetrics(Table table)
+            throws Exception
+    {
+        for (DataFile file : dataFiles(table)) {
+            assertTrue(file.valueCounts() == null || file.valueCounts().isEmpty(), "file should carry no column metrics: " + file.location());
+        }
+    }
+
+    private static DataFile writeFileWithMetrics(Table table, Schema writeSchema, MetricsConfig metricsConfig, Record... records)
+            throws Exception
+    {
+        org.apache.hadoop.fs.Path filePath = new org.apache.hadoop.fs.Path(table.location(), "data/data-" + UUID.randomUUID() + ".parquet");
+        DataWriter<Record> writer = Parquet.writeData(HadoopOutputFile.fromPath(filePath, new Configuration()))
+                .schema(writeSchema)
+                .withSpec(table.spec())
+                .createWriterFunc(GenericParquetWriter::create)
+                .metricsConfig(metricsConfig)
+                .overwrite()
+                .build();
+        try (Closeable ignored = writer) {
+            for (Record record : records) {
+                writer.write(record);
+            }
+        }
+        return writer.toDataFile();
     }
 }

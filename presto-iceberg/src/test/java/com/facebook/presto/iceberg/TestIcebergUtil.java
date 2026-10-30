@@ -25,18 +25,26 @@ import com.facebook.presto.hive.metastore.Column;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.HasTableOperations;
+import org.apache.iceberg.Metrics;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.hadoop.HadoopTables;
+import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -67,15 +75,18 @@ import static com.facebook.presto.iceberg.IcebergUtil.REAL_NEGATIVE_INFINITE;
 import static com.facebook.presto.iceberg.IcebergUtil.REAL_NEGATIVE_ZERO;
 import static com.facebook.presto.iceberg.IcebergUtil.REAL_POSITIVE_INFINITE;
 import static com.facebook.presto.iceberg.IcebergUtil.REAL_POSITIVE_ZERO;
+import static com.facebook.presto.iceberg.IcebergUtil.buildLastUpdatedSequenceNumberEvaluator;
 import static com.facebook.presto.iceberg.IcebergUtil.getAdjacentValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getMetadataColumnConstraints;
 import static com.facebook.presto.iceberg.IcebergUtil.getNonMetadataColumnConstraints;
 import static com.facebook.presto.iceberg.IcebergUtil.getTargetSplitSize;
+import static com.facebook.presto.iceberg.IcebergUtil.metadataColumnsMatchPredicates;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetReadSchema;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.intBitsToFloat;
+import static org.apache.iceberg.MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.expectThrows;
@@ -460,6 +471,84 @@ public class TestIcebergUtil
 
         assertThat(nonMetadata.getDomains().get()).doesNotContainKey(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE);
         assertThat(metadata.getDomains().get()).containsEntry(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE, leSeqTen);
+    }
+
+    @DataProvider
+    public Object[][] lastUpdatedSequenceNumberFiles()
+    {
+        // Each file is matched against _last_updated_sequence_number = 5. A null metric is absent
+        // from the file. Only the snapshot with sequence number 7 is a retained APPEND.
+        return new Object[][] {
+                // description, firstRowId, lowerBound, upperBound, valueCount, nullCount, fileSequenceNumber, dataSequenceNumber, expected
+                {"no row lineage", null, null, null, null, null, 7L, 5L, false},
+                {"bounds include the value", 0L, 4L, 6L, 10L, 0L, 7L, 3L, true},
+                {"bounds exclude the value, no inherited values", 0L, 1L, 2L, 10L, 0L, 7L, 5L, false},
+                {"bounds exclude the value, inherited values match", 0L, 1L, 2L, 10L, 3L, 7L, 5L, true},
+                {"bounds exclude the value, inherited values do not match", 0L, 1L, 2L, 10L, 3L, 7L, 3L, false},
+                {"bounds exclude the value, null count absent", 0L, 1L, 2L, 10L, null, 7L, 5L, true},
+                {"no bounds, null count absent", 0L, null, null, 10L, null, 7L, 3L, true},
+                {"no bounds, some values stored", 0L, null, null, 10L, 3L, 7L, 3L, true},
+                {"no bounds, some values stored, file sequence number below the value", 0L, null, null, 10L, 3L, 4L, 3L, false},
+                {"no bounds, all values inherited, no match", 0L, null, null, 10L, 10L, 7L, 3L, false},
+                {"no bounds, all values inherited, match", 0L, null, null, 10L, 10L, 7L, 5L, true},
+                {"no metrics, retained APPEND, no match", 0L, null, null, null, null, 7L, 3L, false},
+                {"no metrics, retained APPEND, match", 0L, null, null, null, null, 7L, 5L, true},
+                {"no metrics, not a retained APPEND", 0L, null, null, null, null, 8L, 3L, true},
+                {"no metrics, not a retained APPEND, file sequence number below the value", 0L, null, null, null, null, 4L, 3L, false},
+                {"no metrics, file sequence number absent", 0L, null, null, null, null, null, 3L, true},
+        };
+    }
+
+    @Test(dataProvider = "lastUpdatedSequenceNumberFiles")
+    public void testLastUpdatedSequenceNumberSplitPruning(
+            String description,
+            Long firstRowId,
+            Long lowerBound,
+            Long upperBound,
+            Long valueCount,
+            Long nullCount,
+            Long fileSequenceNumber,
+            long dataSequenceNumber,
+            boolean expected)
+    {
+        TupleDomain<IcebergColumnHandle> constraints = TupleDomain.withColumnDomains(
+                ImmutableMap.of(LAST_UPDATED_SEQUENCE_NUMBER_COLUMN_HANDLE, Domain.singleValue(BIGINT, 5L)));
+        DataFile file = DataFiles.builder(PartitionSpec.unpartitioned())
+                .withPath("/data/file.parquet")
+                .withFormat(org.apache.iceberg.FileFormat.PARQUET)
+                .withFileSizeInBytes(100)
+                .withMetrics(new Metrics(10L, null, metric(valueCount), metric(nullCount), null, bound(lowerBound), bound(upperBound)))
+                .withFirstRowId(firstRowId)
+                .build();
+
+        assertThat(metadataColumnsMatchPredicates(
+                constraints,
+                file.location(),
+                dataSequenceNumber,
+                withFileSequenceNumber(file, fileSequenceNumber),
+                buildLastUpdatedSequenceNumberEvaluator(constraints),
+                () -> ImmutableSet.of(7L)))
+                .as(description)
+                .isEqualTo(expected);
+    }
+
+    private static <T> Map<Integer, T> metric(T value)
+    {
+        return value == null ? ImmutableMap.of() : ImmutableMap.of(LAST_UPDATED_SEQUENCE_NUMBER.fieldId(), value);
+    }
+
+    private static Map<Integer, ByteBuffer> bound(Long value)
+    {
+        return metric(value == null ? null : Conversions.toByteBuffer(Types.LongType.get(), value));
+    }
+
+    // Iceberg assigns the file sequence number on commit, and DataFiles.Builder cannot set it.
+    private static DataFile withFileSequenceNumber(DataFile file, Long fileSequenceNumber)
+    {
+        return (DataFile) Proxy.newProxyInstance(
+                DataFile.class.getClassLoader(),
+                new Class<?>[] {DataFile.class},
+                (proxy, method, args) -> method.getName().equals("fileSequenceNumber") ? fileSequenceNumber : method.invoke(file, args));
     }
 
     @Test
