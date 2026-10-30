@@ -763,6 +763,13 @@ public abstract class IcebergAbstractMetadata
         finishCreateTable(session, beginCreateTableForDdl(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
     }
 
+    @Override
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    {
+        UnknownFields.validateWritable(toIcebergSchema(tableMetadata.getColumns()));
+        return beginCreateTableForDdl(session, tableMetadata, layout);
+    }
+
     /**
      * Creates the Iceberg table metadata for a DDL CREATE TABLE statement. Unlike
      * {@link #beginCreateTable}, this does not validate write constraints such as
