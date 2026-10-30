@@ -25,6 +25,8 @@ TEST_F(SessionPropertiesTest, validateMapping) {
   const std::unordered_map<std::string, std::string> expectedMappings = {
       {SessionProperties::kBroadcastFileDescriptorEnabled,
        SessionProperties::kBroadcastFileDescriptorEnabled},
+      {SessionProperties::kCudfExchangeEnabled,
+       SessionProperties::kCudfExchangeEnabledConfig},
       {SessionProperties::kExprEvalSimplified,
        core::QueryConfig::kExprEvalSimplified},
       {SessionProperties::kExprMaxArraySizeInReduce,

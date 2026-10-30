@@ -19,6 +19,7 @@ import com.facebook.presto.execution.SqlStageExecution;
 import com.facebook.presto.execution.scheduler.FixedSourcePartitionedScheduler.BucketedSplitPlacementPolicy;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.Split;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorPartitionHandle;
 import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.split.EmptySplit;
@@ -49,6 +50,7 @@ import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReas
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
 import static com.facebook.presto.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
 import static com.facebook.presto.spi.SplitContext.NON_CACHEABLE;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -60,6 +62,10 @@ import static java.util.Objects.requireNonNull;
 public class SourcePartitionedScheduler
         implements SourceScheduler
 {
+    // Bound this opt-in metadata experiment. Never silently fall back to a
+    // batch-dependent placement once a partial set has been collected.
+    private static final int MAX_DETERMINISTIC_PLACEMENT_SPLITS = 100_000;
+
     private enum State
     {
         /**
@@ -116,6 +122,8 @@ public class SourcePartitionedScheduler
         checkArgument(splitBatchSize > 0, "splitBatchSize must be at least one");
         this.splitBatchSize = splitBatchSize;
         this.groupedExecution = groupedExecution;
+        checkArgument(!groupedExecution || !splitPlacementPolicy.requiresFullSplitSet(),
+                "Deterministic bounded placement does not support grouped execution");
     }
 
     public PlanNodeId getPlanNodeId()
@@ -228,7 +236,7 @@ public class SourcePartitionedScheduler
             if (scheduleGroup.state == ScheduleGroupState.NO_MORE_SPLITS || scheduleGroup.state == ScheduleGroupState.DONE) {
                 verify(scheduleGroup.nextSplitBatchFuture == null);
             }
-            else if (scheduleGroup.pendingSplits.isEmpty()) {
+            else if (scheduleGroup.pendingSplits.isEmpty() || splitPlacementPolicy.requiresFullSplitSet()) {
                 // try to get the next batch
                 if (scheduleGroup.nextSplitBatchFuture == null) {
                     scheduleGroup.nextSplitBatchFuture = splitSource.getNextBatch(scheduleGroup.partitionHandle, lifespan, splitBatchSize);
@@ -240,7 +248,22 @@ public class SourcePartitionedScheduler
                 if (scheduleGroup.nextSplitBatchFuture.isDone()) {
                     SplitBatch nextSplits = getFutureValue(scheduleGroup.nextSplitBatchFuture);
                     scheduleGroup.nextSplitBatchFuture = null;
-                    scheduleGroup.pendingSplits = new HashSet<>(nextSplits.getSplits());
+                    if (splitPlacementPolicy.requiresFullSplitSet()) {
+                        scheduleGroup.collectedSplitCount += nextSplits.getSplits().size();
+                        if (scheduleGroup.collectedSplitCount > MAX_DETERMINISTIC_PLACEMENT_SPLITS) {
+                            throw new PrestoException(NOT_SUPPORTED,
+                                    "Deterministic bounded placement supports at most 100000 split records per scan; disable experimental_deterministic_bounded_splits for larger scans");
+                        }
+                        scheduleGroup.pendingSplits.addAll(nextSplits.getSplits());
+                        if (!nextSplits.isLastBatch()) {
+                            anyNotBlocked = true;
+                            continue;
+                        }
+                        splitPlacementPolicy.prepareForSplits(scheduleGroup.pendingSplits);
+                    }
+                    else {
+                        scheduleGroup.pendingSplits = new HashSet<>(nextSplits.getSplits());
+                    }
                     if (nextSplits.isLastBatch()) {
                         if (scheduleGroup.state == ScheduleGroupState.INITIALIZED && scheduleGroup.pendingSplits.isEmpty()) {
                             // Add an empty split in case no splits have been produced for the source.
@@ -513,6 +536,7 @@ public class SourcePartitionedScheduler
         public ListenableFuture<SplitBatch> nextSplitBatchFuture;
         public ListenableFuture<?> placementFuture = Futures.immediateFuture(null);
         public Set<Split> pendingSplits = new HashSet<>();
+        public long collectedSplitCount;
         public ScheduleGroupState state = ScheduleGroupState.INITIALIZED;
 
         public ScheduleGroup(ConnectorPartitionHandle partitionHandle)
