@@ -65,7 +65,9 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -118,6 +120,7 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
@@ -172,6 +175,21 @@ public class AbstractAnalyzerTest
             "RETURN x * x",
             notVersioned());
 
+    protected static final SqlInvokedFunction SQL_AGGREGATE_SUM = new SqlInvokedFunction(
+            QualifiedObjectName.valueOf("unittest", "memory", "sum"),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
+            parseTypeSignature(StandardTypes.BIGINT),
+            "custom aggregate named sum",
+            RoutineCharacteristics.builder()
+                    .setLanguage(SQL)
+                    .setDeterminism(DETERMINISTIC)
+                    .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
+                    .build(),
+            "",
+            notVersioned(),
+            FunctionKind.AGGREGATE,
+            Optional.of(new AggregationFunctionMetadata(parseTypeSignature(StandardTypes.BIGINT), false)));
+
     protected TransactionManager transactionManager;
     protected AccessControl accessControl;
     protected Metadata metadata;
@@ -185,6 +203,9 @@ public class AbstractAnalyzerTest
         metadata = createTestMetadataManager(transactionManager, new FeaturesConfig(), new FunctionsConfig(), new TestProcedureRegistry());
 
         metadata.getFunctionAndTypeManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
+        metadata.getFunctionAndTypeManager().registerBuiltInFunctions(extractFunctions(TestingMaterializedViewPartitionFunctions.class));
+        metadata.getFunctionAndTypeManager().registerMaterializedViewPartitionTransformProviders(
+                ImmutableList.of(new TestingMaterializedViewPartitionTransformProvider()));
 
         metadata.getFunctionAndTypeManager().addFunctionNamespace(
                 "unittest",
@@ -196,6 +217,7 @@ public class AbstractAnalyzerTest
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
 
         metadata.getFunctionAndTypeManager().createFunction(SQL_FUNCTION_SQUARE, true);
+        metadata.getFunctionAndTypeManager().createFunction(SQL_AGGREGATE_SUM, true);
 
         metadata.getFunctionAndTypeManager().getTableFunctionRegistry().addTableFunctions(TPCH_CONNECTOR_ID,
                 ImmutableList.of(

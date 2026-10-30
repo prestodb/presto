@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.spi;
 
+import com.facebook.presto.common.TransformationSubtype;
 import com.facebook.presto.spi.security.ViewSecurity;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -20,6 +21,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,6 +45,9 @@ public final class MaterializedViewDefinition
     private final Optional<List<String>> validRefreshColumns;
     private final Optional<MaterializedViewStalenessConfig> stalenessConfig;
     private final Optional<MaterializedViewRefreshType> refreshType;
+    // Keyed by view column name. Absent for view definitions written before provenance was
+    // recorded, which is why an empty map must not be read as "every column is an identity".
+    private final Map<String, ColumnProvenance> columnProvenance;
 
     @JsonCreator
     public MaterializedViewDefinition(
@@ -57,8 +62,12 @@ public final class MaterializedViewDefinition
             @JsonProperty("baseTablesOnOuterJoinSide") List<SchemaTableName> baseTablesOnOuterJoinSide,
             @JsonProperty("validRefreshColumns") Optional<List<String>> validRefreshColumns,
             @JsonProperty("stalenessConfig") Optional<MaterializedViewStalenessConfig> stalenessConfig,
-            @JsonProperty("refreshType") Optional<MaterializedViewRefreshType> refreshType)
+            @JsonProperty("refreshType") Optional<MaterializedViewRefreshType> refreshType,
+            @JsonProperty("columnProvenance") Map<String, ColumnProvenance> columnProvenance)
     {
+        this.columnProvenance = columnProvenance == null
+                ? Collections.emptyMap()
+                : Collections.unmodifiableMap(new LinkedHashMap<>(columnProvenance));
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.schema = requireNonNull(schema, "schema is null");
         this.table = requireNonNull(table, "table is null");
@@ -71,6 +80,37 @@ public final class MaterializedViewDefinition
         this.validRefreshColumns = requireNonNull(validRefreshColumns, "validRefreshColumns is null").map(columns -> unmodifiableList(new ArrayList<>(columns)));
         this.stalenessConfig = requireNonNull(stalenessConfig, "stalenessConfig is null");
         this.refreshType = requireNonNull(refreshType, "refreshType is null");
+    }
+
+    @JsonIgnore
+    public MaterializedViewDefinition(
+            String originalSql,
+            String schema,
+            String table,
+            List<SchemaTableName> baseTables,
+            Optional<List<String>> baseTableCatalogs,
+            Optional<String> owner,
+            Optional<ViewSecurity> securityMode,
+            List<ColumnMapping> columnMappings,
+            List<SchemaTableName> baseTablesOnOuterJoinSide,
+            Optional<List<String>> validRefreshColumns,
+            Optional<MaterializedViewStalenessConfig> stalenessConfig,
+            Optional<MaterializedViewRefreshType> refreshType)
+    {
+        this(
+                originalSql,
+                schema,
+                table,
+                baseTables,
+                baseTableCatalogs,
+                owner,
+                securityMode,
+                columnMappings,
+                baseTablesOnOuterJoinSide,
+                validRefreshColumns,
+                stalenessConfig,
+                refreshType,
+                Collections.emptyMap());
     }
 
     @JsonIgnore
@@ -97,7 +137,8 @@ public final class MaterializedViewDefinition
                 baseTablesOnOuterJoinSide,
                 validRefreshColumns,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                Collections.emptyMap());
     }
 
     @JsonIgnore
@@ -129,7 +170,8 @@ public final class MaterializedViewDefinition
                 baseTablesOnOuterJoinSide,
                 validRefreshColumns,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                Collections.emptyMap());
     }
 
     @JsonIgnore
@@ -187,6 +229,38 @@ public final class MaterializedViewDefinition
                 baseTableCatalogs,
                 owner,
                 securityMode,
+                originalColumnMapping,
+                nonNullColumnMappings,
+                derivedColumnMappings,
+                baseTablesOnOuterJoinSide,
+                validRefreshColumns,
+                Collections.emptyMap());
+    }
+
+    @JsonIgnore
+    public MaterializedViewDefinition(
+            String originalSql,
+            String schema,
+            String table,
+            List<SchemaTableName> baseTables,
+            Optional<List<String>> baseTableCatalogs,
+            Optional<String> owner,
+            Optional<ViewSecurity> securityMode,
+            Map<String, Map<SchemaTableName, String>> originalColumnMapping,
+            Map<String, Map<SchemaTableName, String>> nonNullColumnMappings,
+            Map<String, List<TableColumn>> derivedColumnMappings,
+            List<SchemaTableName> baseTablesOnOuterJoinSide,
+            Optional<List<String>> validRefreshColumns,
+            Map<String, ColumnProvenance> columnProvenance)
+    {
+        this(
+                originalSql,
+                schema,
+                table,
+                baseTables,
+                baseTableCatalogs,
+                owner,
+                securityMode,
                 convertFromMapToColumnMappings(
                         requireNonNull(originalColumnMapping, "originalColumnMapping is null"),
                         requireNonNull(nonNullColumnMappings, "nonNullColumnMappings is null"),
@@ -195,7 +269,8 @@ public final class MaterializedViewDefinition
                 baseTablesOnOuterJoinSide,
                 validRefreshColumns,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                columnProvenance);
     }
 
     @JsonProperty
@@ -270,6 +345,12 @@ public final class MaterializedViewDefinition
         return refreshType;
     }
 
+    @JsonProperty
+    public Map<String, ColumnProvenance> getColumnProvenance()
+    {
+        return columnProvenance;
+    }
+
     @Override
     public String toString()
     {
@@ -286,6 +367,7 @@ public final class MaterializedViewDefinition
         sb.append(",validRefreshColumns=").append(validRefreshColumns.orElse(null));
         sb.append(",stalenessConfig=").append(stalenessConfig.orElse(null));
         sb.append(",refreshType=").append(refreshType.orElse(null));
+        sb.append(",columnProvenance=").append(columnProvenance);
         sb.append("}");
         return sb.toString();
     }
@@ -394,6 +476,129 @@ public final class MaterializedViewDefinition
         }
     }
 
+    /**
+     * How a materialized view output column was produced, recorded per view column so that
+     * aggregates with no source-column lineage (notably {@code COUNT(*)}) are still representable.
+     * Stores a stable descriptor rather than a resolved FunctionHandle, which is explicitly not
+     * guaranteed backward compatible and would outlive many releases inside a view definition.
+     */
+    public static final class ColumnProvenance
+    {
+        public static final int CURRENT_VERSION = 1;
+
+        private final int version;
+        private final Optional<String> functionName;
+        private final TransformationSubtype subtype;
+        private final Optional<String> returnType;
+        private final boolean distinct;
+
+        @JsonCreator
+        public ColumnProvenance(
+                @JsonProperty("version") int version,
+                @JsonProperty("functionName") Optional<String> functionName,
+                @JsonProperty("subtype") TransformationSubtype subtype,
+                @JsonProperty("returnType") Optional<String> returnType,
+                @JsonProperty("distinct") boolean distinct)
+        {
+            this.version = version;
+            this.functionName = requireNonNull(functionName, "functionName is null");
+            this.subtype = requireNonNull(subtype, "subtype is null");
+            this.returnType = requireNonNull(returnType, "returnType is null");
+            this.distinct = distinct;
+        }
+
+        public ColumnProvenance(
+                int version,
+                Optional<String> functionName,
+                TransformationSubtype subtype,
+                Optional<String> returnType)
+        {
+            this(version, functionName, subtype, returnType, false);
+        }
+
+        public ColumnProvenance(Optional<String> functionName, TransformationSubtype subtype, Optional<String> returnType)
+        {
+            this(CURRENT_VERSION, functionName, subtype, returnType, false);
+        }
+
+        public ColumnProvenance(Optional<String> functionName, TransformationSubtype subtype, Optional<String> returnType, boolean distinct)
+        {
+            this(CURRENT_VERSION, functionName, subtype, returnType, distinct);
+        }
+
+        @JsonProperty
+        public int getVersion()
+        {
+            return version;
+        }
+
+        @JsonProperty
+        public Optional<String> getFunctionName()
+        {
+            return functionName;
+        }
+
+        @JsonProperty
+        public TransformationSubtype getSubtype()
+        {
+            return subtype;
+        }
+
+        @JsonProperty
+        public Optional<String> getReturnType()
+        {
+            return returnType;
+        }
+
+        @JsonProperty
+        public boolean isDistinct()
+        {
+            return distinct;
+        }
+
+        @JsonIgnore
+        public boolean isAggregation()
+        {
+            return subtype == TransformationSubtype.AGGREGATION;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ColumnProvenance that = (ColumnProvenance) o;
+            return version == that.version &&
+                    distinct == that.distinct &&
+                    Objects.equals(functionName, that.functionName) &&
+                    subtype == that.subtype &&
+                    Objects.equals(returnType, that.returnType);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(version, functionName, subtype, returnType, distinct);
+        }
+
+        @Override
+        public String toString()
+        {
+            StringBuilder sb = new StringBuilder("ColumnProvenance{");
+            sb.append("version=").append(version);
+            sb.append(",functionName=").append(functionName.orElse(null));
+            sb.append(",subtype=").append(subtype);
+            sb.append(",returnType=").append(returnType.orElse(null));
+            sb.append(",distinct=").append(distinct);
+            sb.append("}");
+            return sb.toString();
+        }
+    }
+
     public static final class TableColumn
     {
         private final SchemaTableName tableName;
@@ -406,16 +611,33 @@ public final class MaterializedViewDefinition
         // t2_a -> t2.a is direct mapped(value can become null but column mapping is not altered)
         // t2_a -> t1.a is NOT direct mapped(as t1,t2 are in outer join)
         private final Optional<Boolean> isDirectMapped;
+        /**
+         * Provider-defined metadata describing how this source column maps to the view column.
+         * An empty map denotes an ordinary mapping.
+         */
+        private final Map<String, String> columnMappingInfo;
 
         @JsonCreator
         public TableColumn(
                 @JsonProperty("tableName") SchemaTableName tableName,
                 @JsonProperty("columnName") String columnName,
-                @JsonProperty("isDirectMapped") Optional<Boolean> isDirectMapped)
+                @JsonProperty("isDirectMapped") Optional<Boolean> isDirectMapped,
+                @JsonProperty("columnMappingInfo") Map<String, String> columnMappingInfo)
         {
             this.tableName = requireNonNull(tableName, "tableName is null");
             this.columnName = requireNonNull(columnName, "columnName is null");
             this.isDirectMapped = requireNonNull(isDirectMapped, "isDirectMapped is null");
+            this.columnMappingInfo = columnMappingInfo == null
+                    ? Collections.emptyMap()
+                    : Collections.unmodifiableMap(new LinkedHashMap<>(columnMappingInfo));
+        }
+
+        public TableColumn(
+                SchemaTableName tableName,
+                String columnName,
+                Optional<Boolean> isDirectMapped)
+        {
+            this(tableName, columnName, isDirectMapped, Collections.emptyMap());
         }
 
         public TableColumn(
@@ -431,6 +653,15 @@ public final class MaterializedViewDefinition
                 boolean isDirectMapped)
         {
             this(tableName, columnName, Optional.of(isDirectMapped));
+        }
+
+        public TableColumn(
+                SchemaTableName tableName,
+                String columnName,
+                boolean isDirectMapped,
+                Map<String, String> columnMappingInfo)
+        {
+            this(tableName, columnName, Optional.of(isDirectMapped), columnMappingInfo);
         }
 
         @JsonProperty
@@ -449,6 +680,12 @@ public final class MaterializedViewDefinition
         public Optional<Boolean> isDirectMapped()
         {
             return isDirectMapped;
+        }
+
+        @JsonProperty
+        public Map<String, String> getColumnMappingInfo()
+        {
+            return columnMappingInfo;
         }
 
         @Override
@@ -475,7 +712,9 @@ public final class MaterializedViewDefinition
         @Override
         public String toString()
         {
-            return tableName + ":" + columnName + (isDirectMapped.orElse(true) ? "" : "isDirectMapped:false");
+            return tableName + ":" + columnName
+                    + (isDirectMapped.orElse(true) ? "" : "isDirectMapped:false")
+                    + (columnMappingInfo.isEmpty() ? "" : columnMappingInfo.toString());
         }
     }
 }
