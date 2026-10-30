@@ -213,7 +213,8 @@ public class CreateMaterializedViewTask
                 extractor.getMaterializedViewDirectColumnMappings(),
                 derivedColumnMappings,
                 extractor.getBaseTablesOnOuterJoinSide(),
-                Optional.empty());
+                Optional.empty(),
+                extractor.getMaterializedViewColumnProvenance());
         try {
             metadata.createMaterializedView(session, viewName.getCatalogName(), viewMetadata, viewDefinition, statement.isNotExists());
         }
