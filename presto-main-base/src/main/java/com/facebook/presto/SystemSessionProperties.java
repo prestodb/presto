@@ -292,6 +292,7 @@ public final class SystemSessionProperties
     public static final String MATERIALIZED_VIEW_DEFAULT_REFRESH_TYPE = "materialized_view_default_refresh_type";
     public static final String MATERIALIZED_VIEW_STITCHING_STRATEGY = "materialized_view_stitching_strategy";
     public static final String MATERIALIZED_VIEW_INCREMENTAL_REFRESH_STRATEGY = "materialized_view_incremental_refresh_strategy";
+    public static final String MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW_ENABLED = "materialized_view_on_materialized_view_enabled";
     public static final String AGGREGATION_IF_TO_FILTER_REWRITE_STRATEGY = "aggregation_if_to_filter_rewrite_strategy";
     public static final String JOINS_NOT_NULL_INFERENCE_STRATEGY = "joins_not_null_inference_strategy";
     public static final String RESOURCE_AWARE_SCHEDULING_STRATEGY = "resource_aware_scheduling_strategy";
@@ -1627,6 +1628,11 @@ public final class SystemSessionProperties
                         MATERIALIZED_VIEW_QUERY_REWRITE_COST_BASED_SELECTION_ENABLED,
                         "When enabled, collect all compatible MV candidates and defer selection to cost-based optimizer instead of using the first compatible MV",
                         featuresConfig.isMaterializedViewQueryRewriteCostBasedSelectionEnabled(),
+                        false),
+                booleanProperty(
+                        MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW_ENABLED,
+                        "Experimental: allow CREATE MATERIALIZED VIEW to read from another materialized view, for rollup tiers",
+                        false,
                         false),
                 new PropertyMetadata<>(
                         LEGACY_MATERIALIZED_VIEWS,
@@ -3581,6 +3587,11 @@ public final class SystemSessionProperties
     public static boolean isMaterializedViewDataConsistencyEnabled(Session session)
     {
         return session.getSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, Boolean.class);
+    }
+
+    public static boolean isMaterializedViewOnMaterializedViewEnabled(Session session)
+    {
+        return session.getSystemProperty(MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW_ENABLED, Boolean.class);
     }
 
     public static boolean isMaterializedViewPartitionFilteringEnabled(Session session)
