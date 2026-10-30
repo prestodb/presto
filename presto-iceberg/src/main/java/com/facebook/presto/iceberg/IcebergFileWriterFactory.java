@@ -75,8 +75,8 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetWri
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getParquetWriterVersion;
 import static com.facebook.presto.iceberg.TypeConverter.toOrcType;
 import static com.facebook.presto.iceberg.TypeConverter.toPrestoType;
-import static com.facebook.presto.iceberg.UnknownFields.isUnknownType;
-import static com.facebook.presto.iceberg.UnknownFields.validateWritable;
+import static com.facebook.presto.iceberg.UnknownUtils.isUnknownType;
+import static com.facebook.presto.iceberg.UnknownUtils.validateWritable;
 import static com.facebook.presto.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static com.facebook.presto.orc.NoOpOrcWriterStats.NOOP_WRITER_STATS;
 import static com.facebook.presto.orc.OrcEncoding.ORC;

@@ -29,9 +29,9 @@ import static java.lang.String.format;
  * Iceberg leaves such a field out of the Parquet and ORC schemas it writes, so Presto has to leave
  * it out of both the schema it writes and the values it writes.
  */
-public final class UnknownFields
+public final class UnknownUtils
 {
-    private UnknownFields() {}
+    private UnknownUtils() {}
 
     static boolean isUnknownType(Type type)
     {
