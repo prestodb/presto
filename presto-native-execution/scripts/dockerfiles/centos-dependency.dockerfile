@@ -60,9 +60,9 @@ RUN bash -c "mkdir build && \
 # paths and is what RAPIDS CI uses.
 # See: https://github.com/rapidsai/sccache
 # Checksums come from the release's .sha256 files; update them together with the version.
-ARG SCCACHE_VERSION="0.17.0-rapids.2"
-ARG SCCACHE_SHA256_X86_64="19bd470e09ecaf38d195c7ddbc3585e4c1164d64d65fb5f15120cc7df3f15e67"
-ARG SCCACHE_SHA256_AARCH64="f04441eeca46bb14212f03ebed6aaff874d6174d55b540aef9bce10adf7805ff"
+ARG SCCACHE_VERSION="0.18.0-rapids.10"
+ARG SCCACHE_SHA256_X86_64="e082a4f16b6625836bd842fd111dae9e8866d4927685f6eedab9cbc7fac959d0"
+ARG SCCACHE_SHA256_AARCH64="dd0547c5cbf52f74dde53c6444a261fcb01dec06d0b15820a13d6818284ac916"
 RUN set -eu && \
     arch="$(uname -m)" && \
     case "${arch}" in \
