@@ -173,6 +173,7 @@ public class CreateMaterializedViewTask
                 .collect(toImmutableList());
 
         MaterializedViewColumnMappingExtractor extractor = new MaterializedViewColumnMappingExtractor(analysis, session, metadata);
+        extractor.validateAggregateMergePartners();
         Map<String, Map<SchemaTableName, String>> columnMappings = extractor.getMaterializedViewColumnMappings();
         Map<String, List<TableColumn>> derivedColumnMappings = extractor.getMaterializedViewDerivedColumnMappings();
 
@@ -213,7 +214,8 @@ public class CreateMaterializedViewTask
                 extractor.getMaterializedViewDirectColumnMappings(),
                 derivedColumnMappings,
                 extractor.getBaseTablesOnOuterJoinSide(),
-                Optional.empty());
+                Optional.empty(),
+                extractor.getMaterializedViewColumnProvenance());
         try {
             metadata.createMaterializedView(session, viewName.getCatalogName(), viewMetadata, viewDefinition, statement.isNotExists());
         }
