@@ -44,7 +44,7 @@ if(PRESTO_ENABLE_CUDF)
   )
   include(${CMAKE_SOURCE_DIR}/velox/CMake/ResolveDependency.cmake)
   velox_resolve_dependency_url(rapids_cmake)
-  message(STATUS "Rapids CMake: ${VELOX_rapids_cmake_SOURCE_URL}")
+  message(STATUS "rapids-cmake: ${VELOX_rapids_cmake_SOURCE_URL}")
 
   FetchContent_Declare(
     rapids-cmake
