@@ -1643,10 +1643,12 @@ public abstract class IcebergDistributedSmokeTestBase
         assertQuery(session, "SELECT id, info.a, info.b FROM test_nested_rename_swap",
                 "VALUES (1, 20, 10)");
 
-        // Write a row after the swap using the new names.
+        // Renaming does not reorder fields: the struct is now ROW(b, a), because the first field
+        // (originally 'a') is now 'b' and the second (originally 'b') is now 'a'.
+        // ROW(200, 100) is positional, so 200 goes to the first field ('b') and 100 to the second ('a').
         assertUpdate(session, "INSERT INTO test_nested_rename_swap VALUES (2, ROW(200, 100))", 1);
         assertQuery(session, "SELECT id, info.a, info.b FROM test_nested_rename_swap ORDER BY id",
-                "VALUES (1, 20, 10), (2, 200, 100)");
+                "VALUES (1, 20, 10), (2, 100, 200)");
 
         dropTable(session, "test_nested_rename_swap");
     }
@@ -1807,13 +1809,14 @@ public abstract class IcebergDistributedSmokeTestBase
                 assertUpdate(session, "ALTER TABLE test_rename_hist_swap RENAME COLUMN info.b TO a");
                 assertUpdate(session, "ALTER TABLE test_rename_hist_swap RENAME COLUMN info.tmp TO b");
 
-                // id=2 written AFTER the swap; a=200, b=100.
+                // id=2 written AFTER the swap. Renaming does not reorder fields, so the struct is now
+                // ROW(b, a); the positional ROW(200, 100) sets b=200 and a=100.
                 assertUpdate(session, "INSERT INTO test_rename_hist_swap VALUES (2, ROW(200, 100))", 1);
 
                 // id=1: field written as (a=10, b=20) before swap; after swap 'b' has the old 'a' value (10)
                 // and 'a' has the old 'b' value (20).
                 assertQuery(session, "SELECT id, info.a, info.b FROM test_rename_hist_swap ORDER BY id",
-                        "VALUES (1, 20, 10), (2, 200, 100)");
+                        "VALUES (1, 20, 10), (2, 100, 200)");
 
                 dropTable(session, "test_rename_hist_swap");
 
