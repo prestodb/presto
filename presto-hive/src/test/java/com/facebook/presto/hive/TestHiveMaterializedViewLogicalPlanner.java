@@ -14,12 +14,16 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.TransformationSubtype;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Table;
+import com.facebook.presto.spi.MaterializedViewDefinition;
+import com.facebook.presto.spi.MaterializedViewDefinition.ColumnProvenance;
 import com.facebook.presto.spi.plan.JoinNode;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.security.Identity;
@@ -45,6 +49,7 @@ import static com.facebook.presto.SystemSessionProperties.CONSIDER_QUERY_FILTERS
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static com.facebook.presto.SystemSessionProperties.MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.MATERIALIZED_VIEW_QUERY_REWRITE_COST_BASED_SELECTION_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.PREFER_PARTIAL_AGGREGATION;
 import static com.facebook.presto.SystemSessionProperties.QUERY_OPTIMIZATION_WITH_MATERIALIZED_VIEW_ENABLED;
@@ -82,6 +87,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.tpch.TpchTable.CUSTOMER;
 import static io.airlift.tpch.TpchTable.LINE_ITEM;
@@ -3151,6 +3157,48 @@ public class TestHiveMaterializedViewLogicalPlanner
         }
         finally {
             queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + view);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewOverMaterializedViewChecksMergePartners()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_rollup_base";
+        String sourceView = "orders_rollup_daily";
+        String rollupView = "orders_rollup_total";
+        Session session = Session.builder(getSession())
+                .setSystemProperty(MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW_ENABLED, "true")
+                .build();
+
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, orderpriority, '2020-01-01' AS ds FROM orders WHERE orderkey < 1000", table));
+            assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderpriority, COUNT(*) AS Orders, ds FROM %s GROUP BY orderpriority, ds", sourceView, table));
+
+            MaterializedViewDefinition definition = transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
+                    .execute(getSession(), transactionSession -> {
+                        QualifiedObjectName viewName = new QualifiedObjectName(HIVE_CATALOG, getSession().getSchema().get(), sourceView);
+                        return queryRunner.getMetadata().getMetadataResolver(transactionSession).getMaterializedView(viewName).get();
+                    });
+            assertEquals(definition.getBaseTableCatalogs(), Optional.of(ImmutableList.of(HIVE_CATALOG)));
+            assertEquals(
+                    definition.getColumnProvenance().get("Orders"),
+                    new ColumnProvenance(Optional.of("count"), TransformationSubtype.AGGREGATION, Optional.of("bigint")));
+
+            assertQueryFails(
+                    session,
+                    format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                            "SELECT COUNT(orders) AS orders, ds FROM %s GROUP BY ds", rollupView, sourceView),
+                    ".*was produced by count, so rolling it up requires sum, not count.*");
+            assertUpdate(session, format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT SUM(orders) AS orders, ds FROM %s GROUP BY ds", rollupView, sourceView));
+        }
+        finally {
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + rollupView);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + sourceView);
             queryRunner.execute("DROP TABLE IF EXISTS " + table);
         }
     }
