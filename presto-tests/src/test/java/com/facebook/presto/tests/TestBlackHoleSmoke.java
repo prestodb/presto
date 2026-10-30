@@ -350,6 +350,28 @@ public class TestBlackHoleSmoke
         assertThatQueryReturnsValue("DROP TABLE nation", true);
     }
 
+    @Test
+    public void testUnknownColumnTypeRejected()
+    {
+        // The blackhole connector does not have SUPPORTS_UNKNOWN_COLUMN_TYPE; the engine must reject both
+        // DDL and CTAS with UNKNOWN columns before any connector call is made.
+        try {
+            queryRunner.execute("CREATE TABLE unknown_ddl (x UNKNOWN)");
+            fail("Expected CREATE TABLE with UNKNOWN column to fail");
+        }
+        catch (RuntimeException e) {
+            assertTrue(e.getMessage().contains("unknown"), "Expected type rejection, got: " + e.getMessage());
+        }
+
+        try {
+            queryRunner.execute("CREATE TABLE unknown_ctas AS SELECT NULL AS x");
+            fail("Expected CTAS producing an UNKNOWN column to fail");
+        }
+        catch (RuntimeException e) {
+            assertTrue(e.getMessage().contains("unknown"), "Expected column-type-unknown rejection, got: " + e.getMessage());
+        }
+    }
+
     private void assertThatNoBlackHoleTableIsCreated()
     {
         assertTrue(listBlackHoleTables().isEmpty(), "No blackhole tables expected");

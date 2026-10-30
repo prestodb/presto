@@ -443,6 +443,33 @@ public abstract class IcebergAbstractMetadata
         return Optional.ofNullable(this.procedureContext.get());
     }
 
+    // Validates a single column's use of the UNKNOWN type: rejects it on pre-V3 tables and
+    // rejects UNKNOWN nested inside composite types. Used by both CREATE TABLE and ADD COLUMN.
+    static void validateUnknownColumnType(String columnName, org.apache.iceberg.types.Type columnType, int formatVersion)
+    {
+        if (!UnknownUtils.containsUnknownType(columnType)) {
+            return;
+        }
+        if (formatVersion < 3) {
+            throw new PrestoException(NOT_SUPPORTED, format(
+                    "Column '%s' uses type UNKNOWN, which requires Iceberg format version 3 or higher (current version: %d). " +
+                            "Declare a concrete column type, or use a table with format-version = '3'.",
+                    columnName, formatVersion));
+        }
+        if (!UnknownUtils.isUnknownType(columnType)) {
+            throw new PrestoException(NOT_SUPPORTED, format(
+                    "Unknown type nested inside a row, array, or map is not yet supported (column: '%s'). " +
+                            "Use a top-level UNKNOWN column instead.",
+                    columnName));
+        }
+    }
+
+    // DDL validation for CREATE TABLE and CTAS: applies validateUnknownColumnType to every column.
+    static void validateUnknownColumnsForCreateTable(Schema schema, int formatVersion)
+    {
+        schema.columns().forEach(column -> validateUnknownColumnType(column.name(), column.type(), formatVersion));
+    }
+
     protected static void validateTableForPresto(BaseTable table, Optional<Long> tableSnapshotId)
     {
         Snapshot snapshot;
@@ -733,8 +760,23 @@ public abstract class IcebergAbstractMetadata
     {
         shouldRunInAutoCommitTransaction("CREATE TABLE");
         Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
-        finishCreateTable(session, beginCreateTable(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
+        finishCreateTable(session, beginCreateTableForDdl(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
     }
+
+    @Override
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    {
+        UnknownUtils.validateWritable(toIcebergSchema(tableMetadata.getColumns()));
+        return beginCreateTableForDdl(session, tableMetadata, layout);
+    }
+
+    /**
+     * Creates the Iceberg table metadata for a DDL CREATE TABLE statement. Unlike
+     * {@link #beginCreateTable}, this does not validate write constraints such as
+     * all-UNKNOWN columns, because DDL is permitted to create such tables; writes
+     * to them are rejected at INSERT/CTAS time.
+     */
+    protected abstract ConnectorOutputTableHandle beginCreateTableForDdl(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout);
 
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
@@ -746,6 +788,8 @@ public abstract class IcebergAbstractMetadata
     {
         validateBranchExists(table, icebergTable);
         validateGeospatialWrite(icebergTable);
+        // Return value (file schema) is intentionally ignored here; IcebergFileWriterFactory recomputes it per writer.
+        UnknownUtils.validateWritable(icebergTable.schema());
         return new IcebergInsertTableHandle(
                 table.getSchemaName(),
                 table.getIcebergTableName(),
@@ -1617,6 +1661,7 @@ public abstract class IcebergAbstractMetadata
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
         validateNoBranchSpecified(handle, "ADD COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        validateUnknownColumnType(column.getName(), columnType, opsFromTable(icebergTable).current().formatVersion());
         // Reject a geospatial column the table could never be written with, rather than
         // accepting the schema change and failing every subsequent write
         validateGeospatialWrite(column.getName(), columnType, opsFromTable(icebergTable).current().formatVersion(), getFileFormat(icebergTable));
@@ -1805,6 +1850,12 @@ public abstract class IcebergAbstractMetadata
         }
 
         org.apache.iceberg.types.Type icebergType = toIcebergType(type);
+        if (UnknownUtils.containsUnknownType(icebergType)) {
+            throw new PrestoException(NOT_SUPPORTED, format(
+                    "Unknown type nested inside a row, array, or map is not supported (field: '%s'). " +
+                            "Use a top-level UNKNOWN column instead.",
+                    fieldName));
+        }
         try {
             icebergTable.updateSchema()
                     .addColumn(canonicalParentName, fieldName, icebergType)
@@ -3476,6 +3527,7 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle storageTableHandle = getTableHandle(session, storageTableName);
         Table storageTable = getIcebergTable(session, storageTableName);
         validateGeospatialWrite(storageTable);
+        UnknownUtils.validateWritable(storageTable.schema());
         SchemaTableName materializedViewName = icebergTableHandle.getMaterializedViewName().get();
         MaterializedViewStatus status = getMaterializedViewStatus(session, materializedViewName, TupleDomain.all());
         boolean fullRefreshRequired = !status.isFullyMaterialized()
