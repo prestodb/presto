@@ -483,6 +483,60 @@ public class AbstractAnalyzerTest
         inSetupTransaction(session ->
                 metadata.createMaterializedView(session, TPCH_CATALOG, rollupSourceMetadata, rollupSourceData, false));
 
+        SchemaTableName partitionTransformBase = new SchemaTableName("s1", "t_partition_transform_base");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(partitionTransformBase, ImmutableList.of(
+                        ColumnMetadata.builder().setName("dim").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("metric").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("identity_partition").setType(VARCHAR).build(),
+                        ColumnMetadata.builder().setName("source_partition").setType(VARCHAR).build())),
+                false));
+
+        SchemaTableName partitionTransformView = new SchemaTableName("s1", "mv_partition_transform");
+        List<MaterializedViewDefinition.ColumnMapping> partitionTransformMappings = ImmutableList.of(
+                new MaterializedViewDefinition.ColumnMapping(
+                        new MaterializedViewDefinition.TableColumn(partitionTransformView, "dim", true),
+                        ImmutableList.of(new MaterializedViewDefinition.TableColumn(partitionTransformBase, "dim", true))),
+                new MaterializedViewDefinition.ColumnMapping(
+                        new MaterializedViewDefinition.TableColumn(partitionTransformView, "identity_partition", true),
+                        ImmutableList.of(new MaterializedViewDefinition.TableColumn(partitionTransformBase, "identity_partition", false, partitionTransform("identity"))),
+                        true),
+                new MaterializedViewDefinition.ColumnMapping(
+                        new MaterializedViewDefinition.TableColumn(partitionTransformView, "bucket", true),
+                        ImmutableList.of(new MaterializedViewDefinition.TableColumn(partitionTransformBase, "source_partition", false, partitionTransform("many"))),
+                        true));
+
+        MaterializedViewDefinition partitionTransformData = new MaterializedViewDefinition(
+                "select dim, dim + 1 as unmapped, test_partition_bucket(identity_partition, 'identity') as identity_partition, test_partition_bucket(source_partition, 'many') as bucket from t_partition_transform_base group by 1, 2, 3, 4",
+                "s1",
+                "mv_partition_transform",
+                new ArrayList<>(Collections.singletonList(partitionTransformBase)),
+                Optional.of("user"),
+                Optional.empty(),
+                partitionTransformMappings,
+                new ArrayList<>(),
+                Optional.of(new ArrayList<>(ImmutableList.of("unmapped", "identity_partition", "bucket"))));
+
+        ConnectorTableMetadata partitionTransformMetadata = new ConnectorTableMetadata(
+                partitionTransformView,
+                ImmutableList.of(
+                        ColumnMetadata.builder().setName("dim").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("unmapped").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("identity_partition").setType(VARCHAR).build(),
+                        ColumnMetadata.builder().setName("bucket").setType(VARCHAR).build()));
+
+        inSetupTransaction(session ->
+                metadata.createMaterializedView(session, TPCH_CATALOG, partitionTransformMetadata, partitionTransformData, false));
+
+        createPartitionTransformTestView(
+                partitionTransformBase,
+                "mv_partition_transform_unknown",
+                ImmutableMap.of("transform", "unknown_partition_transform"));
+        createPartitionTransformTestView(
+                partitionTransformBase,
+                "mv_partition_transform_malformed",
+                ImmutableMap.of("transform", "test_partition_bucket"));
+
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
@@ -796,6 +850,40 @@ public class AbstractAnalyzerTest
                     AccessControlReferences accessControlReferences = analysis.getAccessControlReferences();
                     checkAccessPermissions(accessControlReferences, analysis.getViewDefinitionReferences(), query, session.getPreparedStatements(), session.getIdentity(), accessControl, session.getAccessControlContext());
                 });
+    }
+
+    private void createPartitionTransformTestView(
+            SchemaTableName baseTable,
+            String viewTable,
+            Map<String, String> transformProperties)
+    {
+        SchemaTableName viewName = new SchemaTableName("s1", viewTable);
+        List<MaterializedViewDefinition.ColumnMapping> mappings = ImmutableList.of(
+                new MaterializedViewDefinition.ColumnMapping(
+                        new MaterializedViewDefinition.TableColumn(viewName, "bucket", true),
+                        ImmutableList.of(new MaterializedViewDefinition.TableColumn(baseTable, "source_partition", false, transformProperties)),
+                        true));
+        MaterializedViewDefinition definition = new MaterializedViewDefinition(
+                "select test_partition_bucket(source_partition, 'many') as bucket from t_partition_transform_base group by 1",
+                "s1",
+                viewTable,
+                new ArrayList<>(Collections.singletonList(baseTable)),
+                Optional.of("user"),
+                Optional.empty(),
+                mappings,
+                new ArrayList<>(),
+                Optional.of(new ArrayList<>(Collections.singletonList("bucket"))));
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
+                viewName,
+                ImmutableList.of(ColumnMetadata.builder().setName("bucket").setType(VARCHAR).build()));
+
+        inSetupTransaction(session ->
+                metadata.createMaterializedView(session, TPCH_CATALOG, tableMetadata, definition, false));
+    }
+
+    private static Map<String, String> partitionTransform(String mode)
+    {
+        return ImmutableMap.of("transform", "test_partition_bucket", "mode", mode);
     }
 
     protected Analysis analyzeAndGetAnalysis(Session clientSession, @Language("SQL") String query)
