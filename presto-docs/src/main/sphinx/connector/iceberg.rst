@@ -944,11 +944,14 @@ See the `Iceberg spec — Row Lineage <https://iceberg.apache.org/spec/#row-line
 
 ``_row_id`` column
 ~~~~~~~~~~~~~~~~~~
-A globally unique, monotonically increasing ``BIGINT`` identifier for each row.
-The value is derived from the data file's ``firstRowId`` (stored in the Iceberg
-manifest) plus the row's ordinal position within that file
-(``firstRowId + position_in_file``).  Row IDs are stable across reads and are
-unique within the table at any given point in time.
+A globally unique ``BIGINT`` identifier for each row.
+If the data file stores a ``_row_id`` for the row, that value is returned.
+Otherwise the value is derived from the data file's ``firstRowId`` (stored in
+the Iceberg manifest) plus the row's ordinal position within that file
+(``firstRowId + position_in_file``).  Engines that preserve row lineage store
+each row's original ``_row_id`` when they rewrite the row, for example during
+compaction or a row-preserving ``UPDATE`` or ``MERGE``.  Row IDs are stable
+across reads and are unique within the table at any given point in time.
 
 .. code-block:: sql
 
@@ -980,7 +983,11 @@ The Iceberg data sequence number of the snapshot in which this row was last
 written (inserted or updated).  All rows written in the same ``APPEND`` or
 ``OVERWRITE`` commit share the same sequence number.  Later commits produce
 higher sequence numbers, so you can use this column to determine the relative
-write order of rows across snapshots.
+write order of rows across snapshots.  If the data file stores a
+``_last_updated_sequence_number`` for the row, that value is returned;
+otherwise the value is the data file's data sequence number.  Engines that
+preserve row lineage store each row's original value when compaction rewrites
+the row, so compaction does not change the column.
 
 .. code-block:: sql
 
@@ -1000,6 +1007,15 @@ committed first (sequence number 1) and ``id = 2`` was committed next (sequence
 number 2).
 
 For V1/V2 tables, the column returns ``NULL``.
+
+A filter on ``_last_updated_sequence_number`` skips data files that cannot hold
+a matching value.  A data file that has no statistics for the column and was
+added by an ``APPEND`` snapshot the table still retains is assumed to store no
+values, so it is skipped when its data sequence number does not match.  A writer
+that adds files with stored values in an ``APPEND`` commit, such as a procedure
+that registers existing data files, breaks this assumption, and the filter can
+miss rows from those files.  Files that record value and null counts for the
+column are not affected.
 
 .. rubric:: Presto C++ Support
 
