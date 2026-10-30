@@ -760,24 +760,21 @@ public abstract class IcebergAbstractMetadata
     {
         shouldRunInAutoCommitTransaction("CREATE TABLE");
         Optional<ConnectorNewTableLayout> layout = getNewTableLayout(session, tableMetadata);
-        // Bypass finishCreateTable (which rejects all-UNKNOWN CTAS) so that plain DDL can create
-        // an all-UNKNOWN table; writes to such a table are rejected later at INSERT time.
-        finishInsert(session, (IcebergOutputTableHandle) beginCreateTable(session, tableMetadata, layout), ImmutableList.of());
+        finishCreateTable(session, beginCreateTableForDdl(session, tableMetadata, layout), ImmutableList.of(), ImmutableList.of());
     }
+
+    /**
+     * Creates the Iceberg table metadata for a DDL CREATE TABLE statement. Unlike
+     * {@link #beginCreateTable}, this does not validate write constraints such as
+     * all-UNKNOWN columns, because DDL is permitted to create such tables; writes
+     * to them are rejected at INSERT/CTAS time.
+     */
+    protected abstract ConnectorOutputTableHandle beginCreateTableForDdl(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout);
 
     @Override
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        IcebergOutputTableHandle outputHandle = (IcebergOutputTableHandle) tableHandle;
-        // The native worker writes nothing when every column is UNKNOWN, producing empty fragments
-        // that would commit silently.  Enforce the same all-UNKNOWN rejection here so that CTAS
-        // fails consistently on both Java and native runners.
-        if (!outputHandle.getInputColumns().isEmpty() &&
-                outputHandle.getInputColumns().stream().allMatch(col -> col.getType() instanceof UnknownType)) {
-            throw new PrestoException(NOT_SUPPORTED,
-                    "Writing to a table where every column is of type UNKNOWN is not supported");
-        }
-        return finishInsert(session, outputHandle, fragments);
+        return finishInsert(session, (IcebergOutputTableHandle) tableHandle, fragments);
     }
 
     protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable, List<String> insertColumnNames)

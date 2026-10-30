@@ -20,6 +20,7 @@ import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.TableAlreadyExistsException;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.iceberg.util.IcebergPrestoModelConverters;
+import com.facebook.presto.iceberg.UnknownFields;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -449,6 +450,13 @@ public class IcebergNativeMetadata
 
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    {
+        UnknownFields.validateWritable(toIcebergSchema(tableMetadata.getColumns()));
+        return beginCreateTableForDdl(session, tableMetadata, layout);
+    }
+
+    @Override
+    protected ConnectorOutputTableHandle beginCreateTableForDdl(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schemaName = schemaTableName.getSchemaName();
