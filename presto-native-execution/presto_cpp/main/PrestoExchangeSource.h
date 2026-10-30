@@ -116,7 +116,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
 
   void pause() override;
 
-  // Create an exchange source using pooled connections.
+  /// Creates an exchange source using pooled connections. Uses 'sslContext'
+  /// only for https URLs.
   static std::shared_ptr<PrestoExchangeSource> create(
       const std::string& url,
       int destination,

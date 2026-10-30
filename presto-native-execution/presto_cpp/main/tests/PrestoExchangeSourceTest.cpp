@@ -600,6 +600,26 @@ int64_t totalBytes(const std::vector<std::string>& pages) {
   return totalBytes;
 }
 
+TEST_P(PrestoExchangeSourceTest, createUsesTlsOnlyForHttps) {
+  const folly::SocketAddress producerAddress("127.0.0.1", 1234);
+  auto createSource = [&](bool useHttps, folly::SSLContextPtr sslContext) {
+    return PrestoExchangeSource::create(
+        makeProducerUri(producerAddress, useHttps),
+        3,
+        makeSingleSourceQueue(),
+        pool_.get(),
+        exchangeCpuExecutor_.get(),
+        exchangeIoExecutor_.get(),
+        &connectionPool_,
+        std::move(sslContext));
+  };
+
+  EXPECT_NE(createSource(false, sslContext_), nullptr);
+  VELOX_ASSERT_THROW(
+      createSource(true, nullptr),
+      "Fetching task output over HTTPS requires a client TLS context");
+}
+
 TEST_P(PrestoExchangeSourceTest, basic) {
   std::vector<std::string> pages = {"page1 - xx", "page2 - xxxxx"};
   const auto useHttps = GetParam().useHttps;
