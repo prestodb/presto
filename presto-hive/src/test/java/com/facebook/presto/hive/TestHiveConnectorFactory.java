@@ -27,7 +27,9 @@ import java.util.Optional;
 
 import static com.facebook.airlift.testing.Assertions.assertContains;
 import static com.facebook.airlift.testing.Assertions.assertInstanceOf;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW;
 import static com.facebook.presto.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestHiveConnectorFactory
@@ -58,6 +60,7 @@ public class TestHiveConnectorFactory
                 .build();
 
         Connector connector = connectorFactory.create("hive-test", config, new TestingConnectorContext());
+        assertTrue(connector.getCapabilities().contains(SUPPORTS_MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW));
         ConnectorTransactionHandle transaction = connector.beginTransaction(READ_UNCOMMITTED, true);
         assertInstanceOf(connector.getMetadata(transaction), ClassLoaderSafeConnectorMetadata.class);
         assertInstanceOf(connector.getSplitManager(), ClassLoaderSafeConnectorSplitManager.class);

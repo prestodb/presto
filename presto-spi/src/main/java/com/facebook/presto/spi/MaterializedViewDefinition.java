@@ -130,6 +130,32 @@ public final class MaterializedViewDefinition
                 schema,
                 table,
                 baseTables,
+                owner,
+                securityMode,
+                columnMappings,
+                baseTablesOnOuterJoinSide,
+                validRefreshColumns,
+                Collections.emptyMap());
+    }
+
+    @JsonIgnore
+    public MaterializedViewDefinition(
+            String originalSql,
+            String schema,
+            String table,
+            List<SchemaTableName> baseTables,
+            Optional<String> owner,
+            Optional<ViewSecurity> securityMode,
+            List<ColumnMapping> columnMappings,
+            List<SchemaTableName> baseTablesOnOuterJoinSide,
+            Optional<List<String>> validRefreshColumns,
+            Map<String, ColumnProvenance> columnProvenance)
+    {
+        this(
+                originalSql,
+                schema,
+                table,
+                baseTables,
                 Optional.empty(),
                 owner,
                 securityMode,
@@ -138,7 +164,7 @@ public final class MaterializedViewDefinition
                 validRefreshColumns,
                 Optional.empty(),
                 Optional.empty(),
-                Collections.emptyMap());
+                columnProvenance);
     }
 
     @JsonIgnore
