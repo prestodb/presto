@@ -114,6 +114,23 @@ public class BenchmarkIcebergAggregatePushDown
         bh.consume(result.getRowCount());
     }
 
+    @Benchmark
+    public void aggregatePushDownEnabledCountStar(Blackhole bh)
+    {
+        MaterializedResult result = queryRunner.execute(aggregatePushDownEnabledSession,
+                "select count(*) from iceberg_lineitem");
+        bh.consume(result.getRowCount());
+    }
+
+    @Benchmark
+    public void aggregatePushDownEnabledCountStarWithFilter(Blackhole bh)
+    {
+        MaterializedResult result = queryRunner.execute(aggregatePushDownEnabledSession,
+                "select count(*) from iceberg_lineitem" +
+                        " where suppkey > 1000 and suppkey <= 9000");
+        bh.consume(result.getRowCount());
+    }
+
     @TearDown
     public void finish()
     {
