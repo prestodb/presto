@@ -28,7 +28,6 @@ import com.facebook.presto.common.type.SqlTimestampWithTimeZone;
 import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TypeManager;
-import com.facebook.presto.common.type.UnknownType;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.hive.BaseHiveColumnHandle;
 import com.facebook.presto.hive.HiveOutputInfo;
@@ -444,30 +443,31 @@ public abstract class IcebergAbstractMetadata
         return Optional.ofNullable(this.procedureContext.get());
     }
 
-    // DDL validation for CREATE TABLE and CTAS: enforces the V3 format requirement and rejects UNKNOWN nested in composite types.
+    // Validates a single column's use of the UNKNOWN type: rejects it on pre-V3 tables and
+    // rejects UNKNOWN nested inside composite types. Used by both CREATE TABLE and ADD COLUMN.
+    static void validateUnknownColumnType(String columnName, org.apache.iceberg.types.Type columnType, int formatVersion)
+    {
+        if (!UnknownFields.containsUnknownType(columnType)) {
+            return;
+        }
+        if (formatVersion < 3) {
+            throw new PrestoException(NOT_SUPPORTED, format(
+                    "Column '%s' uses type UNKNOWN, which requires Iceberg format version 3 or higher (current version: %d). " +
+                            "Declare a concrete column type, or use a table with format-version = '3'.",
+                    columnName, formatVersion));
+        }
+        if (!UnknownFields.isUnknownType(columnType)) {
+            throw new PrestoException(NOT_SUPPORTED, format(
+                    "Unknown type nested inside a row, array, or map is not yet supported (column: '%s'). " +
+                            "Use a top-level UNKNOWN column instead.",
+                    columnName));
+        }
+    }
+
+    // DDL validation for CREATE TABLE and CTAS: applies validateUnknownColumnType to every column.
     static void validateUnknownColumnsForCreateTable(Schema schema, int formatVersion)
     {
-        if (formatVersion < 3 && UnknownFields.containsUnknownType(schema.asStruct())) {
-            String firstUnknownColumn = schema.columns().stream()
-                    .filter(column -> UnknownFields.containsUnknownType(column.type()))
-                    .map(Types.NestedField::name)
-                    .findFirst()
-                    .orElse("?");
-            throw new PrestoException(NOT_SUPPORTED, format(
-                    "Tables with unknown columns require format-version = '3' (first unknown column: '%s'). " +
-                            "Set format-version = '3' in WITH properties, " +
-                            "or CAST the column to a concrete type (e.g. CAST(NULL AS INTEGER)).",
-                    firstUnknownColumn));
-        }
-        schema.columns().stream()
-                .filter(column -> UnknownFields.containsUnknownType(column.type()) && !UnknownFields.isUnknownType(column.type()))
-                .findFirst()
-                .ifPresent(column -> {
-                    throw new PrestoException(NOT_SUPPORTED, format(
-                            "Unknown type nested inside a row, array, or map is not yet supported (column: '%s'). " +
-                                    "Use a top-level UNKNOWN column instead.",
-                            column.name()));
-                });
+        schema.columns().forEach(column -> validateUnknownColumnType(column.name(), column.type(), formatVersion));
     }
 
     protected static void validateTableForPresto(BaseTable table, Optional<Long> tableSnapshotId)
@@ -1654,23 +1654,7 @@ public abstract class IcebergAbstractMetadata
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
         validateNoBranchSpecified(handle, "ADD COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-        // Reject an unknown-type column on a pre-V3 table rather than accepting the schema change
-        // and failing every subsequent write with a cryptic internal error from Iceberg's schema commit
-        if (UnknownFields.containsUnknownType(columnType)) {
-            validateMinimumFormatVersion(icebergTable, 3, format(
-                    "Adding a column of type unknown is only supported with Iceberg format version 3 or higher. " +
-                            "Table '%s' is currently at format version %d. " +
-                            "Declare a concrete column type, or recreate the table with format-version = '3'.",
-                    handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion()));
-            // Nested UNKNOWN (e.g. ARRAY(UNKNOWN), MAP(k, UNKNOWN), ROW with an unknown field) is
-            // not yet supported in the read path. A bare top-level UNKNOWN column is fine.
-            if (!UnknownFields.isUnknownType(columnType)) {
-                throw new PrestoException(NOT_SUPPORTED, format(
-                        "Unknown type nested inside a row, array, or map is not yet supported (column: '%s'). " +
-                                "Use a top-level UNKNOWN column instead.",
-                        column.getName()));
-            }
-        }
+        validateUnknownColumnType(column.getName(), columnType, opsFromTable(icebergTable).current().formatVersion());
         // Reject a geospatial column the table could never be written with, rather than
         // accepting the schema change and failing every subsequent write
         validateGeospatialWrite(column.getName(), columnType, opsFromTable(icebergTable).current().formatVersion(), getFileFormat(icebergTable));
