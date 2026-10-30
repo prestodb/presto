@@ -21,6 +21,7 @@ import static com.facebook.presto.tests.utils.QueryExecutors.onMySql;
 import static io.prestodb.tempto.assertions.QueryAssert.Row.row;
 import static io.prestodb.tempto.assertions.QueryAssert.assertThat;
 import static io.prestodb.tempto.query.QueryExecutor.query;
+import static java.util.UUID.randomUUID;
 
 public class TestMySqlGeometry
         extends ProductTest
@@ -28,7 +29,7 @@ public class TestMySqlGeometry
     @Test(groups = MYSQL)
     public void testReadGeometry()
     {
-        String tableName = "test.jdbc_geometry_runtime_mapping";
+        String tableName = "test.jdbc_geometry_" + randomUUID().toString().replace("-", "");
         onMySql().executeQuery("CREATE TABLE " + tableName + " (shape GEOMETRY)");
         try {
             onMySql().executeQuery("INSERT INTO " + tableName + " VALUES " +
