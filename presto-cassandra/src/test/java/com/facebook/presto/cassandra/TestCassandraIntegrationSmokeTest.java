@@ -38,6 +38,10 @@ import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPE
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_INEQUALITY;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_LARGE;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEY_DATE;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEY_FLOAT;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEY_INET;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_INDEXED_DATE_FLOAT_INET;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_MULTI_PARTITION_CLUSTERING_KEYS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -252,6 +256,48 @@ public class TestCassandraIntegrationSmokeTest
         assertEquals(execute(sql).getRowCount(), 1);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2,3) AND clust_two = 2";
         assertEquals(execute(sql).getRowCount(), 1);
+    }
+
+    @Test
+    public void testClusteringKeyPushdownDate()
+    {
+        // rows hold ck = 2026-09-01 .. 2026-09-10
+        String from = "SELECT * FROM " + TABLE_CLUSTERING_KEY_DATE + " WHERE pk = 1 AND ";
+        assertEquals(execute(from + "ck = DATE '2026-09-06'").getRowCount(), 1);
+        assertEquals(execute(from + "ck >= DATE '2026-09-06'").getRowCount(), 5);
+        assertEquals(execute(from + "ck BETWEEN DATE '2026-09-03' AND DATE '2026-09-05'").getRowCount(), 3);
+        assertEquals(execute(from + "ck IN (DATE '2026-09-02', DATE '2026-09-09')").getRowCount(), 2);
+    }
+
+    @Test
+    public void testClusteringKeyPushdownFloat()
+    {
+        // rows hold ck = 1.5 .. 10.5
+        String from = "SELECT * FROM " + TABLE_CLUSTERING_KEY_FLOAT + " WHERE pk = 1 AND ";
+        assertEquals(execute(from + "ck = REAL '6.5'").getRowCount(), 1);
+        assertEquals(execute(from + "ck >= REAL '6.5'").getRowCount(), 5);
+        assertEquals(execute(from + "ck IN (REAL '1.5', REAL '2.5')").getRowCount(), 2);
+    }
+
+    @Test
+    public void testClusteringKeyPushdownInet()
+    {
+        // rows hold ck = 10.0.0.1 .. 10.0.0.10
+        String from = "SELECT * FROM " + TABLE_CLUSTERING_KEY_INET + " WHERE pk = 1 AND ";
+        assertEquals(execute(from + "ck = '10.0.0.6'").getRowCount(), 1);
+        assertEquals(execute(from + "ck IN ('10.0.0.1', '10.0.0.2')").getRowCount(), 2);
+        // inet compares as varchar, so '10.0.0.10' < '10.0.0.2'
+        assertEquals(execute(from + "ck >= '10.0.0.2'").getRowCount(), 8);
+    }
+
+    @Test
+    public void testIndexPushdownDateFloatInet()
+    {
+        // row n holds d = 2026-09-nn, f = n.5, ip = 10.0.0.n
+        String from = "SELECT * FROM " + TABLE_INDEXED_DATE_FLOAT_INET + " WHERE ";
+        assertEquals(execute(from + "d = DATE '2026-09-06'").getRowCount(), 1);
+        assertEquals(execute(from + "f = REAL '6.5'").getRowCount(), 1);
+        assertEquals(execute(from + "ip = '10.0.0.6'").getRowCount(), 1);
     }
 
     @Test
