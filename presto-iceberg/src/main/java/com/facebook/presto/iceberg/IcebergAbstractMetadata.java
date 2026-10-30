@@ -447,7 +447,7 @@ public abstract class IcebergAbstractMetadata
     // rejects UNKNOWN nested inside composite types. Used by both CREATE TABLE and ADD COLUMN.
     static void validateUnknownColumnType(String columnName, org.apache.iceberg.types.Type columnType, int formatVersion)
     {
-        if (!UnknownFields.containsUnknownType(columnType)) {
+        if (!UnknownUtils.containsUnknownType(columnType)) {
             return;
         }
         if (formatVersion < 3) {
@@ -456,7 +456,7 @@ public abstract class IcebergAbstractMetadata
                             "Declare a concrete column type, or use a table with format-version = '3'.",
                     columnName, formatVersion));
         }
-        if (!UnknownFields.isUnknownType(columnType)) {
+        if (!UnknownUtils.isUnknownType(columnType)) {
             throw new PrestoException(NOT_SUPPORTED, format(
                     "Unknown type nested inside a row, array, or map is not yet supported (column: '%s'). " +
                             "Use a top-level UNKNOWN column instead.",
@@ -766,7 +766,7 @@ public abstract class IcebergAbstractMetadata
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        UnknownFields.validateWritable(toIcebergSchema(tableMetadata.getColumns()));
+        UnknownUtils.validateWritable(toIcebergSchema(tableMetadata.getColumns()));
         return beginCreateTableForDdl(session, tableMetadata, layout);
     }
 
@@ -789,7 +789,7 @@ public abstract class IcebergAbstractMetadata
         validateBranchExists(table, icebergTable);
         validateGeospatialWrite(icebergTable);
         // Return value (file schema) is intentionally ignored here; IcebergFileWriterFactory recomputes it per writer.
-        UnknownFields.validateWritable(icebergTable.schema());
+        UnknownUtils.validateWritable(icebergTable.schema());
         return new IcebergInsertTableHandle(
                 table.getSchemaName(),
                 table.getIcebergTableName(),
@@ -1850,7 +1850,7 @@ public abstract class IcebergAbstractMetadata
         }
 
         org.apache.iceberg.types.Type icebergType = toIcebergType(type);
-        if (UnknownFields.containsUnknownType(icebergType)) {
+        if (UnknownUtils.containsUnknownType(icebergType)) {
             throw new PrestoException(NOT_SUPPORTED, format(
                     "Unknown type nested inside a row, array, or map is not supported (field: '%s'). " +
                             "Use a top-level UNKNOWN column instead.",
@@ -3527,7 +3527,7 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle storageTableHandle = getTableHandle(session, storageTableName);
         Table storageTable = getIcebergTable(session, storageTableName);
         validateGeospatialWrite(storageTable);
-        UnknownFields.validateWritable(storageTable.schema());
+        UnknownUtils.validateWritable(storageTable.schema());
         SchemaTableName materializedViewName = icebergTableHandle.getMaterializedViewName().get();
         MaterializedViewStatus status = getMaterializedViewStatus(session, materializedViewName, TupleDomain.all());
         boolean fullRefreshRequired = !status.isFullyMaterialized()
