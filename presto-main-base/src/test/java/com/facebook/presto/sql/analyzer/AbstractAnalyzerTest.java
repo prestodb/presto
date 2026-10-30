@@ -16,6 +16,7 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.TransformationSubtype;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.CharType;
 import com.facebook.presto.common.type.RealType;
@@ -62,13 +63,17 @@ import com.facebook.presto.spi.analyzer.AccessControlReferences;
 import com.facebook.presto.spi.analyzer.ViewDefinition;
 import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorCapabilities;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
+import com.facebook.presto.spi.materializedview.MaterializedViewAggregationMergeStrategy;
 import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.Procedure;
@@ -98,6 +103,7 @@ import com.facebook.presto.testing.TestingWarningCollectorConfig;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.weakref.jmx.MBeanExporter;
@@ -106,7 +112,9 @@ import org.weakref.jmx.testing.TestingMBeanServer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
@@ -118,10 +126,12 @@ import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
 import static com.facebook.presto.spi.ConnectorId.createSystemTablesConnectorId;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.RoutineCharacteristics.Language.SQL;
@@ -172,6 +182,21 @@ public class AbstractAnalyzerTest
             "RETURN x * x",
             notVersioned());
 
+    protected static final SqlInvokedFunction SQL_AGGREGATE_SUM = new SqlInvokedFunction(
+            QualifiedObjectName.valueOf("unittest", "memory", "sum"),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
+            parseTypeSignature(StandardTypes.BIGINT),
+            "custom aggregate named sum",
+            RoutineCharacteristics.builder()
+                    .setLanguage(SQL)
+                    .setDeterminism(DETERMINISTIC)
+                    .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
+                    .build(),
+            "",
+            notVersioned(),
+            FunctionKind.AGGREGATE,
+            Optional.of(new AggregationFunctionMetadata(parseTypeSignature(StandardTypes.BIGINT), false)));
+
     protected TransactionManager transactionManager;
     protected AccessControl accessControl;
     protected Metadata metadata;
@@ -185,6 +210,14 @@ public class AbstractAnalyzerTest
         metadata = createTestMetadataManager(transactionManager, new FeaturesConfig(), new FunctionsConfig(), new TestProcedureRegistry());
 
         metadata.getFunctionAndTypeManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
+        metadata.getFunctionAndTypeManager().registerBuiltInFunctions(extractFunctions(TestingMaterializedViewPartitionFunctions.class));
+        metadata.getFunctionAndTypeManager().registerBuiltInFunctions(extractFunctions(TestingMaterializedViewAggregationFunctions.TestPartial.class));
+        metadata.getFunctionAndTypeManager().registerBuiltInFunctions(extractFunctions(TestingMaterializedViewAggregationFunctions.TestMerge.class));
+        metadata.getFunctionAndTypeManager().registerMaterializedViewAggregationMergeStrategies(ImmutableList.of(
+                new MaterializedViewAggregationMergeStrategy("test_partial", Optional.of("test_merge"), false),
+                new MaterializedViewAggregationMergeStrategy("test_merge", Optional.of("test_merge"), false)));
+        metadata.getFunctionAndTypeManager().registerMaterializedViewPartitionTransformProviders(
+                ImmutableList.of(new TestingMaterializedViewPartitionTransformProvider()));
 
         metadata.getFunctionAndTypeManager().addFunctionNamespace(
                 "unittest",
@@ -196,6 +229,7 @@ public class AbstractAnalyzerTest
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
 
         metadata.getFunctionAndTypeManager().createFunction(SQL_FUNCTION_SQUARE, true);
+        metadata.getFunctionAndTypeManager().createFunction(SQL_AGGREGATE_SUM, true);
 
         metadata.getFunctionAndTypeManager().getTableFunctionRegistry().addTableFunctions(TPCH_CONNECTOR_ID,
                 ImmutableList.of(
@@ -401,6 +435,107 @@ public class AbstractAnalyzerTest
 
         inSetupTransaction(session ->
                 metadata.createMaterializedView(session, TPCH_CATALOG, materializedViewMetadata1, materializedViewData1, false));
+
+        // A materialized view that records how each of its columns was aggregated, so that a
+        // rollup tier built on top of it can be checked against the merge-partner registry.
+        SchemaTableName rollupSource = new SchemaTableName("s1", "mv_rollup_source");
+        List<MaterializedViewDefinition.ColumnMapping> rollupSourceMappings = ImmutableList.of(
+                new MaterializedViewDefinition.ColumnMapping(
+                        new MaterializedViewDefinition.TableColumn(rollupSource, "b", true),
+                        ImmutableList.of(new MaterializedViewDefinition.TableColumn(table6, "b", true))),
+                new MaterializedViewDefinition.ColumnMapping(
+                        new MaterializedViewDefinition.TableColumn(rollupSource, "total", true),
+                        ImmutableList.of(new MaterializedViewDefinition.TableColumn(table6, "a", false)),
+                        true),
+                new MaterializedViewDefinition.ColumnMapping(
+                        new MaterializedViewDefinition.TableColumn(rollupSource, "m", true),
+                        ImmutableList.of(new MaterializedViewDefinition.TableColumn(table6, "c", false)),
+                        true));
+        Map<String, MaterializedViewDefinition.ColumnProvenance> rollupSourceProvenance = ImmutableMap.of(
+                "b", new MaterializedViewDefinition.ColumnProvenance(Optional.empty(), TransformationSubtype.IDENTITY, Optional.of("varchar")),
+                "n", new MaterializedViewDefinition.ColumnProvenance(Optional.of("count"), TransformationSubtype.AGGREGATION, Optional.of("bigint")),
+                "total", new MaterializedViewDefinition.ColumnProvenance(Optional.of("sum"), TransformationSubtype.AGGREGATION, Optional.of("bigint")),
+                "m", new MaterializedViewDefinition.ColumnProvenance(Optional.of("test_partial"), TransformationSubtype.AGGREGATION, Optional.of("bigint")));
+
+        MaterializedViewDefinition rollupSourceData = new MaterializedViewDefinition(
+                "select b, count(*) as n, sum(a) as total, test_partial(c) as m from t6 group by b",
+                "s1",
+                "mv_rollup_source",
+                new ArrayList<>(Collections.singletonList(table6)),
+                Optional.of(ImmutableList.of(TPCH_CATALOG)),
+                Optional.of("user"),
+                Optional.empty(),
+                rollupSourceMappings,
+                new ArrayList<>(),
+                Optional.of(new ArrayList<>(Collections.singletonList("b"))),
+                Optional.empty(),
+                Optional.empty(),
+                rollupSourceProvenance);
+
+        ConnectorTableMetadata rollupSourceMetadata = new ConnectorTableMetadata(
+                rollupSource,
+                ImmutableList.of(
+                        ColumnMetadata.builder().setName("b").setType(VARCHAR).build(),
+                        ColumnMetadata.builder().setName("n").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("total").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("m").setType(BIGINT).build()));
+
+        inSetupTransaction(session ->
+                metadata.createMaterializedView(session, TPCH_CATALOG, rollupSourceMetadata, rollupSourceData, false));
+
+        SchemaTableName partitionTransformBase = new SchemaTableName("s1", "t_partition_transform_base");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
+                new ConnectorTableMetadata(partitionTransformBase, ImmutableList.of(
+                        ColumnMetadata.builder().setName("dim").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("metric").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("identity_partition").setType(VARCHAR).build(),
+                        ColumnMetadata.builder().setName("source_partition").setType(VARCHAR).build())),
+                false));
+
+        SchemaTableName partitionTransformView = new SchemaTableName("s1", "mv_partition_transform");
+        List<MaterializedViewDefinition.ColumnMapping> partitionTransformMappings = ImmutableList.of(
+                new MaterializedViewDefinition.ColumnMapping(
+                        new MaterializedViewDefinition.TableColumn(partitionTransformView, "dim", true),
+                        ImmutableList.of(new MaterializedViewDefinition.TableColumn(partitionTransformBase, "dim", true))),
+                new MaterializedViewDefinition.ColumnMapping(
+                        new MaterializedViewDefinition.TableColumn(partitionTransformView, "identity_partition", true),
+                        ImmutableList.of(new MaterializedViewDefinition.TableColumn(partitionTransformBase, "identity_partition", false, partitionTransform("identity"))),
+                        true),
+                new MaterializedViewDefinition.ColumnMapping(
+                        new MaterializedViewDefinition.TableColumn(partitionTransformView, "bucket", true),
+                        ImmutableList.of(new MaterializedViewDefinition.TableColumn(partitionTransformBase, "source_partition", false, partitionTransform("many"))),
+                        true));
+
+        MaterializedViewDefinition partitionTransformData = new MaterializedViewDefinition(
+                "select dim, dim + 1 as unmapped, test_partition_bucket(identity_partition, 'identity') as identity_partition, test_partition_bucket(source_partition, 'many') as bucket from t_partition_transform_base group by 1, 2, 3, 4",
+                "s1",
+                "mv_partition_transform",
+                new ArrayList<>(Collections.singletonList(partitionTransformBase)),
+                Optional.of("user"),
+                Optional.empty(),
+                partitionTransformMappings,
+                new ArrayList<>(),
+                Optional.of(new ArrayList<>(ImmutableList.of("unmapped", "identity_partition", "bucket"))));
+
+        ConnectorTableMetadata partitionTransformMetadata = new ConnectorTableMetadata(
+                partitionTransformView,
+                ImmutableList.of(
+                        ColumnMetadata.builder().setName("dim").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("unmapped").setType(BIGINT).build(),
+                        ColumnMetadata.builder().setName("identity_partition").setType(VARCHAR).build(),
+                        ColumnMetadata.builder().setName("bucket").setType(VARCHAR).build()));
+
+        inSetupTransaction(session ->
+                metadata.createMaterializedView(session, TPCH_CATALOG, partitionTransformMetadata, partitionTransformData, false));
+
+        createPartitionTransformTestView(
+                partitionTransformBase,
+                "mv_partition_transform_unknown",
+                ImmutableMap.of("transform", "unknown_partition_transform"));
+        createPartitionTransformTestView(
+                partitionTransformBase,
+                "mv_partition_transform_malformed",
+                ImmutableMap.of("transform", "test_partition_bucket"));
 
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
@@ -717,6 +852,40 @@ public class AbstractAnalyzerTest
                 });
     }
 
+    private void createPartitionTransformTestView(
+            SchemaTableName baseTable,
+            String viewTable,
+            Map<String, String> transformProperties)
+    {
+        SchemaTableName viewName = new SchemaTableName("s1", viewTable);
+        List<MaterializedViewDefinition.ColumnMapping> mappings = ImmutableList.of(
+                new MaterializedViewDefinition.ColumnMapping(
+                        new MaterializedViewDefinition.TableColumn(viewName, "bucket", true),
+                        ImmutableList.of(new MaterializedViewDefinition.TableColumn(baseTable, "source_partition", false, transformProperties)),
+                        true));
+        MaterializedViewDefinition definition = new MaterializedViewDefinition(
+                "select test_partition_bucket(source_partition, 'many') as bucket from t_partition_transform_base group by 1",
+                "s1",
+                viewTable,
+                new ArrayList<>(Collections.singletonList(baseTable)),
+                Optional.of("user"),
+                Optional.empty(),
+                mappings,
+                new ArrayList<>(),
+                Optional.of(new ArrayList<>(Collections.singletonList("bucket"))));
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
+                viewName,
+                ImmutableList.of(ColumnMetadata.builder().setName("bucket").setType(VARCHAR).build()));
+
+        inSetupTransaction(session ->
+                metadata.createMaterializedView(session, TPCH_CATALOG, tableMetadata, definition, false));
+    }
+
+    private static Map<String, String> partitionTransform(String mode)
+    {
+        return ImmutableMap.of("transform", "test_partition_bucket", "mode", mode);
+    }
+
     protected Analysis analyzeAndGetAnalysis(Session clientSession, @Language("SQL") String query)
     {
         return transaction(transactionManager, accessControl)
@@ -860,7 +1029,7 @@ public class AbstractAnalyzerTest
     private Catalog createTestingCatalog(String catalogName, ConnectorId connectorId)
     {
         ConnectorId systemId = createSystemTablesConnectorId(connectorId);
-        Connector connector = AbstractAnalyzerTest.createTestingConnector();
+        Connector connector = AbstractAnalyzerTest.createTestingConnector(!catalogName.equals(THIRD_CATALOG));
         InternalNodeManager nodeManager = new InMemoryNodeManager();
         return new Catalog(
                 catalogName,
@@ -876,7 +1045,7 @@ public class AbstractAnalyzerTest
                         transactionId -> transactionManager.getConnectorTransaction(transactionId, connectorId)));
     }
 
-    private static Connector createTestingConnector()
+    private static Connector createTestingConnector(boolean supportsMaterializedViewOnMaterializedView)
     {
         return new Connector()
         {
@@ -898,6 +1067,14 @@ public class AbstractAnalyzerTest
             public ConnectorSplitManager getSplitManager()
             {
                 throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Set<ConnectorCapabilities> getCapabilities()
+            {
+                return supportsMaterializedViewOnMaterializedView
+                        ? ImmutableSet.of(SUPPORTS_MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW)
+                        : ImmutableSet.of();
             }
 
             @Override

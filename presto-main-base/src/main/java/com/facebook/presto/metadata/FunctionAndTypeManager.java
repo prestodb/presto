@@ -60,6 +60,8 @@ import com.facebook.presto.spi.function.SqlFunctionSupplier;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.function.table.TableFunctionProcessorProvider;
+import com.facebook.presto.spi.materializedview.MaterializedViewAggregationMergeStrategy;
+import com.facebook.presto.spi.materializedview.MaterializedViewPartitionTransformProvider;
 import com.facebook.presto.spi.type.TypeManagerContext;
 import com.facebook.presto.spi.type.TypeManagerFactory;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -168,6 +170,8 @@ public class FunctionAndTypeManager
     private final AtomicReference<Supplier<Map<String, ParametricType>>> servingTypeManagerParametricTypesSupplier;
     private final BuiltInWorkerFunctionNamespaceManager builtInWorkerFunctionNamespaceManager;
     private final BuiltInPluginFunctionNamespaceManager builtInPluginFunctionNamespaceManager;
+    private final MaterializedViewAggregationMergeRegistry materializedViewAggregationMergeRegistry = new MaterializedViewAggregationMergeRegistry();
+    private final MaterializedViewPartitionTransformRegistry materializedViewPartitionTransformRegistry;
     private final ConcurrentHashMap<ConnectorId, Function<ConnectorTableFunctionHandle, TableFunctionProcessorProvider>> tableFunctionProcessorProviderMap = new ConcurrentHashMap<>();
     private final FunctionsConfig functionsConfig;
     private final Set<Type> types;
@@ -205,6 +209,7 @@ public class FunctionAndTypeManager
         this.nativeExecution = featuresConfig.isNativeExecutionEnabled();
         this.isBuiltInSidecarFunctionsEnabled = featuresConfig.isBuiltInSidecarFunctionsEnabled();
         this.defaultNamespace = configureDefaultNamespace(functionsConfig.getDefaultNamespacePrefix());
+        this.materializedViewPartitionTransformRegistry = new MaterializedViewPartitionTransformRegistry(defaultNamespace);
         this.servingTypeManager = new AtomicReference<>(builtInTypeAndFunctionNamespaceManager);
         this.servingTypeManagerParametricTypesSupplier = new AtomicReference<>(this::getServingTypeManagerParametricTypes);
         this.builtInWorkerFunctionNamespaceManager = new BuiltInWorkerFunctionNamespaceManager(this);
@@ -515,6 +520,29 @@ public class FunctionAndTypeManager
     public void registerBuiltInFunctions(List<? extends SqlFunction> functions)
     {
         builtInTypeAndFunctionNamespaceManager.registerBuiltInFunctions(functions);
+    }
+
+    public void registerMaterializedViewAggregationMergeStrategies(Iterable<MaterializedViewAggregationMergeStrategy> strategies)
+    {
+        materializedViewAggregationMergeRegistry.addStrategies(strategies);
+    }
+
+    public void registerMaterializedViewPartitionTransformProviders(Iterable<MaterializedViewPartitionTransformProvider> providers)
+    {
+        requireNonNull(providers, "providers is null");
+        for (MaterializedViewPartitionTransformProvider provider : providers) {
+            materializedViewPartitionTransformRegistry.addProvider(provider);
+        }
+    }
+
+    public MaterializedViewAggregationMergeRegistry getMaterializedViewAggregationMergeRegistry()
+    {
+        return materializedViewAggregationMergeRegistry;
+    }
+
+    public MaterializedViewPartitionTransformRegistry getMaterializedViewPartitionTransformRegistry()
+    {
+        return materializedViewPartitionTransformRegistry;
     }
 
     public void registerWorkerFunctions(List<? extends SqlFunction> functions)

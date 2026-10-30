@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_ROW_FIELD_ORDINAL_ACCESS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -77,9 +78,23 @@ public class TestRowFilter
                 Optional.of(VIEW_OWNER),
                 viewJson);
 
+        SchemaTableName ordinalViewSchemaTableName = new SchemaTableName("default", "ordinal_view");
+        ViewDefinition ordinalViewDefinition = new ViewDefinition(
+                "SELECT row(nationkey).field0 AS nationkey FROM local.tiny.nation",
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableList.of(new ViewDefinition.ViewColumn("nationkey", BIGINT)),
+                Optional.of(VIEW_OWNER),
+                false);
+        ConnectorViewDefinition ordinalView = new ConnectorViewDefinition(
+                ordinalViewSchemaTableName,
+                Optional.of(VIEW_OWNER),
+                VIEW_DEFINITION_JSON_CODEC.toJson(ordinalViewDefinition));
+
         MockConnectorFactory mock = MockConnectorFactory.builder()
                 .withGetViews((s, prefix) -> ImmutableMap.<SchemaTableName, ConnectorViewDefinition>builder()
                         .put(viewSchemaTableName, view)
+                        .put(ordinalViewSchemaTableName, ordinalView)
                         .build())
                 .build();
 
@@ -116,6 +131,38 @@ public class TestRowFilter
                     new ViewExpression(USER, Optional.empty(), Optional.empty(), "NULL"));
             assertions.assertQuery("SELECT count(*) FROM orders", "VALUES BIGINT '0'");
         });
+    }
+
+    @Test
+    public void testCallerSystemPropertiesDoNotAffectFilter()
+    {
+        assertions.executeExclusively(() -> {
+            accessControl.reset();
+            accessControl.rowFilter(
+                    new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                    USER,
+                    new ViewExpression(USER, Optional.empty(), Optional.empty(), "row(TRUE).field0"));
+
+            Session session = Session.builder(SESSION)
+                    .setSystemProperty(LEGACY_ROW_FIELD_ORDINAL_ACCESS, "true")
+                    .build();
+
+            assertions.assertFails(session, "SELECT count(*) FROM orders", ".*Column 'row \\(true\\)\\.field0' cannot be resolved.*");
+        });
+    }
+
+    @Test
+    public void testCallerSystemPropertiesDoNotAffectDefinerView()
+    {
+        Session session = Session.builder(SESSION)
+                .setIdentity(new Identity(RUN_AS_USER, Optional.empty()))
+                .setSystemProperty(LEGACY_ROW_FIELD_ORDINAL_ACCESS, "true")
+                .build();
+
+        assertions.assertFails(
+                session,
+                "SELECT nationkey FROM mock.default.ordinal_view",
+                ".*Column 'row \\(nationkey\\)\\.field0' cannot be resolved.*");
     }
 
     @Test

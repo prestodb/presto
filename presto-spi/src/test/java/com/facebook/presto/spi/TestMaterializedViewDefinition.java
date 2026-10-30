@@ -14,7 +14,9 @@
 package com.facebook.presto.spi;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.common.TransformationSubtype;
 import com.facebook.presto.spi.MaterializedViewDefinition.ColumnMapping;
+import com.facebook.presto.spi.MaterializedViewDefinition.ColumnProvenance;
 import com.facebook.presto.spi.MaterializedViewDefinition.TableColumn;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -106,5 +108,68 @@ public class TestMaterializedViewDefinition
         node.remove("isDerived");
         ColumnMapping legacy = codec.fromJson(mapper.writeValueAsString(node));
         assertFalse(legacy.isDerived());
+    }
+
+    @Test
+    public void testColumnMappingInfoJsonRoundTrip()
+            throws Exception
+    {
+        JsonCodec<TableColumn> codec = jsonCodec(TableColumn.class);
+
+        Map<String, String> transform = ImmutableMap.of("transform", "test_partition_bucket", "mode", "many");
+        TableColumn column = new TableColumn(BASE, "partition_key", false, transform);
+        assertEquals(codec.fromJson(codec.toJson(column)).getColumnMappingInfo(), transform);
+
+        // Definitions stored before mapping metadata existed carry no columnMappingInfo.
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode node = (ObjectNode) mapper.readTree(codec.toJson(column));
+        node.remove("columnMappingInfo");
+        assertTrue(codec.fromJson(mapper.writeValueAsString(node)).getColumnMappingInfo().isEmpty());
+    }
+
+    @Test
+    public void testColumnProvenanceJsonRoundTrip()
+            throws Exception
+    {
+        JsonCodec<MaterializedViewDefinition> codec = jsonCodec(MaterializedViewDefinition.class);
+
+        Map<String, ColumnProvenance> provenance = ImmutableMap.of(
+                "n", new ColumnProvenance(Optional.of("count"), TransformationSubtype.AGGREGATION, Optional.of("bigint")),
+                "b", new ColumnProvenance(Optional.empty(), TransformationSubtype.IDENTITY, Optional.of("varchar")));
+
+        MaterializedViewDefinition definition = new MaterializedViewDefinition(
+                "SELECT b, COUNT(*) AS n FROM base GROUP BY b",
+                SCHEMA,
+                MV,
+                ImmutableList.of(BASE),
+                Optional.of(ImmutableList.of("catalog")),
+                Optional.of("owner"),
+                Optional.empty(),
+                ImmutableMap.of("b", ImmutableMap.of(BASE, "b")),
+                ImmutableMap.of("b", ImmutableMap.of(BASE, "b")),
+                ImmutableMap.of(),
+                ImmutableList.of(),
+                Optional.empty(),
+                provenance);
+
+        MaterializedViewDefinition decoded = codec.fromJson(codec.toJson(definition));
+        assertEquals(decoded.getColumnProvenance(), provenance);
+        // COUNT(*) has no lineage, so it exists only in the provenance map.
+        assertFalse(decoded.getColumnMappingsAsMap().containsKey("n"));
+        assertEquals(decoded.getColumnProvenance().get("n").getFunctionName(), Optional.of("count"));
+
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode node = (ObjectNode) mapper.readTree(codec.toJson(definition));
+        ObjectNode countProvenance = (ObjectNode) node.get("columnProvenance").get("n");
+        assertTrue(countProvenance.has("distinct"));
+        assertFalse(countProvenance.get("distinct").asBoolean());
+
+        countProvenance.remove("distinct");
+        MaterializedViewDefinition legacyProvenance = codec.fromJson(mapper.writeValueAsString(node));
+        ObjectNode legacyRoundTrip = (ObjectNode) mapper.readTree(codec.toJson(legacyProvenance));
+        assertFalse(legacyRoundTrip.get("columnProvenance").get("n").get("distinct").asBoolean());
+
+        node.remove("columnProvenance");
+        assertTrue(codec.fromJson(mapper.writeValueAsString(node)).getColumnProvenance().isEmpty());
     }
 }

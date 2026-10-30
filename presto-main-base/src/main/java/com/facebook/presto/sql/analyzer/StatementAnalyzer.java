@@ -251,6 +251,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -268,6 +269,7 @@ import static com.facebook.presto.SystemSessionProperties.isAlwaysAnalyzeCreateT
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestampWithTimezone;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
+import static com.facebook.presto.SystemSessionProperties.isMaterializedViewOnMaterializedViewEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
@@ -293,6 +295,7 @@ import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_CREATE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_DELETE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_INSERT;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW;
 import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
@@ -437,6 +440,7 @@ class StatementAnalyzer
             QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "current_time"),
             QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "localtime"),
             QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "localtimestamp"));
+    private static final int MAX_MATERIALIZED_VIEW_SOURCE_DEPTH = 4;
     private final Analysis analysis;
     private final Metadata metadata;
     private final FunctionAndTypeResolver functionAndTypeResolver;
@@ -1655,18 +1659,110 @@ class StatementAnalyzer
 
         private void validateBaseTables(List<Table> baseTables, Node node)
         {
+            boolean allowMaterializedViewSources = isMaterializedViewOnMaterializedViewEnabled(session)
+                    && node instanceof CreateMaterializedView;
+            Optional<QualifiedObjectName> targetName = node instanceof CreateMaterializedView
+                    ? Optional.of(createQualifiedObjectName(session, node, ((CreateMaterializedView) node).getName(), metadata))
+                    : Optional.empty();
+
             for (Table baseTable : baseTables) {
                 QualifiedObjectName baseName = createQualifiedObjectName(session, baseTable, baseTable.getName(), metadata);
 
                 Optional<MaterializedViewDefinition> optionalMaterializedView = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), baseName);
-                if (optionalMaterializedView.isPresent()) {
+                if (!optionalMaterializedView.isPresent()) {
+                    continue;
+                }
+                if (!allowMaterializedViewSources) {
                     throw new SemanticException(
                             NOT_SUPPORTED,
                             baseTable,
                             "%s on a materialized view %s is not supported.",
                             node.getClass().getSimpleName(), baseName);
                 }
+                validateMaterializedViewOnMaterializedViewConnector(targetName.get(), baseTable);
+                validateMaterializedViewOnMaterializedViewConnector(baseName, baseTable);
+                validateMaterializedViewSourceChain(baseName, baseTable, targetName, new LinkedHashSet<>(), 1);
             }
+        }
+
+        private void validateMaterializedViewOnMaterializedViewConnector(QualifiedObjectName tableName, Node node)
+        {
+            ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, tableName.getCatalogName());
+            if (!metadata.getConnectorCapabilities(session, connectorId).contains(SUPPORTS_MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW)) {
+                throw new SemanticException(
+                        NOT_SUPPORTED,
+                        node,
+                        "Catalog %s does not support materialized views over materialized views",
+                        tableName.getCatalogName());
+            }
+        }
+
+        /**
+         * Walks the materialized view chain below a source view, rejecting cycles and chains
+         * deeper than {@link #MAX_MATERIALIZED_VIEW_SOURCE_DEPTH}. Both are unrecoverable at
+         * refresh time rather than query time: a cycle leaves no valid refresh order,
+         * and each extra level compounds staleness, since freshness is only ever checked one
+         * level up.
+         */
+        private void validateMaterializedViewSourceChain(
+                QualifiedObjectName sourceName,
+                Table baseTable,
+                Optional<QualifiedObjectName> targetName,
+                LinkedHashSet<QualifiedObjectName> pathSoFar,
+                int depth)
+        {
+            if (targetName.isPresent() && targetName.get().equals(sourceName)) {
+                throw new SemanticException(
+                        NOT_SUPPORTED,
+                        baseTable,
+                        "Materialized view %s cannot depend on itself", sourceName);
+            }
+            if (!pathSoFar.add(sourceName)) {
+                throw new SemanticException(
+                        NOT_SUPPORTED,
+                        baseTable,
+                        "Materialized view %s participates in a dependency cycle: %s", sourceName, pathSoFar);
+            }
+            if (depth > MAX_MATERIALIZED_VIEW_SOURCE_DEPTH) {
+                throw new SemanticException(
+                        NOT_SUPPORTED,
+                        baseTable,
+                        "Materialized view source chain %s exceeds the maximum supported depth of %s",
+                        pathSoFar,
+                        MAX_MATERIALIZED_VIEW_SOURCE_DEPTH);
+            }
+
+            Optional<MaterializedViewDefinition> definition = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), sourceName);
+            if (definition.isPresent()) {
+                List<SchemaTableName> sources = definition.get().getBaseTables();
+                Optional<List<String>> sourceCatalogs = definition.get().getBaseTableCatalogs();
+                if (!sourceCatalogs.isPresent() && !sources.isEmpty()) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            baseTable,
+                            "Materialized view %s has no base-table catalog metadata",
+                            sourceName);
+                }
+                if (sourceCatalogs.isPresent() && sourceCatalogs.get().size() != sources.size()) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            baseTable,
+                            "Materialized view %s has %s base tables but %s base-table catalogs",
+                            sourceName,
+                            sources.size(),
+                            sourceCatalogs.get().size());
+                }
+                for (int i = 0; i < sources.size(); i++) {
+                    String catalog = sourceCatalogs.get().get(i);
+                    validateMaterializedViewSourceChain(
+                            new QualifiedObjectName(catalog, sources.get(i).getSchemaName(), sources.get(i).getTableName()),
+                            baseTable,
+                            targetName,
+                            pathSoFar,
+                            depth + 1);
+                }
+            }
+            pathSoFar.remove(sourceName);
         }
 
         @Override
@@ -5429,6 +5525,16 @@ class StatementAnalyzer
 
         private Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity)
         {
+            return createViewSession(catalog, schema, identity, identity.getUser().equals(session.getIdentity().getUser()));
+        }
+
+        private Session createSecurityExpressionSession(Optional<String> catalog, Optional<String> schema, Identity identity)
+        {
+            return createViewSession(catalog, schema, identity, false);
+        }
+
+        private Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity, boolean inheritSystemProperties)
+        {
             Session.SessionBuilder viewSessionBuilder = Session.builder(metadata.getSessionPropertyManager())
                     .setQueryId(session.getQueryId())
                     .setRuntimeStats(session.getRuntimeStats())
@@ -5444,6 +5550,9 @@ class StatementAnalyzer
                     .setUserAgent(session.getUserAgent().orElse(null))
                     .setClientInfo(session.getClientInfo().orElse(null))
                     .setStartTime(session.getStartTime());
+            if (inheritSystemProperties) {
+                session.getSystemProperties().forEach(viewSessionBuilder::setSystemProperty);
+            }
             session.getConnectorProperties().forEach((connectorId, properties) -> properties.forEach((k, v) -> viewSessionBuilder.setConnectionProperty(connectorId, k, v)));
             return viewSessionBuilder.build();
         }
@@ -5577,7 +5686,7 @@ class StatementAnalyzer
             ExpressionAnalysis expressionAnalysis;
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(filter.getCatalog(), filter.getSchema(), new Identity(filter.getIdentity(), Optional.empty())), // TODO: path should be included in row filter
+                        createSecurityExpressionSession(filter.getCatalog(), filter.getSchema(), new Identity(filter.getIdentity(), Optional.empty())), // TODO: path should be included in row filter
                         metadata,
                         accessControl,
                         sqlParser,
@@ -5628,7 +5737,7 @@ class StatementAnalyzer
             analysis.registerTableForColumnMasking(tableName, column, currentIdentity);
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(mask.getCatalog(), mask.getSchema(), new Identity(mask.getIdentity(), Optional.empty())), // TODO: path should be included in row filter
+                        createSecurityExpressionSession(mask.getCatalog(), mask.getSchema(), new Identity(mask.getIdentity(), Optional.empty())), // TODO: path should be included in row filter
                         metadata,
                         accessControl,
                         sqlParser,

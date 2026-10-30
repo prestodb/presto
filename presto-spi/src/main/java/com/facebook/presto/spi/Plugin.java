@@ -21,6 +21,8 @@ import com.facebook.presto.spi.analyzer.QueryPreparerProvider;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.eventlistener.EventListenerFactory;
 import com.facebook.presto.spi.function.FunctionNamespaceManagerFactory;
+import com.facebook.presto.spi.materializedview.MaterializedViewAggregationMergeStrategy;
+import com.facebook.presto.spi.materializedview.MaterializedViewPartitionTransformProvider;
 import com.facebook.presto.spi.nodestatus.NodeStatusNotificationProviderFactory;
 import com.facebook.presto.spi.prerequisites.QueryPrerequisitesFactory;
 import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManagerFactory;
@@ -65,6 +67,16 @@ public interface Plugin
     default Set<Class<?>> getFunctions()
     {
         return emptySet();
+    }
+
+    default Iterable<MaterializedViewAggregationMergeStrategy> getMaterializedViewAggregationMergeStrategies()
+    {
+        return emptyList();
+    }
+
+    default Iterable<MaterializedViewPartitionTransformProvider> getMaterializedViewPartitionTransformProviders()
+    {
+        return emptyList();
     }
 
     default Iterable<SystemAccessControlFactory> getSystemAccessControlFactories()

@@ -2644,11 +2644,15 @@ public class HiveMetadata
                 viewDefinition.getSchema(),
                 viewDefinition.getTable(),
                 viewDefinition.getBaseTables(),
+                viewDefinition.getBaseTableCatalogs(),
                 viewDefinition.getOwner(),
                 viewDefinition.getSecurityMode(),
                 viewDefinition.getColumnMappings(),
                 viewDefinition.getBaseTablesOnOuterJoinSide(),
-                Optional.of(getPartitionedBy(viewMetadata.getProperties())));
+                Optional.of(getPartitionedBy(viewMetadata.getProperties())),
+                Optional.empty(),
+                Optional.empty(),
+                viewDefinition.getColumnProvenance());
         Map<String, String> parameters = ImmutableMap.<String, String>builder()
                 .putAll(basicTable.getParameters())
                 .put(PRESTO_MATERIALIZED_VIEW_FLAG, "true")

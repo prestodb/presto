@@ -26,12 +26,25 @@ import com.facebook.presto.spi.PrestoWarning;
 import com.facebook.presto.spi.StandardWarningCode;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.analyzer.ViewDefinitionReferences;
+import com.facebook.presto.spi.materializedview.MaterializedViewPartitionTransform;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.planner.CompilerConfig;
+import com.facebook.presto.sql.planner.LiteralEncoder;
+import com.facebook.presto.sql.tree.ComparisonExpression;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.LogicalBinaryExpression;
+import com.facebook.presto.sql.tree.LongLiteral;
+import com.facebook.presto.sql.tree.NullLiteral;
+import com.facebook.presto.sql.tree.QuerySpecification;
 import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.TableSubquery;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,9 +56,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
+import static com.facebook.presto.sql.analyzer.RefreshMaterializedViewPredicateAnalyzer.expandPartitionTransformComparison;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_WINDOWS_OR_GROUPING;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
@@ -112,9 +127,11 @@ import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_FUNCTION
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.WINDOW_REQUIRES_OVER;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -2795,6 +2812,214 @@ public class TestAnalyzer
     public void testCreateMaterializedViewAllowsDeterministicFunction()
     {
         analyze("CREATE MATERIALIZED VIEW s1.mv_det AS SELECT a, abs(b) c FROM t1");
+    }
+
+    @Test
+    public void testRefreshTransformedPartitionColumnAcceptsCanonicalRange()
+    {
+        String predicate = refreshScopePredicate("REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket >= '17' AND bucket < '18'")
+                .orElseThrow(() -> new AssertionError("no refresh scope predicate"));
+        assertTrue(predicate.startsWith("AND(GREATER_THAN_OR_EQUAL(bucket,"), predicate);
+        assertTrue(predicate.contains("LESS_THAN(bucket,"), predicate);
+    }
+
+    @Test
+    public void testRefreshTransformedPartitionColumnAcceptsMultiBucketRange()
+    {
+        analyze("REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket >= '17' AND bucket < '19'");
+    }
+
+    @Test
+    public void testRefreshTransformedPartitionColumnAcceptsSupportedPredicates()
+    {
+        analyze("REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket = '17'");
+        analyze("REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket <> '17'");
+        analyze("REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket > '17'");
+        analyze("REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket <= '17'");
+        analyze("REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket IN ('17', '19')");
+        analyze("REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket = '17' OR bucket = '19'");
+    }
+
+    @Test
+    public void testRefreshTransformedPartitionPushesExpandedDisjunctionToSourceTable()
+    {
+        Analysis analysis = analyzeAndGetAnalysis(
+                CLIENT_SESSION,
+                "REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket = '17' OR bucket = '19'");
+        Table sourceTable = analysis.getTableNodes().stream()
+                .filter(table -> table.getName().getSuffix().equals("t_partition_transform_base"))
+                .filter(table -> analysis.getNamedQuery(table) != null)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no rewritten source table query"));
+        QuerySpecification sourceQuery = (QuerySpecification) analysis.getNamedQuery(sourceTable).getQuery().getQueryBody();
+
+        Identifier sourcePartition = new Identifier("source_partition");
+        StringLiteral firstRangeStart = new StringLiteral("17.0");
+        StringLiteral firstRangeEnd = new StringLiteral("17.9");
+        StringLiteral secondRangeStart = new StringLiteral("19.0");
+        StringLiteral secondRangeEnd = new StringLiteral("19.9");
+        Expression expected = new LogicalBinaryExpression(
+                LogicalBinaryExpression.Operator.OR,
+                new LogicalBinaryExpression(
+                        LogicalBinaryExpression.Operator.AND,
+                        new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL, sourcePartition, firstRangeStart),
+                        new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, sourcePartition, firstRangeEnd)),
+                new LogicalBinaryExpression(
+                        LogicalBinaryExpression.Operator.AND,
+                        new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL, sourcePartition, secondRangeStart),
+                        new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, sourcePartition, secondRangeEnd)));
+        assertEquals(sourceQuery.getWhere(), Optional.of(expected));
+    }
+
+    @Test
+    public void testPartitionTransformComparisonExpandsOntoSourceRange()
+    {
+        MaterializedViewPartitionTransform transform = new TestingMaterializedViewPartitionTransformProvider().decode(
+                ImmutableMap.of("transform", "test_partition_bucket", "mode", "many"));
+        ConstantExpression targetValue = new ConstantExpression(Optional.empty(), utf8Slice("17"), VARCHAR);
+        LiteralEncoder literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
+        StringLiteral rangeStart = new StringLiteral("17.0");
+        StringLiteral rangeEnd = new StringLiteral("17.9");
+        Identifier sourcePartition = new Identifier("source_partition");
+
+        assertEquals(
+                expandPartitionTransformComparison(transform, "source_partition", ComparisonExpression.Operator.EQUAL, targetValue, literalEncoder),
+                new LogicalBinaryExpression(
+                        LogicalBinaryExpression.Operator.AND,
+                        new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL, sourcePartition, rangeStart),
+                        new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, sourcePartition, rangeEnd)));
+        assertEquals(
+                expandPartitionTransformComparison(transform, "source_partition", ComparisonExpression.Operator.NOT_EQUAL, targetValue, literalEncoder),
+                new LogicalBinaryExpression(
+                        LogicalBinaryExpression.Operator.OR,
+                        new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, sourcePartition, rangeStart),
+                        new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL, sourcePartition, rangeEnd)));
+        assertEquals(
+                expandPartitionTransformComparison(transform, "source_partition", ComparisonExpression.Operator.GREATER_THAN, targetValue, literalEncoder),
+                new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL, sourcePartition, rangeEnd));
+        assertEquals(
+                expandPartitionTransformComparison(transform, "source_partition", ComparisonExpression.Operator.LESS_THAN_OR_EQUAL, targetValue, literalEncoder),
+                new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, sourcePartition, rangeEnd));
+        assertEquals(
+                expandPartitionTransformComparison(transform, "source_partition", ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL, targetValue, literalEncoder),
+                new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL, sourcePartition, rangeStart));
+        assertEquals(
+                expandPartitionTransformComparison(transform, "source_partition", ComparisonExpression.Operator.LESS_THAN, targetValue, literalEncoder),
+                new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, sourcePartition, rangeStart));
+    }
+
+    @Test
+    public void testRefreshTransformedPartitionColumnRejectsNonCanonicalLiteral()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket = '17.2'");
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket >= '17.2'");
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket >= '17.2' AND bucket < '18.2'");
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket IN ('17', '18.2')");
+    }
+
+    @Test
+    public void testRefreshTransformedPartitionColumnFallsBackForNonCanonicalLiteralInDisjunction()
+    {
+        Analysis analysis = analyzeAndGetAnalysis(
+                CLIENT_SESSION,
+                "REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket = '17.2' OR bucket = '19'");
+        QuerySpecification refreshQuery = (QuerySpecification) analysis.getRefreshMaterializedViewAnalysis()
+                .orElseThrow(() -> new AssertionError("no refresh materialized view analysis"))
+                .getQuery()
+                .getQueryBody();
+
+        assertTrue(refreshQuery.getFrom().orElseThrow(() -> new AssertionError("no refresh query source")) instanceof TableSubquery);
+        assertEquals(
+                refreshQuery.getWhere(),
+                Optional.of(new LogicalBinaryExpression(
+                        LogicalBinaryExpression.Operator.OR,
+                        new ComparisonExpression(
+                                ComparisonExpression.Operator.EQUAL,
+                                new Identifier("bucket"),
+                                new StringLiteral("17.2")),
+                        new ComparisonExpression(
+                                ComparisonExpression.Operator.EQUAL,
+                                new Identifier("bucket"),
+                                new StringLiteral("19")))));
+        assertFalse(analysis.getTableNodes().stream()
+                .filter(table -> table.getName().getSuffix().equals("t_partition_transform_base"))
+                .anyMatch(table -> analysis.getNamedQuery(table) != null));
+    }
+
+    @Test
+    public void testRefreshTransformedPartitionColumnPreservesNullLiteral()
+    {
+        Analysis analysis = analyzeAndGetAnalysis(
+                CLIENT_SESSION,
+                "REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket = NULL");
+        Table sourceTable = analysis.getTableNodes().stream()
+                .filter(table -> table.getName().getSuffix().equals("t_partition_transform_base"))
+                .filter(table -> analysis.getNamedQuery(table) != null)
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no rewritten source table query"));
+        QuerySpecification sourceQuery = (QuerySpecification) analysis.getNamedQuery(sourceTable).getQuery().getQueryBody();
+
+        assertEquals(
+                sourceQuery.getWhere(),
+                Optional.of(new ComparisonExpression(
+                        ComparisonExpression.Operator.EQUAL,
+                        new Identifier("source_partition"),
+                        new NullLiteral())));
+
+        analyze("REFRESH MATERIALIZED VIEW mv_partition_transform WHERE bucket IN ('17', NULL)");
+    }
+
+    @Test
+    public void testRefreshIdentityPartitionTransformPreservesPredicate()
+    {
+        String predicate = refreshScopePredicate("REFRESH MATERIALIZED VIEW mv_partition_transform WHERE identity_partition = '17.2'")
+                .orElseThrow(() -> new AssertionError("no refresh scope predicate"));
+        assertTrue(predicate.startsWith("EQUAL(identity_partition,"), predicate);
+
+        analyze("REFRESH MATERIALIZED VIEW mv_partition_transform WHERE identity_partition >= '17.2' AND identity_partition < '19.4'");
+        analyze("REFRESH MATERIALIZED VIEW mv_partition_transform WHERE identity_partition >= '17.2'");
+        analyze("REFRESH MATERIALIZED VIEW mv_partition_transform WHERE identity_partition IN ('17.2', '18.3')");
+    }
+
+    @Test
+    public void testRefreshPartitionTransformsAcceptPointAndRangeTogether()
+    {
+        analyze("REFRESH MATERIALIZED VIEW mv_partition_transform WHERE identity_partition = '17.2' AND bucket >= '17' AND bucket < '18'");
+    }
+
+    @Test
+    public void testRefreshRejectsUnknownPartitionTransform()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv_partition_transform_unknown WHERE bucket = '17'");
+    }
+
+    @Test
+    public void testRefreshRejectsMalformedPartitionTransform()
+    {
+        assertFails(NOT_SUPPORTED, "REFRESH MATERIALIZED VIEW mv_partition_transform_malformed WHERE bucket = '17'");
+    }
+
+    @Test
+    public void testRefreshUnmappedDerivedColumnFallsBackToMaterializedView()
+    {
+        Analysis analysis = analyzeAndGetAnalysis(
+                CLIENT_SESSION,
+                "REFRESH MATERIALIZED VIEW mv_partition_transform WHERE unmapped = 5");
+        QuerySpecification refreshQuery = (QuerySpecification) analysis.getRefreshMaterializedViewAnalysis()
+                .orElseThrow(() -> new AssertionError("no refresh materialized view analysis"))
+                .getQuery()
+                .getQueryBody();
+
+        assertTrue(refreshQuery.getFrom().orElseThrow(() -> new AssertionError("no refresh query source")) instanceof TableSubquery);
+        assertEquals(
+                refreshQuery.getWhere(),
+                Optional.of(new ComparisonExpression(
+                        ComparisonExpression.Operator.EQUAL,
+                        new Identifier("unmapped"),
+                        new LongLiteral("5"))));
+        assertFalse(analysis.getTableNodes().stream()
+                .filter(table -> table.getName().getSuffix().equals("t_partition_transform_base"))
+                .anyMatch(table -> analysis.getNamedQuery(table) != null));
     }
 
     private Optional<String> refreshScopePredicate(String query)
