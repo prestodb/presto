@@ -117,6 +117,43 @@ public class TestHiveMaterializedViewLogicalPlanner
     }
 
     @Test
+    public void testLogicalViewPreservesMaterializedViewDataConsistencySessionProperty()
+    {
+        QueryRunner queryRunner = getQueryRunner();
+        String table = "orders_logical_view_session_property_test";
+        String materializedView = "orders_mv_logical_view_session_property_test";
+        String logicalView = "orders_lv_session_property_test";
+        String nestedLogicalView = "orders_nested_lv_session_property_test";
+
+        try {
+            queryRunner.execute(format("CREATE TABLE %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, '2025-11-10' AS ds FROM orders WHERE orderkey < 10", table));
+            queryRunner.execute(format("CREATE MATERIALIZED VIEW %s WITH (partitioned_by = ARRAY['ds']) AS " +
+                    "SELECT orderkey, ds FROM %s", materializedView, table));
+            queryRunner.execute(format("CREATE VIEW %s AS SELECT * FROM %s", logicalView, materializedView));
+            queryRunner.execute(format("CREATE VIEW %s AS SELECT * FROM %s", nestedLogicalView, logicalView));
+
+            assertQuery(format("SELECT count(*) FROM %s", materializedView), "SELECT CAST(7 AS BIGINT)");
+            assertQuery(format("SELECT count(*) FROM %s", logicalView), "SELECT CAST(7 AS BIGINT)");
+            assertQuery(format("SELECT count(*) FROM %s", nestedLogicalView), "SELECT CAST(7 AS BIGINT)");
+
+            Session noStitchSession = Session.builder(getQueryRunner().getDefaultSession())
+                    .setSystemProperty(MATERIALIZED_VIEW_DATA_CONSISTENCY_ENABLED, "false")
+                    .build();
+
+            assertQuery(noStitchSession, format("SELECT count(*) FROM %s", materializedView), "SELECT CAST(0 AS BIGINT)");
+            assertQuery(noStitchSession, format("SELECT count(*) FROM %s", logicalView), "SELECT CAST(0 AS BIGINT)");
+            assertQuery(noStitchSession, format("SELECT count(*) FROM %s", nestedLogicalView), "SELECT CAST(0 AS BIGINT)");
+        }
+        finally {
+            queryRunner.execute("DROP VIEW IF EXISTS " + nestedLogicalView);
+            queryRunner.execute("DROP VIEW IF EXISTS " + logicalView);
+            queryRunner.execute("DROP MATERIALIZED VIEW IF EXISTS " + materializedView);
+            queryRunner.execute("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
     public void testMaterializedViewPartitionFilteringThroughLogicalView()
     {
         QueryRunner queryRunner = getQueryRunner();
