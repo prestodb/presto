@@ -16,15 +16,16 @@ FROM quay.io/centos/centos:stream9
 # from https://github.com/facebookincubator/velox/pull/14366
 ARG ARM_BUILD_TARGET
 
-# This defaults to 12.9 but can be overridden with a build arg
 ARG CUDA_VERSION
+
+# Optional override; when unset, Velox's install_ucx picks its own default version.
+ARG UCX_VERSION
 
 ENV PROMPT_ALWAYS_RESPOND=y
 ENV CC=/opt/rh/gcc-toolset-12/root/bin/gcc
 ENV CXX=/opt/rh/gcc-toolset-12/root/bin/g++
 ENV ARM_BUILD_TARGET=${ARM_BUILD_TARGET}
-ENV CUDA_VERSION=${CUDA_VERSION:-12.9}
-ENV UCX_VERSION="1.19.0"
+ENV CUDA_VERSION=${CUDA_VERSION:-13.0}
 
 RUN mkdir -p /scripts /velox/scripts
 COPY scripts /scripts
@@ -50,6 +51,32 @@ RUN bash -c "mkdir build && \
                  install_cuda ${CUDA_VERSION} && \
                  install_ucx) && \
     rm -rf build"
+
+# Install sccache for optional S3-backed compile caching.
+# Use NVIDIA's RAPIDS fork, not upstream mozilla/sccache: upstream has no nvcc device
+# LTO support (no -ltoir/.ltoir handling as of v0.17.0 and main), so cudf's JIT LTO
+# fragments -- nvcc -x cu -rdc=true -fatbin with code=[compute_XX,lto_XX] -- die with
+# "fatbinary fatal : Could not open input file 'kernel.ptx'". The fork implements those
+# paths and is what RAPIDS CI uses.
+# See: https://github.com/rapidsai/sccache
+# Checksums come from the release's .sha256 files; update them together with the version.
+ARG SCCACHE_VERSION="0.18.0-rapids.10"
+ARG SCCACHE_SHA256_X86_64="e082a4f16b6625836bd842fd111dae9e8866d4927685f6eedab9cbc7fac959d0"
+ARG SCCACHE_SHA256_AARCH64="dd0547c5cbf52f74dde53c6444a261fcb01dec06d0b15820a13d6818284ac916"
+RUN set -eu && \
+    arch="$(uname -m)" && \
+    case "${arch}" in \
+      x86_64) sha256="${SCCACHE_SHA256_X86_64}" ;; \
+      aarch64) sha256="${SCCACHE_SHA256_AARCH64}" ;; \
+      *) echo "Unsupported architecture for sccache: ${arch}" >&2; exit 1 ;; \
+    esac && \
+    tarball="/tmp/sccache.tar.gz" && \
+    wget -q -O "${tarball}" "https://github.com/rapidsai/sccache/releases/download/v${SCCACHE_VERSION}/sccache-v${SCCACHE_VERSION}-${arch}-unknown-linux-musl.tar.gz" && \
+    echo "${sha256}  ${tarball}" | sha256sum -c - && \
+    tar -C /usr/bin -zxf "${tarball}" --wildcards --strip-components=1 '*/sccache' && \
+    rm -f "${tarball}" && \
+    chmod +x /usr/bin/sccache && \
+    sccache --version
 
 # put CUDA binaries on the PATH
 ENV PATH=/usr/local/cuda/bin:${PATH}
