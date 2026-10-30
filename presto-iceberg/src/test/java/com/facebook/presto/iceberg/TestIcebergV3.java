@@ -1101,12 +1101,12 @@ public class TestIcebergV3
         try {
             assertQueryFails(
                     "CREATE TABLE " + tableName + " (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '2')",
-                    "(?s).*Tables with unknown columns require format-version = '3'.*");
+                    "(?s).*Column 'unknown_column' uses type UNKNOWN, which requires Iceberg format version 3 or higher.*");
 
             assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '2')");
             assertQueryFails(
                     "ALTER TABLE " + tableName + " ADD COLUMN unknown_column UNKNOWN",
-                    "(?s).*Adding a column of type unknown is only supported with Iceberg format version 3 or higher.*");
+                    "(?s).*Column 'unknown_column' uses type UNKNOWN, which requires Iceberg format version 3 or higher.*");
         }
         finally {
             dropTable(tableName);
