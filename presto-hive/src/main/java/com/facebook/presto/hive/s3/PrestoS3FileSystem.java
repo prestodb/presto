@@ -1291,6 +1291,15 @@ public class PrestoS3FileSystem
             log.debug("OutputStream for key '%s' using file: %s", key, tempFile);
         }
 
+        // FilterOutputStream.write(byte[], int, int) copies one byte at a time; write the
+        // whole range to the buffered staging stream instead. See #28574.
+        @Override
+        public void write(byte[] buffer, int offset, int length)
+                throws IOException
+        {
+            out.write(buffer, offset, length);
+        }
+
         @Override
         public void close()
                 throws IOException
