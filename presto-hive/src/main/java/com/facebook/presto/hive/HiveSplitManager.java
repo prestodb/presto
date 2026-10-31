@@ -303,6 +303,9 @@ public class HiveSplitManager
         // sort partitions
         partitions = Ordering.natural().onResultOf(HivePartition::getPartitionId).reverse().sortedCopy(partitions);
 
+        Optional<List<HiveFileInfo>> syntheticFiles = layout.getHiveTableHandle()
+                .flatMap(HiveTableHandle::getSyntheticFiles)
+                .map(HiveSplitManager::toHiveFileInfos);
         Iterable<HivePartitionMetadata> hivePartitions = getPartitionMetadata(
                 metastore,
                 table,
@@ -313,7 +316,8 @@ public class HiveSplitManager
                 splitSchedulingContext.getWarningCollector(),
                 layout.getRequestedColumns(),
                 layout.getPredicateColumns(),
-                layout.getDomainPredicate().getDomains());
+                layout.getDomainPredicate().getDomains(),
+                syntheticFiles);
 
         double ratio = getSplitScanRatio(session, tableName, layout, metadata, partitions);
 
@@ -488,6 +492,23 @@ public class HiveSplitManager
         return splitSource;
     }
 
+    private static List<HiveFileInfo> toHiveFileInfos(List<SyntheticHiveFileInfo> files)
+    {
+        ImmutableList.Builder<HiveFileInfo> result = ImmutableList.builderWithExpectedSize(files.size());
+        for (SyntheticHiveFileInfo file : files) {
+            BlockLocation wholeFileBlock = new BlockLocation(ImmutableList.of(), 0L, file.getLength());
+            result.add(new HiveFileInfo(
+                    file.getPath(),
+                    false,
+                    ImmutableList.of(wholeFileBlock),
+                    file.getLength(),
+                    file.getModificationTime(),
+                    Optional.empty(),
+                    ImmutableMap.of()));
+        }
+        return result.build();
+    }
+
     private static Map<Integer, Domain> getInfoColumnConstraints(TupleDomain<Subfield> domainPredicate, Map<String, HiveColumnHandle> predicateColumns)
     {
         checkArgument(!domainPredicate.isNone(), "Unexpected domain predicate: none");
@@ -520,7 +541,8 @@ public class HiveSplitManager
             WarningCollector warningCollector,
             Optional<Set<HiveColumnHandle>> requestedColumns,
             Map<String, HiveColumnHandle> predicateColumns,
-            Optional<Map<Subfield, Domain>> domains)
+            Optional<Map<Subfield, Domain>> domains,
+            Optional<List<HiveFileInfo>> syntheticFiles)
     {
         if (hivePartitions.isEmpty()) {
             return ImmutableList.of();
@@ -537,7 +559,8 @@ public class HiveSplitManager
                         TableToPartitionMapping.empty(),
                         encryptionInformationProvider.getReadEncryptionInformation(session, table, allRequestedColumns),
                         ImmutableSet.of(),
-                        Optional.empty()));
+                        Optional.empty(),
+                        syntheticFiles));
             }
         }
 
