@@ -25,8 +25,11 @@
 #include <thread>
 #include <utility>
 
+#include <folly/Singleton.h>
 #include <gtest/gtest.h>
 
+#include "presto_cpp/main/common/Counters.h"
+#include "velox/common/base/StatsReporter.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/caching/AsyncDataCache.h"
 #include "velox/common/caching/FileIds.h"
@@ -343,5 +346,145 @@ TEST_F(PeriodicMemoryCheckerTest, pushbackNoopOnStaleTrigger) {
               5,
               512}),
       "systemMemShrinkBytes must be less than systemMemLimitBytes");
+}
+
+namespace {
+// StatsReporter that captures the latest value recorded against each metric
+// so the sampleAndRecord tests below can assert what PeriodicMemoryChecker
+// published. Only addMetricValue is used; the other hooks are no-ops.
+class CapturingStatsReporter : public BaseStatsReporter {
+ public:
+  void registerMetricExportType(const char* /*key*/, StatType /*type*/)
+      const override {}
+  void registerMetricExportType(folly::StringPiece /*key*/, StatType /*type*/)
+      const override {}
+  void registerHistogramMetricExportType(
+      const char* /*key*/,
+      int64_t /*bucket*/,
+      int64_t /*min*/,
+      int64_t /*max*/,
+      const std::vector<int32_t>& /*pcts*/) const override {}
+  void registerHistogramMetricExportType(
+      folly::StringPiece /*key*/,
+      int64_t /*bucket*/,
+      int64_t /*min*/,
+      int64_t /*max*/,
+      const std::vector<int32_t>& /*pcts*/) const override {}
+
+  void addMetricValue(const std::string& key, size_t value = 1) const override {
+    std::lock_guard<std::mutex> lock(mu_);
+    values_[key] = static_cast<int64_t>(value);
+    ++recordCount_;
+  }
+  void addMetricValue(const char* key, size_t value = 1) const override {
+    addMetricValue(std::string(key), value);
+  }
+  void addMetricValue(folly::StringPiece key, size_t value = 1) const override {
+    addMetricValue(key.str(), value);
+  }
+  void addHistogramMetricValue(const std::string& /*key*/, size_t /*value*/)
+      const override {}
+  void addHistogramMetricValue(const char* /*key*/, size_t /*value*/)
+      const override {}
+  void addHistogramMetricValue(folly::StringPiece /*key*/, size_t /*value*/)
+      const override {}
+
+  std::string fetchMetrics() override {
+    return "";
+  }
+
+  int64_t lastValueFor(const std::string& key) const {
+    std::lock_guard<std::mutex> lock(mu_);
+    auto it = values_.find(key);
+    return it == values_.end() ? -1 : it->second;
+  }
+
+  size_t recordCount() const {
+    std::lock_guard<std::mutex> lock(mu_);
+    return recordCount_;
+  }
+
+  void reset() {
+    std::lock_guard<std::mutex> lock(mu_);
+    values_.clear();
+    recordCount_ = 0;
+  }
+
+ private:
+  mutable std::mutex mu_;
+  mutable std::unordered_map<std::string, int64_t> values_;
+  mutable size_t recordCount_{0};
+};
+
+folly::Singleton<BaseStatsReporter> reporter([]() {
+  return new CapturingStatsReporter();
+});
+
+CapturingStatsReporter& reporterRef() {
+  auto handle = folly::Singleton<BaseStatsReporter>::try_get();
+  return *static_cast<CapturingStatsReporter*>(handle.get());
+}
+} // namespace
+
+// Separate fixture so SetUp/TearDown toggle BaseStatsReporter::registered
+// only for the sampleAndRecord tests — the rest of PeriodicMemoryCheckerTest
+// does not exercise RECORD_METRIC_VALUE and should not pay for a reporter.
+class PeriodicMemoryCheckerSampleAndRecordTest
+    : public PeriodicMemoryCheckerTest {
+ protected:
+  void SetUp() override {
+    // RECORD_METRIC_VALUE is a no-op unless registered is true. Mirrors the
+    // pattern in StatsReporterTest.
+    BaseStatsReporter::registered = true;
+    reporterRef().reset();
+  }
+  void TearDown() override {
+    BaseStatsReporter::registered = false;
+    reporterRef().reset();
+  }
+};
+
+TEST_F(
+    PeriodicMemoryCheckerSampleAndRecordTest,
+    returnsCachedSampleAndRecordsMetric) {
+  // The stub exposes a known cached sample; sampleAndRecord() must return a
+  // non-null shared_ptr holding that value and must record the same value
+  // against kCounterMemoryCheckerUsedBytes exactly once per call.
+  constexpr int64_t kSample = 12'345'678;
+  TestPeriodicMemoryChecker checker(
+      PeriodicMemoryChecker::Config{},
+      /*systemUsedMemoryBytes=*/kSample);
+
+  const auto result = checker.sampleAndRecord();
+
+  ASSERT_NE(result, nullptr);
+  ASSERT_EQ(*result, kSample);
+  ASSERT_EQ(reporterRef().recordCount(), 1);
+  ASSERT_EQ(
+      reporterRef().lastValueFor(std::string(kCounterMemoryCheckerUsedBytes)),
+      kSample);
+}
+
+TEST_F(
+    PeriodicMemoryCheckerSampleAndRecordTest,
+    metricReflectsEachCallsSample) {
+  // Each call must publish the current reading, so a monitor scraping the
+  // metric sees the latest sample rather than a stale one.
+  TestPeriodicMemoryChecker first(
+      PeriodicMemoryChecker::Config{},
+      /*systemUsedMemoryBytes=*/100);
+  ASSERT_EQ(*first.sampleAndRecord(), 100);
+  ASSERT_EQ(
+      reporterRef().lastValueFor(std::string(kCounterMemoryCheckerUsedBytes)),
+      100);
+
+  TestPeriodicMemoryChecker second(
+      PeriodicMemoryChecker::Config{},
+      /*systemUsedMemoryBytes=*/999);
+  ASSERT_EQ(*second.sampleAndRecord(), 999);
+  ASSERT_EQ(
+      reporterRef().lastValueFor(std::string(kCounterMemoryCheckerUsedBytes)),
+      999);
+  ASSERT_EQ(reporterRef().recordCount(), 2);
 }
 } // namespace facebook::presto
