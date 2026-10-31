@@ -13,19 +13,28 @@
  */
 package com.facebook.presto.nativetests.iceberg;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.iceberg.CatalogType;
+import com.facebook.presto.iceberg.FileFormat;
 import com.facebook.presto.iceberg.IcebergConfig;
 import com.facebook.presto.iceberg.IcebergQueryRunner;
 import com.facebook.presto.iceberg.TestIcebergRowLineageBase;
 import com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
+import org.testng.annotations.DataProvider;
 
 import java.io.File;
 import java.nio.file.Path;
 
 import static com.facebook.presto.nativeworker.PrestoNativeQueryRunnerUtils.ICEBERG_DEFAULT_STORAGE_FORMAT;
 
+/**
+ * Runs the row lineage tests on the native query runner and compares each query with the Java
+ * expected query runner, which share one HADOOP catalog directory. Every test method is
+ * parameterized with {@code pushdown_filter_enabled=true/false} for the native side. The Java side
+ * always runs with pushdown disabled, since the Java Iceberg connector rejects filter pushdown.
+ */
 public class TestIcebergV3RowLineage
         extends TestIcebergRowLineageBase
 {
@@ -49,6 +58,50 @@ public class TestIcebergV3RowLineage
                 .setCatalogType(CatalogType.HADOOP)
                 .setAddStorageFormatToPath(true)
                 .build();
+    }
+
+    @Override
+    @DataProvider(name = "pushdownFilterEnabled")
+    public Object[][] pushdownFilterEnabledProvider()
+    {
+        return new Object[][] {
+                {true},
+                {false}
+        };
+    }
+
+    @Override
+    @DataProvider(name = "pushdownFilterEnabledAndFileFormat")
+    public Object[][] pushdownFilterEnabledAndFileFormatProvider()
+    {
+        return new Object[][] {
+                {true, FileFormat.PARQUET},
+                {false, FileFormat.PARQUET},
+                {true, FileFormat.ORC},
+                {false, FileFormat.ORC}
+        };
+    }
+
+    @Override
+    @DataProvider(name = "pushdownFilterEnabledAndBoundlessLineageMetricsMode")
+    public Object[][] pushdownFilterEnabledAndBoundlessLineageMetricsModeProvider()
+    {
+        return new Object[][] {
+                {true, "counts"},
+                {false, "counts"},
+                {true, "none"},
+                {false, "none"}
+        };
+    }
+
+    /**
+     * Compares {@code sql} on the native workers under {@code session} with the Java workers, which
+     * always run with pushdown disabled.
+     */
+    @Override
+    protected void assertMatchesExpectedEngine(Session session, String sql)
+    {
+        assertQuery(session, sql, sessionWithPushdown(false), sql);
     }
 
     @Override

@@ -272,6 +272,11 @@ public class IcebergColumnHandle
         return getColumnIdentity().getId() == LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
     }
 
+    public boolean isRowLineageColumn()
+    {
+        return isRowIdColumn() || isLastUpdatedSequenceNumberColumn();
+    }
+
     public static IcebergColumnHandle primitiveIcebergColumnHandle(int id, String name, Type type, Optional<String> comment)
     {
         return new IcebergColumnHandle(primitiveColumnIdentity(id, name), type, comment, REGULAR);
