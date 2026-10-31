@@ -36,6 +36,7 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.data.GenericRecord;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.parquet.GenericParquetWriter;
+import org.apache.iceberg.deletes.EqualityDeleteWriter;
 import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.DataWriter;
@@ -54,6 +55,8 @@ import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 
+import static com.facebook.presto.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
+import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -424,6 +427,88 @@ public class TestIcebergRowLineage
         }
     }
 
+    @Test
+    public void testLineagePredicateWithDeletedRow()
+            throws Exception
+    {
+        // AUTOMATIC join distribution computes stats for the equality delete scan, which plans its
+        // delete files with the data scan's predicate, lineage domains included.
+        Session session = automaticJoinSession();
+        String tableName = "test_lineage_deleted_row";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = catalog.createTable(tableId, PUSHDOWN_TABLE_SCHEMA, PartitionSpec.unpartitioned(),
+                    ImmutableMap.of("format-version", "3"));
+            Schema schema = table.schema();
+            writeRecords(table,
+                    GenericRecord.create(schema).copy("id", 1, "value", "one"),
+                    GenericRecord.create(schema).copy("id", 2, "value", "two"),
+                    GenericRecord.create(schema).copy("id", 3, "value", "three"));
+            table.refresh();
+            DataFile file = getOnlyElement(dataFiles(table));
+            long firstRowId = file.firstRowId();
+            writeEqualityDeleteOnId(table, 2);
+
+            List<long[]> idAndRowId = readIdAndLongColumn(session, tableName, "_row_id");
+            assertEquals(idAndRowId.size(), 2);
+            assertEquals(valueForId(idAndRowId, 1), firstRowId);
+            assertEquals(valueForId(idAndRowId, 3), firstRowId + 2);
+
+            assertIdsForQuery(session, "SELECT id FROM " + tableName + " WHERE \"_row_id\" = " + (firstRowId + 2), ImmutableList.of(3));
+            assertIdsForQuery(session, "SELECT id FROM " + tableName + " WHERE \"_row_id\" = " + (firstRowId + 1), ImmutableList.of());
+            assertIdsForQuery(session, "SELECT id FROM " + tableName + " WHERE \"_last_updated_sequence_number\" = " + file.dataSequenceNumber(), ImmutableList.of(1, 3));
+        }
+        finally {
+            catalog.dropTable(tableId, true);
+        }
+    }
+
+    @Test
+    public void testTableStatisticsWithLineagePredicate()
+            throws Exception
+    {
+        // Statistics for the data scan and for the equality delete scan are computed with the
+        // layout's predicate, lineage domains included, and Iceberg cannot bind lineage columns
+        // when it plans either scan. AUTOMATIC join distribution makes the planner compute them.
+        // SHOW STATS cannot cover this: a lineage predicate is also filtered per row, and SHOW
+        // STATS rejects predicates the connector does not enforce.
+        Session session = automaticJoinSession();
+        String tableName = "test_table_statistics_lineage_predicate";
+        Catalog catalog = loadCatalog();
+        TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
+        try {
+            Table table = catalog.createTable(tableId, PUSHDOWN_TABLE_SCHEMA, PartitionSpec.unpartitioned(),
+                    ImmutableMap.of("format-version", "3"));
+            Schema schema = table.schema();
+            writeRecords(table,
+                    GenericRecord.create(schema).copy("id", 1, "value", "one"),
+                    GenericRecord.create(schema).copy("id", 2, "value", "two"));
+            table.refresh();
+            DataFile file = getOnlyElement(dataFiles(table));
+            List<String> predicates = ImmutableList.of(
+                    "\"_row_id\" = " + file.firstRowId(),
+                    "\"_last_updated_sequence_number\" = " + file.dataSequenceNumber(),
+                    "\"_row_id\" = " + file.firstRowId() + " AND \"_last_updated_sequence_number\" = " + file.dataSequenceNumber());
+
+            assertExplainWithPredicates(session, tableName, predicates);
+
+            // The equality delete makes the plan join the data scan with an equality delete scan.
+            writeEqualityDeleteOnId(table, 2);
+            assertExplainWithPredicates(session, tableName, predicates);
+        }
+        finally {
+            catalog.dropTable(tableId, true);
+        }
+    }
+
+    private void assertExplainWithPredicates(Session session, String tableName, List<String> predicates)
+    {
+        for (String predicate : predicates) {
+            assertQuerySucceeds(session, "EXPLAIN SELECT * FROM " + tableName + " WHERE " + predicate);
+        }
+    }
+
     private static final Schema PUSHDOWN_TABLE_SCHEMA = new Schema(
             Types.NestedField.required(1, "id", Types.IntegerType.get()),
             Types.NestedField.optional(2, "value", Types.StringType.get()));
@@ -510,19 +595,16 @@ public class TestIcebergRowLineage
         return stats.getCompletedSplits();
     }
 
+    /**
+     * {@code sql} must select {@code id} as its first column.
+     */
     private void assertIdsForQuery(Session session, String sql, List<Integer> expectedIds)
     {
-        assertEquals(sortedIdsOf(computeActual(session, sql)), ImmutableList.sortedCopyOf(expectedIds), "rows for \"" + sql + "\"");
-    }
-
-    private static List<Integer> sortedIdsOf(MaterializedResult result)
-    {
-        List<Integer> ids = new ArrayList<>();
-        for (MaterializedRow row : result.getMaterializedRows()) {
-            ids.add((Integer) row.getField(0));
+        List<Integer> actualIds = new ArrayList<>();
+        for (MaterializedRow row : computeActual(session, sql).getMaterializedRows()) {
+            actualIds.add((Integer) row.getField(0));
         }
-        ids.sort(Integer::compare);
-        return ids;
+        assertEquals(ImmutableList.sortedCopyOf(actualIds), ImmutableList.sortedCopyOf(expectedIds), "rows for \"" + sql + "\"");
     }
 
     private List<long[]> readIdAndLongColumn(Session session, String tableName, String column)
@@ -581,5 +663,37 @@ public class TestIcebergRowLineage
             }
         }
         return writer.toDataFile();
+    }
+
+    private Session automaticJoinSession()
+    {
+        return Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, "AUTOMATIC")
+                .setSystemProperty(IGNORE_STATS_CALCULATOR_FAILURES, "false")
+                .build();
+    }
+
+    /**
+     * V3 requires deletion vectors for position deletes, which the Java worker does not read, so
+     * the tests write equality deletes. A v3 reader is expected to read v2 equality delete files
+     * for backwards compatibility.
+     */
+    private static void writeEqualityDeleteOnId(Table table, int id)
+            throws Exception
+    {
+        Schema deleteSchema = table.schema().select("id");
+        org.apache.hadoop.fs.Path path = new org.apache.hadoop.fs.Path(table.location(), "data/delete-" + UUID.randomUUID() + ".parquet");
+        EqualityDeleteWriter<Record> writer = Parquet.writeDeletes(HadoopOutputFile.fromPath(path, new Configuration()))
+                .createWriterFunc(GenericParquetWriter::create)
+                .overwrite()
+                .rowSchema(deleteSchema)
+                .withSpec(table.spec())
+                .equalityFieldIds(deleteSchema.findField("id").fieldId())
+                .buildEqualityWriter();
+        try (Closeable ignored = writer) {
+            writer.write(GenericRecord.create(deleteSchema).copy("id", id));
+        }
+        table.newRowDelta().addDeletes(writer.toDeleteFile()).commit();
+        table.refresh();
     }
 }
