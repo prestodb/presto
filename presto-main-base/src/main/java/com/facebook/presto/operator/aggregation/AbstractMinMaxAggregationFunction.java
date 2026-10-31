@@ -163,7 +163,7 @@ public abstract class AbstractMinMaxAggregationFunction
                 metadata,
                 classLoader);
         return new BuiltInAggregationFunctionImplementation(getSignature().getNameSuffix(), inputTypes, ImmutableList.of(intermediateType),
-                type, true, false, metadata, accumulatorClass, groupedAccumulatorClass);
+                type, true, false, false, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     protected AccumulatorStateSerializer<?> getStateSerializer(Class<? extends AccumulatorState> stateInterface, DynamicClassLoader classLoader)
