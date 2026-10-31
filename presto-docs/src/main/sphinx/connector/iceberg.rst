@@ -456,12 +456,13 @@ Property Name                                           Description             
 ``iceberg.aggregate-push-down-enabled``                 Controls whether to push down aggregate (MIN/MAX/COUNT) to    ``true``                           Yes                 Yes
                                                         Iceberg based on data file stats.
 
-``iceberg.target-max-file-size``                        Target maximum size of written files; the actual size may     ``1GB``                            Yes                 No, write is not supported
+``iceberg.target-max-file-size``                        Target maximum size of written files; the actual size may     ``1GB``                            Yes                 Yes
                                                         be larger. This property accepts values in the format of a
                                                         number immediately followed by a unit (``40kB``,
                                                         ``256MB``, ``1GB``). Supported units are: ``B`` (bytes),
                                                         ``kB`` (kilobytes), ``MB`` (megabytes), ``GB`` (gigabytes),
-                                                        ``TB`` (terabytes), ``PB`` (petabytes).
+                                                        ``TB`` (terabytes), ``PB`` (petabytes). Presto C++
+                                                        workers read it from their own Iceberg catalog file.
 ======================================================= ============================================================= ================================== =================== =============================================
 
 Table Properties
@@ -620,7 +621,7 @@ Session properties set behavior changes for queries executed within the given se
      - Overrides the behavior of the connector property
        ``iceberg.target-max-file-size`` in the current session.
      - Yes
-     - No
+     - Yes
    * - .. _iceberg-sess-target-split-size-bytes:
 
        ``iceberg.target_split_size_bytes``
