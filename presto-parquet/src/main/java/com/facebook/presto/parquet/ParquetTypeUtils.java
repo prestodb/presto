@@ -215,6 +215,86 @@ public final class ParquetTypeUtils
     }
 
     /**
+     * Finds a child of {@code group} by Iceberg field ID, falling back to the field name only when
+     * the group carries no field IDs at all (for example files written by Hive or Spark and later
+     * registered with an Iceberg table).
+     *
+     * If any child of the group has a field ID the match is strictly by ID and returns null when
+     * {@code fieldId} is absent: a renamed field still resolves by its stable ID even if its
+     * physical name is stale, and an absent field is never matched by name by accident.
+     *
+     * {@code encodedName} must already be encoded the way the file stores names; it may be null,
+     * in which case there is no name fallback.
+     *
+     * This is the single definition of the rule. Both schema pruning
+     * ({@link #getSubfieldTypeByIdOrName}) and column resolution ({@link #lookupColumnByIdOrName})
+     * use it so that the two stages cannot disagree.
+     */
+    public static org.apache.parquet.schema.Type findFieldByIdOrName(GroupType group, int fieldId, String encodedName)
+    {
+        boolean hasFieldIds = false;
+        for (org.apache.parquet.schema.Type field : group.getFields()) {
+            org.apache.parquet.schema.Type.ID id = field.getId();
+            if (id != null) {
+                hasFieldIds = true;
+                if (id.intValue() == fieldId) {
+                    return field;
+                }
+            }
+        }
+        if (hasFieldIds) {
+            return null;
+        }
+        return encodedName == null ? null : getParquetTypeByName(encodedName, group);
+    }
+
+    /**
+     * Looks up a child of {@code groupColumnIO} using the rule of {@link #findFieldByIdOrName}.
+     * Used for Iceberg schema evolution where a field may have been renamed: the field ID is
+     * stable across renames, but the name in the file reflects the original name at write time.
+     * Returns null if no child matches.
+     */
+    public static ColumnIO lookupColumnByIdOrName(GroupColumnIO groupColumnIO, int fieldId, String encodedName)
+    {
+        org.apache.parquet.schema.Type child = findFieldByIdOrName(groupColumnIO.getType().asGroupType(), fieldId, encodedName);
+        if (child == null) {
+            return null;
+        }
+        // child is one of this group's own fields, so its exact physical name identifies the ColumnIO child.
+        return groupColumnIO.getChild(child.getName());
+    }
+
+    /**
+     * Traverses a {@link ColumnIO} tree one group at a time, returning the leaf {@code ColumnIO}
+     * node reached after following every step. {@code fieldIds} and {@code encodedNames} are
+     * parallel lists describing the same path.
+     *
+     * This is the ID-based analogue of {@code findNestedColumnIO}: instead of matching children
+     * by their current logical name (which breaks after a rename), each step matches by the
+     * stable Parquet field ID embedded in the file's schema. The name is only used for a group
+     * that has no field IDs, see {@link #lookupColumnByIdOrName}. Returns {@link Optional#empty()}
+     * if any step cannot be resolved.
+     */
+    public static Optional<ColumnIO> findNestedColumnIOByIdOrName(ColumnIO columnIO, List<Integer> fieldIds, List<String> encodedNames)
+    {
+        checkArgument(fieldIds.size() == encodedNames.size(), "fieldIds and encodedNames must have the same size");
+        if (columnIO == null) {
+            return Optional.empty();
+        }
+        ColumnIO current = columnIO;
+        for (int i = 0; i < fieldIds.size(); i++) {
+            if (!(current instanceof GroupColumnIO)) {
+                return Optional.empty();
+            }
+            current = lookupColumnByIdOrName((GroupColumnIO) current, fieldIds.get(i), encodedNames.get(i));
+            if (current == null) {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(current);
+    }
+
+    /**
      * For optional fields:
      * definitionLevel == maxDefinitionLevel     => Value is defined
      * definitionLevel == maxDefinitionLevel - 1 => Value is null
@@ -275,7 +355,47 @@ public final class ParquetTypeUtils
             typeBuilder.add(childType);
             parentType = childType;
         }
-        List<org.apache.parquet.schema.Type> typeChain = typeBuilder.build();
+        return nestTypeChain(typeBuilder.build());
+    }
+
+    /**
+     * Iceberg counterpart of {@link #getSubfieldType} that resolves every nested step with
+     * {@link #findFieldByIdOrName} instead of by name, so the pruned schema keeps exactly the
+     * field that {@link #lookupColumnByIdOrName} will later look for. {@code fieldIds} and
+     * {@code encodedNames} are parallel lists describing the path below the root column. The
+     * root column itself is matched by name, as in {@link #getSubfieldType}.
+     *
+     * Returns empty when the root or any step cannot be resolved, including when a step would
+     * descend into a primitive.
+     */
+    public static Optional<org.apache.parquet.schema.Type> getSubfieldTypeByIdOrName(GroupType baseType, String rootName, List<Integer> fieldIds, List<String> encodedNames)
+    {
+        checkArgument(fieldIds.size() >= 1, "subfield size is less than 1");
+        checkArgument(fieldIds.size() == encodedNames.size(), "fieldIds and encodedNames must have the same size");
+        ImmutableList.Builder<org.apache.parquet.schema.Type> typeBuilder = ImmutableList.builder();
+
+        org.apache.parquet.schema.Type parentType = getParquetTypeByName(rootName, baseType);
+        if (parentType == null) {
+            return Optional.empty();
+        }
+        typeBuilder.add(parentType);
+
+        for (int i = 0; i < fieldIds.size(); i++) {
+            if (parentType.isPrimitive()) {
+                return Optional.empty();
+            }
+            org.apache.parquet.schema.Type childType = findFieldByIdOrName(parentType.asGroupType(), fieldIds.get(i), encodedNames.get(i));
+            if (childType == null) {
+                return Optional.empty();
+            }
+            typeBuilder.add(childType);
+            parentType = childType;
+        }
+        return nestTypeChain(typeBuilder.build());
+    }
+
+    private static Optional<org.apache.parquet.schema.Type> nestTypeChain(List<org.apache.parquet.schema.Type> typeChain)
+    {
         if (typeChain.isEmpty()) {
             return Optional.empty();
         }

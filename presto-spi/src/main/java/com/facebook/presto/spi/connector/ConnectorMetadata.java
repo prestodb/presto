@@ -466,6 +466,31 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Rename a field inside a nested struct column.
+     *
+     * <p>{@code fieldPath} is the path of segments leading to the field being renamed (for example {@code ["info", "age"]}).
+     * It always contains at least 2 elements (enforced by the caller), and all elements of {@code fieldPath}
+     * as well as {@code target} have already been normalized by the engine via the connector's own
+     * {@code normalizeIdentifier} before this method is invoked.
+     *
+     * <p>{@code target} is the new name for the last segment of the path.
+     *
+     * <p>Path steps traverse struct fields. Whether collection steps such as list elements
+     * (using the pseudo-step {@code element}) or map values (using the pseudo-step {@code value})
+     * are supported is connector-specific.
+     *
+     * <p>When {@code ignoreNonExistent} is {@code true} the connector should silently return without
+     * error if the field or any parent step does not exist, consistent with {@code IF EXISTS} semantics.
+     * When {@code ignoreNonExistent} is {@code false}, the connector should report
+     * {@code COLUMN_NOT_FOUND} if the requested field or any parent step does not exist.
+     * Connectors may report {@code NOT_SUPPORTED} if nested field renaming is not supported.
+     */
+    default void renameField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, String target, boolean ignoreNonExistent)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming nested fields");
+    }
+
+    /**
      * Set the default value for the specified column for future writes.
      * The exact semantics are connector-defined.
      */

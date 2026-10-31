@@ -63,6 +63,10 @@ When ``column_name`` contains a dot (for example ``address.zip``) in a ``DROP CO
 is dropped from the named ``ROW`` column. Dropping a nested field requires ``ALTER COLUMN`` permission on the table,
 not ``DROP COLUMN`` permission.
 
+When ``column_name`` contains a dot (for example ``address.zip``) in a ``RENAME COLUMN`` statement, the nested field
+is renamed inside the named ``ROW`` column. ``new_column_name`` must be a single identifier: only the last element
+of the path is renamed. The permission required is the same ``RENAME COLUMN`` permission as for a top-level column.
+
 For ``ALTER COLUMN`` statements, the ``FIRST`` and ``AFTER`` clauses move an existing column within the
 table's column order, leaving the data of every column unchanged. Unlike ``ADD COLUMN``, one of the two
 clauses is required, since the statement does nothing else; a column is moved to the end of the table by
@@ -148,6 +152,10 @@ Rename column ``id`` to ``user_id`` in the ``users`` table::
 Rename column ``id`` to ``user_id`` in the ``users`` table if table ``users`` and column ``id`` exists::
 
     ALTER TABLE IF EXISTS users RENAME column IF EXISTS id to user_id;
+
+Rename the nested field ``zip`` to ``postal_code`` inside the ``address`` struct column of the ``users`` table::
+
+    ALTER TABLE users RENAME COLUMN address.zip TO postal_code;
 
 Add constraint ``pk`` on column ``user_id`` in the ``users`` table::
 

@@ -53,7 +53,7 @@ statement
     | ALTER TABLE (IF EXISTS)? from=qualifiedName
         RENAME TO to=qualifiedName                                     #renameTable
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        RENAME COLUMN (IF EXISTS)? from=identifier TO to=identifier    #renameColumn
+        RENAME COLUMN (IF EXISTS)? from=qualifiedName TO to=identifier #renameColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP COLUMN (IF EXISTS)? column=qualifiedName                  #dropColumn
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
