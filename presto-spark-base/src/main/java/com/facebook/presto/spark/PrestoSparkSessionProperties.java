@@ -16,6 +16,7 @@ package com.facebook.presto.spark;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -23,10 +24,13 @@ import jakarta.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.spark.SparkErrorCode.SPARK_EXECUTOR_OOM;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.dataSizeProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.doubleProperty;
@@ -34,6 +38,7 @@ import static com.facebook.presto.spi.session.PropertyMetadata.durationProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
 import static com.google.common.base.Strings.nullToEmpty;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 
 public class PrestoSparkSessionProperties
@@ -79,6 +84,7 @@ public class PrestoSparkSessionProperties
     public static final String DYNAMIC_PRESTO_MEMORY_POOL_TUNING_ENABLED = "dynamic_presto_memory_pool_tuning_enabled";
     public static final String DYNAMIC_PRESTO_MEMORY_POOL_TUNING_FRACTION = "dynamic_presto_memory_pool_tuning_fraction";
     public static final String ATTEMPT_NUMBER_TO_APPLY_DYNAMIC_MEMORY_POOL_TUNING = "attempt_number_to_apply_dynamic_memory_pool_tuning";
+    public static final String SPARK_TABLE_WRITER_PARTITION_COUNT = "spark_table_writer_partition_count";
 
     private final List<PropertyMetadata<?>> sessionProperties;
     private final ExecutionStrategyValidator executionStrategyValidator;
@@ -307,12 +313,31 @@ public class PrestoSparkSessionProperties
                         ATTEMPT_NUMBER_TO_APPLY_DYNAMIC_MEMORY_POOL_TUNING,
                         "Attempt number after which dynamic memory pool tuning will be enabled",
                         prestoSparkConfig.getAttemptNumberToApplyDynamicMemoryPoolTuning(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        SPARK_TABLE_WRITER_PARTITION_COUNT,
+                        "Number of tasks that write a partitioned or bucketed table. When set, the rows are shuffled on the table partitioning before the write, " +
+                                "and each writer task owns whole buckets of it, so the count is capped at the bucket count, which is 1009 for a partitioned Hive table that is not bucketed",
+                        INTEGER,
+                        Integer.class,
+                        null,
+                        false,
+                        value -> validateIntegerValue(value, SPARK_TABLE_WRITER_PARTITION_COUNT, 1),
+                        value -> value));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    private static int validateIntegerValue(Object value, String property, int lowerBoundIncluded)
+    {
+        int intValue = ((Number) value).intValue();
+        if (intValue < lowerBoundIncluded) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than %s", property, lowerBoundIncluded));
+        }
+        return intValue;
     }
 
     public static boolean isSparkPartitionCountAutoTuneEnabled(Session session)
@@ -508,5 +533,14 @@ public class PrestoSparkSessionProperties
     public static int getAttemptNumberToApplyDynamicMemoryPoolTuning(Session session)
     {
         return session.getSystemProperty(ATTEMPT_NUMBER_TO_APPLY_DYNAMIC_MEMORY_POOL_TUNING, Integer.class);
+    }
+
+    public static OptionalInt getSparkTableWriterPartitionCount(Session session)
+    {
+        Integer partitionCount = session.getSystemProperty(SPARK_TABLE_WRITER_PARTITION_COUNT, Integer.class);
+        if (partitionCount == null) {
+            return OptionalInt.empty();
+        }
+        return OptionalInt.of(partitionCount);
     }
 }
