@@ -311,9 +311,10 @@ public class TableStatisticsMaker
             List<Types.NestedField> nonPartitionPrimitiveColumns,
             List<PartitionField> partitionFields)
     {
+        // Iceberg's expression binder rejects predicates on metadata columns; strip them here.
         CloseableIterable<DeleteFile> deleteFiles = IcebergUtil.getDeleteFiles(icebergTable,
                 tableHandle.getIcebergTableName().getSnapshotId().get(),
-                intersection,
+                IcebergUtil.getNonMetadataColumnConstraints(intersection),
                 tableHandle.getPartitionSpecId(),
                 tableHandle.getEqualityFieldIds(),
                 session.getRuntimeStats());
