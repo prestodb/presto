@@ -31,6 +31,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -275,6 +276,31 @@ public abstract class BaseOAuth2AuthenticationFilterTest
         assertThat(oauth2Cookie).isNotEmpty();
         assertOAuth2Cookie(oauth2Cookie.get());
         assertUICallWithCookie(oauth2Cookie.get().getValue());
+    }
+
+    @DataProvider
+    public Object[][] logoutPaths()
+    {
+        return new Object[][] {{"/logout"}, {"/ui/oauth2/logout.html"}};
+    }
+
+    @Test(dataProvider = "logoutPaths")
+    public void testLogoutDoesNotRedirectToIdp(String path)
+            throws IOException
+    {
+        try (Response response = httpClient
+                .newCall(new Request.Builder()
+                        .url(proxyURI.resolve(path).toString())
+                        .get()
+                        .build())
+                .execute()) {
+            String location = response.header(LOCATION);
+            if (location != null) {
+                assertThat(location)
+                        .as("'%s' must not redirect to the IdP authorization endpoint", path)
+                        .doesNotContain("/oauth2/auth");
+            }
+        }
     }
 
     @Test
