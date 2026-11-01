@@ -197,5 +197,11 @@ public final class LambdaDefinitionExpression
         {
             return format("%s(%s)", specialForm.getForm(), String.join(", ", specialForm.getArguments().stream().map(e -> e.accept(this, null)).collect(Collectors.toList())));
         }
+
+        @Override
+        public String visitIntermediateFormExpression(IntermediateFormExpression expression, Void context)
+        {
+            return expression.toString();
+        }
     }
 }
