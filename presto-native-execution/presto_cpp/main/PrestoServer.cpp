@@ -38,6 +38,7 @@
 #include "presto_cpp/main/connectors/SystemConnector.h"
 #include "presto_cpp/main/connectors/hive/functions/HiveFunctionRegistration.h"
 #include "presto_cpp/main/functions/FunctionMetadata.h"
+#include "presto_cpp/main/functions/ScalarFunctionRegistration.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -83,7 +84,6 @@
 #include "velox/exec/rpc/RPCPlanNodeTranslator.h"
 #include "velox/expression/rpc/AsyncRPCFunctionRegistry.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 #include "velox/serializers/CompactRowSerializer.h"
 #include "velox/serializers/PrestoSerializer.h"
@@ -1563,8 +1563,7 @@ void PrestoServer::registerCustomOperators() {
 }
 
 void PrestoServer::registerFunctions() {
-  velox::functions::prestosql::registerAllScalarFunctions(
-      prestoBuiltinFunctionPrefix_);
+  functions::registerPrestoScalarFunctions(prestoBuiltinFunctionPrefix_);
   velox::aggregate::prestosql::registerAllAggregateFunctions(
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(

@@ -15,6 +15,7 @@
 
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/functions/FunctionMetadata.h"
+#include "presto_cpp/main/functions/ScalarFunctionRegistration.h"
 #include "presto_cpp/main/types/tests/TestUtils.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/rpc/AsyncRPCFunctionRegistry.h"
@@ -73,7 +74,8 @@ class FunctionMetadataTest : public ::testing::Test {
   static void SetUpTestSuite() {
     aggregate::prestosql::registerAllAggregateFunctions(kPrestoDefaultPrefix);
     window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
-    functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
+    facebook::presto::functions::registerPrestoScalarFunctions(
+        kPrestoDefaultPrefix);
 
     // An RPC function lives outside the scalar registry, so its declaration
     // reaches the coordinator only through AsyncRPCFunctionRegistry. The two
@@ -232,6 +234,38 @@ TEST_F(FunctionMetadataTest, rpcFunction) {
 
 TEST_F(FunctionMetadataTest, mixedNullBehavior) {
   testFunction("test_mixed_null_behavior", "TestMixedNullBehavior.json", 2);
+}
+
+TEST_F(FunctionMetadataTest, atTimezoneConvert) {
+  ASSERT_TRUE(functionMetadata_.contains("at_timezone_convert"));
+  const json::array_t metadataList =
+      functionMetadata_.at("at_timezone_convert");
+  ASSERT_EQ(metadataList.size(), 1);
+
+  const auto& signature = metadataList[0];
+  EXPECT_EQ(
+      signature["paramTypes"],
+      json::array({"timestamp with time zone", "varchar"}));
+  EXPECT_EQ(signature["outputType"], "timestamp");
+  EXPECT_EQ(signature["functionKind"], "SCALAR");
+  EXPECT_EQ(
+      signature["routineCharacteristics"]["determinism"], "DETERMINISTIC");
+}
+
+TEST_F(FunctionMetadataTest, atTimezone) {
+  // Scalar functions are registered with ignoreTimeZoneLabel=false, so
+  // `at_timezone` returns TIMESTAMP WITH TIME ZONE for a TIMESTAMP WITH TIME
+  // ZONE value.
+  ASSERT_TRUE(functionMetadata_.contains("at_timezone"));
+  const json paramTypes = json::array({"timestamp with time zone", "varchar"});
+  int numMatches = 0;
+  for (const auto& signature : functionMetadata_.at("at_timezone")) {
+    if (signature["paramTypes"] == paramTypes) {
+      ++numMatches;
+      EXPECT_EQ(signature["outputType"], "timestamp with time zone");
+    }
+  }
+  EXPECT_EQ(numMatches, 1);
 }
 
 TEST_F(FunctionMetadataTest, catalog) {

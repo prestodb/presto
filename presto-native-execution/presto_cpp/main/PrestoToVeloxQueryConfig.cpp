@@ -68,8 +68,7 @@ void updateFromSessionConfigs(
       queryConfigs[velox::core::QueryConfig::kShuffleCompressionKind] =
           velox::common::compressionKindToString(compressionKind);
     } else if (it.first == SessionProperties::kLegacyTimestampWithTimezone) {
-      queryConfigs[velox::core::QueryConfig::
-                       kUseSessionTimezoneForTimestampWithTimezone] =
+      queryConfigs[velox::core::QueryConfig::kIgnoreTimeZoneLabel] =
           folly::to<bool>(it.second) ? "false" : "true";
     } else if (!sessionProperties->hasVeloxConfig(it.first)) {
       sessionProperties->updateSessionPropertyValue(it.first, it.second);

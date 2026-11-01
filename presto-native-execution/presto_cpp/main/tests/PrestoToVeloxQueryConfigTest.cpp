@@ -690,18 +690,15 @@ TEST_F(PrestoToVeloxQueryConfigTest, rpcRateLimiterHardLimitCompatibility) {
 
 TEST_F(PrestoToVeloxQueryConfigTest, legacyTimestampWithTimezone) {
   auto session = createBasicSession();
-  EXPECT_FALSE(QueryConfig(toVeloxConfigs(session))
-                   .useSessionTimezoneForTimestampWithTimezone());
+  EXPECT_FALSE(QueryConfig(toVeloxConfigs(session)).ignoreTimeZoneLabel());
 
   session.systemProperties[SessionProperties::kLegacyTimestampWithTimezone] =
       "false";
-  EXPECT_TRUE(QueryConfig(toVeloxConfigs(session))
-                  .useSessionTimezoneForTimestampWithTimezone());
+  EXPECT_TRUE(QueryConfig(toVeloxConfigs(session)).ignoreTimeZoneLabel());
 
   session.systemProperties[SessionProperties::kLegacyTimestampWithTimezone] =
       "true";
-  EXPECT_FALSE(QueryConfig(toVeloxConfigs(session))
-                   .useSessionTimezoneForTimestampWithTimezone());
+  EXPECT_FALSE(QueryConfig(toVeloxConfigs(session)).ignoreTimeZoneLabel());
 }
 
 TEST_F(PrestoToVeloxQueryConfigTest, credentialKeysNameOnlyCredentials) {
