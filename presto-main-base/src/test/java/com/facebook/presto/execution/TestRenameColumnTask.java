@@ -63,8 +63,10 @@ import static com.facebook.presto.transaction.InMemoryTransactionManager.createT
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestRenameColumnTask
@@ -163,54 +165,40 @@ public class TestRenameColumnTask
     }
 
     @Test
-    public void testNestedRenameFieldNotFoundFailsWithoutIfExists()
+    public void testNestedRenamePassesCorrectArgumentsToRenameField()
+    {
+        // MockMetadata.normalizeIdentifier lower-cases, so the connector must receive normalized parts.
+        QualifiedName nestedName = QualifiedName.of(ImmutableList.of(
+                new Identifier("Outer", true),
+                new Identifier("Inner", true),
+                new Identifier("Age", true)));
+
+        // isColumnExists=true so ignoreNonExistent must be forwarded as true
+        execute(new RenameColumn(QualifiedName.of(TABLE_NAME), nestedName, new Identifier("Years", true), false, true));
+        assertEquals(metadata.receivedFieldPath, ImmutableList.of("outer", "inner", "age"));
+        assertEquals(metadata.receivedFieldTarget, "years");
+        assertTrue(metadata.receivedFieldIgnoreNonExistent);
+
+        // isColumnExists=false so ignoreNonExistent must be forwarded as false
+        execute(new RenameColumn(QualifiedName.of(TABLE_NAME), nestedName, new Identifier("Years", true), false, false));
+        assertEquals(metadata.receivedFieldPath, ImmutableList.of("outer", "inner", "age"));
+        assertEquals(metadata.receivedFieldTarget, "years");
+        assertFalse(metadata.receivedFieldIgnoreNonExistent);
+
+        assertEquals(metadata.renameFieldCalls, 2);
+        assertEquals(metadata.renameColumnCalls, 0);
+        assertNull(metadata.renamedColumn);
+    }
+
+    @Test
+    public void testNestedRenamePropagatesExceptionFromRenameField()
     {
         metadata.renameFieldFailure = new PrestoException(COLUMN_NOT_FOUND, "Field 'info.age' does not exist");
 
+        // RenameColumnTask delegates execution and exception handling to metadata.renameField without swallowing exceptions
         assertThrows(PrestoException.class, () -> execute(renameColumn(QualifiedName.of("info", "age"), "years", false)));
-        assertEquals(metadata.renameFieldCalls, 1);
-    }
-
-    @Test
-    public void testNestedRenameFieldNotFoundSuppressedByIfExists()
-    {
-        metadata.renameFieldFailure = new PrestoException(COLUMN_NOT_FOUND, "Field 'info.age' does not exist");
-
-        execute(renameColumn(QualifiedName.of("info", "age"), "years", true));
-        assertEquals(metadata.renameFieldCalls, 1);
-    }
-
-    @Test
-    public void testIfExistsSuppressesBadIntermediateSegment()
-    {
-        // RENAME COLUMN IF EXISTS aress.zip TO postal_code — "aress" does not exist.
-        // IcebergAbstractMetadata.resolveFieldToRename throws COLUMN_NOT_FOUND for a missing
-        // intermediate segment; IF EXISTS must suppress it silently.
-        metadata.renameFieldFailure = new PrestoException(COLUMN_NOT_FOUND, "Cannot find parent field 'aress' in table 'test_table'");
-
-        execute(renameColumn(QualifiedName.of("aress", "zip"), "postal_code", true));
-        assertEquals(metadata.renameFieldCalls, 1);
-    }
-
-    @Test
-    public void testIfExistsSuppressesBadLeafField()
-    {
-        // RENAME COLUMN IF EXISTS address.ziip TO postal_code — "ziip" leaf does not exist.
-        // Also throws COLUMN_NOT_FOUND; IF EXISTS must suppress it silently.
-        metadata.renameFieldFailure = new PrestoException(COLUMN_NOT_FOUND, "Field 'address.ziip' does not exist in table 'test_table'");
-
-        execute(renameColumn(QualifiedName.of("address", "ziip"), "postal_code", true));
-        assertEquals(metadata.renameFieldCalls, 1);
-    }
-
-    @Test
-    public void testIfExistsDoesNotSuppressOtherNestedRenameFailures()
-    {
-        // Only COLUMN_NOT_FOUND is swallowed by IF EXISTS; any other connector failure must surface.
-        metadata.renameFieldFailure = new PrestoException(com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED, "This connector does not support renaming nested fields");
-
         assertThrows(PrestoException.class, () -> execute(renameColumn(QualifiedName.of("info", "age"), "years", true)));
-        assertEquals(metadata.renameFieldCalls, 1);
+        assertEquals(metadata.renameFieldCalls, 2);
     }
 
     @Test
@@ -274,6 +262,7 @@ public class TestRenameColumnTask
         private int renameColumnCalls;
         private List<String> receivedFieldPath;
         private String receivedFieldTarget;
+        private boolean receivedFieldIgnoreNonExistent;
         private int renameFieldCalls;
         private PrestoException renameFieldFailure;
         private boolean preserveCase;
@@ -297,12 +286,9 @@ public class TestRenameColumnTask
         {
             this.receivedFieldPath = fieldPath;
             this.receivedFieldTarget = target;
+            this.receivedFieldIgnoreNonExistent = ignoreNonExistent;
             this.renameFieldCalls++;
             if (renameFieldFailure != null) {
-                if (ignoreNonExistent && renameFieldFailure.getErrorCode().equals(COLUMN_NOT_FOUND.toErrorCode())) {
-                    // Connector honours ignoreNonExistent: silently absorb COLUMN_NOT_FOUND.
-                    return;
-                }
                 throw renameFieldFailure;
             }
         }

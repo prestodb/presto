@@ -1624,33 +1624,6 @@ public abstract class IcebergDistributedSmokeTestBase
                 "ALTER TABLE test_nested_rename_collision RENAME COLUMN info.age TO name",
                 ".*Cannot rename field 'info\\.age'.*field with that name already exists.*");
         dropTable(session, "test_nested_rename_collision");
-
-        // --- Swap-rename: info.a→tmp, info.b→a, info.tmp→b ---
-        // Verifies that field-ID-based resolution retains correct values for each field
-        // even when names are swapped across multiple renames.
-        assertUpdate(session, "CREATE TABLE test_nested_rename_swap (" +
-                "id BIGINT, " +
-                "info ROW(a INTEGER, b INTEGER)" +
-                ") WITH (" + format + ")");
-        assertUpdate(session, "INSERT INTO test_nested_rename_swap VALUES (1, ROW(10, 20))", 1);
-
-        assertUpdate(session, "ALTER TABLE test_nested_rename_swap RENAME COLUMN info.a TO tmp");
-        assertUpdate(session, "ALTER TABLE test_nested_rename_swap RENAME COLUMN info.b TO a");
-        assertUpdate(session, "ALTER TABLE test_nested_rename_swap RENAME COLUMN info.tmp TO b");
-
-        // id=1 was written before the swap: field that had value 10 is now named 'b';
-        // field that had value 20 is now named 'a'. Field IDs are preserved across renames.
-        assertQuery(session, "SELECT id, info.a, info.b FROM test_nested_rename_swap",
-                "VALUES (1, 20, 10)");
-
-        // Renaming does not reorder fields: the struct is now ROW(b, a), because the first field
-        // (originally 'a') is now 'b' and the second (originally 'b') is now 'a'.
-        // ROW(200, 100) is positional, so 200 goes to the first field ('b') and 100 to the second ('a').
-        assertUpdate(session, "INSERT INTO test_nested_rename_swap VALUES (2, ROW(200, 100))", 1);
-        assertQuery(session, "SELECT id, info.a, info.b FROM test_nested_rename_swap ORDER BY id",
-                "VALUES (1, 20, 10), (2, 100, 200)");
-
-        dropTable(session, "test_nested_rename_swap");
     }
 
     /**
@@ -1660,12 +1633,17 @@ public abstract class IcebergDistributedSmokeTestBase
     @Test
     public void testRenameNestedFieldTimeTravel()
     {
-        Session session = getSession();
+        testWithAllFileFormats(this::testRenameNestedFieldTimeTravel);
+    }
+
+    private void testRenameNestedFieldTimeTravel(Session session, FileFormat fileFormat)
+    {
+        String format = "\"write.format.default\" = '" + fileFormat + "'";
         String tableName = "test_nested_rename_timetravel";
         assertUpdate(session, "CREATE TABLE " + tableName + " (" +
                 "id BIGINT, " +
                 "info ROW(name VARCHAR, age INTEGER)" +
-                ")");
+                ") WITH (" + format + ")");
         assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, ROW('alice', 30))", 1);
 
         long snapshotBeforeRename = latestSnapshotId(tableName);

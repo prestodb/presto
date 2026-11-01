@@ -39,6 +39,7 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.getArrayElementColumn
 import static com.facebook.presto.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByIdOrName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.io.ColumnIOUtil.columnDefinitionLevel;
 import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
@@ -85,9 +86,12 @@ public final class IcebergParquetColumnIOConverter
             if (ROW.equals(typeBase)) {
                 List<RowType.Field> fields = ((RowType) type).getFields();
                 List<ColumnIdentity> childIdentities = columnIdentity.getChildren();
-                if (childIdentities.size() != fields.size()) {
-                    return Optional.empty();
-                }
+                checkArgument(
+                        childIdentities.size() == fields.size(),
+                        "ColumnIdentity children count (%s) does not match ROW field count (%s) for type %s",
+                        childIdentities.size(),
+                        fields.size(),
+                        type);
                 ImmutableList.Builder<Optional<Field>> fieldsBuilder = ImmutableList.builder();
                 boolean structHasParameters = false;
                 for (int i = 0; i < fields.size(); i++) {

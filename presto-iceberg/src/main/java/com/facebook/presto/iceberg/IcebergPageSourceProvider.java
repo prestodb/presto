@@ -939,13 +939,12 @@ public class IcebergPageSourceProvider
         if (physicalType.getOrcTypeKind() != OrcType.OrcTypeKind.STRUCT) {
             return logicalType;
         }
-        OrcType physicalStructType = physicalType;
 
         Map<Integer, String> icebergIdToPhysicalName = new HashMap<>();
         Map<Integer, Integer> icebergIdToSubTypeIndex = new HashMap<>();
-        for (int i = 0; i < physicalStructType.getFieldCount(); i++) {
-            int subTypeIndex = physicalStructType.getFieldTypeIndex(i);
-            String physicalName = physicalStructType.getFieldName(i);
+        for (int i = 0; i < physicalType.getFieldCount(); i++) {
+            int subTypeIndex = physicalType.getFieldTypeIndex(i);
+            String physicalName = physicalType.getFieldName(i);
             if (subTypeIndex < orcTypes.size()) {
                 String icebergIdStr = orcTypes.get(subTypeIndex).getAttributes().get(ORC_ICEBERG_ID_KEY);
                 if (icebergIdStr != null) {

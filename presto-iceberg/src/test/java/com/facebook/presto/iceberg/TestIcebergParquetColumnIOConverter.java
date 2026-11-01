@@ -34,7 +34,6 @@ import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.STRUCT;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 /**
@@ -194,8 +193,9 @@ public class TestIcebergParquetColumnIOConverter
         return lookupColumnByName(messageIO, "info");
     }
 
-    @Test
-    public void testRowChildIdentityCountMismatchIsNotResolved()
+    @Test(expectedExceptions = IllegalArgumentException.class,
+            expectedExceptionsMessageRegExp = ".*ColumnIdentity children count.*does not match ROW field count.*")
+    public void testRowChildIdentityCountMismatchThrows()
     {
         ColumnIO columnIO = infoColumnIO();
         RowType rowType = RowType.from(ImmutableList.of(RowType.field("a", BIGINT), RowType.field("b", BIGINT)));
@@ -203,16 +203,14 @@ public class TestIcebergParquetColumnIOConverter
         ColumnIdentity mismatchedIdentity = new ColumnIdentity(1, "info", STRUCT,
                 ImmutableList.of(new ColumnIdentity(10, "a", PRIMITIVE, ImmutableList.of())));
 
-        Optional<Field> result = IcebergParquetColumnIOConverter.constructField(mismatchedIdentity, rowType, columnIO);
-
-        assertFalse(result.isPresent(), "ROW with mismatched child identity count must not be resolved");
+        IcebergParquetColumnIOConverter.constructField(mismatchedIdentity, rowType, columnIO);
     }
 
     /**
-     * Control for {@link #testRowChildIdentityCountMismatchIsNotResolved}: with matching counts the same
+     * Control for {@link #testRowChildIdentityCountMismatchThrows}: with matching counts the same
      * file is resolved, and the renamed logical fields {@code a}/{@code b} bind to the physical
-     * {@code old_a}/{@code old_b} columns by field ID. This shows the empty result above comes from the
-     * count guard and not from a failed lookup.
+     * {@code old_a}/{@code old_b} columns by field ID. This verifies that valid identity counts
+     * still allow successful field-ID-based resolution.
      */
     @Test
     public void testRowResolvedByFieldIdWhenCountsMatch()
