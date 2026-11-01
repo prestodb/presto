@@ -1,0 +1,134 @@
+name: Advance velox PR check
+
+on:
+  workflow_run:
+    workflows: [test, prestocpp-linux-build, prestocpp-linux-build-and-unit-test, arrow flight tests, prestocpp-macos-build]
+    types: [completed]
+    branches: [velox-update]
+
+  # Note: workflow_run trigger with dangerous-triggers suppression is safe here because:
+  # 1. Permissions are scoped to pull-requests: write only (no contents: write)
+  # 2. Checkout uses persist-credentials: false
+  # 3. No code execution from untrusted sources
+
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+env:
+  NOTIFICATION_GROUP: ${{ vars.VELOX_UPDATE_NOTIFICATION_GROUP || '@prestodb/team-velox' }}
+  VELOX_UPDATE_BRANCH: velox-update
+
+jobs:
+  check-pr-status:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.VELOX_UPDATE_BRANCH }}
+          persist-credentials: false
+
+      - name: Get PR info
+        id: pr_info
+        env:
+          GH_TOKEN: ${{ secrets.PRESTODB_CI_TOKEN }}
+        run: |
+          # Check if PR exists for velox-update branch
+          PR_JSON=$(gh pr list --head "${{ env.VELOX_UPDATE_BRANCH }}" --state open --json number,url --jq '.[0]' 2>/dev/null)
+
+          if [ -n "$PR_JSON" ] && [ "$PR_JSON" != "null" ]; then
+            echo "pr_number=$(echo "$PR_JSON" | jq -r '.number')" >> $GITHUB_OUTPUT
+            echo "pr_url=$(echo "$PR_JSON" | jq -r '.url')" >> $GITHUB_OUTPUT
+            echo "pr_found=true" >> $GITHUB_OUTPUT
+            echo "Found PR: $(echo "$PR_JSON" | jq -r '.url')"
+          else
+            echo "pr_found=false" >> $GITHUB_OUTPUT
+            echo "No PR found for branch ${{ env.VELOX_UPDATE_BRANCH }}"
+          fi
+
+      - name: Check CI status
+        if: steps.pr_info.outputs.pr_found == 'true'
+        id: ci_status
+        env:
+          GH_TOKEN: ${{ secrets.PRESTODB_CI_TOKEN }}
+        run: |
+          # Get CI check status for the PR
+          CHECKS_JSON=$(gh pr checks ${{ steps.pr_info.outputs.pr_number }} --json state 2>&1)
+
+          if [ -z "$CHECKS_JSON" ] || [ "$CHECKS_JSON" = "[]" ]; then
+            echo "ci_result=no_checks" >> $GITHUB_OUTPUT
+            echo "No CI checks found"
+            exit 0
+          fi
+
+          STATES=$(echo "$CHECKS_JSON" | jq -r '.[].state' | sort -u)
+
+          # Check if any checks are still running
+          if echo "$STATES" | grep -qE "PENDING|QUEUED|IN_PROGRESS"; then
+            echo "ci_result=still_running" >> $GITHUB_OUTPUT
+            echo "CI checks still running"
+            exit 0
+          fi
+
+          # Check for failures
+          if echo "$STATES" | grep -qE "FAILURE|CANCELLED|TIMED_OUT|ERROR"; then
+            echo "ci_result=failure" >> $GITHUB_OUTPUT
+            echo "CI checks failed"
+          # Verify all checks passed
+          elif [ "$(echo "$CHECKS_JSON" | jq '[.[] | select(.state != "SUCCESS")] | length')" -eq 0 ]; then
+            echo "ci_result=success" >> $GITHUB_OUTPUT
+            echo "All CI checks passed"
+          else
+            echo "ci_result=failure" >> $GITHUB_OUTPUT
+            echo "CI checks completed with non-success states"
+          fi
+
+      - name: Notify CI result
+        if: steps.ci_status.outputs.ci_result == 'success' || steps.ci_status.outputs.ci_result == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.PRESTODB_CI_TOKEN }}
+        run: |
+          # Post notification comment based on CI result
+          if [ "${{ steps.ci_status.outputs.ci_result }}" = "success" ]; then
+            gh pr comment ${{ steps.pr_info.outputs.pr_number }} --body "✅ **CI Checks Passed**
+
+          All CI checks have completed successfully for this Velox submodule update.
+
+          ${{ env.NOTIFICATION_GROUP }} This PR is ready for review."
+          else
+            gh pr comment ${{ steps.pr_info.outputs.pr_number }} --body "❌ **CI Checks Failed**
+
+          Some CI checks have failed for this Velox submodule update.
+
+          ${{ env.NOTIFICATION_GROUP }} Please review the failed checks and take appropriate action."
+          fi
+
+      - name: Summary
+        if: always() && steps.pr_info.outputs.pr_found == 'true'
+        run: |
+          # Generate job summary
+          echo "## Check Status Job Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📝 Pull Request: ${{ steps.pr_info.outputs.pr_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          case "${{ steps.ci_status.outputs.ci_result }}" in
+            success)
+              echo "✅ CI Status: All checks passed" >> $GITHUB_STEP_SUMMARY
+              ;;
+            failure)
+              echo "❌ CI Status: Some checks failed" >> $GITHUB_STEP_SUMMARY
+              exit 1
+              ;;
+            still_running)
+              echo "⏳ CI Status: Checks still running" >> $GITHUB_STEP_SUMMARY
+              ;;
+            no_checks)
+              echo "⚠️ CI Status: No checks found" >> $GITHUB_STEP_SUMMARY
+              ;;
+          esac

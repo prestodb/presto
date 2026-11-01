@@ -69,3 +69,7 @@ presto-native-execution/deps-install
 /docker/presto-cli-*-executable.jar
 /docker/presto-server-*.tar.gz
 /docker/presto-function-server-executable.jar
+
+# CI Ignored files
+*.log
+.ccache
