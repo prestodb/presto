@@ -87,6 +87,14 @@ public class PrestoSparkPhysicalResourceCalculator
         }
         DataSize inputSize = new DataSize(inputDataInBytes, BYTE);
 
+        log.info(String.format("Query %s resource allocation inputs: totalInputBytes=%.0f (%s), strategiesEnabled[resourceAllocation=%b, hashPartitionCount=%b, executor=%b]",
+                session.getQueryId(),
+                inputDataInBytes,
+                inputSize.convertToMostSuccinctDataSize().toString(),
+                isSparkResourceAllocationStrategyEnabled(session),
+                isSparkHashPartitionCountAllocationStrategyEnabled(session),
+                isSparkExecutorAllocationStrategyEnabled(session)));
+
         int hashPartitionCount = defaultHashPartitionCount;
         int maxExecutorCount = defaultMaxExecutorCount;
         boolean isHashPartitionCountAutoTuned = false;
@@ -104,6 +112,9 @@ public class PrestoSparkPhysicalResourceCalculator
         }
 
         PhysicalResourceSettings finalResourceSettings = new PhysicalResourceSettings(hashPartitionCount, maxExecutorCount, isHashPartitionCountAutoTuned, isMaxExecutorCountAutoTuned);
+
+        log.info(String.format("Query %s resource allocation result: isHashPartitionCountAutoTuned=%b, isMaxExecutorCountAutoTuned=%b, finalSettings=%s",
+                session.getQueryId(), isHashPartitionCountAutoTuned, isMaxExecutorCountAutoTuned, finalResourceSettings));
 
         log.info(String.format("Executing query %s with %s based on resource allocation strategy", session.getQueryId(), finalResourceSettings));
         return finalResourceSettings;
@@ -123,10 +134,23 @@ public class PrestoSparkPhysicalResourceCalculator
         checkState(((maxExecutorCount >= minExecutorCount) && (minExecutorCount > 0)), String.format(
                 "maxExecutorCount: %d needs to greater than or equal to maxExecutorCount : %d", maxExecutorCount, maxExecutorCount));
 
-        long averageInputDataSizePerExecutorInBytes = getAverageInputDataSizePerExecutor(session).toBytes();
+        DataSize averageInputDataSizePerExecutor = getAverageInputDataSizePerExecutor(session);
+        long averageInputDataSizePerExecutorInBytes = averageInputDataSizePerExecutor.toBytes();
         int calculatedNumberOfExecutors = (int) (inputData.toBytes() / averageInputDataSizePerExecutorInBytes);
+        int clampedExecutorCount = Math.max(minExecutorCount, Math.min(maxExecutorCount, calculatedNumberOfExecutors));
 
-        return (Math.max(minExecutorCount, Math.min(maxExecutorCount, calculatedNumberOfExecutors)));
+        log.info(String.format("Query %s EXECUTORS: inputBytes=%d (%s), targetBytesPerExecutor=%d (%s), minExecutorCount=%d, maxExecutorCount=%d, rawCalculatedExecutorCount=%d, finalExecutorCount=%d",
+                session.getQueryId(),
+                inputData.toBytes(),
+                inputData.convertToMostSuccinctDataSize().toString(),
+                averageInputDataSizePerExecutorInBytes,
+                averageInputDataSizePerExecutor.convertToMostSuccinctDataSize().toString(),
+                minExecutorCount,
+                maxExecutorCount,
+                calculatedNumberOfExecutors,
+                clampedExecutorCount));
+
+        return clampedExecutorCount;
     }
 
     private static int calculateHashPartitionCount(Session session, DataSize inputDataInGB)
@@ -136,9 +160,22 @@ public class PrestoSparkPhysicalResourceCalculator
         checkState(((maxHashPartitionCount >= minHashPartitionCount) && (minHashPartitionCount > 0)), String.format(
                 "maxHashPartitionCount : %d needs to greater than  or equal to minHashPartitionCount : %d", maxHashPartitionCount, minHashPartitionCount));
 
-        long averageInputDataSizePerPartitionInBytes = getAverageInputDataSizePerPartition(session).toBytes();
+        DataSize averageInputDataSizePerPartition = getAverageInputDataSizePerPartition(session);
+        long averageInputDataSizePerPartitionInBytes = averageInputDataSizePerPartition.toBytes();
         int calculatedNumberOfPartitions = (int) (inputDataInGB.toBytes() / averageInputDataSizePerPartitionInBytes);
+        int clampedHashPartitionCount = Math.max(minHashPartitionCount, Math.min(maxHashPartitionCount, calculatedNumberOfPartitions));
 
-        return (Math.max(minHashPartitionCount, Math.min(maxHashPartitionCount, calculatedNumberOfPartitions)));
+        log.info(String.format("Query %s HASH PARTITIONS: inputBytes=%d (%s), targetBytesPerPartition=%d (%s), minHashPartitionCount=%d, maxHashPartitionCount=%d, rawCalculatedHashPartitionCount=%d, finalHashPartitionCount=%d",
+                session.getQueryId(),
+                inputDataInGB.toBytes(),
+                inputDataInGB.convertToMostSuccinctDataSize().toString(),
+                averageInputDataSizePerPartitionInBytes,
+                averageInputDataSizePerPartition.convertToMostSuccinctDataSize().toString(),
+                minHashPartitionCount,
+                maxHashPartitionCount,
+                calculatedNumberOfPartitions,
+                clampedHashPartitionCount));
+
+        return clampedHashPartitionCount;
     }
 }
