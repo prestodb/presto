@@ -606,7 +606,7 @@ public class UnaliasSymbolReferences
         {
             PlanNode source = context.rewrite(node.getSource());
 
-            return new FilterNode(node.getSourceLocation(), node.getId(), source, canonicalize(node.getPredicate()));
+            return new FilterNode(node.getSourceLocation(), node.getId(), Optional.empty(), source, canonicalize(node.getPredicate()), node.isDoNotMerge());
         }
 
         @Override

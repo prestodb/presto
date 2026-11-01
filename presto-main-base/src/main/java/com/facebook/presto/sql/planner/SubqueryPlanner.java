@@ -623,7 +623,12 @@ class SubqueryPlanner
         public PlanNode visitFilter(FilterNode node, RewriteContext<Void> context)
         {
             FilterNode rewrittenNode = (FilterNode) context.defaultRewrite(node);
-            return new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenNode.getSource(), replaceExpression(rewrittenNode.getPredicate(), mapping));
+            return new FilterNode(node.getSourceLocation(),
+                    idAllocator.getNextId(),
+                    Optional.empty(),
+                    rewrittenNode.getSource(),
+                    replaceExpression(rewrittenNode.getPredicate(), mapping),
+                    node.isDoNotMerge());
         }
 
         @Override
