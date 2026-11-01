@@ -181,15 +181,11 @@ export const PageTitle = (props: Props): React.ReactElement => {
                         <span className="navbar-toggler-icon"></span>
                     </button>
                     <div id="navbar" className="navbar-collapse collapse min-width-0">
-                        <ul className="nav navbar-nav navbar-right gap-3 flex-nowrap justify-content-end align-items-center min-width-0 flex-grow-1">
-                            <li className="flex-basis-40 min-width-0 flex-grow-1">
+                        <ul className="nav navbar-nav navbar-right gap-3 justify-content-end align-items-center min-width-0 flex-grow-1">
+                            <li className="flex-basis-100 min-width-0">
                                 <div className="navbar-cluster-info">
                                     <div className="uppercase">Version</div>
-                                    <div
-                                        title={info?.nodeVersion?.version}
-                                        className="text text-truncate"
-                                        id="version-number"
-                                    >
+                                    <div title={info?.nodeVersion?.version} className="text" id="version-number">
                                         {isOffline() ? "N/A" : info?.nodeVersion?.version}
                                     </div>
                                 </div>
