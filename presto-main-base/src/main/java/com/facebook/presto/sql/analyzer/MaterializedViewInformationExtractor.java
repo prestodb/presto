@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.sql.ExpressionUtils.deepRemoveExpressionPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeGroupingElementPrefix;
 import static com.facebook.presto.sql.ExpressionUtils.removeSingleColumnPrefix;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
@@ -107,7 +108,7 @@ public class MaterializedViewInformationExtractor
         private void addBaseToViewColumn(SingleColumn singleColumn)
         {
             singleColumn = removeSingleColumnPrefix(singleColumn, removablePrefix);
-            Expression key = singleColumn.getExpression();
+            Expression key = deepRemoveExpressionPrefix(singleColumn.getExpression(), removablePrefix);
             if (key instanceof FunctionCall && !singleColumn.getAlias().isPresent()) {
                 throw new SemanticException(NOT_SUPPORTED, singleColumn, "Derived field in materialized view must have an alias");
             }
@@ -119,7 +120,9 @@ public class MaterializedViewInformationExtractor
             if (!groupBy.isPresent()) {
                 groupBy = Optional.of(new HashSet<>());
             }
-            groupBy.get().addAll(removeGroupingElementPrefix(groupingElement, removablePrefix).getExpressions());
+            for (Expression expr : removeGroupingElementPrefix(groupingElement, removablePrefix).getExpressions()) {
+                groupBy.get().add(deepRemoveExpressionPrefix(expr, removablePrefix));
+            }
         }
 
         private void setBaseTable(Relation baseTable)
