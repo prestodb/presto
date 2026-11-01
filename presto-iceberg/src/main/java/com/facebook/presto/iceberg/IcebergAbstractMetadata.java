@@ -1995,7 +1995,8 @@ public abstract class IcebergAbstractMetadata
         if (exactMatch.isPresent()) {
             return exactMatch;
         }
-        // Never guess between fields that differ only by case — dropping is destructive.
+        // Never guess between fields that differ only by case: acting on the wrong field would
+        // silently drop or rename the wrong data.
         List<NestedField> caseInsensitiveMatches = structType.fields().stream()
                 .filter(field -> field.name().equalsIgnoreCase(fieldName))
                 .collect(toImmutableList());

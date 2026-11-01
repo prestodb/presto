@@ -1820,10 +1820,50 @@ public abstract class IcebergDistributedSmokeTestBase
 
                 dropTable(session, "test_rename_hist_swap");
 
+                // ---- Recycled name via DROP + RENAME of another field ----
+                // After info.b is dropped, renaming info.a to b makes the name 'b' refer to the field with
+                // a's Iceberg field ID. The historical files still hold the dropped field (old b = 20)
+                // under the physical name 'b'. Resolution by field ID must return a's value (10); a
+                // name-based match would wrongly return 20.
+                assertUpdate(session, "CREATE TABLE test_rename_hist_recycled (" +
+                        "id BIGINT, " +
+                        "info ROW(a INTEGER, b INTEGER)" +
+                        ") WITH (" + format + ")");
+                assertUpdate(session, "INSERT INTO test_rename_hist_recycled VALUES (1, ROW(10, 20))", 1);
+
+                assertUpdate(session, "ALTER TABLE test_rename_hist_recycled DROP COLUMN info.b");
+                assertUpdate(session, "ALTER TABLE test_rename_hist_recycled RENAME COLUMN info.a TO b");
+
+                assertQuery(session, "SELECT id, info.b FROM test_rename_hist_recycled",
+                        "VALUES (1, 10)");
+                // Whole-struct read does not go through dereference pushdown.
+                MaterializedResult recycledStruct = computeActual(session,
+                        "SELECT id, info FROM test_rename_hist_recycled");
+                assertEquals(recycledStruct.getRowCount(), 1);
+                assertEquals(recycledStruct.getMaterializedRows().get(0).getField(0), 1L);
+                assertEquals(recycledStruct.getMaterializedRows().get(0).getField(1), Arrays.asList(10));
+
+                // id=2 written AFTER the evolution; the struct is now ROW(b).
+                assertUpdate(session, "INSERT INTO test_rename_hist_recycled VALUES (2, ROW(30))", 1);
+                assertQuery(session, "SELECT id, info.b FROM test_rename_hist_recycled ORDER BY id",
+                        "VALUES (1, 10), (2, 30)");
+                MaterializedResult recycledStructs = computeActual(session,
+                        "SELECT id, info FROM test_rename_hist_recycled ORDER BY id");
+                assertEquals(recycledStructs.getRowCount(), 2);
+                assertEquals(recycledStructs.getMaterializedRows().get(0).getField(0), 1L);
+                assertEquals(recycledStructs.getMaterializedRows().get(0).getField(1), Arrays.asList(10));
+                assertEquals(recycledStructs.getMaterializedRows().get(1).getField(0), 2L);
+                assertEquals(recycledStructs.getMaterializedRows().get(1).getField(1), Arrays.asList(30));
+
+                dropTable(session, "test_rename_hist_recycled");
+
                 // ---- ORC ADD after DROP: safety note ----
-                // The "re-add a field using a recycled name produces NULL from historical files" property
-                // is enforced at DDL time: IcebergAbstractMetadata.addColumn() rejects re-use of a name
-                // that was previously used in the same struct (DROP or RENAME away). So the DROP+ADD
+                // DROP followed by RENAME of another field to the dropped name is allowed and is covered
+                // by the "recycled name" case above. DROP followed by ADD of a field with the dropped name
+                // is different: the "re-add a field using a recycled name produces NULL from historical
+                // files" property is enforced at DDL time. Iceberg's UpdateSchema API itself would accept
+                // it (giving the new field a fresh ID), but Presto's field-add path rejects re-use of a
+                // name that was previously used in the same struct (DROP or RENAME away). So the DROP+ADD
                 // scenario cannot be constructed via SQL DDL in this codebase.
                 //
                 // The underlying protection — using a synthetic "$missing_orc_field$<id>" stream name so

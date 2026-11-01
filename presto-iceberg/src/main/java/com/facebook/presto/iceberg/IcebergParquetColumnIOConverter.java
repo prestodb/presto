@@ -53,11 +53,13 @@ import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
  * Parquet files still store the field under its original name, but Iceberg assigns each
  * field a stable numeric ID. Matching by ID ensures historical data is readable after a rename.
  *
- * MAP and ARRAY container children (key, value, element) are resolved positionally, exactly
+ * MAP and ARRAY container children (key, value, element) are traversed positionally, exactly
  * as the shared converter does. This is correct because those positions are fixed by the
- * Parquet/Iceberg physical layout; they are not renameable identifiers. Field-ID-based
- * matching is applied only inside nested ROW (struct) types, where renames change the
- * physical child names stored in the file.
+ * Parquet/Iceberg physical layout; they are not renameable identifiers. The traversal is
+ * recursive, so when it reaches a ROW (struct) type, at any depth and including a ROW nested
+ * inside a MAP or ARRAY, that ROW's fields are matched by Iceberg field ID (falling back to
+ * name only for a Parquet group that carries no field IDs). Renames change the physical
+ * child names stored in the file only for ROW fields, which is why ID matching is needed there.
  *
  * The JSON (variant) branch is kept identical to the shared converter since it is
  * name-based but stable (Iceberg always writes "value" and "metadata").

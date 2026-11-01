@@ -192,6 +192,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -563,30 +564,25 @@ public class IcebergPageSourceProvider
      */
     private static Optional<List<Integer>> resolveFieldIds(String rootName, List<String> namePath, Optional<Schema> tableSchema)
     {
-        if (!tableSchema.isPresent() || namePath.isEmpty()) {
-            return Optional.empty();
-        }
-        Optional<Types.NestedField> rootField = resolveNestedField(tableSchema.get().columns(), rootName);
-        if (!rootField.isPresent()) {
-            return Optional.empty();
-        }
-        Types.NestedField currentField = rootField.get();
-        ImmutableList.Builder<Integer> idSequence = ImmutableList.builder();
-        for (String step : namePath) {
-            if (!currentField.type().isStructType()) {
-                return Optional.empty();
-            }
-            Optional<Types.NestedField> nextField = resolveNestedField(currentField.type().asStructType().fields(), step);
-            if (!nextField.isPresent()) {
-                return Optional.empty();
-            }
-            currentField = nextField.get();
-            idSequence.add(currentField.fieldId());
-        }
-        return Optional.of(idSequence.build());
+        return resolveStructPath(rootName, namePath, tableSchema)
+                .map(path -> path.stream()
+                        .map(Types.NestedField::fieldId)
+                        .collect(toImmutableList()));
     }
 
     private static Optional<ColumnIdentity> resolveSubfieldIdentity(String rootName, List<String> namePath, Optional<Schema> tableSchema)
+    {
+        return resolveStructPath(rootName, namePath, tableSchema)
+                .map(path -> ColumnIdentity.createColumnIdentity(getLast(path)));
+    }
+
+    /**
+     * Resolves the struct path below the root column. The returned list contains one field per
+     * element of {@code namePath} (the root field itself is not included). Returns empty when
+     * {@code tableSchema} is absent, the path is empty, any step cannot be resolved or is
+     * ambiguous, or an intermediate field is not a struct.
+     */
+    private static Optional<List<Types.NestedField>> resolveStructPath(String rootName, List<String> namePath, Optional<Schema> tableSchema)
     {
         if (!tableSchema.isPresent() || namePath.isEmpty()) {
             return Optional.empty();
@@ -596,6 +592,7 @@ public class IcebergPageSourceProvider
             return Optional.empty();
         }
         Types.NestedField currentField = rootField.get();
+        ImmutableList.Builder<Types.NestedField> path = ImmutableList.builder();
         for (String step : namePath) {
             if (!currentField.type().isStructType()) {
                 return Optional.empty();
@@ -605,8 +602,9 @@ public class IcebergPageSourceProvider
                 return Optional.empty();
             }
             currentField = nextField.get();
+            path.add(currentField);
         }
-        return Optional.of(ColumnIdentity.createColumnIdentity(currentField));
+        return Optional.of(path.build());
     }
 
     /**

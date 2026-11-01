@@ -134,10 +134,9 @@ public class TestRenameColumnTask
     }
 
     @Test
-    public void testNestedRenameRequiresRenameColumnPermission()
+    public void testNestedRenameDeniedWhenAlterColumnNotAllowed()
     {
-        // Unlike nested ADD/DROP, which require ALTER_COLUMN, nested RENAME uses RENAME_COLUMN like a top-level rename.
-        accessControl.deny(privilege(TABLE_NAME, RENAME_COLUMN));
+        accessControl.deny(privilege(TABLE_NAME, ALTER_COLUMN));
         assertThrows(AccessDeniedException.class, () -> execute(renameColumn(QualifiedName.of("info", "age"), "years", false)));
         // A denied statement must not reach the metadata layer
         assertEquals(metadata.renameFieldCalls, 0);
@@ -145,12 +144,13 @@ public class TestRenameColumnTask
     }
 
     @Test
-    public void testNestedRenameAllowedWhenOnlyAlterColumnDenied()
+    public void testNestedRenameAllowedWhenOnlyRenameColumnDenied()
     {
-        accessControl.deny(privilege(TABLE_NAME, ALTER_COLUMN));
+        accessControl.deny(privilege(TABLE_NAME, RENAME_COLUMN));
         execute(renameColumn(QualifiedName.of("info", "age"), "years", false));
 
         assertEquals(metadata.renameFieldCalls, 1);
+        assertEquals(metadata.renameColumnCalls, 0);
     }
 
     @Test

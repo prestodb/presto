@@ -14,7 +14,9 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.type.JsonType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.parquet.Field;
+import com.facebook.presto.parquet.GroupField;
 import com.facebook.presto.parquet.PrimitiveField;
 import com.facebook.presto.parquet.VariantField;
 import com.google.common.collect.ImmutableList;
@@ -26,15 +28,19 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
+import static com.facebook.presto.iceberg.ColumnIdentity.TypeCategory.STRUCT;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 /**
- * Unit tests for {@link IcebergParquetColumnIOConverter#constructField} focusing on the
- * Variant (JSON) branch — specifically:
+ * Unit tests for {@link IcebergParquetColumnIOConverter#constructField}.
+ *
+ * <p>Variant (JSON) branch:
  * <ol>
  *   <li>Reversed physical child ordering ({@code metadata} before {@code value}) is handled
  *       correctly by name-based lookup rather than positional index.</li>
@@ -43,6 +49,9 @@ import static org.testng.Assert.assertTrue;
  *   <li>A shredded-Variant file that carries {@code typed_value} throws an explicit
  *       {@link IllegalArgumentException} rather than silently returning {@code null}.</li>
  * </ol>
+ *
+ * <p>ROW branch: a ROW whose Iceberg child-identity count differs from its field count is
+ * not resolved, and a ROW whose counts match is resolved by field ID despite a rename.
  */
 public class TestIcebergParquetColumnIOConverter
 {
@@ -170,5 +179,65 @@ public class TestIcebergParquetColumnIOConverter
                         "} }");
 
         IcebergParquetColumnIOConverter.constructField(variantIdentity(), JsonType.JSON, columnIO);
+    }
+
+    /** The file stores {@code info} with children {@code old_a} (field ID 10) and {@code old_b} (field ID 11). */
+    private static ColumnIO infoColumnIO()
+    {
+        MessageType schema = MessageTypeParser.parseMessageType(
+                "message table { " +
+                        "required group info { " +
+                        "  required int64 old_a = 10; " +
+                        "  required int64 old_b = 11; " +
+                        "} }");
+        MessageColumnIO messageIO = getColumnIO(schema, schema);
+        return lookupColumnByName(messageIO, "info");
+    }
+
+    @Test
+    public void testRowChildIdentityCountMismatchIsNotResolved()
+    {
+        ColumnIO columnIO = infoColumnIO();
+        RowType rowType = RowType.from(ImmutableList.of(RowType.field("a", BIGINT), RowType.field("b", BIGINT)));
+        // Two logical fields but only one child identity: positions can no longer be paired by index.
+        ColumnIdentity mismatchedIdentity = new ColumnIdentity(1, "info", STRUCT,
+                ImmutableList.of(new ColumnIdentity(10, "a", PRIMITIVE, ImmutableList.of())));
+
+        Optional<Field> result = IcebergParquetColumnIOConverter.constructField(mismatchedIdentity, rowType, columnIO);
+
+        assertFalse(result.isPresent(), "ROW with mismatched child identity count must not be resolved");
+    }
+
+    /**
+     * Control for {@link #testRowChildIdentityCountMismatchIsNotResolved}: with matching counts the same
+     * file is resolved, and the renamed logical fields {@code a}/{@code b} bind to the physical
+     * {@code old_a}/{@code old_b} columns by field ID. This shows the empty result above comes from the
+     * count guard and not from a failed lookup.
+     */
+    @Test
+    public void testRowResolvedByFieldIdWhenCountsMatch()
+    {
+        ColumnIO columnIO = infoColumnIO();
+        RowType rowType = RowType.from(ImmutableList.of(RowType.field("a", BIGINT), RowType.field("b", BIGINT)));
+        ColumnIdentity identity = new ColumnIdentity(1, "info", STRUCT,
+                ImmutableList.of(
+                        new ColumnIdentity(10, "a", PRIMITIVE, ImmutableList.of()),
+                        new ColumnIdentity(11, "b", PRIMITIVE, ImmutableList.of())));
+
+        Optional<Field> result = IcebergParquetColumnIOConverter.constructField(identity, rowType, columnIO);
+
+        assertTrue(result.isPresent(), "Expected ROW to be resolved when identity count matches field count");
+        assertTrue(result.get() instanceof GroupField, "Expected GroupField, got: " + result.get().getClass());
+        GroupField group = (GroupField) result.get();
+        assertEquals(group.getChildren().size(), 2);
+        assertEquals(physicalLeafName(group.getChildren().get(0)), "old_a");
+        assertEquals(physicalLeafName(group.getChildren().get(1)), "old_b");
+    }
+
+    private static String physicalLeafName(Optional<Field> field)
+    {
+        assertTrue(field.isPresent() && field.get() instanceof PrimitiveField, "Expected a PrimitiveField child");
+        String[] path = ((PrimitiveField) field.get()).getDescriptor().getPath();
+        return path[path.length - 1];
     }
 }

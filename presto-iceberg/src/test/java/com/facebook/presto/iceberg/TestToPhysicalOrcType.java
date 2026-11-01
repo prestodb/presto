@@ -14,6 +14,7 @@
 package com.facebook.presto.iceberg;
 
 import com.facebook.presto.common.type.ArrayType;
+import com.facebook.presto.common.type.MapType;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.StandardTypes;
 import com.facebook.presto.common.type.Type;
@@ -82,6 +83,14 @@ public class TestToPhysicalOrcType
                 Optional.empty(), Optional.empty(), Optional.empty());
     }
 
+    /** Like {@link #structType} but the STRUCT itself carries an Iceberg field ID (a ROW field that is itself a ROW). */
+    private static OrcType structTypeWithId(int subTypeIndex, String physicalFieldName, int icebergId)
+    {
+        return new OrcType(OrcTypeKind.STRUCT, ImmutableList.of(subTypeIndex), ImmutableList.of(physicalFieldName),
+                Optional.empty(), Optional.empty(), Optional.empty(),
+                ImmutableMap.of(ORC_ICEBERG_ID_KEY, String.valueOf(icebergId)));
+    }
+
     /** Builds a LIST OrcType whose single element type is at elementTypeIndex. */
     private static OrcType listType(int elementTypeIndex)
     {
@@ -104,6 +113,20 @@ public class TestToPhysicalOrcType
     private static ColumnIdentity structIdentity(String name, List<ColumnIdentity> children)
     {
         return new ColumnIdentity(0, name, STRUCT, children);
+    }
+
+    private static ColumnIdentity structIdentity(int id, String name, List<ColumnIdentity> children)
+    {
+        return new ColumnIdentity(id, name, STRUCT, children);
+    }
+
+    private static MapType mapOf(Type keyType, Type valueType)
+    {
+        return (MapType) TYPE_MANAGER.getParameterizedType(
+                StandardTypes.MAP,
+                ImmutableList.of(
+                        TypeSignatureParameter.of(keyType.getTypeSignature()),
+                        TypeSignatureParameter.of(valueType.getTypeSignature())));
     }
 
     private static ColumnIdentity arrayIdentity(String name, ColumnIdentity elementIdentity)
@@ -250,5 +273,179 @@ public class TestToPhysicalOrcType
         Type result = IcebergPageSourceProvider.toPhysicalOrcType(logicalMapType, mapColumnIdentity, orcTypes, 0);
 
         assertSame(result, logicalMapType, "primitive-valued map must be returned unchanged");
+    }
+
+    // -----------------------------------------------------------------------
+    // Deeper and less common nesting
+    // -----------------------------------------------------------------------
+
+    /**
+     * MAP(INTEGER, ARRAY(ROW(new_name BIGINT))): the map value is itself a container, so the MAP
+     * branch must delegate into the ARRAY branch and on into the element ROW.
+     *
+     * <pre>
+     *   [0] MAP     → key at index 1, value at index 2
+     *   [1] INT     (key)
+     *   [2] LIST    → element at index 3
+     *   [3] STRUCT  → field "old_name" at index 4
+     *   [4] INT     with iceberg.id = 10
+     * </pre>
+     */
+    @Test
+    public void testMapWithArrayOfRenamedRowValue()
+    {
+        List<OrcType> orcTypes = ImmutableList.of(
+                mapType(1, 2),
+                intType(),
+                listType(3),
+                structType(4, "old_name"),
+                intTypeWithId(10));
+
+        MapType logicalType = mapOf(INTEGER, new ArrayType(RowType.from(ImmutableList.of(RowType.field("new_name", BIGINT)))));
+        ColumnIdentity identity = mapIdentity("col",
+                primitiveIdentity(30, "key"),
+                arrayIdentity("value", structIdentity("element", ImmutableList.of(primitiveIdentity(10, "new_name")))));
+
+        Type result = IcebergPageSourceProvider.toPhysicalOrcType(logicalType, identity, orcTypes, 0);
+
+        assertEquals(result, mapOf(INTEGER, new ArrayType(RowType.from(ImmutableList.of(RowType.field("old_name", BIGINT))))));
+    }
+
+    /**
+     * ARRAY(ROW(new_outer ROW(new_inner BIGINT))): both ROW levels were renamed, so the recursion
+     * must continue through the element ROW into the ROW-typed field and rewrite both names.
+     *
+     * <pre>
+     *   [0] LIST    → element at index 1
+     *   [1] STRUCT  → field "old_outer" at index 2
+     *   [2] STRUCT  with iceberg.id = 10 → field "old_inner" at index 3
+     *   [3] INT     with iceberg.id = 11
+     * </pre>
+     */
+    @Test
+    public void testArrayWithRenamedRowNestedInRow()
+    {
+        List<OrcType> orcTypes = ImmutableList.of(
+                listType(1),
+                structType(2, "old_outer"),
+                structTypeWithId(3, "old_inner", 10),
+                intTypeWithId(11));
+
+        RowType innerRow = RowType.from(ImmutableList.of(RowType.field("new_inner", BIGINT)));
+        ArrayType logicalArrayType = new ArrayType(RowType.from(ImmutableList.of(RowType.field("new_outer", innerRow))));
+
+        ColumnIdentity innerIdentity = structIdentity(10, "new_outer",
+                ImmutableList.of(primitiveIdentity(11, "new_inner")));
+        ColumnIdentity arrayColumnIdentity = arrayIdentity("col",
+                structIdentity("element", ImmutableList.of(innerIdentity)));
+
+        Type result = IcebergPageSourceProvider.toPhysicalOrcType(logicalArrayType, arrayColumnIdentity, orcTypes, 0);
+
+        RowType expectedInner = RowType.from(ImmutableList.of(RowType.field("old_inner", BIGINT)));
+        assertEquals(result, new ArrayType(RowType.from(ImmutableList.of(RowType.field("old_outer", expectedInner)))));
+    }
+
+    /**
+     * ARRAY(ARRAY(ROW(new_name BIGINT))): a container nested directly in a container.
+     *
+     * <pre>
+     *   [0] LIST    → element at index 1
+     *   [1] LIST    → element at index 2
+     *   [2] STRUCT  → field "old_name" at index 3
+     *   [3] INT     with iceberg.id = 10
+     * </pre>
+     */
+    @Test
+    public void testArrayOfArrayWithRenamedRowElement()
+    {
+        List<OrcType> orcTypes = ImmutableList.of(
+                listType(1),
+                listType(2),
+                structType(3, "old_name"),
+                intTypeWithId(10));
+
+        ArrayType logicalType = new ArrayType(new ArrayType(RowType.from(ImmutableList.of(RowType.field("new_name", BIGINT)))));
+        ColumnIdentity identity = arrayIdentity("col",
+                arrayIdentity("element", structIdentity("element", ImmutableList.of(primitiveIdentity(10, "new_name")))));
+
+        Type result = IcebergPageSourceProvider.toPhysicalOrcType(logicalType, identity, orcTypes, 0);
+
+        assertEquals(result, new ArrayType(new ArrayType(RowType.from(ImmutableList.of(RowType.field("old_name", BIGINT))))));
+    }
+
+    /**
+     * A ROW field inside an ARRAY element whose Iceberg ID is absent from the file (added after the
+     * file was written) must get the synthetic missing name rather than binding by logical name,
+     * while the field that is present is still renamed to its physical name.
+     */
+    @Test
+    public void testArrayRowFieldMissingFromFileGetsSyntheticName()
+    {
+        List<OrcType> orcTypes = ImmutableList.of(
+                listType(1),
+                structType(2, "old_a"),
+                intTypeWithId(10));
+
+        ArrayType logicalType = new ArrayType(RowType.from(ImmutableList.of(
+                RowType.field("a", BIGINT),
+                RowType.field("b", BIGINT))));
+        ColumnIdentity identity = arrayIdentity("col", structIdentity("element",
+                ImmutableList.of(primitiveIdentity(10, "a"), primitiveIdentity(11, "b"))));
+
+        Type result = IcebergPageSourceProvider.toPhysicalOrcType(logicalType, identity, orcTypes, 0);
+
+        assertEquals(result, new ArrayType(RowType.from(ImmutableList.of(
+                RowType.field("old_a", BIGINT),
+                RowType.field("$missing_orc_field$11", BIGINT)))));
+    }
+
+    // -----------------------------------------------------------------------
+    // Identity-count mismatch early returns
+    // -----------------------------------------------------------------------
+
+    /**
+     * An ARRAY identity must have exactly one child. With two, the element cannot be paired with an
+     * identity, so the type is returned unchanged even though the element ROW would otherwise be renamed.
+     */
+    @Test
+    public void testArrayWithMismatchedIdentityCountUnchanged()
+    {
+        List<OrcType> orcTypes = ImmutableList.of(
+                listType(1),
+                structType(2, "old_name"),
+                intTypeWithId(10));
+
+        ArrayType logicalType = new ArrayType(RowType.from(ImmutableList.of(RowType.field("new_name", BIGINT))));
+        ColumnIdentity identity = new ColumnIdentity(0, "col", ARRAY, ImmutableList.of(
+                structIdentity("element", ImmutableList.of(primitiveIdentity(10, "new_name"))),
+                primitiveIdentity(99, "extra")));
+
+        Type result = IcebergPageSourceProvider.toPhysicalOrcType(logicalType, identity, orcTypes, 0);
+
+        assertSame(result, logicalType, "array with mismatched identity count must be returned unchanged");
+    }
+
+    /**
+     * A MAP identity must have exactly two children (key, value). With three, the type is returned
+     * unchanged even though the value ROW would otherwise be renamed.
+     */
+    @Test
+    public void testMapWithMismatchedIdentityCountUnchanged()
+    {
+        List<OrcType> orcTypes = ImmutableList.of(
+                mapType(1, 2),
+                intType(),
+                structType(3, "old_val"),
+                intTypeWithId(20));
+
+        MapType logicalType = mapOf(INTEGER, RowType.from(ImmutableList.of(RowType.field("new_val", BIGINT))));
+        ColumnIdentity identity = new ColumnIdentity(0, "col", MAP, ImmutableList.of(
+                primitiveIdentity(30, "key"),
+                structIdentity("value", ImmutableList.of(primitiveIdentity(20, "new_val"))),
+                primitiveIdentity(99, "extra")));
+
+        Type result = IcebergPageSourceProvider.toPhysicalOrcType(logicalType, identity, orcTypes, 0);
+
+        assertSame(result, logicalType, "map with mismatched identity count must be returned unchanged");
     }
 }

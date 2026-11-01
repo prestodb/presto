@@ -65,7 +65,8 @@ not ``DROP COLUMN`` permission.
 
 When ``column_name`` contains a dot (for example ``address.zip``) in a ``RENAME COLUMN`` statement, the nested field
 is renamed inside the named ``ROW`` column. ``new_column_name`` must be a single identifier: only the last element
-of the path is renamed. The permission required is the same ``RENAME COLUMN`` permission as for a top-level column.
+of the path is renamed. Renaming a nested field requires ``ALTER COLUMN`` permission on the table,
+not ``RENAME COLUMN`` permission.
 
 For ``ALTER COLUMN`` statements, the ``FIRST`` and ``AFTER`` clauses move an existing column within the
 table's column order, leaving the data of every column unchanged. Unlike ``ADD COLUMN``, one of the two
