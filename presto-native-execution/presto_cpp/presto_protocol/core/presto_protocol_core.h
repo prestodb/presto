@@ -2014,6 +2014,10 @@ struct NodeStatus {
   int64_t nonHeapUsed = {};
   int64_t asyncDataCacheBytes = {};
   int64_t queryMemoryBytes = {};
+  int64_t gpuMemoryUsedBytes = {};
+  int64_t gpuMemoryCapacityBytes = {};
+  int64_t gpuUtilizationPercent = {};
+  int64_t gpuMemoryBandwidthPercent = {};
 };
 void to_json(json& j, const NodeStatus& p);
 void from_json(const json& j, NodeStatus& p);
