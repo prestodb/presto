@@ -535,9 +535,8 @@ SessionProperties::SessionProperties() {
       "value's embedded time zone instead of the session time zone.",
       BOOLEAN(),
       false,
-      QueryConfig::kUseSessionTimezoneForTimestampWithTimezone,
-      util::boolToLowerCaseString(
-          !c.useSessionTimezoneForTimestampWithTimezone()));
+      QueryConfig::kIgnoreTimeZoneLabel,
+      util::boolToLowerCaseString(!c.ignoreTimeZoneLabel()));
 
   // TODO: remove this once cpu driver slicing config is turned on by default in
   // Velox.
