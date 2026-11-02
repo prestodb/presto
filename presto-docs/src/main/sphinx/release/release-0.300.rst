@@ -98,7 +98,7 @@ _________________________
 * Fix ``Class com.facebook.presto.hive.s3.PrestoS3FileSystem not found`` failure when reading a newly registered Iceberg table stored in S3 with ``iceberg.pushdown-filter-enabled`` enabled. `#28486 <https://github.com/prestodb/presto/pull/28486>`_
 * Fix table statistics ignoring a filter that was pushed into the table scan, which made the estimated row count that of the whole table and could lead to a worse plan. `#28549 <https://github.com/prestodb/presto/pull/28549>`_
 * Fix ``Table already exists`` error when creating materialized views with the same name in different schemas while ``iceberg.materialized-view-default-storage-schema`` is configured. See :ref:`connector/iceberg:storage`. `#28438 <https://github.com/prestodb/presto/pull/28438>`_
-* Add ``presto.derived-columns.spec.json`` table property, to store derived column specs as embedded json. `#28123 <https://github.com/prestodb/presto/pull/28123>`_
+* Add ``presto.derived-columns.spec.json`` table property, to store derived column specs as embedded JSON. `#28123 <https://github.com/prestodb/presto/pull/28123>`_
 * Add support for ``ALTER TABLE ... ALTER COLUMN <column> FIRST | AFTER <column>``, which moves an existing column within the table's column order. `#28349 <https://github.com/prestodb/presto/pull/28349>`_
 * Add support for reading Iceberg ``VARIANT`` columns as ``JSON`` columns. `#28469 <https://github.com/prestodb/presto/pull/28469>`_
 * Add support for the ``FIRST`` and ``AFTER <column>`` clauses of ``ALTER TABLE ... ADD COLUMN``, which control where the new column is placed in the table's column order. `#28328 <https://github.com/prestodb/presto/pull/28328>`_
