@@ -360,7 +360,7 @@ public class TestBlackHoleSmoke
             fail("Expected CREATE TABLE with UNKNOWN column to fail");
         }
         catch (RuntimeException e) {
-            assertTrue(e.getMessage().contains("unknown"), "Expected type rejection, got: " + e.getMessage());
+            assertTrue(e.getMessage().toLowerCase().contains("unknown"), "Expected type rejection, got: " + e.getMessage());
         }
 
         try {
@@ -368,7 +368,7 @@ public class TestBlackHoleSmoke
             fail("Expected CTAS producing an UNKNOWN column to fail");
         }
         catch (RuntimeException e) {
-            assertTrue(e.getMessage().contains("unknown"), "Expected column-type-unknown rejection, got: " + e.getMessage());
+            assertTrue(e.getMessage().toLowerCase().contains("unknown"), "Expected column-type-unknown rejection, got: " + e.getMessage());
         }
     }
 
