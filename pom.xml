@@ -1645,6 +1645,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp-tls</artifactId>
+                <version>${dep.okhttp.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.jsonwebtoken</groupId>
                 <artifactId>jjwt-api</artifactId>
                 <version>0.11.5</version>

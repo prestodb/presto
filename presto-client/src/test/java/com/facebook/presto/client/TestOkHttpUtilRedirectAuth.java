@@ -14,21 +14,29 @@
 package com.facebook.presto.client;
 
 import com.facebook.airlift.json.JsonCodec;
+import com.google.common.collect.ImmutableSet;
 import mockwebserver3.MockResponse;
 import mockwebserver3.MockWebServer;
 import okhttp3.HttpUrl;
+import okhttp3.Interceptor;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import okhttp3.tls.HandshakeCertificates;
+import okhttp3.tls.HeldCertificate;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.presto.client.OkHttpUtil.basicAuth;
 import static com.facebook.presto.client.OkHttpUtil.isTrustedRedirectTarget;
+import static com.facebook.presto.client.OkHttpUtil.normalizeTrustedRedirectHosts;
 import static com.facebook.presto.client.OkHttpUtil.tokenAuth;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.LOCATION;
 import static org.testng.Assert.assertEquals;
@@ -69,6 +77,145 @@ public class TestOkHttpUtilRedirectAuth
     public void testIsTrustedRedirectTarget(String origin, String target, boolean expected)
     {
         assertEquals(isTrustedRedirectTarget(HttpUrl.get(origin), HttpUrl.get(target)), expected);
+    }
+
+    @DataProvider
+    public Object[][] optedInRedirectTargets()
+    {
+        String router = "https://router.example.com/v1/statement";
+        return new Object[][] {
+                // listed host, any port
+                {router, "https://engine-1.example.com/v1/statement", ImmutableSet.of("engine-1.example.com"), true},
+                {router, "https://engine-1.example.com:8443/v1/statement", ImmutableSet.of("engine-1.example.com"), true},
+                // host matching is case insensitive
+                {router, "https://ENGINE-1.example.com/v1/statement", ImmutableSet.of("Engine-1.Example.com"), true},
+                // listed host:port
+                {router, "https://engine-1.example.com:8443/v1/statement", ImmutableSet.of("engine-1.example.com:8443"), true},
+                {router, "https://engine-1.example.com/v1/statement", ImmutableSet.of("engine-1.example.com:443"), true},
+                // listed host:port, but a different port
+                {router, "https://engine-1.example.com:9443/v1/statement", ImmutableSet.of("engine-1.example.com:8443"), false},
+                // unconfigured destinations stay rejected: other host, sibling of the listed host, parent domain
+                {router, "https://engine-2.example.com/v1/statement", ImmutableSet.of("engine-1.example.com"), false},
+                {router, "https://evil.com/v1/statement", ImmutableSet.of("engine-1.example.com"), false},
+                {router, "https://x.engine-1.example.com/v1/statement", ImmutableSet.of("engine-1.example.com"), false},
+                {router, "https://engine-1.example.com.evil.com/v1/statement", ImmutableSet.of("engine-1.example.com"), false},
+                {router, "https://engine-1.example.com/v1/statement", ImmutableSet.of(), false},
+                // HTTPS -> HTTP downgrade is rejected even for a listed host
+                {router, "http://engine-1.example.com/v1/statement", ImmutableSet.of("engine-1.example.com"), false},
+                // an HTTP origin never gets to forward credentials to another host
+                {"http://router.example.com/v1/statement", "https://engine-1.example.com/v1/statement", ImmutableSet.of("engine-1.example.com"), false},
+        };
+    }
+
+    @Test(dataProvider = "optedInRedirectTargets")
+    public void testIsTrustedRedirectTargetWithOptIn(String origin, String target, Set<String> trustedHosts, boolean expected)
+    {
+        assertEquals(isTrustedRedirectTarget(HttpUrl.get(origin), HttpUrl.get(target), normalizeTrustedRedirectHosts(trustedHosts)), expected);
+    }
+
+    @Test
+    public void testNormalizeTrustedRedirectHosts()
+    {
+        assertEquals(normalizeTrustedRedirectHosts(ImmutableSet.of(" Engine-1.Example.com ", "engine-2.example.com:8443", "[::1]:8443")),
+                ImmutableSet.of("engine-1.example.com", "engine-2.example.com:8443", "::1:8443"));
+        assertEquals(normalizeTrustedRedirectHosts(ImmutableSet.of()), ImmutableSet.of());
+    }
+
+    @DataProvider
+    public Object[][] invalidTrustedRedirectHosts()
+    {
+        return new Object[][] {
+                {""},
+                {"   "},
+                {"*.example.com"},
+                {"*"},
+                {"https://engine-1.example.com"},
+                {"engine-1.example.com/path"},
+                {"user@engine-1.example.com"},
+                {"engine-1.example.com:notaport"},
+                {":8443"},
+        };
+    }
+
+    @Test(dataProvider = "invalidTrustedRedirectHosts", expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "Invalid trusted redirect host .*")
+    public void testInvalidTrustedRedirectHosts(String host)
+    {
+        normalizeTrustedRedirectHosts(ImmutableSet.of(host));
+    }
+
+    /**
+     * Router to engine redirect across two different hosts over real TLS. Without the opt-in the
+     * engine gets no Authorization header (and would answer 401); with the engine listed in
+     * trustedRedirectHosts the credentials reach it. The redirect is cross-host because the router
+     * is addressed as "localhost" and the engine as "127.0.0.1".
+     */
+    @Test
+    public void testCredentialsSentToOptedInHostOverHttps()
+            throws Exception
+    {
+        assertCrossHostHttpsRedirect(true, ImmutableSet.of("127.0.0.1"), "Basic dTpw");
+        assertCrossHostHttpsRedirect(false, ImmutableSet.of("127.0.0.1"), "Bearer token");
+        assertCrossHostHttpsRedirect(true, ImmutableSet.of("127.0.0.1:__ENGINE_PORT__"), "Basic dTpw");
+    }
+
+    @Test
+    public void testCredentialsNotSentToUnconfiguredHostOverHttps()
+            throws Exception
+    {
+        assertCrossHostHttpsRedirect(true, ImmutableSet.of(), null);
+        assertCrossHostHttpsRedirect(false, ImmutableSet.of(), null);
+        // a different host is listed, but not the one being redirected to
+        assertCrossHostHttpsRedirect(true, ImmutableSet.of("engine.example.com"), null);
+        // right host, wrong port
+        assertCrossHostHttpsRedirect(true, ImmutableSet.of("127.0.0.1:1"), null);
+    }
+
+    private static void assertCrossHostHttpsRedirect(boolean basic, Set<String> trustedHosts, String expectedEngineAuthorization)
+            throws Exception
+    {
+        HeldCertificate certificate = new HeldCertificate.Builder()
+                .addSubjectAlternativeName("localhost")
+                .addSubjectAlternativeName("127.0.0.1")
+                .build();
+        HandshakeCertificates serverCertificates = new HandshakeCertificates.Builder()
+                .heldCertificate(certificate)
+                .build();
+        HandshakeCertificates clientCertificates = new HandshakeCertificates.Builder()
+                .addTrustedCertificate(certificate.certificate())
+                .build();
+
+        try (MockWebServer router = new MockWebServer(); MockWebServer engine = new MockWebServer()) {
+            router.useHttps(serverCertificates.sslSocketFactory());
+            engine.useHttps(serverCertificates.sslSocketFactory());
+            router.start();
+            engine.start();
+
+            // allow tests to refer to the engine's dynamically assigned port
+            Set<String> hosts = trustedHosts.stream()
+                    .map(host -> host.replace("__ENGINE_PORT__", String.valueOf(engine.getPort())))
+                    .collect(toImmutableSet());
+
+            router.enqueue(new MockResponse.Builder()
+                    .code(307)
+                    .addHeader(LOCATION, "https://127.0.0.1:" + engine.getPort() + "/v1/statement")
+                    .build());
+            engine.enqueue(new MockResponse.Builder().code(200).build());
+
+            OkHttpClient client = new OkHttpClient.Builder()
+                    .sslSocketFactory(clientCertificates.sslSocketFactory(), clientCertificates.trustManager())
+                    .addNetworkInterceptor(basic ? basicAuth("u", "p", hosts) : tokenAuth("token", hosts))
+                    .build();
+            Request request = new Request.Builder()
+                    .url("https://localhost:" + router.getPort() + "/v1/statement")
+                    .post(RequestBody.create("select 1", MediaType.get("text/plain")))
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                assertEquals(response.code(), 200);
+            }
+
+            assertEquals(router.takeRequest().getHeaders().get(AUTHORIZATION), basic ? "Basic dTpw" : "Bearer token");
+            assertEquals(engine.takeRequest().getHeaders().get(AUTHORIZATION), expectedEngineAuthorization);
+        }
     }
 
     @Test
@@ -291,6 +438,55 @@ public class TestOkHttpUtilRedirectAuth
             assertEquals(router.takeRequest().getHeaders().get(AUTHORIZATION), "Basic dTpw");
             // Cluster must NOT receive credentials (different port)
             assertNull(cluster.takeRequest().getHeaders().get(AUTHORIZATION));
+        }
+    }
+
+    @Test
+    public void testBasicAuthDoesNotOverwriteAuthenticatorHeaderOnRetry()
+            throws Exception
+    {
+        assertAuthenticatorHeaderPreservedAfter401(basicAuth("u", "p"), "Basic dTpw");
+    }
+
+    @Test
+    public void testTokenAuthDoesNotOverwriteAuthenticatorHeaderOnRetry()
+            throws Exception
+    {
+        assertAuthenticatorHeaderPreservedAfter401(tokenAuth("token"), "Bearer token");
+    }
+
+    /**
+     * Configured credentials are sent on the first request. When the server answers 401 and an
+     * Authenticator (as ExternalAuthenticator does) supplies a replacement Authorization header,
+     * the retry must carry the Authenticator's header, not the configured credentials again.
+     */
+    private static void assertAuthenticatorHeaderPreservedAfter401(Interceptor authInterceptor, String expectedFirstAuthorization)
+            throws Exception
+    {
+        try (MockWebServer server = new MockWebServer()) {
+            server.start();
+            server.enqueue(new MockResponse.Builder()
+                    .code(401)
+                    .addHeader("WWW-Authenticate", "Bearer")
+                    .build());
+            server.enqueue(new MockResponse.Builder().code(200).build());
+
+            OkHttpClient client = new OkHttpClient.Builder()
+                    .addNetworkInterceptor(authInterceptor)
+                    .authenticator((route, response) -> response.request().newBuilder()
+                            .header(AUTHORIZATION, "Bearer external")
+                            .build())
+                    .build();
+            Request request = new Request.Builder()
+                    .url("http://localhost:" + server.getPort() + "/v1/statement")
+                    .post(RequestBody.create("select 1", MediaType.get("text/plain")))
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                assertEquals(response.code(), 200);
+            }
+
+            assertEquals(server.takeRequest().getHeaders().get(AUTHORIZATION), expectedFirstAuthorization);
+            assertEquals(server.takeRequest().getHeaders().get(AUTHORIZATION), "Bearer external");
         }
     }
 }

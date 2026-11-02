@@ -24,6 +24,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import okhttp3.OkHttpClient;
@@ -85,6 +86,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASS
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_TYPE;
 import static com.facebook.presto.jdbc.ConnectionProperties.TIMEZONE_ID;
+import static com.facebook.presto.jdbc.ConnectionProperties.TRUSTED_REDIRECT_HOSTS;
 import static com.facebook.presto.jdbc.ConnectionProperties.USER;
 import static com.facebook.presto.jdbc.ConnectionProperties.VALIDATE_CONNECTION;
 import static com.facebook.presto.jdbc.ConnectionProperties.VALIDATE_NEXTURI_SOURCE;
@@ -262,7 +264,7 @@ final class PrestoDriverUri
                 if (!useSecureConnection) {
                     throw new SQLException("Authentication using username/password requires SSL to be enabled");
                 }
-                builder.addNetworkInterceptor(basicAuth(getUser(), password));
+                builder.addNetworkInterceptor(basicAuth(getUser(), password, TRUSTED_REDIRECT_HOSTS.getValue(properties).orElse(ImmutableSet.of())));
             }
 
             if (useSecureConnection) {
@@ -299,7 +301,7 @@ final class PrestoDriverUri
                 if (!useSecureConnection) {
                     throw new SQLException("Authentication using an access token requires SSL to be enabled");
                 }
-                builder.addNetworkInterceptor(tokenAuth(ACCESS_TOKEN.getValue(properties).get()));
+                builder.addNetworkInterceptor(tokenAuth(ACCESS_TOKEN.getValue(properties).get(), TRUSTED_REDIRECT_HOSTS.getValue(properties).orElse(ImmutableSet.of())));
             }
 
             if (EXTERNAL_AUTHENTICATION.getValue(properties).orElse(false)) {

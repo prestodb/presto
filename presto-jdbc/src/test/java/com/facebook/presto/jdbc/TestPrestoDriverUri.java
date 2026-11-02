@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.jdbc;
 
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.io.UnsupportedEncodingException;
@@ -34,6 +35,7 @@ import static com.facebook.presto.jdbc.ConnectionProperties.SESSION_PROPERTIES;
 import static com.facebook.presto.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PASSWORD;
 import static com.facebook.presto.jdbc.ConnectionProperties.SSL_TRUST_STORE_PATH;
+import static com.facebook.presto.jdbc.ConnectionProperties.TRUSTED_REDIRECT_HOSTS;
 import static com.facebook.presto.jdbc.ConnectionProperties.VALIDATE_NEXTURI_SOURCE;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
@@ -191,6 +193,20 @@ public class TestPrestoDriverUri
         assertEquals(parameters.getProperties().getProperty(FOLLOW_REDIRECTS.getKey()), "false");
 
         assertInvalid("presto://localhost:8080/blackhole?followRedirects=ANOTHERVALUE", "Connection property 'followRedirects' value is invalid: ANOTHERVALUE");
+    }
+
+    @Test
+    public void testUriWithTrustedRedirectHosts()
+            throws SQLException
+    {
+        PrestoDriverUri parameters = createDriverUri("presto://localhost:8080/blackhole?trustedRedirectHosts=Engine-1.example.com,engine-2.example.com:8443");
+        assertEquals(TRUSTED_REDIRECT_HOSTS.getValue(parameters.getProperties()).get(), ImmutableSet.of("engine-1.example.com", "engine-2.example.com:8443"));
+
+        // not configured by default
+        assertFalse(TRUSTED_REDIRECT_HOSTS.getValue(createDriverUri("presto://localhost:8080/blackhole").getProperties()).isPresent());
+
+        assertInvalid("presto://localhost:8080/blackhole?trustedRedirectHosts=*.example.com", "Connection property 'trustedRedirectHosts' value is invalid: *.example.com");
+        assertInvalid("presto://localhost:8080/blackhole?trustedRedirectHosts=https://engine-1.example.com", "Connection property 'trustedRedirectHosts' value is invalid: https://engine-1.example.com");
     }
 
     @Test

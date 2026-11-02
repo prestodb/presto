@@ -24,6 +24,7 @@ import com.facebook.presto.client.auth.external.KnownToken;
 import com.facebook.presto.client.auth.external.RedirectHandler;
 import com.facebook.presto.client.auth.external.TokenPoller;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import okhttp3.OkHttpClient;
 
@@ -32,6 +33,7 @@ import java.io.File;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -87,6 +89,61 @@ public class QueryRunner
             boolean externalAuthentication,
             List<ExternalRedirectStrategy> externalRedirectHandlers)
     {
+        this(
+                session,
+                debug,
+                runtime,
+                socksProxy,
+                httpProxy,
+                keystorePath,
+                keystorePassword,
+                keyStoreType,
+                truststorePath,
+                truststorePassword,
+                trustStoreType,
+                accessToken,
+                insecureSsl,
+                user,
+                password,
+                kerberosPrincipal,
+                kerberosRemoteServiceName,
+                kerberosConfigPath,
+                kerberosKeytabPath,
+                kerberosCredentialCachePath,
+                kerberosUseCanonicalHostname,
+                followRedirects,
+                externalAuthentication,
+                externalRedirectHandlers,
+                ImmutableSet.of());
+    }
+
+    public QueryRunner(
+            ClientSession session,
+            boolean debug,
+            boolean runtime,
+            Optional<HostAndPort> socksProxy,
+            Optional<HostAndPort> httpProxy,
+            Optional<String> keystorePath,
+            Optional<String> keystorePassword,
+            Optional<String> keyStoreType,
+            Optional<String> truststorePath,
+            Optional<String> truststorePassword,
+            Optional<String> trustStoreType,
+            Optional<String> accessToken,
+            boolean insecureSsl,
+            Optional<String> user,
+            Optional<String> password,
+            Optional<String> kerberosPrincipal,
+            Optional<String> kerberosRemoteServiceName,
+            Optional<String> kerberosConfigPath,
+            Optional<String> kerberosKeytabPath,
+            Optional<String> kerberosCredentialCachePath,
+            boolean kerberosUseCanonicalHostname,
+            boolean followRedirects,
+            boolean externalAuthentication,
+            List<ExternalRedirectStrategy> externalRedirectHandlers,
+            Set<String> trustedRedirectHosts)
+    {
         this.session = new AtomicReference<>(requireNonNull(session, "session is null"));
         this.debug = debug;
         this.runtime = runtime;
@@ -104,8 +161,8 @@ public class QueryRunner
         setupCookieJar(builder);
         setupSocksProxy(builder, socksProxy);
         setupHttpProxy(builder, httpProxy);
-        setupBasicAuth(builder, session, user, password);
-        setupTokenAuth(builder, session, accessToken);
+        setupBasicAuth(builder, session, user, password, trustedRedirectHosts);
+        setupTokenAuth(builder, session, accessToken, trustedRedirectHosts);
         setupExternalAuth(builder, session, externalAuthentication, externalRedirectHandlers, sslSetup);
 
         if (kerberosRemoteServiceName.isPresent()) {
@@ -173,24 +230,26 @@ public class QueryRunner
             OkHttpClient.Builder clientBuilder,
             ClientSession session,
             Optional<String> user,
-            Optional<String> password)
+            Optional<String> password,
+            Set<String> trustedRedirectHosts)
     {
         if (user.isPresent() && password.isPresent()) {
             checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
                     "Authentication using username/password requires HTTPS to be enabled");
-            clientBuilder.addNetworkInterceptor(basicAuth(user.get(), password.get()));
+            clientBuilder.addNetworkInterceptor(basicAuth(user.get(), password.get(), trustedRedirectHosts));
         }
     }
 
     private static void setupTokenAuth(
             OkHttpClient.Builder clientBuilder,
             ClientSession session,
-            Optional<String> accessToken)
+            Optional<String> accessToken,
+            Set<String> trustedRedirectHosts)
     {
         if (accessToken.isPresent()) {
             checkArgument(session.getServer().getScheme().equalsIgnoreCase("https"),
                     "Authentication using an access token requires HTTPS to be enabled");
-            clientBuilder.addNetworkInterceptor(tokenAuth(accessToken.get()));
+            clientBuilder.addNetworkInterceptor(tokenAuth(accessToken.get(), trustedRedirectHosts));
         }
     }
 
