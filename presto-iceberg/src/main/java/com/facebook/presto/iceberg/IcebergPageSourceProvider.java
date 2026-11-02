@@ -404,7 +404,9 @@ public class IcebergPageSourceProvider
                         // would produce the old file schema for schema-evolved tables and cause a
                         // "field N has unexpected position count" error when new fields were added.
                         Type parquetCompatibleType = encodeFieldNamesForParquet(column.getType());
-                        ColumnIO fieldColumnIO = lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(parquetField.get().getName()));
+                        // parquetField was resolved by Iceberg field ID, so its name is the exact physical name in the
+                        // file. Do not sanitize it: writers such as Delta UniForm use raw names like "col-1".
+                        ColumnIO fieldColumnIO = messageColumnIO.getChild(parquetField.get().getName());
                         internalFields.add(constructField(parquetCompatibleType, fieldColumnIO));
                     }
                 }
