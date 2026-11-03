@@ -17,7 +17,6 @@ import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.metadata.AbstractTypedJacksonModule;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.spi.ConnectorCodec;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorIndexHandle;
 import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
@@ -40,15 +39,15 @@ public class IndexHandleJacksonModule
                 handleResolver::getId,
                 handleResolver::getIndexHandleClass,
                 featuresConfig.isUseConnectorProvidedSerializationCodecs(),
-                connectorId -> connectorManagerProvider.get()
-                        .getConnectorCodecProvider(connectorId)
+                connectorName -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorName)
                         .flatMap(ConnectorCodecProvider::getConnectorIndexHandleCodec));
     }
 
     public IndexHandleJacksonModule(
             HandleResolver handleResolver,
             FeaturesConfig featuresConfig,
-            Function<ConnectorId, Optional<ConnectorCodec<ConnectorIndexHandle>>> codecExtractor)
+            Function<String, Optional<ConnectorCodec<ConnectorIndexHandle>>> codecExtractor)
     {
         super(ConnectorIndexHandle.class,
                 handleResolver::getId,

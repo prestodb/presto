@@ -16,7 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorCodec;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import jakarta.inject.Inject;
@@ -38,15 +37,15 @@ public class ColumnHandleJacksonModule
                 handleResolver::getId,
                 handleResolver::getColumnHandleClass,
                 featuresConfig.isUseConnectorProvidedSerializationCodecs(),
-                connectorId -> connectorManagerProvider.get()
-                        .getConnectorCodecProvider(connectorId)
+                connectorName -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorName)
                         .flatMap(ConnectorCodecProvider::getColumnHandleCodec));
     }
 
     public ColumnHandleJacksonModule(
             HandleResolver handleResolver,
             FeaturesConfig featuresConfig,
-            Function<ConnectorId, Optional<ConnectorCodec<ColumnHandle>>> codecExtractor)
+            Function<String, Optional<ConnectorCodec<ColumnHandle>>> codecExtractor)
     {
         super(ColumnHandle.class,
                 handleResolver::getId,

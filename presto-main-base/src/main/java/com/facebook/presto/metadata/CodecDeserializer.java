@@ -14,7 +14,6 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.spi.ConnectorCodec;
-import com.facebook.presto.spi.ConnectorId;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.TreeNode;
@@ -34,14 +33,14 @@ class CodecDeserializer<T>
         extends JsonDeserializer<T>
 {
     private final Function<String, Class<? extends T>> classResolver;
-    private final Function<ConnectorId, Optional<ConnectorCodec<T>>> codecExtractor;
+    private final Function<String, Optional<ConnectorCodec<T>>> codecExtractor;
     private final String typePropertyName;
     private final String dataPropertyName;
 
     public CodecDeserializer(
             String typePropertyName,
             String dataPropertyName,
-            Function<ConnectorId, Optional<ConnectorCodec<T>>> codecExtractor,
+            Function<String, Optional<ConnectorCodec<T>>> codecExtractor,
             Function<String, Class<? extends T>> classResolver)
     {
         this.classResolver = requireNonNull(classResolver, "classResolver is null");
@@ -72,14 +71,13 @@ class CodecDeserializer<T>
             if (!node.has(typePropertyName)) {
                 throw new IOException("Missing " + typePropertyName + " field");
             }
-            String connectorIdString = node.get(typePropertyName).asText();
+            String connectorName = node.get(typePropertyName).asText();
             // Check if @data field is present (binary serialization)
             if (node.has(dataPropertyName)) {
                 // Binary data is present, we need a codec to deserialize it
                 // Special handling for internal handles like "$remote"
-                if (!connectorIdString.startsWith("$")) {
-                    ConnectorId connectorId = new ConnectorId(connectorIdString);
-                    Optional<ConnectorCodec<T>> codec = codecExtractor.apply(connectorId);
+                if (!connectorName.startsWith("$")) {
+                    Optional<ConnectorCodec<T>> codec = codecExtractor.apply(connectorName);
                     if (codec.isPresent()) {
                         String base64Data = node.get(dataPropertyName).asText();
                         byte[] data = Base64.getDecoder().decode(base64Data);
@@ -87,11 +85,11 @@ class CodecDeserializer<T>
                     }
                 }
                 // @data field present but no codec available or internal handle
-                throw new IOException("Type " + connectorIdString + " has binary data (" + dataPropertyName + " field) but no codec available to deserialize it");
+                throw new IOException("Type " + connectorName + " has binary data (" + dataPropertyName + " field) but no codec available to deserialize it");
             }
 
             // No @data field - use standard JSON deserialization
-            Class<? extends T> handleClass = classResolver.apply(connectorIdString);
+            Class<? extends T> handleClass = classResolver.apply(connectorName);
 
             // Remove the @type field and deserialize the remaining content
             node.remove(typePropertyName);
