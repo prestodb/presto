@@ -65,9 +65,12 @@ public class ContainerQueryRunner
     protected static final String CLUSTER_SHUTDOWN_TIMEOUT = System.getProperty("clusterShutDownTimeout", "10");
     protected static final String BASE_DIR = System.getProperty("user.dir");
     protected static final int DEFAULT_COORDINATOR_PORT = 8080;
+    protected static final int DEFAULT_COORDINATOR_HTTPS_PORT = 8443;
     protected static final int DEFAULT_BASE_WORKER_PORT = 7778;
     protected static final int DEFAULT_SIDECAR_PORT = 7777;
     protected static final int DEFAULT_FUNCTION_SERVER_PORT = 1122;
+    protected static final int DEFAULT_FUNCTION_SERVER_HTTPS_PORT = 9443;
+    protected static final String JWT_SHARED_SECRET = "supersecret";
     protected static final String TPCH_CATALOG = "tpch";
     protected static final String TINY_SCHEMA = "tiny";
     protected static final int DEFAULT_NUMBER_OF_WORKERS = 4;
@@ -82,6 +85,8 @@ public class ContainerQueryRunner
     protected GenericContainer<?> functionServer;
     protected int functionServerPort;
     protected boolean enableFunctionServer;
+    protected boolean enableMtls;
+    protected Optional<String> jwtSharedSecret;
     protected Connection connection;
 
     public static class Config
@@ -94,6 +99,8 @@ public class ContainerQueryRunner
         private boolean sidecarEnabled;
         private int functionServerPort = DEFAULT_FUNCTION_SERVER_PORT;
         private boolean functionServerEnabled;
+        private boolean enableMtls;
+        private Optional<String> jwtSharedSecret;
 
         public Config setCoordinatorPort(int coordinatorPort)
         {
@@ -142,6 +149,18 @@ public class ContainerQueryRunner
             this.functionServerEnabled = functionServerEnabled;
             return this;
         }
+
+        public Config setEnableMtls(boolean enableMtls)
+        {
+            this.enableMtls = enableMtls;
+            return this;
+        }
+
+        public Config setJWTSharedSecret(Optional<String> jwtSharedSecret)
+        {
+            this.jwtSharedSecret = jwtSharedSecret;
+            return this;
+        }
     }
 
     public ContainerQueryRunner()
@@ -154,11 +173,11 @@ public class ContainerQueryRunner
             throws IOException, InterruptedException
     {
         this(config.coordinatorPort, config.catalog, config.schema, config.numberOfWorkers,
-                config.nativeCluster, config.sidecarEnabled, config.functionServerPort, config.functionServerEnabled);
+                config.nativeCluster, config.sidecarEnabled, config.functionServerPort, config.functionServerEnabled, false, Optional.empty());
     }
 
-    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled, int functionServerPort, boolean enableFunctionServer)
-            throws IOException, InterruptedException
+    public ContainerQueryRunner(int coordinatorPort, String catalog, String schema, int numberOfWorkers, boolean isNativeCluster, boolean isSidecarEnabled, int functionServerPort, boolean enableFunctionServer, boolean enableMtls, Optional<String> jwtSharedSecret)
+            throws InterruptedException, IOException
     {
         this.coordinatorPort = coordinatorPort;
         this.catalog = catalog;
@@ -166,6 +185,8 @@ public class ContainerQueryRunner
         this.functionServerPort = functionServerPort;
         this.enableFunctionServer = enableFunctionServer;
         this.numberOfWorkers = numberOfWorkers;
+        this.enableMtls = enableMtls;
+        this.jwtSharedSecret = jwtSharedSecret;
 
         // Start function server first if enabled
         if (enableFunctionServer) {
@@ -277,12 +298,23 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.createCoordinatorJvmConfig();
         ContainerQueryRunnerUtils.createCoordinatorLogProperties();
         ContainerQueryRunnerUtils.createCoordinatorNodeProperties();
-        ContainerQueryRunnerUtils.createCoordinatorEntryPointScript(); // Never run function server in coordinator
-        if (enableFunctionServer) {
-            ContainerQueryRunnerUtils.createRestRemoteProperties(functionServerPort);
+        ContainerQueryRunnerUtils.createCoordinatorEntryPointScript();
+
+        if (enableMtls) {
+            ContainerQueryRunnerUtils.createCoordinatorMtlsConfigProperties(
+                    coordinatorPort, jwtSharedSecret.orElseThrow(() -> new IllegalStateException("jwtSharedSecret required for mTLS")));
+            if (enableFunctionServer) {
+                ContainerQueryRunnerUtils.createRestRemoteProperties(functionServerPort, true);
+            }
+        }
+        else {
+            ContainerQueryRunnerUtils.createCoordinatorConfigProperties(coordinatorPort);
+            if (enableFunctionServer) {
+                ContainerQueryRunnerUtils.createRestRemoteProperties(functionServerPort, false);
+            }
         }
 
-        return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
+        GenericContainer<?> container = new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
                 .withNetwork(isNativeCluster ? network : networkExpected)
                 .withNetworkAliases("presto-coordinator")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/coordinator/etc"), "/opt/presto-server/etc")
@@ -290,7 +322,16 @@ public class ContainerQueryRunner
                 .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
                 .withStartupTimeout(containerStartupTimeout())
                 .withExposedPorts(coordinatorPort);
+
+        if (enableMtls) {
+            container.withCopyFileToContainer(
+                    MountableFile.forHostPath(BASE_DIR + "/testcontainers/certs"),
+                    "/opt/presto-server/certs");
+        }
+
+        return container;
     }
+
     protected GenericContainer<?> createJavaWorker(int port, String nodeId)
             throws IOException
     {
@@ -303,10 +344,9 @@ public class ContainerQueryRunner
                 .withNetwork(networkExpected)
                 .withNetworkAliases(nodeId)
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/etc"), "/opt/presto-server/etc")
-                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh")
-                // No explicit wait strategy, so the default host-port strategy applies; bound it by
-                // CONTAINER_TIMEOUT rather than the Testcontainers default.
-                .withStartupTimeout(containerStartupTimeout());
+                .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh");
+        // No explicit wait strategy, so the default host-port strategy applies; bound it by
+        // CONTAINER_TIMEOUT rather than the Testcontainers default.                .withStartupTimeout(containerStartupTimeout());
     }
 
     protected GenericContainer<?> createSidecar(int port, String nodeId, boolean isNativeCluster)
@@ -315,16 +355,39 @@ public class ContainerQueryRunner
         return createNativeWorker(port, nodeId, isNativeCluster, true, true);
     }
 
-    private GenericContainer<?> createNativeWorker(int port, String nodeId, boolean isNativeCluster, boolean isSidecarEnabled, boolean isSidecarNode)
+    protected GenericContainer<?> createNativeWorker(int port, String nodeId, boolean isNativeCluster, boolean isSidecarEnabled, boolean isSidecarNode)
             throws IOException
     {
-        ContainerQueryRunnerUtils.createNativeWorkerConfigProperties(coordinatorPort, port, functionServerPort, nodeId, isSidecarEnabled, isSidecarNode);
+        if (enableFunctionServer) {
+            if (enableMtls) {
+                ContainerQueryRunnerUtils.createNativeWorkerMtlsConfigPropertiesWithFnServer(
+                        coordinatorPort, functionServerPort, nodeId,
+                        jwtSharedSecret.orElseThrow(() -> new IllegalStateException("jwtSharedSecret required for mTLS")));
+            }
+            else {
+                ContainerQueryRunnerUtils.createNativeWorkerConfigPropertiesWithFunctionServer(coordinatorPort, functionServerPort, nodeId);
+            }
+        }
+        else {
+            ContainerQueryRunnerUtils.createNativeWorkerConfigProperties(coordinatorPort, port, functionServerPort, nodeId, isSidecarEnabled, isSidecarNode);
+        }
         if (!isSidecarEnabled) {
             ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
         }
+        ContainerQueryRunnerUtils.createNativeWorkerTpchProperties(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerEntryPointScript(nodeId);
         ContainerQueryRunnerUtils.createNativeWorkerNodeProperties(nodeId);
-        return new GenericContainer<>(PRESTO_WORKER_IMAGE)
+
+        if (enableMtls) {
+            ContainerQueryRunnerUtils.createNativeWorkerMtlsConfigPropertiesWithFnServer(
+                    coordinatorPort, functionServerPort, nodeId,
+                    jwtSharedSecret.orElseThrow(() -> new IllegalStateException("jwtSharedSecret required for mTLS")));
+        }
+        else {
+            ContainerQueryRunnerUtils.createNativeWorkerConfigPropertiesWithFunctionServer(coordinatorPort, functionServerPort, nodeId);
+        }
+
+        GenericContainer<?> container = new GenericContainer<>(PRESTO_WORKER_IMAGE)
                 .withExposedPorts(port)
                 .withNetwork(isNativeCluster ? network : networkExpected)
                 .withNetworkAliases(nodeId)
@@ -332,6 +395,14 @@ public class ContainerQueryRunner
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/" + nodeId + "/entrypoint.sh"), "/opt/entrypoint.sh")
                 .waitingFor(isSidecarNode ? Wait.forListeningPort() : Wait.forLogMessage(".*Announcement succeeded: HTTP 202.*", 1))
                 .withStartupTimeout(containerStartupTimeout());
+
+        if (enableMtls) {
+            container.withCopyFileToContainer(
+                    MountableFile.forHostPath(BASE_DIR + "/testcontainers/certs"),
+                    "/opt/presto-server/certs");
+        }
+
+        return container;
     }
 
     protected GenericContainer<?> createFunctionServer()
@@ -340,8 +411,17 @@ public class ContainerQueryRunner
         ContainerQueryRunnerUtils.createFunctionServerConfigProperties(functionServerPort);
         ContainerQueryRunnerUtils.createFunctionServerEntryPointScript();
 
-        // Reuse the coordinator image since it already contains the function server jar
-        return new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
+        if (enableMtls) {
+            ContainerQueryRunnerUtils.extractCertsToHostDir();
+            ContainerQueryRunnerUtils.createFunctionServerMtlsConfigProperties(
+                    functionServerPort,
+                    jwtSharedSecret.orElseThrow(() -> new IllegalStateException("jwtSharedSecret required for mTLS")));
+        }
+        else {
+            ContainerQueryRunnerUtils.createFunctionServerConfigProperties(functionServerPort);
+        }
+
+        GenericContainer<?> container = new GenericContainer<>(PRESTO_COORDINATOR_IMAGE)
                 .withNetwork(network)
                 .withNetworkAliases("presto-remote-function-server")
                 .withCopyFileToContainer(MountableFile.forHostPath(BASE_DIR + "/testcontainers/function-server/etc"), "/opt/function-server/etc")
@@ -349,6 +429,14 @@ public class ContainerQueryRunner
                 .waitingFor(Wait.forLogMessage(".*======== REMOTE FUNCTION SERVER STARTED at: .*", 1))
                 .withStartupTimeout(containerStartupTimeout())
                 .withExposedPorts(functionServerPort);
+
+        if (enableMtls) {
+            container.withCopyFileToContainer(
+                    MountableFile.forHostPath(BASE_DIR + "/testcontainers/certs"),
+                    "/opt/function-server/certs");
+        }
+
+        return container;
     }
 
     @Override
