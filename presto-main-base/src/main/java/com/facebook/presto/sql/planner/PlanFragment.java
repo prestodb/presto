@@ -240,6 +240,23 @@ public class PlanFragment
                 Optional.empty());
     }
 
+    public PlanFragment withoutJsonRepresentation()
+    {
+        if (!jsonRepresentation.isPresent()) {
+            return this;
+        }
+        return new PlanFragment(
+                id, root, variables, partitioning,
+                tableScanSchedulingOrder,
+                partitioningScheme,
+                outputOrderingScheme,
+                stageExecutionDescriptor,
+                outputTableWriterFragment,
+                outputTransportType,
+                statsAndCosts,
+                Optional.empty());
+    }
+
     public List<Type> getTypes()
     {
         return types;
