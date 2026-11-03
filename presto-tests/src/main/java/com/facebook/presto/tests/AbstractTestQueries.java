@@ -5221,6 +5221,59 @@ public abstract class AbstractTestQueries
     }
 
     @Test
+    public void testBetweenWithNullOperands()
+    {
+        // BETWEEN is equivalent to: min <= value AND value <= max, so NULLs follow three-valued logic
+        // Constant expressions (folded by the ExpressionInterpreter)
+        assertQuery("SELECT NULL BETWEEN 2 AND 4", "SELECT CAST(NULL AS BOOLEAN)");
+        assertQuery("SELECT 2 BETWEEN NULL AND 6", "SELECT CAST(NULL AS BOOLEAN)");
+        assertQuery("SELECT 4 BETWEEN 2 AND NULL", "SELECT CAST(NULL AS BOOLEAN)");
+        assertQuery("SELECT 8 BETWEEN NULL AND 6", "SELECT false");
+        assertQuery("SELECT 1 BETWEEN 2 AND NULL", "SELECT false");
+        assertQuery("SELECT NULL BETWEEN NULL AND NULL", "SELECT CAST(NULL AS BOOLEAN)");
+        assertQuery("SELECT 3 NOT BETWEEN NULL AND 2", "SELECT true");
+        assertQuery("SELECT 1 NOT BETWEEN NULL AND 2", "SELECT CAST(NULL AS BOOLEAN)");
+
+        // Non-constant operands (evaluated by the compiled/translated row expression)
+        assertQuery(
+                "SELECT v, lo, hi, v BETWEEN lo AND hi " +
+                        "FROM (VALUES " +
+                        "(CAST(NULL AS INTEGER), 2, 4), " +
+                        "(2, CAST(NULL AS INTEGER), 6), " +
+                        "(8, CAST(NULL AS INTEGER), 6), " +
+                        "(4, 2, CAST(NULL AS INTEGER)), " +
+                        "(1, 2, CAST(NULL AS INTEGER)), " +
+                        "(3, 2, 4), " +
+                        "(5, 2, 4)) t(v, lo, hi)",
+                "VALUES " +
+                        "(CAST(NULL AS INTEGER), 2, 4, CAST(NULL AS BOOLEAN)), " +
+                        "(2, CAST(NULL AS INTEGER), 6, CAST(NULL AS BOOLEAN)), " +
+                        "(8, CAST(NULL AS INTEGER), 6, false), " +
+                        "(4, 2, CAST(NULL AS INTEGER), CAST(NULL AS BOOLEAN)), " +
+                        "(1, 2, CAST(NULL AS INTEGER), false), " +
+                        "(3, 2, 4, true), " +
+                        "(5, 2, 4, false)");
+
+        // Filtering: rows where the predicate is NULL or false are dropped, NOT BETWEEN keeps only definite matches
+        assertQuery(
+                "SELECT v FROM (VALUES 1, 3, 5, 8) t(v) WHERE v BETWEEN CAST(NULL AS INTEGER) AND 6",
+                "SELECT 1 WHERE false");
+        assertQuery(
+                "SELECT v FROM (VALUES 1, 3, 5, 8) t(v) WHERE v NOT BETWEEN CAST(NULL AS INTEGER) AND 6",
+                "VALUES 8");
+
+        // Lambda arguments are compiled as variable references, which must not be confused with the temp variable holding the BETWEEN value
+        for (String argument : ImmutableList.of("\"$$TEMP$$temp_0\"", "temp_0", "x")) {
+            assertEquals(
+                    computeScalar(format("SELECT transform(ARRAY[1, 5, 8], %1$s -> %1$s BETWEEN 2 AND 6)", argument)),
+                    ImmutableList.of(false, true, false));
+            assertEquals(
+                    computeScalar(format("SELECT transform(ARRAY[1, 5, 8], %1$s -> %1$s BETWEEN CAST(NULL AS INTEGER) AND 6)", argument)),
+                    Arrays.asList(null, null, false));
+        }
+    }
+
+    @Test
     public void testInvalidTypeArray()
     {
         assertQueryFails("SELECT ARRAY[1, 2, 'a']", "(?s)\\Qline 1:20: All ARRAY elements must be the same type: integer\\E.*");

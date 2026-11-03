@@ -64,6 +64,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.stream.LongStream;
 
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -702,7 +703,7 @@ public class TestExpressionCompiler
                 for (Integer third : intRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
-                            first == null || second == null || third == null ? null : second <= first && first <= third);
+                            between(first, second, third, (min, value) -> min <= value, (value, max) -> value <= max));
                 }
             }
         }
@@ -719,7 +720,7 @@ public class TestExpressionCompiler
                 for (Integer third : intRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
-                            first == null || second == null || third == null ? null : second <= first && first <= third);
+                            between(first, second, third, (min, value) -> min <= value, (value, max) -> value <= max));
                 }
             }
         }
@@ -736,7 +737,7 @@ public class TestExpressionCompiler
                 for (Integer third : intRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
-                            first == null || second == null || third == null ? null : second <= first && first <= third);
+                            between(first, second, third, (min, value) -> min <= value, (value, max) -> value <= max));
                 }
             }
         }
@@ -753,7 +754,7 @@ public class TestExpressionCompiler
                 for (String third : stringRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
-                            first == null || second == null || third == null ? null : second.compareTo(first) <= 0 && first.compareTo(third) <= 0);
+                            between(first, second, third, (min, value) -> min.compareTo(value) <= 0, (value, max) -> value.compareTo(max) <= 0));
                 }
             }
         }
@@ -770,7 +771,7 @@ public class TestExpressionCompiler
                 for (Long third : longRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
-                            first == null || second == null || third == null ? null : second.compareTo(new BigDecimal(first)) <= 0 && first <= third);
+                            between(first, second, third, (min, value) -> min.compareTo(new BigDecimal(value)) <= 0, (value, max) -> value <= max));
                 }
             }
         }
@@ -787,12 +788,31 @@ public class TestExpressionCompiler
                 for (BigDecimal third : decimalRights) {
                     assertExecute(generateExpression("%s between %s and %s", first, second, third),
                             BOOLEAN,
-                            first == null || second == null || third == null ? null : second <= first.doubleValue() && first.compareTo(third) <= 0);
+                            between(first, second, third, (min, value) -> min <= value.doubleValue(), (value, max) -> value.compareTo(max) <= 0));
                 }
             }
         }
 
         Futures.allAsList(futures).get();
+    }
+
+    private static <V, L, H> Boolean between(V value, L min, H max, BiPredicate<L, V> greaterThanOrEquals, BiPredicate<V, H> lessThanOrEquals)
+    {
+        // BETWEEN is equivalent to (value >= min AND value <= max)
+        if (value == null) {
+            return null;
+        }
+
+        Boolean greaterOrEqualToMin = min == null ? null : greaterThanOrEquals.test(min, value);
+        Boolean lessThanOrEqualToMax = max == null ? null : lessThanOrEquals.test(value, max);
+
+        if (greaterOrEqualToMin == null) {
+            return Objects.equals(lessThanOrEqualToMax, Boolean.FALSE) ? false : null;
+        }
+        if (lessThanOrEqualToMax == null) {
+            return Objects.equals(greaterOrEqualToMin, Boolean.FALSE) ? false : null;
+        }
+        return greaterOrEqualToMin && lessThanOrEqualToMax;
     }
 
     @Test

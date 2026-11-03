@@ -49,6 +49,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.Symbol;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.relational.FunctionResolution;
+import com.facebook.presto.sql.tree.BetweenPredicate;
 import com.facebook.presto.sql.tree.EnumLiteral;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
@@ -429,6 +430,32 @@ public abstract class AbstractTestExpressionInterpreter
         assertOptimizedEquals("9876543210.98745612035 between 9876543210.9874561203 and 9876543210.9874561204", "true");
         assertOptimizedEquals("123.455 between bound_decimal_short and 123.46", "true");
         assertOptimizedEquals("12345678901234567890.1235 between bound_decimal_long and 12345678901234567890.123", "false");
+    }
+
+    @Test
+    public void testBetweenWithNullBound()
+    {
+        // BETWEEN is equivalent to (value >= min AND value <= max), so a null bound does not always produce null
+        assertOptimizedEquals("5 between null and 4", "false");
+        assertOptimizedEquals("1 between 2 and null", "false");
+        assertOptimizedEquals("3 between null and null", "null");
+        assertOptimizedEquals("'e' between null and 'd'", "false");
+        assertOptimizedEquals("'a' between 'b' and null", "false");
+
+        assertOptimizedEquals("5 not between null and 4", "true");
+        assertOptimizedEquals("1 not between 2 and null", "true");
+        assertOptimizedEquals("3 not between null and 4", "null");
+
+        assertOptimizedEquals("bound_integer between null and 1000", "false");
+        assertOptimizedEquals("bound_integer between 2000 and null", "false");
+        assertOptimizedEquals("bound_integer between null and 2000", "null");
+        assertOptimizedEquals("bound_long between bound_integer and null", "null");
+
+        assertOptimizedEquals("null between unbound_integer and 4", "null");
+
+        // the result may be false rather than null, so these must not be folded
+        assertTrue(optimize("unbound_integer between null and 4") instanceof BetweenPredicate);
+        assertTrue(optimize("unbound_integer between 2 and null") instanceof BetweenPredicate);
     }
 
     @Test
