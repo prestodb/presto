@@ -17,6 +17,7 @@ import com.facebook.airlift.event.client.AbstractEventClient;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.spi.ErrorCodeSupplier;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.ParsingOptions;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.parser.SqlParserOptions;
@@ -33,6 +34,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -44,6 +46,7 @@ import java.util.function.Function;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.AT_SIGN;
 import static com.facebook.presto.sql.parser.IdentifierSymbol.COLON;
 import static com.facebook.presto.verifier.VerifierTestUtil.createChecksumValidator;
@@ -60,7 +63,9 @@ import static com.facebook.presto.verifier.prestoaction.QueryActionStats.EMPTY_S
 import static com.google.common.base.Preconditions.checkArgument;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 @Test(singleThreaded = true)
 public class TestVerificationManager
@@ -186,6 +191,76 @@ public class TestVerificationManager
         assertSkippedEvent(events.get(1), "q4", UNSUPPORTED_QUERY_TYPE);
         assertSkippedEvent(events.get(2), "q5", MISMATCHED_QUERY_TYPE);
         assertSkippedEvent(events.get(3), "q6", SYNTAX_ERROR);
+    }
+
+    @Test
+    public void testGroupByLambdaErrorCode()
+    {
+        assertEquals(
+                expectThrows(PrestoException.class, () -> SQL_PARSER.createStatement("SELECT 1 GROUP BY x -> x", PARSING_OPTIONS)).getErrorCode(),
+                INVALID_FUNCTION_ARGUMENT.toErrorCode());
+    }
+
+    @DataProvider
+    public Object[][] invalidGroupByLambdaQueries()
+    {
+        return new Object[][] {
+                {"SELECT 1 GROUP BY x -> x", "SELECT 1"},
+                {"SELECT 1", "SELECT 1 GROUP BY x -> x"},
+        };
+    }
+
+    @Test(dataProvider = "invalidGroupByLambdaQueries")
+    public void testGroupByLambdaDoesNotAbortRun(String controlQuery, String testQuery)
+    {
+        List<SourceQuery> queries = ImmutableList.of(
+                createSourceQuery("invalid", controlQuery, testQuery),
+                createSourceQuery("valid", "SELECT 1", "SELECT 1"));
+        VerificationManager manager = getVerificationManager(queries, new MockPrestoAction(GENERIC_INTERNAL_ERROR), VERIFIER_CONFIG);
+        try {
+            manager.start();
+
+            List<VerifierQueryEvent> events = eventClient.getEvents();
+            assertEquals(events.size(), 2);
+            assertSkippedEvent(events.get(0), "invalid", SYNTAX_ERROR);
+            assertEquals(manager.getQueriesSubmitted().get(), 1);
+            assertEquals(events.get(1).getName(), "valid");
+        }
+        finally {
+            manager.close();
+        }
+    }
+
+    @DataProvider
+    public Object[][] nonSyntaxParserExceptionClusters()
+    {
+        return new Object[][] {{CONTROL}, {TEST}};
+    }
+
+    @Test(dataProvider = "nonSyntaxParserExceptionClusters")
+    public void testNonSyntaxParserExceptionPropagates(ClusterType cluster)
+    {
+        PrestoException exception = new PrestoException(GENERIC_INTERNAL_ERROR, "Unexpected parser failure");
+        SqlParser failingParser = new SqlParser(new SqlParserOptions().allowIdentifierSymbol(AT_SIGN, COLON))
+        {
+            @Override
+            public Statement createStatement(String sql, ParsingOptions parsingOptions)
+            {
+                if (sql.equals(SOURCE_QUERY.getQuery(cluster))) {
+                    throw exception;
+                }
+                return super.createStatement(sql, parsingOptions);
+            }
+        };
+        VerificationManager manager = getVerificationManager(ImmutableList.of(SOURCE_QUERY), new MockPrestoAction(GENERIC_INTERNAL_ERROR), VERIFIER_CONFIG, failingParser);
+        try {
+            assertSame(expectThrows(PrestoException.class, manager::start), exception);
+            assertTrue(eventClient.getEvents().isEmpty());
+            assertEquals(manager.getQueriesSubmitted().get(), 0);
+        }
+        finally {
+            manager.close();
+        }
     }
 
     @Test
