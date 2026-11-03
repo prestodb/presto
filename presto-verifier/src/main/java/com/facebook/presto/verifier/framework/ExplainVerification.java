@@ -33,6 +33,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -43,10 +44,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
 
 import static com.facebook.presto.sql.tree.ExplainFormat.Type.JSON;
 import static com.facebook.presto.testing.TestingEnvironment.FUNCTION_AND_TYPE_MANAGER;
-import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType;
 import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType.DETAILS_MISMATCH;
 import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType.MATCH;
 import static com.facebook.presto.verifier.framework.ExplainMatchResult.MatchType.SNAPSHOT_DOES_NOT_EXIST;
@@ -64,6 +66,9 @@ public class ExplainVerification
 {
     private static final ResultSetConverter<String> QUERY_PLAN_RESULT_SET_CONVERTER = resultSet -> Optional.of(resultSet.getString("Query Plan"));
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    // Caps the mismatch report so it stays readable and fits verifier result storage.
+    private static final int MAX_REPORTED_DIFFERENCES = 10;
+    private static final int MAX_REPORTED_VALUE_LENGTH = 200;
     private static JsonCodec<JsonRenderedNode> planCodec;
     private final SqlParser sqlParser;
     private final boolean passthroughExplain;
@@ -135,9 +140,9 @@ public class ExplainVerification
         String testResult = getOnlyElement(testQueryResult.get().getResults());
 
         if (passthroughExplain) {
-            return new ExplainMatchResult(matchRaw(controlResult, testResult));
+            return matchRaw(controlResult, testResult);
         }
-        return new ExplainMatchResult(match(planCodec.fromJson(controlResult), planCodec.fromJson(testResult)));
+        return match(planCodec.fromJson(controlResult), planCodec.fromJson(testResult), ImmutableList.of());
     }
 
     @Override
@@ -158,21 +163,94 @@ public class ExplainVerification
         queryResult.ifPresent(result -> queryInfo.setJsonPlan(getOnlyElement(result.getResults())));
     }
 
-    private static MatchType matchRaw(String controlResult, String testResult)
+    @VisibleForTesting
+    static ExplainMatchResult matchRaw(String controlResult, String testResult)
     {
         // Non-plan-tree EXPLAIN output (e.g. EXPLAIN (TYPE IO)) is compared as JSON.
         // Object field order is already ignored by JsonNode equality; array element
         // order is normalized here because such arrays serialize unordered Sets (input
         // tables, column constraints, ranges). Fall back to exact string comparison for
         // non-JSON output.
+        JsonNode controlNode;
+        JsonNode testNode;
         try {
-            JsonNode controlNode = canonicalize(OBJECT_MAPPER.readTree(controlResult));
-            JsonNode testNode = canonicalize(OBJECT_MAPPER.readTree(testResult));
-            return controlNode.equals(testNode) ? MATCH : STRUCTURE_MISMATCH;
+            controlNode = canonicalize(OBJECT_MAPPER.readTree(controlResult));
+            testNode = canonicalize(OBJECT_MAPPER.readTree(testResult));
         }
         catch (IOException e) {
-            return controlResult.equals(testResult) ? MATCH : STRUCTURE_MISMATCH;
+            return new ExplainMatchResult(controlResult.equals(testResult) ? MATCH : STRUCTURE_MISMATCH);
         }
+        if (controlNode.equals(testNode)) {
+            return new ExplainMatchResult(MATCH);
+        }
+        List<String> differences = new ArrayList<>();
+        collectDifferences("", controlNode, testNode, differences);
+        return new ExplainMatchResult(STRUCTURE_MISMATCH, Optional.of(formatDifferences(differences)));
+    }
+
+    /**
+     * Lists every differing leaf as one "path: control -> test" line, so a whole run's
+     * mismatches can be grouped by path from the error message. Array elements are
+     * compared in canonical order and share one "[]" path segment.
+     */
+    private static void collectDifferences(String path, JsonNode control, JsonNode test, List<String> differences)
+    {
+        if (control.isObject() && test.isObject()) {
+            Set<String> fields = new TreeSet<>();
+            control.fieldNames().forEachRemaining(fields::add);
+            test.fieldNames().forEachRemaining(fields::add);
+            for (String field : fields) {
+                String fieldPath = path.isEmpty() ? field : path + "." + field;
+                JsonNode controlField = control.get(field);
+                JsonNode testField = test.get(field);
+                if (controlField == null || testField == null) {
+                    differences.add(format("%s: %s -> %s", fieldPath, renderValue(controlField), renderValue(testField)));
+                }
+                else {
+                    collectDifferences(fieldPath, controlField, testField, differences);
+                }
+            }
+            return;
+        }
+        String reportedPath = path.isEmpty() ? "(root)" : path;
+        if (control.isArray() && test.isArray()) {
+            if (control.size() != test.size()) {
+                differences.add(format("%s: %s elements -> %s elements", reportedPath, control.size(), test.size()));
+                return;
+            }
+            for (int i = 0; i < control.size(); i++) {
+                collectDifferences(path + "[]", control.get(i), test.get(i), differences);
+            }
+            return;
+        }
+        if (!control.equals(test)) {
+            differences.add(format("%s: %s -> %s", reportedPath, renderValue(control), renderValue(test)));
+        }
+    }
+
+    private static String renderValue(JsonNode node)
+    {
+        return node == null ? "(missing)" : truncate(node.toString());
+    }
+
+    private static String truncate(String value)
+    {
+        if (value == null) {
+            return "(missing)";
+        }
+        return value.length() <= MAX_REPORTED_VALUE_LENGTH ? value : value.substring(0, MAX_REPORTED_VALUE_LENGTH) + "...";
+    }
+
+    private static String formatDifferences(List<String> differences)
+    {
+        StringBuilder report = new StringBuilder("Differing Fields:");
+        differences.stream()
+                .limit(MAX_REPORTED_DIFFERENCES)
+                .forEach(difference -> report.append("\n  ").append(difference));
+        if (differences.size() > MAX_REPORTED_DIFFERENCES) {
+            report.append(format("\n  ... and %s more", differences.size() - MAX_REPORTED_DIFFERENCES));
+        }
+        return report.toString();
     }
 
     private static JsonNode canonicalize(JsonNode node)
@@ -195,26 +273,60 @@ public class ExplainVerification
         return node;
     }
 
-    private MatchType match(JsonRenderedNode controlPlan, JsonRenderedNode testPlan)
+    /**
+     * Compares plan trees node by node. A structure mismatch reports the first node where
+     * the plans diverge, prefixed with the names of its ancestors.
+     */
+    private static ExplainMatchResult match(JsonRenderedNode controlPlan, JsonRenderedNode testPlan, List<String> ancestors)
     {
-        if (!Objects.equals(controlPlan.getName(), testPlan.getName())
-                || !Objects.equals(controlPlan.getIdentifier(), testPlan.getIdentifier())
-                || !Objects.equals(controlPlan.getRemoteSources(), testPlan.getRemoteSources())
-                || controlPlan.getChildren().size() != testPlan.getChildren().size()) {
-            return STRUCTURE_MISMATCH;
+        Optional<String> structureDifference = structureDifference(controlPlan, testPlan);
+        if (structureDifference.isPresent()) {
+            String location = ancestors.isEmpty() ? "" : String.join(" > ", ancestors) + ": ";
+            return new ExplainMatchResult(
+                    STRUCTURE_MISMATCH,
+                    Optional.of("Differing Plan Node:\n  " + location + structureDifference.get()));
         }
 
         boolean detailsMismatched = !Objects.equals(controlPlan.getDetails(), testPlan.getDetails())
                 || !Objects.equals(controlPlan.getEstimates(), testPlan.getEstimates());
+        List<String> childAncestors = ImmutableList.<String>builder()
+                .addAll(ancestors)
+                .add(controlPlan.getName())
+                .build();
         for (int i = 0; i < controlPlan.getChildren().size(); i++) {
-            MatchType childMatchType = match(controlPlan.getChildren().get(i), testPlan.getChildren().get(i));
-            if (childMatchType == STRUCTURE_MISMATCH) {
-                return STRUCTURE_MISMATCH;
+            ExplainMatchResult childResult = match(controlPlan.getChildren().get(i), testPlan.getChildren().get(i), childAncestors);
+            if (!childResult.isMatched()) {
+                return childResult;
             }
-            else if (childMatchType == DETAILS_MISMATCH) {
+            if (childResult.getMatchType() == DETAILS_MISMATCH) {
                 detailsMismatched = true;
             }
         }
-        return detailsMismatched ? DETAILS_MISMATCH : MATCH;
+        return new ExplainMatchResult(detailsMismatched ? DETAILS_MISMATCH : MATCH);
+    }
+
+    private static Optional<String> structureDifference(JsonRenderedNode controlPlan, JsonRenderedNode testPlan)
+    {
+        if (!Objects.equals(controlPlan.getName(), testPlan.getName())) {
+            return Optional.of(format("%s -> %s", controlPlan.getName(), testPlan.getName()));
+        }
+        if (!Objects.equals(controlPlan.getIdentifier(), testPlan.getIdentifier())) {
+            return Optional.of(format(
+                    "%s identifier %s -> %s",
+                    controlPlan.getName(),
+                    truncate(controlPlan.getIdentifier()),
+                    truncate(testPlan.getIdentifier())));
+        }
+        if (!Objects.equals(controlPlan.getRemoteSources(), testPlan.getRemoteSources())) {
+            return Optional.of(format("%s remote sources %s -> %s", controlPlan.getName(), controlPlan.getRemoteSources(), testPlan.getRemoteSources()));
+        }
+        if (controlPlan.getChildren().size() != testPlan.getChildren().size()) {
+            return Optional.of(format(
+                    "%s children %s -> %s",
+                    controlPlan.getName(),
+                    controlPlan.getChildren().size(),
+                    testPlan.getChildren().size()));
+        }
+        return Optional.empty();
     }
 }

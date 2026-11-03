@@ -15,12 +15,14 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.presto.verifier.event.VerifierQueryEvent;
 import com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus;
+import com.google.common.base.Strings;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.SUCCEEDED;
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -60,8 +62,15 @@ public class TestExplainVerification
         assertTrue(event.isPresent());
 
         // Explain verification do not fail in case of plan changes.
-        assertEvent(event.get(), SUCCEEDED);
+        assertEvent(event.get(), FAILED);
         assertEquals(event.get().getMatchType(), "STRUCTURE_MISMATCH");
+        assertEquals(event.get().getErrorCode(), "STRUCTURE_MISMATCH");
+        assertTrue(
+                event.get().getErrorMessage().endsWith(
+                        "STRUCTURE_MISMATCH\n"
+                                + "Differing Plan Node:\n"
+                                + "  Output > Aggregate(FINAL) > LocalExchange > RemoteStreamingExchange > Aggregate(PARTIAL): TableScan -> CrossJoin"),
+                event.get().getErrorMessage());
         assertEquals(event.get().getControlQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT \"count\"(*)\nFROM\n  structure_mismatch");
         assertEquals(event.get().getTestQueryInfo().getQuery().trim(), "EXPLAIN (FORMAT JSON)\nSELECT \"count\"(*)\nFROM\n  (structure_mismatch\nCROSS JOIN structure_mismatch)");
         assertNotNull(event.get().getControlQueryInfo().getJsonPlan());
@@ -148,11 +157,83 @@ public class TestExplainVerification
                 "EXPLAIN (TYPE IO) SELECT * FROM explain_io_b");
         assertTrue(event.isPresent());
 
-        // Explain verification does not fail in case of plan changes; the mismatch is reported via match type.
-        assertEvent(event.get(), SUCCEEDED);
+        assertEvent(event.get(), FAILED);
         assertEquals(event.get().getMatchType(), "STRUCTURE_MISMATCH");
+        assertEquals(event.get().getErrorCode(), "STRUCTURE_MISMATCH");
+        assertTrue(
+                event.get().getErrorMessage().endsWith(
+                        "STRUCTURE_MISMATCH\n"
+                                + "Differing Fields:\n"
+                                + "  inputTableColumnInfos[].table.schemaTable.table: \"explain_io_a\" -> \"explain_io_b\""),
+                event.get().getErrorMessage());
         assertTrue(event.get().getControlQueryInfo().getQuery().trim().startsWith("EXPLAIN (TYPE IO)"));
         assertNotNull(event.get().getControlQueryInfo().getJsonPlan());
         assertNotNull(event.get().getTestQueryInfo().getJsonPlan());
+    }
+
+    @Test
+    public void testExplainTypeIoPassthroughArrayLengthMismatch()
+    {
+        getQueryRunner().execute("CREATE TABLE explain_io_left (x int)");
+        getQueryRunner().execute("CREATE TABLE explain_io_right (y int)");
+        Optional<VerifierQueryEvent> event = runExplain(
+                "EXPLAIN (TYPE IO) SELECT * FROM explain_io_left",
+                "EXPLAIN (TYPE IO) SELECT * FROM explain_io_left CROSS JOIN explain_io_right");
+        assertTrue(event.isPresent());
+
+        assertEvent(event.get(), FAILED);
+        assertEquals(event.get().getErrorCode(), "STRUCTURE_MISMATCH");
+        assertTrue(
+                event.get().getErrorMessage().endsWith(
+                        "STRUCTURE_MISMATCH\n"
+                                + "Differing Fields:\n"
+                                + "  inputTableColumnInfos: 1 elements -> 2 elements"),
+                event.get().getErrorMessage());
+    }
+
+    @Test
+    public void testExplainTypeIoReportCaps()
+    {
+        StringBuilder control = new StringBuilder("{");
+        StringBuilder test = new StringBuilder("{");
+        for (int i = 0; i < 12; i++) {
+            control.append(format("%s\"field%02d\": \"a\"", i == 0 ? "" : ", ", i));
+            test.append(format("%s\"field%02d\": \"b\"", i == 0 ? "" : ", ", i));
+        }
+        String longValue = Strings.repeat("x", 300);
+        control.append(format(", \"long\": \"%s\"}", longValue));
+        test.append(", \"long\": \"y\"}");
+
+        ExplainMatchResult result = ExplainVerification.matchRaw(control.toString(), test.toString());
+
+        assertFalse(result.isMatched());
+        assertEquals(
+                result.getReport(),
+                "STRUCTURE_MISMATCH\n"
+                        + "Differing Fields:\n"
+                        + "  field00: \"a\" -> \"b\"\n"
+                        + "  field01: \"a\" -> \"b\"\n"
+                        + "  field02: \"a\" -> \"b\"\n"
+                        + "  field03: \"a\" -> \"b\"\n"
+                        + "  field04: \"a\" -> \"b\"\n"
+                        + "  field05: \"a\" -> \"b\"\n"
+                        + "  field06: \"a\" -> \"b\"\n"
+                        + "  field07: \"a\" -> \"b\"\n"
+                        + "  field08: \"a\" -> \"b\"\n"
+                        + "  field09: \"a\" -> \"b\"\n"
+                        + "  ... and 3 more");
+    }
+
+    @Test
+    public void testExplainTypeIoReportTruncatesLongValues()
+    {
+        String longValue = Strings.repeat("x", 300);
+        ExplainMatchResult result = ExplainVerification.matchRaw(
+                format("{\"long\": \"%s\"}", longValue),
+                "{\"long\": \"y\"}");
+
+        assertEquals(
+                result.getReport(),
+                format("STRUCTURE_MISMATCH\nDiffering Fields:\n  long: \"%s... -> \"y\"", Strings.repeat("x", 199)));
     }
 }
