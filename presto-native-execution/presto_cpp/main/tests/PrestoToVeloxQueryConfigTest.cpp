@@ -634,6 +634,41 @@ TEST_F(PrestoToVeloxQueryConfigTest, connectorConfigConversion) {
   EXPECT_FALSE(credentialKeys.isConnectorCredential("iceberg", "user"));
 }
 
+TEST_F(PrestoToVeloxQueryConfigTest, javaWriterSessionProperties) {
+  auto request = createBasicTaskUpdateRequest();
+  request.session.catalogProperties["iceberg"] = {
+      {"target_max_file_size", "512MB"},
+      {"native_orc_writer_max_target_file_size", "1GB"},
+      {"parquet_writer_block_size", "64MB"},
+  };
+  request.session.catalogProperties["hive"] = {
+      {"parquet_writer_block_size", "64MB"},
+      {"native_parquet_writer_row_group_size", "32MB"},
+  };
+
+  auto connectorConfigs = toTaskConfigs(request).connectorConfigs;
+  auto icebergConfig = connectorConfigs["iceberg"];
+  EXPECT_FALSE(icebergConfig->valueExists("target_max_file_size"));
+  EXPECT_EQ(
+      "512MB",
+      icebergConfig->get<std::string>("parquet_writer_max_target_file_size"));
+  EXPECT_EQ(
+      "512MB",
+      icebergConfig->get<std::string>("nimble_writer_max_target_file_size"));
+  // An explicitly set Velox key wins.
+  EXPECT_EQ(
+      "1GB",
+      icebergConfig->get<std::string>("orc_writer_max_target_file_size"));
+  EXPECT_FALSE(icebergConfig->valueExists("parquet_writer_block_size"));
+  EXPECT_EQ(
+      "64MB", icebergConfig->get<std::string>("parquet_writer_row_group_size"));
+
+  auto hiveConfig = connectorConfigs["hive"];
+  EXPECT_FALSE(hiveConfig->valueExists("parquet_writer_block_size"));
+  EXPECT_EQ(
+      "32MB", hiveConfig->get<std::string>("parquet_writer_row_group_size"));
+}
+
 TEST_F(PrestoToVeloxQueryConfigTest, specialHardCodedPrestoConfigurations) {
   auto session = createBasicSession();
 
