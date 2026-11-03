@@ -43,6 +43,7 @@ import static com.facebook.presto.plugin.jdbc.TestingDatabase.CONNECTOR_ID;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static com.facebook.presto.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.StandardErrorCode.PERMISSION_DENIED;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
@@ -509,5 +510,32 @@ public class TestJdbcMetadata
                 new SchemaTableName("example", "numbers"),
                 new SchemaTableName("example", "view_source"),
                 new SchemaTableName("example", "view")));
+    }
+
+    @Test
+    public void testViewOperationsAreUnsupportedWhenClientDoesNotImplementThem()
+    {
+        // TestingDatabase's client leaves the optional view methods on JdbcClient at their
+        // defaults, so a connector that has not opted into views reports none and refuses to
+        // create, rename or drop them.
+        SchemaTableName viewName = new SchemaTableName("example", "a_view");
+
+        assertEquals(metadata.listViews(SESSION, Optional.of("example")), ImmutableList.of());
+        assertEquals(metadata.getViews(SESSION, new SchemaTablePrefix("example")), ImmutableMap.of());
+
+        assertViewOperationNotSupported(() -> metadata.createView(SESSION, new ConnectorTableMetadata(viewName, ImmutableList.of()), "view data", false));
+        assertViewOperationNotSupported(() -> metadata.renameView(SESSION, viewName, new SchemaTableName("example", "another_view")));
+        assertViewOperationNotSupported(() -> metadata.dropView(SESSION, viewName));
+    }
+
+    private static void assertViewOperationNotSupported(Runnable operation)
+    {
+        try {
+            operation.run();
+            fail("expected exception");
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+        }
     }
 }

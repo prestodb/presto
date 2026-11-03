@@ -35,6 +35,8 @@ public final class MySqlQueryRunner
     }
 
     private static final String TPCH_SCHEMA = "tpch";
+    public static final String MYSQL_CATALOG = "mysql";
+    public static final String MYSQL_PASSTHROUGH_CATALOG = "mysql_passthrough";
 
     public static QueryRunner createMySqlQueryRunner(String jdbcUrl, Map<String, String> connectorProperties, Iterable<TpchTable<?>> tables)
             throws Exception
@@ -61,7 +63,12 @@ public final class MySqlQueryRunner
             connectorProperties.putIfAbsent("allow-drop-table", "true");
 
             queryRunner.installPlugin(new MySqlPlugin());
-            queryRunner.createCatalog("mysql", "mysql", connectorProperties);
+            queryRunner.createCatalog(MYSQL_CATALOG, "mysql", connectorProperties);
+
+            // Second catalog with enable-datasource-managed-views=true (passthrough)
+            Map<String, String> passthroughProperties = new HashMap<>(connectorProperties);
+            passthroughProperties.put("enable-datasource-managed-views", "true");
+            queryRunner.createCatalog(MYSQL_PASSTHROUGH_CATALOG, "mysql", passthroughProperties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
 
@@ -76,7 +83,7 @@ public final class MySqlQueryRunner
     public static Session createSession()
     {
         return testSessionBuilder()
-                .setCatalog("mysql")
+                .setCatalog(MYSQL_CATALOG)
                 .setSchema(TPCH_SCHEMA)
                 .build();
     }
