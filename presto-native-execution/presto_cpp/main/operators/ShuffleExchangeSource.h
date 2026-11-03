@@ -46,6 +46,10 @@ class ShuffleExchangeSource : public velox::exec::ExchangeSource {
     shuffleReader_->noMoreData(true);
   }
 
+  void abort() override {
+    shuffleReader_->noMoreData(false);
+  }
+
   folly::F14FastMap<std::string, int64_t> stats() const override;
 
   bool supportsMetrics() const override;
