@@ -48,6 +48,12 @@ public final class KHyperLogLogWithLimitAggregationFunction
         extends SqlAggregationFunction
 {
     private static final String NAME = "khyperloglog_agg";
+    /**
+     * Alias of {@link #NAME}, registered so that a query can resolve on both
+     * the Java and native engines. See {@link KHyperLogLogAggregationFunction}
+     * for why the native engine needs a separate name.
+     */
+    public static final String JAVA_COMPAT_NAME = "khyperloglog_agg_java_compat";
     private static final KHyperLogLogStateSerializer SERIALIZER = new KHyperLogLogStateSerializer();
     private static final MethodHandle LONG_LONG_INPUT_FUNCTION = methodHandle(KHyperLogLogWithLimitAggregationFunction.class, "input", KHyperLogLogState.class, long.class, long.class);
     private static final MethodHandle SLICE_LONG_INPUT_FUNCTION = methodHandle(KHyperLogLogWithLimitAggregationFunction.class, "input", KHyperLogLogState.class, Slice.class, long.class);
@@ -58,10 +64,17 @@ public final class KHyperLogLogWithLimitAggregationFunction
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(KHyperLogLogWithLimitAggregationFunction.class, "output", KHyperLogLogState.class, BlockBuilder.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(KHyperLogLogWithLimitAggregationFunction.class, "combine", KHyperLogLogState.class, KHyperLogLogState.class);
     private final long groupLimit;
+    private final String name;
 
     public KHyperLogLogWithLimitAggregationFunction(long groupLimit)
     {
-        super(NAME, ImmutableList.of(typeVariable("E"), typeVariable("T")), ImmutableList.of(), K_HYPER_LOG_LOG.getTypeSignature(), ImmutableList.of(parseTypeSignature("E"), parseTypeSignature("T")));
+        this(NAME, groupLimit);
+    }
+
+    public KHyperLogLogWithLimitAggregationFunction(String name, long groupLimit)
+    {
+        super(name, ImmutableList.of(typeVariable("E"), typeVariable("T")), ImmutableList.of(), K_HYPER_LOG_LOG.getTypeSignature(), ImmutableList.of(parseTypeSignature("E"), parseTypeSignature("T")));
+        this.name = name;
         this.groupLimit = groupLimit;
     }
 
@@ -87,7 +100,7 @@ public final class KHyperLogLogWithLimitAggregationFunction
         MethodHandle inputFunction = getMethodHandle(firstInputType, secondInputType);
 
         AggregationMetadata metadata = new AggregationMetadata(
-                generateAggregationName(NAME, K_HYPER_LOG_LOG.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
+                generateAggregationName(name, K_HYPER_LOG_LOG.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 ImmutableList.of(new AggregationMetadata.ParameterMetadata(STATE), new AggregationMetadata.ParameterMetadata(INPUT_CHANNEL, firstInputType), new AggregationMetadata.ParameterMetadata(INPUT_CHANNEL, secondInputType)),
                 inputFunction,
                 COMBINE_FUNCTION,
@@ -108,7 +121,7 @@ public final class KHyperLogLogWithLimitAggregationFunction
                 GroupedAccumulator.class,
                 metadata,
                 classLoader);
-        return new BuiltInAggregationFunctionImplementation(NAME, inputTypes, ImmutableList.of(intermediateType), K_HYPER_LOG_LOG,
+        return new BuiltInAggregationFunctionImplementation(name, inputTypes, ImmutableList.of(intermediateType), K_HYPER_LOG_LOG,
                 true, false, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
