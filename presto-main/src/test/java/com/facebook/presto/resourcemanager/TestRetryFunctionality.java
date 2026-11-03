@@ -164,7 +164,7 @@ public class TestRetryFunctionality
                 "loc",
                 "loc",
                 new MemoryInfo(new DataSize(1, MEGABYTE), ImmutableMap.of()),
-                1, 1, 1, 1, 1, 1, 0, 0);
+                1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0);
     }
 
     private static class FailingHttpClient

@@ -30,7 +30,15 @@ public class TestNodeStatus
 {
     private static final JsonCodec<NodeStatus> CODEC = jsonCodec(NodeStatus.class);
 
-    private static NodeStatus nodeStatus(long nonHeapUsed, long asyncDataCacheBytes, long queryMemoryBytes)
+    private static NodeStatus nodeStatus(
+            long nonHeapUsed,
+            long asyncDataCacheBytes,
+            long queryMemoryBytes,
+            long gpuMemoryUsedBytes,
+            long gpuMemoryCapacityBytes,
+            long gpuUtilizationPercent,
+            long gpuMemoryBandwidthPercent,
+            long gpuPoolAllocatedBytes)
     {
         return new NodeStatus(
                 "test-node",
@@ -48,22 +56,31 @@ public class TestNodeStatus
                 8192,
                 nonHeapUsed,
                 asyncDataCacheBytes,
-                queryMemoryBytes);
+                queryMemoryBytes,
+                gpuMemoryUsedBytes,
+                gpuMemoryCapacityBytes,
+                gpuUtilizationPercent,
+                gpuMemoryBandwidthPercent,
+                gpuPoolAllocatedBytes);
     }
 
     @Test
     public void testJsonRoundTrip()
     {
-        // Distinct values for the three long fields, including a negative one,
-        // so the round-trip would catch a swapped, dropped, or sign-mangled
-        // field.
-        NodeStatus expected = nodeStatus(-1L, 111L, 222L);
+        // Distinct values for every long field, including a negative one, so the
+        // round-trip would catch a swapped, dropped, or sign-mangled field.
+        NodeStatus expected = nodeStatus(-1L, 111L, 222L, 333L, 444L, 55L, 66L, 777L);
 
         NodeStatus actual = CODEC.fromJson(CODEC.toJson(expected));
 
         assertEquals(actual.getNonHeapUsed(), -1L);
         assertEquals(actual.getAsyncDataCacheBytes(), 111L);
         assertEquals(actual.getQueryMemoryBytes(), 222L);
+        assertEquals(actual.getGpuMemoryUsedBytes(), 333L);
+        assertEquals(actual.getGpuMemoryCapacityBytes(), 444L);
+        assertEquals(actual.getGpuUtilizationPercent(), 55L);
+        assertEquals(actual.getGpuMemoryBandwidthPercent(), 66L);
+        assertEquals(actual.getGpuPoolAllocatedBytes(), 777L);
         assertEquals(actual.getHeapUsed(), expected.getHeapUsed());
         assertEquals(actual.getHeapAvailable(), expected.getHeapAvailable());
         assertEquals(actual.getNodeId(), expected.getNodeId());
