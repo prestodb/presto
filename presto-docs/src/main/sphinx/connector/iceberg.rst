@@ -384,10 +384,12 @@ Property Name                                           Description             
 
 ``iceberg.compression-codec``                           The compression codec to use when writing files. The          ``ZSTD``                           Yes                 No, write is not supported
                                                         available values are ``NONE``, ``SNAPPY``, ``GZIP``,
-                                                        ``LZ4``, and ``ZSTD``.
+                                                        ``LZ4``, ``LZ4_RAW``, and ``ZSTD``.
 
-                                                        Note: ``LZ4`` is only available when
-                                                        ``iceberg.file-format=ORC``.
+                                                        Note: ``LZ4_RAW`` is only available when
+                                                        ``iceberg.file-format=PARQUET``. For Parquet,
+                                                        ``LZ4`` writes the Hadoop framed ``LZ4`` codec and
+                                                        ``LZ4_RAW`` writes the ``LZ4_RAW`` codec.
 
 
 ``iceberg.max-partitions-per-writer``                   The maximum number of partitions handled per writer.          ``100``                            Yes                 No, write is not supported

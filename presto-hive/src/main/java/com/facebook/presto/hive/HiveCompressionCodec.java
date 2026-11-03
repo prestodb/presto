@@ -34,8 +34,11 @@ public enum HiveCompressionCodec
     NONE(null, CompressionKind.NONE, CompressionCodecName.UNCOMPRESSED, f -> true),
     SNAPPY(SnappyCodec.class, CompressionKind.SNAPPY, CompressionCodecName.SNAPPY, f -> true),
     GZIP(GzipCodec.class, CompressionKind.ZLIB, CompressionCodecName.GZIP, f -> true),
-    LZ4(Lz4Codec.class, CompressionKind.LZ4, CompressionCodecName.UNCOMPRESSED, f -> f == PAGEFILE || f == ORC),
-    ZSTD(null, CompressionKind.ZSTD, CompressionCodecName.ZSTD, f -> f == ORC || f == DWRF || f == PAGEFILE || f == PARQUET);
+    // Hive does not write Parquet with LZ4; Iceberg does, framing the LZ4 blocks the way Hadoop's Lz4Codec does.
+    LZ4(Lz4Codec.class, CompressionKind.LZ4, CompressionCodecName.LZ4, f -> f == PAGEFILE || f == ORC),
+    ZSTD(null, CompressionKind.ZSTD, CompressionCodecName.ZSTD, f -> f == ORC || f == DWRF || f == PAGEFILE || f == PARQUET),
+    // Only Iceberg writes LZ4_RAW, and only to Parquet, so the ORC compression kind is never used.
+    LZ4_RAW(null, CompressionKind.NONE, CompressionCodecName.LZ4_RAW, f -> false);
 
     private final Optional<Class<? extends CompressionCodec>> codec;
     private final CompressionKind orcCompressionKind;

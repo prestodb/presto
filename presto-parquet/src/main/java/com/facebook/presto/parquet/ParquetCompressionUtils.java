@@ -60,6 +60,8 @@ public final class ParquetCompressionUtils
                 return decompressLZO(input, uncompressedSize);
             case LZ4:
                 return decompressLz4(input, uncompressedSize);
+            case LZ4_RAW:
+                return decompressLz4Raw(input, uncompressedSize);
             case ZSTD:
                 return decompressZstd(input, uncompressedSize);
             default:
@@ -112,6 +114,13 @@ public final class ParquetCompressionUtils
     private static Slice decompressLz4(Slice input, int uncompressedSize)
     {
         return decompressFramed(new Lz4Decompressor(), input, uncompressedSize);
+    }
+
+    private static Slice decompressLz4Raw(Slice input, int uncompressedSize)
+    {
+        byte[] buffer = new byte[uncompressedSize];
+        decompress(new Lz4Decompressor(), input, 0, input.length(), buffer, 0);
+        return wrappedBuffer(buffer);
     }
 
     private static Slice decompressLZO(Slice input, int uncompressedSize)
