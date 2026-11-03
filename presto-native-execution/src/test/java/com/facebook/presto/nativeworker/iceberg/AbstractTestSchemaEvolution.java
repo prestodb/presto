@@ -64,7 +64,8 @@ import static org.testng.Assert.assertTrue;
  * Top-level column reordering via {@code ALTER TABLE … ADD COLUMN … FIRST|AFTER}
  * is tested by {@link #testAddColumnFirst} and {@link #testAddColumnAfter}.
  * Nested struct field ADD COLUMN is tested by {@link #testAddNestedStructField}.
- * Nested struct field RENAME COLUMN is tested by {@link #testRenameNestedStructField}.
+ * Nested struct field RENAME COLUMN is tested by {@link #testRenameNestedStructField} and
+ * {@link #testRecycledNestedStructFieldNameAfterDrop}.
  */
 public abstract class AbstractTestSchemaEvolution
         extends AbstractTestQueryFramework
@@ -551,9 +552,8 @@ public abstract class AbstractTestSchemaEvolution
         }
     }
 
-    // Nested struct field RENAME COLUMN: the DDL is coordinator-side only. The field id of the
-    // renamed field is unchanged, so the native reader must find it by id even though files
-    // written before the rename still store the old physical name.
+    // The rename is coordinator-side only: the field id is unchanged, so the native reader must
+    // find the field by id although pre-rename files still store the old physical name.
     @Test
     public void testRenameNestedStructField()
     {
@@ -566,21 +566,48 @@ public abstract class AbstractTestSchemaEvolution
 
             assertUpdate(format("ALTER TABLE %s RENAME COLUMN info.age TO years", table));
 
-            // Rows written before the rename surface under the new name.
             assertQuery(
                     format("SELECT id, info.name, info.years FROM %s ORDER BY id", table),
                     "VALUES (1, 'alice', 30), (2, 'bob', 25)");
 
-            // Rows written after the rename use the new physical name; both files read together.
             assertUpdate(format("INSERT INTO %s VALUES (3, ROW('carol', 35))", table), 1);
             assertQuery(
                     format("SELECT id, info.name, info.years FROM %s ORDER BY id", table),
                     "VALUES (1, 'alice', 30), (2, 'bob', 25), (3, 'carol', 35)");
 
-            // Selecting the whole struct column must also work after the rename.
             assertQuery(
                     format("SELECT id, info FROM %s ORDER BY id", table),
                     "VALUES (1, ROW('alice', 30)), (2, ROW('bob', 25)), (3, ROW('carol', 35))");
+        }
+        finally {
+            assertUpdate(format("DROP TABLE IF EXISTS %s", table));
+        }
+    }
+
+    // After dropping info.b and renaming info.a to b, historical files still hold the dropped b (20)
+    // under the physical name 'b'; resolution by field ID must return a's value (10).
+    @Test
+    public void testRecycledNestedStructFieldNameAfterDrop()
+    {
+        String table = "schema_evolution_nested_recycled";
+        try {
+            assertUpdate(format(
+                    "CREATE TABLE %s (id INTEGER, info ROW(a INTEGER, b INTEGER)) WITH (format = '%s')",
+                    table, storageFormat()));
+            assertUpdate(format("INSERT INTO %s VALUES (1, ROW(10, 20))", table), 1);
+
+            assertUpdate(format("ALTER TABLE %s DROP COLUMN info.b", table));
+            assertUpdate(format("ALTER TABLE %s RENAME COLUMN info.a TO b", table));
+
+            assertQuery(format("SELECT id, info.b FROM %s", table), "VALUES (1, 10)");
+
+            assertQuery(format("SELECT id, info FROM %s", table), "VALUES (1, ROW(10))");
+
+            assertUpdate(format("INSERT INTO %s VALUES (2, ROW(30))", table), 1);
+            assertQuery(format("SELECT id, info.b FROM %s ORDER BY id", table),
+                    "VALUES (1, 10), (2, 30)");
+            assertQuery(format("SELECT id, info FROM %s ORDER BY id", table),
+                    "VALUES (1, ROW(10)), (2, ROW(30))");
         }
         finally {
             assertUpdate(format("DROP TABLE IF EXISTS %s", table));

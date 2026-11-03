@@ -51,10 +51,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
 /**
- * Nested struct fields must remain readable when a Parquet data file carries no Iceberg field IDs
- * (for example files written by Hive or Spark and then registered with the table). Field-ID based
- * matching is only usable when IDs are present; otherwise the reader has to fall back to the
- * (hex-encoded) field names.
+ * Nested struct fields must remain readable when a Parquet file carries no Iceberg field IDs
+ * (for example files written by Hive or Spark), falling back to the encoded field names.
  */
 public class TestIcebergParquetNestedFieldsWithoutFieldIds
         extends AbstractTestQueryFramework
@@ -127,7 +125,6 @@ public class TestIcebergParquetNestedFieldsWithoutFieldIds
                     "VALUES 18, 28");
             assertQuery(session, "SELECT count(*) FROM " + tableName + " WHERE info IS NOT NULL AND info.city IS NOT NULL",
                     "VALUES 2");
-            // Whole-struct read exercises the non-pushdown field construction path.
             assertQuery(session, "SELECT info.city, info.zip FROM (SELECT info FROM " + tableName + ") ORDER BY 2",
                     "VALUES ('Delhi', 110001), ('Pune', 411001)");
         }
@@ -151,7 +148,7 @@ public class TestIcebergParquetNestedFieldsWithoutFieldIds
                             Types.NestedField.optional(4, "zone-id", Types.IntegerType.get()))));
             Table table = catalog.createTable(tableId, schema, PartitionSpec.unpartitioned(), ImmutableMap.of());
 
-            // Parquet column names are hex-encoded the same way Iceberg's Parquet writer encodes them.
+            // Same name encoding as Iceberg's Parquet writer
             String region = AvroSchemaUtil.makeCompatibleName("aws-region");
             String zone = AvroSchemaUtil.makeCompatibleName("zone-id");
             MessageType parquetSchema = MessageTypeParser.parseMessageType(
@@ -181,10 +178,7 @@ public class TestIcebergParquetNestedFieldsWithoutFieldIds
         }
     }
 
-    /**
-     * The group has field IDs, but the physical name ("old_city") differs from the requested name
-     * ("city"). The stable field ID must win over the stale name.
-     */
+    /** The field ID wins over the stale physical name ("old_city"). */
     @Test(dataProvider = "pushdown")
     public void testFieldIdWinsOverStalePhysicalName(boolean pushdown)
             throws Exception
@@ -215,11 +209,7 @@ public class TestIcebergParquetNestedFieldsWithoutFieldIds
         }
     }
 
-    /**
-     * The group has field IDs and a physical column that is literally named "city", but that column
-     * carries a different field ID (77). The requested ID (3) is absent from the group, so the field
-     * must read as NULL rather than being matched by name.
-     */
+    /** A physical column named "city" with a different field ID (77) must not match requested ID 3; the field reads NULL. */
     @Test(dataProvider = "pushdown")
     public void testMismatchedFieldIdDoesNotFallBackToName(boolean pushdown)
             throws Exception
@@ -251,10 +241,7 @@ public class TestIcebergParquetNestedFieldsWithoutFieldIds
         }
     }
 
-    /**
-     * Only some children of the group carry field IDs. The group counts as ID-bearing, so the child
-     * without an ID ("city") is not matched by name, with or without dereference pushdown.
-     */
+    /** If only some children carry field IDs the group is ID-bearing, so the child without an ID ("city") is not matched by name. */
     @Test(dataProvider = "pushdown")
     public void testPartialFieldIdsDoNotFallBackToName(boolean pushdown)
             throws Exception
@@ -286,11 +273,7 @@ public class TestIcebergParquetNestedFieldsWithoutFieldIds
         }
     }
 
-    /**
-     * Mirror of the previous test: the requested field ("zip") is the one without an ID while its
-     * sibling ("city") has one. It must read as NULL, not be matched by its name, and the sibling
-     * that does have an ID must still be readable.
-     */
+    /** Mirror of the previous test: the requested "zip" has no ID and reads NULL, while sibling "city" stays readable. */
     @Test(dataProvider = "pushdown")
     public void testPartialFieldIdsRequestedFieldWithoutId(boolean pushdown)
             throws Exception
@@ -322,11 +305,7 @@ public class TestIcebergParquetNestedFieldsWithoutFieldIds
         }
     }
 
-    /**
-     * The rule is applied one group at a time. "info" carries field IDs (and a stale physical name
-     * for "geo"), so it is resolved by ID; the nested "geo" group has no IDs, so "lat" is resolved
-     * by name.
-     */
+    /** The rule applies per group: "info" is resolved by ID, while its "geo" child has no IDs and is resolved by name. */
     @Test(dataProvider = "pushdown")
     public void testIdBearingParentWithIdLessChildGroup(boolean pushdown)
             throws Exception
@@ -371,10 +350,7 @@ public class TestIcebergParquetNestedFieldsWithoutFieldIds
         }
     }
 
-    /**
-     * Level-by-level field resolution in the table schema allows resolving unrelated fields (e.g. "zip")
-     * even when sibling fields differ only by case ("city" vs "CITY").
-     */
+    /** Unrelated fields (e.g. "zip") still resolve when siblings differ only by case ("city" vs "CITY"). */
     @Test(dataProvider = "pushdown")
     public void testCaseCollisionsInSchemaDoNotBreakUnrelatedFieldResolution(boolean pushdown)
             throws Exception
@@ -412,15 +388,9 @@ public class TestIcebergParquetNestedFieldsWithoutFieldIds
     }
 
     /**
-     * Intermediate ROW projection (dereference pushdown of a struct subfield) must use the
-     * Iceberg-ID-aware converter (IcebergParquetColumnIOConverter) for the pushed-down group, not
-     * the shared name-based ColumnIOConverter.
-     *
-     * When the group carries a field renamed at the physical level (physical name "old_lat", logical
-     * name "lat"), selecting info.geo.lat and info.geo.lon individually must return correct values
-     * from the historical file. The whole-struct projection of info is also verified, which exercises
-     * the non-pushdown IcebergParquetColumnIOConverter path and confirms that both renamed and
-     * non-renamed children within the intermediate struct read correctly by field ID.
+     * An intermediate ROW projection (pushed-down struct subfield) must use the ID-aware
+     * {@link IcebergParquetColumnIOConverter}, so a child renamed from physical "old_lat" to "lat"
+     * reads correctly, both per subfield and as a whole struct.
      */
     @Test(dataProvider = "pushdown")
     public void testIntermediateStructProjectionUsesIdAwareConverter(boolean pushdown)
@@ -430,7 +400,6 @@ public class TestIcebergParquetNestedFieldsWithoutFieldIds
         Catalog catalog = loadCatalog();
         TableIdentifier tableId = TableIdentifier.of(SCHEMA_NAME, tableName);
         try {
-            // info.geo is an intermediate struct. info.geo.lat has been renamed from physical "old_lat".
             Schema schema = new Schema(
                     Types.NestedField.optional(1, "id", Types.IntegerType.get()),
                     Types.NestedField.optional(2, "info", Types.StructType.of(
@@ -440,8 +409,7 @@ public class TestIcebergParquetNestedFieldsWithoutFieldIds
                                     Types.NestedField.optional(6, "lon", Types.IntegerType.get()))))));
             Table table = catalog.createTable(tableId, schema, PartitionSpec.unpartitioned(), ImmutableMap.of());
 
-            // Physical file: geo.lat is stored as "old_lat" (simulating a historical file written
-            // before the rename). The field ID 5 is present so ID-based matching must find it.
+            // Historical file: geo.lat is stored as "old_lat" with field ID 5
             MessageType parquetSchema = MessageTypeParser.parseMessageType(
                     "message table {" +
                             " optional int32 id = 1;" +
@@ -463,8 +431,6 @@ public class TestIcebergParquetNestedFieldsWithoutFieldIds
             assertQuery(session, "SELECT info.geo.lat FROM " + tableName, "VALUES 18");
             assertQuery(session, "SELECT info.geo.lon FROM " + tableName, "VALUES 73");
             assertQuery(session, "SELECT info.geo.lat, info.geo.lon FROM " + tableName, "VALUES (18, 73)");
-            // Whole-struct read of info exercises IcebergParquetColumnIOConverter recursively.
-            // The renamed child (old_lat → lat) inside geo must read correctly in both modes.
             assertQuery(session, "SELECT info.city, info.geo.lat FROM " + tableName, "VALUES ('Pune', 18)");
         }
         finally {
@@ -502,8 +468,7 @@ public class TestIcebergParquetNestedFieldsWithoutFieldIds
         org.apache.hadoop.fs.Path filePath = new org.apache.hadoop.fs.Path(
                 table.location(), "data/test-file-" + UUID.randomUUID() + ".parquet");
         Configuration conf = new Configuration();
-        // ExampleParquetWriter writes the schema exactly as given: Iceberg field IDs are present
-        // only where the schema declares them.
+        // Field IDs are written only where the schema declares them
         try (ParquetWriter<Group> writer = ExampleParquetWriter.builder(filePath)
                 .withConf(conf)
                 .withType(parquetSchema)

@@ -42,30 +42,17 @@ import static org.testng.Assert.assertSame;
 
 /**
  * Unit tests for {@link IcebergPageSourceProvider#toPhysicalOrcType}.
- *
- * <p>{@code toPhysicalOrcType} rewrites a logical Presto type by substituting each nested ROW
- * field name with the physical ORC stream name that carries the corresponding Iceberg field ID.
- * This enables reading historical ORC files whose sub-field streams still carry pre-rename names.
- *
- * <p>These tests cover the ARRAY and MAP container-recursion branches added to support ROW types
- * nested inside collection containers.
  */
 public class TestToPhysicalOrcType
 {
     private static final FunctionAndTypeManager TYPE_MANAGER = createTestFunctionAndTypeManager();
 
-    // -----------------------------------------------------------------------
-    // Helpers
-    // -----------------------------------------------------------------------
-
-    /** Builds an INT OrcType with no attributes (used as leaf primitive placeholder). */
     private static OrcType intType()
     {
         return new OrcType(OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(),
                 Optional.empty(), Optional.empty(), Optional.empty());
     }
 
-    /** Builds an INT OrcType carrying the given Iceberg field ID as an attribute. */
     private static OrcType intTypeWithId(int icebergId)
     {
         return new OrcType(OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(),
@@ -73,17 +60,13 @@ public class TestToPhysicalOrcType
                 ImmutableMap.of(ORC_ICEBERG_ID_KEY, String.valueOf(icebergId)));
     }
 
-    /**
-     * Builds a STRUCT OrcType with one field at subTypeIndex named physicalFieldName.
-     * The sub-type at subTypeIndex must carry the iceberg.id attribute separately.
-     */
     private static OrcType structType(int subTypeIndex, String physicalFieldName)
     {
         return new OrcType(OrcTypeKind.STRUCT, ImmutableList.of(subTypeIndex), ImmutableList.of(physicalFieldName),
                 Optional.empty(), Optional.empty(), Optional.empty());
     }
 
-    /** Like {@link #structType} but the STRUCT itself carries an Iceberg field ID (a ROW field that is itself a ROW). */
+    /** Like {@link #structType} but the STRUCT itself carries an Iceberg field ID. */
     private static OrcType structTypeWithId(int subTypeIndex, String physicalFieldName, int icebergId)
     {
         return new OrcType(OrcTypeKind.STRUCT, ImmutableList.of(subTypeIndex), ImmutableList.of(physicalFieldName),
@@ -91,14 +74,12 @@ public class TestToPhysicalOrcType
                 ImmutableMap.of(ORC_ICEBERG_ID_KEY, String.valueOf(icebergId)));
     }
 
-    /** Builds a LIST OrcType whose single element type is at elementTypeIndex. */
     private static OrcType listType(int elementTypeIndex)
     {
         return new OrcType(OrcTypeKind.LIST, ImmutableList.of(elementTypeIndex), ImmutableList.of("item"),
                 Optional.empty(), Optional.empty(), Optional.empty());
     }
 
-    /** Builds a MAP OrcType with key at keyTypeIndex and value at valueTypeIndex. */
     private static OrcType mapType(int keyTypeIndex, int valueTypeIndex)
     {
         return new OrcType(OrcTypeKind.MAP, ImmutableList.of(keyTypeIndex, valueTypeIndex), ImmutableList.of("key", "value"),
@@ -139,16 +120,10 @@ public class TestToPhysicalOrcType
         return new ColumnIdentity(0, name, MAP, ImmutableList.of(keyIdentity, valueIdentity));
     }
 
-    // -----------------------------------------------------------------------
-    // ARRAY<ROW> tests
-    // -----------------------------------------------------------------------
-
     /**
-     * ARRAY(ROW(new_name BIGINT)) where the physical ORC file stores the element struct
-     * field as "old_name" (with iceberg.id = 10). The method must recurse into the array
-     * element and rewrite the ROW field name from "new_name" to "old_name".
+     * ARRAY(ROW(new_name BIGINT)) stored as "old_name" (iceberg.id = 10) must be rewritten to "old_name".
      *
-     * <p>ORC type list layout:
+     * <p>ORC type layout:
      * <pre>
      *   [0] LIST    → element at index 1
      *   [1] STRUCT  → field "old_name" at index 2
@@ -172,15 +147,11 @@ public class TestToPhysicalOrcType
 
         Type result = IcebergPageSourceProvider.toPhysicalOrcType(logicalArrayType, arrayColumnIdentity, orcTypes, 0);
 
-        // The element ROW must now use the physical name "old_name".
         ArrayType expected = new ArrayType(RowType.from(ImmutableList.of(RowType.field("old_name", BIGINT))));
         assertEquals(result, expected);
     }
 
-    /**
-     * ARRAY(BIGINT): when the element type is a non-struct primitive, the array must be
-     * returned unchanged (same reference, no allocation).
-     */
+    /** ARRAY(BIGINT) is returned unchanged (same reference). */
     @Test
     public void testArrayWithPrimitiveElementUnchanged()
     {
@@ -196,16 +167,10 @@ public class TestToPhysicalOrcType
         assertSame(result, logicalArrayType, "primitive element array must be returned unchanged");
     }
 
-    // -----------------------------------------------------------------------
-    // MAP<key, ROW> tests
-    // -----------------------------------------------------------------------
-
     /**
-     * MAP(INTEGER, ROW(new_val BIGINT)) where the physical ORC file stores the map value
-     * struct field as "old_val" (with iceberg.id = 20). The key type (INTEGER) is a
-     * primitive and must pass through unchanged.
+     * MAP(INTEGER, ROW(new_val BIGINT)) stored as "old_val" (iceberg.id = 20); the key is unchanged.
      *
-     * <p>ORC type list layout:
+     * <p>ORC type layout:
      * <pre>
      *   [0] MAP     → key at index 1, value at index 2
      *   [1] INT     (key, no iceberg.id needed for primitives)
@@ -237,7 +202,6 @@ public class TestToPhysicalOrcType
 
         Type result = IcebergPageSourceProvider.toPhysicalOrcType(logicalMapType, mapColumnIdentity, orcTypes, 0);
 
-        // Value ROW must carry the physical name "old_val"; key type is unchanged.
         com.facebook.presto.common.type.MapType expected =
                 (com.facebook.presto.common.type.MapType) TYPE_MANAGER.getParameterizedType(
                         StandardTypes.MAP,
@@ -248,9 +212,7 @@ public class TestToPhysicalOrcType
         assertEquals(result, expected);
     }
 
-    /**
-     * MAP(INTEGER, BIGINT): both key and value are primitives; expect the same object returned.
-     */
+    /** MAP(INTEGER, BIGINT) is returned unchanged (same reference). */
     @Test
     public void testMapWithPrimitiveKeyAndValueUnchanged()
     {
@@ -275,13 +237,8 @@ public class TestToPhysicalOrcType
         assertSame(result, logicalMapType, "primitive-valued map must be returned unchanged");
     }
 
-    // -----------------------------------------------------------------------
-    // Deeper and less common nesting
-    // -----------------------------------------------------------------------
-
     /**
-     * MAP(INTEGER, ARRAY(ROW(new_name BIGINT))): the map value is itself a container, so the MAP
-     * branch must delegate into the ARRAY branch and on into the element ROW.
+     * MAP(INTEGER, ARRAY(ROW(new_name BIGINT))): the MAP branch delegates into the ARRAY branch.
      *
      * <pre>
      *   [0] MAP     → key at index 1, value at index 2
@@ -312,8 +269,7 @@ public class TestToPhysicalOrcType
     }
 
     /**
-     * ARRAY(ROW(new_outer ROW(new_inner BIGINT))): both ROW levels were renamed, so the recursion
-     * must continue through the element ROW into the ROW-typed field and rewrite both names.
+     * ARRAY(ROW(new_outer ROW(new_inner BIGINT))): both ROW levels are rewritten.
      *
      * <pre>
      *   [0] LIST    → element at index 1
@@ -346,7 +302,7 @@ public class TestToPhysicalOrcType
     }
 
     /**
-     * ARRAY(ARRAY(ROW(new_name BIGINT))): a container nested directly in a container.
+     * ARRAY(ARRAY(ROW(new_name BIGINT))).
      *
      * <pre>
      *   [0] LIST    → element at index 1
@@ -374,9 +330,8 @@ public class TestToPhysicalOrcType
     }
 
     /**
-     * A ROW field inside an ARRAY element whose Iceberg ID is absent from the file (added after the
-     * file was written) must get the synthetic missing name rather than binding by logical name,
-     * while the field that is present is still renamed to its physical name.
+     * A ROW field inside an ARRAY element whose ID is absent from the file gets the synthetic
+     * missing name instead of binding by logical name; present fields are still renamed.
      */
     @Test
     public void testArrayRowFieldMissingFromFileGetsSyntheticName()
@@ -399,13 +354,8 @@ public class TestToPhysicalOrcType
                 RowType.field("$missing_orc_field$11", BIGINT)))));
     }
 
-    // -----------------------------------------------------------------------
-    // Identity-count mismatch early returns
-    // -----------------------------------------------------------------------
-
     /**
-     * An ARRAY identity must have exactly one child. With two, the element cannot be paired with an
-     * identity, so the type is returned unchanged even though the element ROW would otherwise be renamed.
+     * An ARRAY identity with two children cannot be paired with the element, so the type is returned unchanged.
      */
     @Test
     public void testArrayWithMismatchedIdentityCountUnchanged()
@@ -426,8 +376,7 @@ public class TestToPhysicalOrcType
     }
 
     /**
-     * A MAP identity must have exactly two children (key, value). With three, the type is returned
-     * unchanged even though the value ROW would otherwise be renamed.
+     * A MAP identity with three children cannot be paired with key and value, so the type is returned unchanged.
      */
     @Test
     public void testMapWithMismatchedIdentityCountUnchanged()

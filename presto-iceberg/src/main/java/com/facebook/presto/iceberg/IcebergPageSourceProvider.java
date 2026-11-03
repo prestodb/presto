@@ -398,15 +398,11 @@ public class IcebergPageSourceProvider
                                     columnIO.get()));
                         }
                         else if (!tableSchema.isPresent()) {
-                            // Schema-less path (delete-file reads): safe to fall back to name-based
-                            // resolution because no SYNTHESIZED columns are expected in that context.
+                            // Delete-file reads have no table schema; name-based resolution is safe there
                             internalFields.add(constructField(prestoType, columnIO.get()));
                         }
                         else {
-                            // tableSchema is present but the subfield identity could not be resolved
-                            // (e.g. path resolved to a non-struct intermediate). Do not fall back to
-                            // name-based lookup — that would silently read the wrong physical column
-                            // after a rename. Treat as missing and return the default value instead.
+                            // Unresolvable identity: do not fall back to name, which could read the wrong column after a rename
                             internalFields.add(Optional.empty());
                             getInitialDefaultValue(column)
                                     .ifPresent(value -> defaultValues.put(column.getId(), value));
@@ -493,9 +489,7 @@ public class IcebergPageSourceProvider
                         return subfieldType;
                     }
                 }
-                // The subfield cannot be resolved in tableSchema or is not present in the file under the requested identity.
-                // Include the root struct column so that its GroupColumnIO is available for subfield traversal in
-                // resolveColumnIOByFieldIds, which then yields NULL or the default value.
+                // Keep the root column so resolveColumnIOByFieldIds can yield NULL or the default value
                 return Optional.ofNullable(getParquetTypeByName(rootName, messageType));
             }
             Optional<org.apache.parquet.schema.Type> subfieldType = getSubfieldType(messageType, rootName, encodedPath);
@@ -513,21 +507,9 @@ public class IcebergPageSourceProvider
     }
 
     /**
-     * Resolves a pushed-down subfield's {@link ColumnIO} by traversing the Parquet ColumnIO tree
-     * using stable Iceberg field IDs obtained from the current table schema.
-     *
-     * <p>This is required for reading historical Parquet files after a nested field rename:
-     * the physical child name in the file still reflects the pre-rename name (e.g. "age"),
-     * but the Iceberg schema now exposes the new name (e.g. "years") while the field ID
-     * remains stable (e.g. 3). Matching by ID guarantees the correct physical column is read.
-     *
-     * <p>Each group on the path is resolved by field ID, except that a group which carries no field
-     * IDs at all (for example a file written by Hive or Spark) is resolved by the encoded field name.
-     *
-     * <p>Falls back to name-based resolution via {@link org.apache.parquet.io.ColumnIOConverter#findNestedColumnIO}
-     * when the IDs cannot be determined, see {@link #resolveFieldIds}. That fallback is a plain name
-     * lookup that is only reached when no table-schema IDs are available at all; it is never applied
-     * to a group once an ID has been determined for the path.
+     * Resolves a pushed-down subfield's {@link ColumnIO} by Iceberg field ID, so that historical
+     * files with pre-rename physical names stay readable. A group without any field IDs is resolved
+     * by name. Name-based resolution via {@code findNestedColumnIO} is used only when there is no table schema.
      */
     private static Optional<ColumnIO> resolveColumnIOByFieldIds(
             ColumnIO rootColumnIO,
@@ -546,22 +528,12 @@ public class IcebergPageSourceProvider
             if (fieldIds.isPresent()) {
                 return findNestedColumnIOByIdOrName(rootColumnIO, fieldIds.get(), encodedPath);
             }
-            // When tableSchema is present, an unresolvable or ambiguous path must NOT fall back to
-            // matching by physical file name; return empty so the reader produces NULL / default value.
+            // Never fall back to the physical name when a table schema is present
             return Optional.empty();
         }
         return findNestedColumnIO(rootColumnIO, encodedPath);
     }
 
-    /**
-     * Maps a pushed-down subfield path to the Iceberg field IDs of the current table schema, one
-     * per path element. Returns empty when
-     * <ul>
-     *   <li>{@code tableSchema} is absent (delete-file reads, no SYNTHESIZED columns expected)</li>
-     *   <li>the path is empty</li>
-     *   <li>any step cannot be resolved in the current schema or is ambiguous</li>
-     * </ul>
-     */
     private static Optional<List<Integer>> resolveFieldIds(String rootName, List<String> namePath, Optional<Schema> tableSchema)
     {
         return resolveStructPath(rootName, namePath, tableSchema)
@@ -577,10 +549,8 @@ public class IcebergPageSourceProvider
     }
 
     /**
-     * Resolves the struct path below the root column. The returned list contains one field per
-     * element of {@code namePath} (the root field itself is not included). Returns empty when
-     * {@code tableSchema} is absent, the path is empty, any step cannot be resolved or is
-     * ambiguous, or an intermediate field is not a struct.
+     * Resolves {@code namePath} below the root column, one field per element. Returns empty if the
+     * schema is absent, the path is empty, or a step is unresolvable, ambiguous or not a struct.
      */
     private static Optional<List<Types.NestedField>> resolveStructPath(String rootName, List<String> namePath, Optional<Schema> tableSchema)
     {
@@ -607,11 +577,7 @@ public class IcebergPageSourceProvider
         return Optional.of(path.build());
     }
 
-    /**
-     * Resolves a single field name from a list of Iceberg {@link Types.NestedField}s using
-     * exact-match first, then a case-insensitive fallback that is accepted only when exactly
-     * one field matches.  Ambiguous case-insensitive matches return empty.
-     */
+    /** Exact match first, then a case-insensitive match accepted only if unique. */
     private static Optional<Types.NestedField> resolveNestedField(List<Types.NestedField> fields, String name)
     {
         Optional<Types.NestedField> exactMatch = fields.stream()
@@ -868,24 +834,11 @@ public class IcebergPageSourceProvider
     }
 
     /**
-     * Recursively rewrites the logical Presto {@link Type} for an ORC struct column so that
-     * each nested field name matches the <em>physical</em> name stored in the ORC file rather
-     * than the current logical name in the Iceberg schema.
-     *
-     * <p>This is necessary after a nested field rename: the logical type will have the new name
-     * (e.g. {@code years}) but the physical ORC stream still uses the original name (e.g.
-     * {@code age}).  {@link com.facebook.presto.orc.reader.StructBatchStreamReader} matches
-     * nested streams by name, so without this rewrite the renamed sub-field would always read
-     * as {@code null} from pre-rename files.
-     *
-     * <p>The mapping at each level is: logical name → Iceberg field ID (from
-     * {@code columnIdentity.getChildren()}) → physical name (from the ORC type's
-     * {@code iceberg.id} attribute on each nested sub-type).  Recursion handles arbitrarily
-     * deep struct nesting, including ROW types nested inside ARRAY and MAP containers.
-     *
-     * <p>Non-struct types that contain no nested ROW are returned unchanged.  When the ORC file
-     * has no {@code iceberg.id} attributes (migrated tables) all names are left as-is, which
-     * preserves the existing behaviour.
+     * Rewrites nested ROW field names in {@code logicalType} to the physical names stored in the
+     * ORC file, matched by Iceberg field ID (logical name, then ID, then physical name). The ORC
+     * struct reader matches streams by name, so renamed fields would otherwise read as null from
+     * pre-rename files. Recurses through ROW, ARRAY and MAP. Names are left as-is if the file has
+     * no {@code iceberg.id} attributes.
      */
     @VisibleForTesting
     static Type toPhysicalOrcType(Type logicalType, ColumnIdentity columnIdentity, List<OrcType> orcTypes, int physicalTypeIndex)
@@ -896,7 +849,6 @@ public class IcebergPageSourceProvider
         OrcType physicalType = orcTypes.get(physicalTypeIndex);
 
         if (logicalType instanceof ArrayType) {
-            // ARRAY<element>: recurse into the element type if it contains nested ROW fields.
             if (physicalType.getOrcTypeKind() != OrcType.OrcTypeKind.LIST || physicalType.getFieldCount() < 1) {
                 return logicalType;
             }
@@ -914,7 +866,6 @@ public class IcebergPageSourceProvider
         }
 
         if (logicalType instanceof MapType) {
-            // MAP<key, value>: recurse into both key and value types.
             if (physicalType.getOrcTypeKind() != OrcType.OrcTypeKind.MAP || physicalType.getFieldCount() < 2) {
                 return logicalType;
             }
@@ -955,7 +906,7 @@ public class IcebergPageSourceProvider
             }
         }
         if (icebergIdToPhysicalName.isEmpty()) {
-            // No iceberg.id attributes – migrated table, leave names as-is.
+            // Migrated table
             return logicalType;
         }
 
@@ -986,9 +937,7 @@ public class IcebergPageSourceProvider
                 rewrittenFields.add(RowType.field(physicalName, fieldType));
             }
             else {
-                // When the ORC struct has iceberg.id attributes but this field's ID is missing from
-                // the file (e.g. added later), using the logical name could mistakenly bind to an old
-                // dropped column of the same name. Use a synthetic missing name so ORC reader produces NULL.
+                // ID absent from the file: a synthetic name avoids binding to a dropped column with the same name
                 String missingName = "$missing_orc_field$" + (icebergId != null ? icebergId : field.getName().orElse(""));
                 rewrittenFields.add(RowType.field(missingName, fieldType));
             }

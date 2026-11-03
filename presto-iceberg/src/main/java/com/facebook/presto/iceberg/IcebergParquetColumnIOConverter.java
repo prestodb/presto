@@ -46,24 +46,11 @@ import static org.apache.parquet.io.ColumnIOUtil.columnRepetitionLevel;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
 /**
- * Iceberg-specific Parquet column IO converter.
- *
- * Unlike the shared {@link org.apache.parquet.io.ColumnIOConverter}, this class traverses
- * nested ROW (struct) fields by their Iceberg field ID rather than by name. This is
- * required for correct Iceberg schema evolution: when a nested field is renamed, existing
- * Parquet files still store the field under its original name, but Iceberg assigns each
- * field a stable numeric ID. Matching by ID ensures historical data is readable after a rename.
- *
- * MAP and ARRAY container children (key, value, element) are traversed positionally, exactly
- * as the shared converter does. This is correct because those positions are fixed by the
- * Parquet/Iceberg physical layout; they are not renameable identifiers. The traversal is
- * recursive, so when it reaches a ROW (struct) type, at any depth and including a ROW nested
- * inside a MAP or ARRAY, that ROW's fields are matched by Iceberg field ID (falling back to
- * name only for a Parquet group that carries no field IDs). Renames change the physical
- * child names stored in the file only for ROW fields, which is why ID matching is needed there.
- *
- * The JSON (variant) branch is kept identical to the shared converter since it is
- * name-based but stable (Iceberg always writes "value" and "metadata").
+ * Iceberg-specific Parquet column IO converter. Unlike the shared
+ * {@link org.apache.parquet.io.ColumnIOConverter}, ROW fields are matched by Iceberg field ID
+ * rather than by name (falling back to name for a Parquet group without field IDs), so files
+ * written before a nested field rename remain readable. MAP and ARRAY children are traversed
+ * positionally, as in the shared converter.
  */
 public final class IcebergParquetColumnIOConverter
 {
@@ -137,14 +124,10 @@ public final class IcebergParquetColumnIOConverter
                 return Optional.of(new GroupField(type, repetitionLevel, definitionLevel, required, ImmutableList.of(field)));
             }
             else if (JSON.equals(typeBase)) {
-                // Look up by name: the physical column order is not guaranteed
-                // (Iceberg / Spark write metadata first, value second)
+                // Look up by name: physical child order is not guaranteed
                 ColumnIO valueColumnIO = lookupColumnByName(groupColumnIO, "value");
                 ColumnIO metadataColumnIO = lookupColumnByName(groupColumnIO, "metadata");
-                // Shredded Variant files (Iceberg spec §4.3) carry a third child
-                // "typed_value" alongside "metadata" and "value". We do not yet
-                // support reconstructing values from typed_value, so reject them
-                // explicitly rather than silently returning null for every row.
+                // Shredded variants (extra "typed_value" child) are unsupported; reject rather than return nulls
                 boolean hasTypedValue = lookupColumnByName(groupColumnIO, "typed_value") != null;
                 if (hasTypedValue) {
                     throw new IllegalArgumentException(

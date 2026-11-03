@@ -76,7 +76,6 @@ public class RenameColumnTask
         String target = metadata.normalizeIdentifier(session, tableName.getCatalogName(), statement.getTarget().getValue());
 
         if (normalizedSourceParts.size() == 1) {
-            // Top-level column: use existing ColumnHandle-based path.
             accessControl.checkCanRenameColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
             String source = normalizedSourceParts.get(0);
@@ -100,8 +99,7 @@ public class RenameColumnTask
             metadata.renameColumn(session, tableHandle, columnHandle, target);
         }
         else {
-            // Nested field: modifies the root ROW column's schema, so requires ALTER COLUMN permission
-            // (consistent with nested ADD and DROP). No ColumnHandle exists for sub-fields; delegate path-based rename.
+            // Nested rename alters the root ROW column, so it needs ALTER COLUMN permission, as nested ADD and DROP do
             accessControl.checkCanAlterColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
             metadata.renameField(session, tableHandle, normalizedSourceParts, target, statement.isColumnExists());

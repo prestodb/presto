@@ -122,7 +122,7 @@ public class TestRenameColumnTask
     @Test
     public void testNestedRenamePassesNormalizedPathAndTarget()
     {
-        // MockMetadata.normalizeIdentifier lower-cases, so the connector must receive normalized parts.
+        // MockMetadata.normalizeIdentifier lower-cases
         QualifiedName nestedName = QualifiedName.of(ImmutableList.of(
                 new Identifier("Outer", true),
                 new Identifier("Inner", true),
@@ -140,7 +140,6 @@ public class TestRenameColumnTask
     {
         accessControl.deny(privilege(TABLE_NAME, ALTER_COLUMN));
         assertThrows(AccessDeniedException.class, () -> execute(renameColumn(QualifiedName.of("info", "age"), "years", false)));
-        // A denied statement must not reach the metadata layer
         assertEquals(metadata.renameFieldCalls, 0);
         assertEquals(metadata.renameColumnCalls, 0);
     }
@@ -167,7 +166,7 @@ public class TestRenameColumnTask
     @Test
     public void testNestedRenamePassesCorrectArgumentsToRenameField()
     {
-        // MockMetadata.normalizeIdentifier lower-cases, so the connector must receive normalized parts.
+        // MockMetadata.normalizeIdentifier lower-cases
         QualifiedName nestedName = QualifiedName.of(ImmutableList.of(
                 new Identifier("Outer", true),
                 new Identifier("Inner", true),
@@ -195,7 +194,6 @@ public class TestRenameColumnTask
     {
         metadata.renameFieldFailure = new PrestoException(COLUMN_NOT_FOUND, "Field 'info.age' does not exist");
 
-        // RenameColumnTask delegates execution and exception handling to metadata.renameField without swallowing exceptions
         assertThrows(PrestoException.class, () -> execute(renameColumn(QualifiedName.of("info", "age"), "years", false)));
         assertThrows(PrestoException.class, () -> execute(renameColumn(QualifiedName.of("info", "age"), "years", true)));
         assertEquals(metadata.renameFieldCalls, 2);

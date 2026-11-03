@@ -38,31 +38,14 @@ import static org.testng.Assert.assertTrue;
 
 /**
  * Unit tests for {@link IcebergParquetColumnIOConverter#constructField}.
- *
- * <p>Variant (JSON) branch:
- * <ol>
- *   <li>Reversed physical child ordering ({@code metadata} before {@code value}) is handled
- *       correctly by name-based lookup rather than positional index.</li>
- *   <li>A file with a missing {@code value} or {@code metadata} child throws an informative
- *       {@link IllegalArgumentException}.</li>
- *   <li>A shredded-Variant file that carries {@code typed_value} throws an explicit
- *       {@link IllegalArgumentException} rather than silently returning {@code null}.</li>
- * </ol>
- *
- * <p>ROW branch: a ROW whose Iceberg child-identity count differs from its field count is
- * not resolved, and a ROW whose counts match is resolved by field ID despite a rename.
  */
 public class TestIcebergParquetColumnIOConverter
 {
-    /** A minimal ColumnIdentity for a top-level primitive (the variant column itself). */
     private static ColumnIdentity variantIdentity()
     {
         return new ColumnIdentity(1, "data", PRIMITIVE, ImmutableList.of());
     }
 
-    /**
-     * Returns the ColumnIO for the top-level {@code data} group built from {@code schemaDef}.
-     */
     private static ColumnIO variantColumnIO(String schemaDef)
     {
         MessageType schema = MessageTypeParser.parseMessageType(schemaDef);
@@ -90,8 +73,7 @@ public class TestIcebergParquetColumnIOConverter
     @Test
     public void testVariantReversedOrdering()
     {
-        // metadata listed FIRST — reversed from the standard Iceberg order (Spark/some writers do this).
-        // The old positional getChild(0)/getChild(1) would wire the wrong physical columns.
+        // metadata listed first, as some writers do
         ColumnIO columnIO = variantColumnIO(
                 "message table { " +
                         "required group data { " +
@@ -108,7 +90,6 @@ public class TestIcebergParquetColumnIOConverter
 
         VariantField variantField = (VariantField) result.get();
 
-        // Verify via the descriptor path that value→"value" and metadata→"metadata" (not swapped).
         assertTrue(variantField.getValue() instanceof PrimitiveField, "value sub-field must be a PrimitiveField");
         assertTrue(variantField.getMetadata() instanceof PrimitiveField, "metadata sub-field must be a PrimitiveField");
 
@@ -151,8 +132,6 @@ public class TestIcebergParquetColumnIOConverter
             expectedExceptionsMessageRegExp = ".*[Ss]hredded.*|.*typed_value.*")
     public void testVariantShreddedRejected()
     {
-        // Shredded Variant (Iceberg spec §4.3): all three children present — must be rejected
-        // explicitly rather than silently returning NULL or reading wrong bytes.
         ColumnIO columnIO = variantColumnIO(
                 "message table { " +
                         "required group data { " +
@@ -168,7 +147,6 @@ public class TestIcebergParquetColumnIOConverter
             expectedExceptionsMessageRegExp = ".*[Ss]hredded.*|.*typed_value.*")
     public void testVariantShreddedRejectedReversedOrder()
     {
-        // typed_value must be rejected even when physical child order is non-standard.
         ColumnIO columnIO = variantColumnIO(
                 "message table { " +
                         "required group data { " +
@@ -180,7 +158,6 @@ public class TestIcebergParquetColumnIOConverter
         IcebergParquetColumnIOConverter.constructField(variantIdentity(), JsonType.JSON, columnIO);
     }
 
-    /** The file stores {@code info} with children {@code old_a} (field ID 10) and {@code old_b} (field ID 11). */
     private static ColumnIO infoColumnIO()
     {
         MessageType schema = MessageTypeParser.parseMessageType(
@@ -199,19 +176,13 @@ public class TestIcebergParquetColumnIOConverter
     {
         ColumnIO columnIO = infoColumnIO();
         RowType rowType = RowType.from(ImmutableList.of(RowType.field("a", BIGINT), RowType.field("b", BIGINT)));
-        // Two logical fields but only one child identity: positions can no longer be paired by index.
         ColumnIdentity mismatchedIdentity = new ColumnIdentity(1, "info", STRUCT,
                 ImmutableList.of(new ColumnIdentity(10, "a", PRIMITIVE, ImmutableList.of())));
 
         IcebergParquetColumnIOConverter.constructField(mismatchedIdentity, rowType, columnIO);
     }
 
-    /**
-     * Control for {@link #testRowChildIdentityCountMismatchThrows}: with matching counts the same
-     * file is resolved, and the renamed logical fields {@code a}/{@code b} bind to the physical
-     * {@code old_a}/{@code old_b} columns by field ID. This verifies that valid identity counts
-     * still allow successful field-ID-based resolution.
-     */
+    /** Control for {@link #testRowChildIdentityCountMismatchThrows}: matching counts bind {@code a}/{@code b} to {@code old_a}/{@code old_b} by ID. */
     @Test
     public void testRowResolvedByFieldIdWhenCountsMatch()
     {

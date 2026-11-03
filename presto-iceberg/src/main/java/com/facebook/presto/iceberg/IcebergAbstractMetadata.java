@@ -1995,8 +1995,7 @@ public abstract class IcebergAbstractMetadata
         if (exactMatch.isPresent()) {
             return exactMatch;
         }
-        // Never guess between fields that differ only by case: acting on the wrong field would
-        // silently drop or rename the wrong data.
+        // Never guess between fields that differ only by case
         List<NestedField> caseInsensitiveMatches = structType.fields().stream()
                 .filter(field -> field.name().equalsIgnoreCase(fieldName))
                 .collect(toImmutableList());
@@ -2064,10 +2063,9 @@ public abstract class IcebergAbstractMetadata
         validateNoBranchSpecified(handle, "RENAME COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
 
-        // Iceberg's renameColumn() is case-sensitive; resolve the field first to get its canonical name.
+        // renameColumn() is case-sensitive, so resolve the canonical name first
         Optional<ResolvedField> resolvedOpt = resolveFieldToRename(icebergTable.schema(), fieldPath, handle.getSchemaTableName(), ignoreNonExistent);
         if (!resolvedOpt.isPresent()) {
-            // ignoreNonExistent is true and the field was not found; silently return.
             return;
         }
         ResolvedField resolved = resolvedOpt.get();
@@ -2090,11 +2088,10 @@ public abstract class IcebergAbstractMetadata
     }
 
     /**
-     * Resolves the struct field that {@code fieldPath} names, walking one struct level at a time from the root of
-     * the schema. An exact name match is preferred, then a case-insensitive match among the siblings of that level
-     * only, so a case collision elsewhere in the schema cannot affect the lookup (unlike
-     * {@link Schema#caseInsensitiveFindField}). Fields that differ only by case are never guessed between.
-     * Only struct fields are traversed; a path through a list or map is rejected.
+     * Resolves the struct field named by {@code fieldPath}, one struct level at a time. An exact match is
+     * preferred, then a case-insensitive match among siblings at that level only, so a case collision
+     * elsewhere cannot affect the lookup (unlike {@link Schema#caseInsensitiveFindField}).
+     * Paths through a list or map are rejected.
      *
      * @param ignoreNonExistent when {@code true}, returns {@link Optional#empty()} instead of throwing
      *        {@code COLUMN_NOT_FOUND} if the field or a parent step does not exist
