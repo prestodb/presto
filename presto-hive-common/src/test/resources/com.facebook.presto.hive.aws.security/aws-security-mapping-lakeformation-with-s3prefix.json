@@ -1,0 +1,9 @@
+{
+  "mappings": [
+    {
+      "user": "admin",
+      "s3Prefix": "s3a://bucket-a/",
+      "iamRole": "arn:aws:iam::123456789101:role/admin_role"
+    }
+  ]
+}
