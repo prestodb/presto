@@ -21,21 +21,24 @@ import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.InMemoryCachingHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreCacheSpecProvider;
 import com.facebook.presto.hive.metastore.RecordingHiveMetastore;
+import com.facebook.presto.hive.metastore.http.HttpHiveMetastoreClientFactory;
+import com.facebook.presto.hive.metastore.http.HttpHiveMetastoreConfig;
 import com.facebook.presto.spi.ConnectorId;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.ObjectNames.generatedNameOf;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
-public class ThriftMetastoreModule
+public class HmsModule
         extends AbstractConfigurationAwareModule
 {
     private final String connectorId;
 
-    public ThriftMetastoreModule(String connectorId)
+    public HmsModule(String connectorId)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null");
     }
@@ -43,9 +46,34 @@ public class ThriftMetastoreModule
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(HiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
-        binder.bind(HiveCluster.class).to(StaticHiveCluster.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(StaticMetastoreConfig.class);
+        StaticMetastoreConfig staticMetastoreConfig = buildConfigObject(StaticMetastoreConfig.class);
+        requireNonNull(staticMetastoreConfig.getMetastoreUris(), "metastoreUris is null");
+        boolean usingHttpProtocol = staticMetastoreConfig.getMetastoreUris().stream()
+                .anyMatch(uri -> ("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme())));
+
+        if (usingHttpProtocol) {
+            newOptionalBinder(binder, MetastoreClientFactory.class)
+                    .setDefault().to(HttpHiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
+            binder.bind(HiveCluster.class).to(StaticHiveCluster.class).in(Scopes.SINGLETON);
+            configBinder(binder).bindConfig(StaticMetastoreConfig.class);
+            HttpHiveMetastoreConfig metastoreClientConfig = buildConfigObject(HttpHiveMetastoreConfig.class);
+            boolean hasHttpsMetastore = staticMetastoreConfig.getMetastoreUris().stream().anyMatch(uri -> "https".equalsIgnoreCase(uri.getScheme()));
+            if (hasHttpsMetastore && !metastoreClientConfig.getHttpMetastoreTlsEnabled()) {
+                throw new IllegalStateException("'hive.metastore.http.client.tls.enabled' must be set to 'true' while using https metastore URIs in 'hive.metastore.uri'");
+            }
+            if (hasHttpsMetastore && (metastoreClientConfig.getHttpMetastoreTlsTruststorePath() == null || metastoreClientConfig.getHttpMetastoreTlsTruststorePassword().isEmpty())) {
+                throw new IllegalStateException("'hive.metastore.http.client.tls.truststore.path' and 'hive.metastore.http.client.tls.truststore.password' must be set while using https metastore URIs in 'hive.metastore.uri'");
+            }
+            if (hasHttpsMetastore && (metastoreClientConfig.getHttpMetastoreTlsKeystorePath() == null || metastoreClientConfig.getHttpMetastoreTlsKeystorePassword().isEmpty())) {
+                throw new IllegalStateException("'hive.metastore.http.client.tls.keystore.path' and 'hive.metastore.http.client.tls.keystore.password' must be set while using https metastore URIs in 'hive.metastore.uri'");
+            }
+        }
+        else {
+            newOptionalBinder(binder, MetastoreClientFactory.class)
+                    .setDefault().to(ThriftHiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
+            binder.bind(HiveCluster.class).to(StaticHiveCluster.class).in(Scopes.SINGLETON);
+            configBinder(binder).bindConfig(StaticMetastoreConfig.class);
+        }
 
         binder.bind(HiveMetastore.class).to(ThriftHiveMetastore.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorId.class).toInstance(new ConnectorId(connectorId));
