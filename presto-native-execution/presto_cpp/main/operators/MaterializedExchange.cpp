@@ -163,6 +163,13 @@ void MaterializedExchange::expandBatchedPage(std::string_view pageData) {
 
   // Iterate over one or more RowGroupHeaders in the buffer.
   while (remaining > 0) {
+    // A truncated record must fail cleanly here rather than underflow the
+    // unsigned 'remaining' below and read a garbage RowGroup size out of
+    // bounds.
+    VELOX_CHECK_GE(
+        remaining,
+        kPageHeaderSize,
+        "Corrupt materialized page: truncated RowGroup header");
     int32_t uncompressedSize;
     std::memcpy(&uncompressedSize, ptr, sizeof(int32_t));
     ptr += kPageHeaderSize;
