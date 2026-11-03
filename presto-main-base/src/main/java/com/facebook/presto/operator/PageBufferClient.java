@@ -36,6 +36,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
@@ -394,22 +395,22 @@ public final class PageBufferClient
             public void onSuccess(@Nullable Object result)
             {
                 checkNotHoldsLock(this);
-                backoff.success();
-                synchronized (PageBufferClient.this) {
-                    closed = true;
-                    if (future == resultFuture) {
-                        future = null;
-                    }
-                    lastUpdate = currentTimeMillis();
-                }
-                requestsCompleted.incrementAndGet();
-                clientCallback.clientFinished(PageBufferClient.this);
+                completeDelete(resultFuture);
             }
 
             @Override
             public void onFailure(Throwable t)
             {
                 checkNotHoldsLock(this);
+
+                // close() ignores the response of the DELETE ("response of delete is ignored").
+                // If the request is cancelled during close/teardown, the remote buffer abort is
+                // best-effort and a CancellationException here is expected, so treat it as a
+                // completed DELETE instead of logging it as an error or reporting a failure.
+                if (t instanceof CancellationException) {
+                    completeDelete(resultFuture);
+                    return;
+                }
 
                 log.error(t, "Request to delete %s failed", location);
                 if (!(t instanceof PrestoException) && backoff.failure()) {
@@ -423,6 +424,27 @@ public final class PageBufferClient
                 handleFailure(t, resultFuture);
             }
         }, pageBufferClientCallbackExecutor);
+    }
+
+    private void completeDelete(ListenableFuture<?> deleteFuture)
+    {
+        backoff.success();
+        boolean isCurrent;
+        synchronized (this) {
+            closed = true;
+            isCurrent = (future == deleteFuture);
+            if (isCurrent) {
+                future = null;
+            }
+            lastUpdate = currentTimeMillis();
+        }
+        requestsCompleted.incrementAndGet();
+        // Only the current DELETE reports completion. If close() raced with an in-flight DELETE
+        // and issued a replacement, this callback belongs to the superseded request and the
+        // replacement reports clientFinished when it completes.
+        if (isCurrent) {
+            clientCallback.clientFinished(this);
+        }
     }
 
     private static void checkNotHoldsLock(Object lock)
