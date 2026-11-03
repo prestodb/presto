@@ -15,6 +15,7 @@ This guide is intended for Presto contributors and plugin developers.
     develop/functions
     develop/table-functions
     develop/procedures
+    develop/runtime-stats
     develop/system-access-control
     develop/password-authenticator
     develop/event-listener
