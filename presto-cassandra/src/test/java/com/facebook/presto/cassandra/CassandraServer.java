@@ -14,6 +14,8 @@
 package com.facebook.presto.cassandra;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
+import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.metadata.Metadata;
@@ -82,10 +84,19 @@ public class CassandraServer
                 this.dockerContainer.getContainerIpAddress(),
                 this.dockerContainer.getMappedPort(PORT));
 
+        // The driver's stock request timeout is 2s, far tighter than the embedded server's
+        // own 30s budget (cu-cassandra.yaml) and the 12s the Presto client config defaults
+        // to. Fixture DDL against the containerized server routinely exceeds 2s on a loaded
+        // CI host, so match the server budget instead of inheriting the driver default.
         ReopeningSession reopeningSession = new ReopeningSession(() ->
                 CqlSession.builder()
                         .addContactPoint(contactPoint)
                         .withLocalDatacenter("datacenter1")
+                        .withConfigLoader(DriverConfigLoader.programmaticBuilder()
+                                // java.time.Duration is qualified because the unqualified
+                                // Duration in this file is com.facebook.airlift.units.Duration.
+                                .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, java.time.Duration.ofSeconds(30))
+                                .build())
                         .addTypeCodecs(new IntToLocalDateCodec())
                         .addTypeCodecs(TimestampCodec.INSTANCE)
                         .build());
