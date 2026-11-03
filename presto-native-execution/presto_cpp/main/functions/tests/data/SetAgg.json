@@ -22,6 +22,7 @@
       "typeVariableConstraints": [
         {
           "comparableRequired": false,
+          "hashableRequired": false,
           "name": "t",
           "nonDecimalNumericRequired": false,
           "orderableRequired": false,

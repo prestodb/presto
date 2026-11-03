@@ -19,6 +19,7 @@ struct TypeVariableConstraint {
   bool orderableRequired = {};
   String variadicBound = {};
   bool nonDecimalNumericRequired = {};
+  bool hashableRequired = {};
   String boundedBy = {};
 };
 void to_json(json& j, const TypeVariableConstraint& p);

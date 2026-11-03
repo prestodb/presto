@@ -24,6 +24,7 @@ import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.CustomFunctions;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
@@ -45,6 +46,7 @@ import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandles;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,6 +63,7 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
@@ -78,6 +81,7 @@ import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -541,6 +545,76 @@ public class TestFunctionAndTypeManager
                         functionSignature(ImmutableList.of("integer"), "integer"))
                 .forParameters("unknown")
                 .failsWithMessage("Could not choose a best candidate operator. Explicit type casts must be added.");
+    }
+
+    @Test
+    public void testApproxDistinctRejectsNonHashableArgument()
+    {
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+
+        assertFunctionNotFound(functionAndTypeManager, "approx_distinct", "map(bigint,bigint)");
+        assertFunctionNotFound(functionAndTypeManager, "approx_distinct", "array(bigint)");
+        assertFunctionNotFound(functionAndTypeManager, "approx_distinct", "row(bigint)");
+        assertFunctionNotFound(functionAndTypeManager, "approx_distinct", "map(bigint,bigint)", "double");
+        assertFunctionNotFound(functionAndTypeManager, "approx_distinct", "array(bigint)", "double");
+        assertFunctionNotFound(functionAndTypeManager, "approx_distinct", "row(bigint)", "double");
+    }
+
+    @Test
+    public void testApproxDistinctResolvesHashableArgument()
+    {
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "bigint");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "varchar");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "uuid");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "ipaddress");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "tinyint");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "smallint");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "integer");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "real");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "double");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "decimal(10,2)");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "decimal(38,2)");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "date");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "timestamp");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "timestamp with time zone");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "varbinary");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "char(10)");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "bigint", "double");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "varchar", "double");
+        assertFunctionResolves(functionAndTypeManager, "approx_distinct", "unknown");
+    }
+
+    @Test
+    public void testHashableConstraintAppliesToSfmAggregations()
+    {
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+
+        assertFunctionResolves(functionAndTypeManager, "noisy_approx_distinct_sfm", "bigint", "double", "bigint", "bigint");
+        assertFunctionResolves(functionAndTypeManager, "noisy_approx_set_sfm", "bigint", "double", "bigint", "bigint");
+        assertFunctionNotFound(functionAndTypeManager, "noisy_approx_distinct_sfm", "map(bigint,bigint)", "double", "bigint", "bigint");
+        assertFunctionNotFound(functionAndTypeManager, "noisy_approx_set_sfm", "map(bigint,bigint)", "double", "bigint", "bigint");
+    }
+
+    private static void assertFunctionResolves(FunctionAndTypeManager functionAndTypeManager, String name, String... argumentTypes)
+    {
+        assertNotNull(functionAndTypeManager.lookupFunction(name, fromTypeSignatures(
+                Arrays.stream(argumentTypes).map(TypeSignature::parseTypeSignature).collect(toImmutableList()))));
+    }
+
+    private static void assertFunctionNotFound(FunctionAndTypeManager functionAndTypeManager, String name, String... argumentTypes)
+    {
+        try {
+            functionAndTypeManager.lookupFunction(name, fromTypeSignatures(
+                    Arrays.stream(argumentTypes).map(TypeSignature::parseTypeSignature).collect(toImmutableList())));
+            fail(format("Expected %s(%s) to not resolve", name, String.join(", ", argumentTypes)));
+        }
+        catch (PrestoException e) {
+            assertEquals(e.getErrorCode(), FUNCTION_NOT_FOUND.toErrorCode());
+            assertTrue(e.getMessage().contains(name), e.getMessage());
+            assertTrue(e.getMessage().contains(":hashable"), e.getMessage());
+        }
     }
 
     private SignatureBuilder functionSignature(String... argumentTypes)
