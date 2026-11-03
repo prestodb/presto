@@ -846,4 +846,43 @@ public class TestUnpartitionedWrite
             assertUpdate(String.format("DROP TABLE IF EXISTS %s", sourceTable));
         }
     }
+
+    @Test
+    public void testInsertWithDuplicateExpressionColumnsAndCast()
+    {
+        String sourceTable = "dup_expr_source";
+        String targetTable = "dup_expr_target";
+
+        try {
+            assertUpdate(String.format("CREATE TABLE %s (id INTEGER, amount DECIMAL(10, 2)) WITH (format = 'PARQUET')", sourceTable));
+            assertUpdate(String.format("INSERT INTO %s VALUES (1, DECIMAL '12.34'), (2, DECIMAL '56.78')", sourceTable), 2);
+
+            // The target DECIMAL is wider than the source, so the native writer adds a cast
+            // projection. The identical expressions below are deduplicated by the planner into
+            // a single symbol that feeds two target columns.
+            assertUpdate(String.format("CREATE TABLE %s (" +
+                    "id INTEGER, " +
+                    "amount DECIMAL(15, 2), " +
+                    "created_at TIMESTAMP, " +
+                    "updated_at TIMESTAMP, " +
+                    "dup_a BIGINT, " +
+                    "dup_b BIGINT" +
+                    ") WITH (format = 'PARQUET')", targetTable));
+
+            assertUpdate(String.format("INSERT INTO %s SELECT id, amount, " +
+                    "CAST(CURRENT_TIMESTAMP AS TIMESTAMP), CAST(CURRENT_TIMESTAMP AS TIMESTAMP), " +
+                    "CAST(id AS BIGINT) * 2, CAST(id AS BIGINT) * 2 FROM %s", targetTable, sourceTable), 2);
+
+            assertQuery(String.format("SELECT COUNT(*) FROM %s", targetTable), "VALUES (BIGINT '2')");
+            assertQuery(String.format("SELECT id, amount, dup_a, dup_b FROM %s ORDER BY id", targetTable),
+                    "VALUES (1, CAST('12.34' AS DECIMAL(15,2)), BIGINT '2', BIGINT '2'), " +
+                            "(2, CAST('56.78' AS DECIMAL(15,2)), BIGINT '4', BIGINT '4')");
+            assertQuery(String.format("SELECT COUNT(*) FROM %s WHERE created_at IS NULL OR updated_at IS NULL OR created_at <> updated_at", targetTable),
+                    "VALUES (BIGINT '0')");
+        }
+        finally {
+            assertUpdate(String.format("DROP TABLE IF EXISTS %s", targetTable));
+            assertUpdate(String.format("DROP TABLE IF EXISTS %s", sourceTable));
+        }
+    }
 }
