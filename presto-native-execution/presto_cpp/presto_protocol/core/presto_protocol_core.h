@@ -25,9 +25,9 @@
 #include <regex>
 #include <set>
 #include <string>
-
-#include <folly/Format.h>
 #include <utility>
+
+#include <folly/String.h>
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/presto_protocol/core/DataSize.h"
 #include "presto_cpp/presto_protocol/core/Duration.h"

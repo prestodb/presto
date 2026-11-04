@@ -17,8 +17,9 @@
 
 // This file is generated DO NOT EDIT @generated
 
-#include <folly/Format.h>
 #include <iostream>
+
+#include <fmt/format.h>
 
 #include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
