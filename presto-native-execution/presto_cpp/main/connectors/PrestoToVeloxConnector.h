@@ -75,10 +75,6 @@ class PrestoToVeloxConnector {
     return toVeloxTableHandle(tableHandle, exprConverter, typeParser);
   }
 
-  /// Overload for TableScanNode conversion that passes the scan's column
-  /// assignments. Default implementation delegates to the base
-  /// toVeloxTableHandle (ignoring assignments). Connectors that need the
-  /// scanned columns to build the table handle should override this.
   [[nodiscard]] virtual std::unique_ptr<velox::connector::ConnectorTableHandle>
   toVeloxTableHandle(
       const protocol::TableHandle& tableHandle,

@@ -51,6 +51,8 @@ import java.util.UUID;
 
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -230,7 +232,7 @@ public abstract class TestIcebergRowLineageBase
             writeRecords(table, GenericRecord.create(table.schema()).copy("id", 1, "value", "one"));
             table.refresh();
 
-            writeOverriddenLineageRow(table);
+            writeOverriddenLineageRow(table, 2, "two");
             table.refresh();
 
             String unfilteredSql = "SELECT id, \"_row_id\", \"_last_updated_sequence_number\" FROM " + tableName;
@@ -273,19 +275,16 @@ public abstract class TestIcebergRowLineageBase
         TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
         try {
             Table table = createTestTable(catalog, tableId, "3");
-            appendOneRow(table, 1, "one");
-            appendOneRow(table, 2, "two");
-            appendOneRow(table, 3, "three");
+            appendIdAndValue(table, 1, "one");
+            appendIdAndValue(table, 2, "two");
+            appendIdAndValue(table, 3, "three");
 
             // One row per commit, committed in id order, so ascending row ids map to ids 1, 2, 3.
             List<long[]> expectedPairs = buildExpectedPairs(table, "firstRowId should be set for V3 tables");
             long rowId1 = expectedPairs.get(0)[0];
             long rowId2 = expectedPairs.get(1)[0];
             long rowId3 = expectedPairs.get(2)[0];
-            List<long[]> idAndRowId = readIdAndRowId(session, tableName);
-            assertEquals(valueForId(idAndRowId, 1), rowId1);
-            assertEquals(valueForId(idAndRowId, 2), rowId2);
-            assertEquals(valueForId(idAndRowId, 3), rowId3);
+            assertEquals(readRowIdsById(session, tableName), ImmutableMap.of(1, rowId1, 2, rowId2, 3, rowId3));
 
             assertIdsForPredicate(session, tableName, "_row_id", "= " + rowId2, ImmutableList.of(2));
             assertIdsForPredicate(session, tableName, "_row_id", "< " + rowId3, ImmutableList.of(1, 2));
@@ -312,7 +311,7 @@ public abstract class TestIcebergRowLineageBase
             Table table = createTestTable(catalog, tableId, "3");
             writeRecords(table, GenericRecord.create(table.schema()).copy("id", 1, "value", "one"));
             table.refresh();
-            writeOverriddenLineageRow(table);
+            writeOverriddenLineageRow(table, 2, "two");
             table.refresh();
 
             DataFile storedFile = dataFiles(table).stream()
@@ -342,18 +341,16 @@ public abstract class TestIcebergRowLineageBase
         TableIdentifier tableId = TableIdentifier.of(TEST_SCHEMA, tableName);
         try {
             Table table = createTestTable(catalog, tableId, "3");
-            appendOneRow(table, 1, "one");
-            appendOneRow(table, 2, "two");
-            appendOneRow(table, 3, "three");
-            List<long[]> idAndRowId = readIdAndRowId(session, tableName);
-            long rowId1 = valueForId(idAndRowId, 1);
-            long sequenceNumber2 = valueForId(readIdAndSequenceNumber(session, tableName), 2);
-            ImmutableList.Builder<Integer> evenRowIds = ImmutableList.builder();
-            for (long[] row : idAndRowId) {
-                if (row[1] % 2 == 0) {
-                    evenRowIds.add((int) row[0]);
-                }
-            }
+            appendIdAndValue(table, 1, "one");
+            appendIdAndValue(table, 2, "two");
+            appendIdAndValue(table, 3, "three");
+            Map<Integer, Long> rowIdsById = readRowIdsById(session, tableName);
+            long rowId1 = rowIdsById.get(1);
+            long sequenceNumber2 = readSequenceNumbersById(session, tableName).get(2);
+            List<Integer> idsWithEvenRowId = rowIdsById.entrySet().stream()
+                    .filter(entry -> entry.getValue() % 2 == 0)
+                    .map(Map.Entry::getKey)
+                    .collect(toImmutableList());
 
             assertIdsForQuery(session, "SELECT id FROM " + tableName +
                             " WHERE \"_last_updated_sequence_number\" >= " + sequenceNumber2 + " AND value <> 'three'",
@@ -362,7 +359,7 @@ public abstract class TestIcebergRowLineageBase
                             " WHERE \"_row_id\" = " + rowId1 + " OR id = 3",
                     ImmutableList.of(1, 3));
             assertIdsForQuery(session, "SELECT id FROM " + tableName + " WHERE \"_row_id\" % 2 = 0",
-                    evenRowIds.build());
+                    idsWithEvenRowId);
         }
         finally {
             dropTableQuietly(catalog, tableId);
@@ -486,40 +483,47 @@ public abstract class TestIcebergRowLineageBase
     private void assertIdsForQuery(Session session, String sql, List<Integer> expectedIds)
     {
         assertMatchesExpectedEngine(session, sql);
-        assertEquals(sortedIdsOf(computeActual(session, sql)), ImmutableList.sortedCopyOf(expectedIds), "rows for \"" + sql + "\"");
+        List<Integer> actualIds = computeActual(session, sql).getOnlyColumn()
+                .map(Integer.class::cast)
+                .sorted()
+                .collect(toImmutableList());
+        assertEquals(actualIds, ImmutableList.sortedCopyOf(expectedIds), "rows for \"" + sql + "\"");
     }
 
-    private List<long[]> readIdAndSequenceNumber(Session session, String tableName)
+    /**
+     * Reads {@code _last_updated_sequence_number} for every row of a table created by
+     * {@link #createTestTable}, keyed by its {@code id} column.
+     */
+    private Map<Integer, Long> readSequenceNumbersById(Session session, String tableName)
     {
-        return readIdAndLongColumn(session, tableName, "_last_updated_sequence_number");
+        return readLineageColumnById(session, tableName, "_last_updated_sequence_number");
     }
 
-    private List<long[]> readIdAndRowId(Session session, String tableName)
+    /**
+     * Reads {@code _row_id} for every row of a table created by {@link #createTestTable}, keyed by
+     * its {@code id} column.
+     */
+    private Map<Integer, Long> readRowIdsById(Session session, String tableName)
     {
-        return readIdAndLongColumn(session, tableName, "_row_id");
+        return readLineageColumnById(session, tableName, "_row_id");
     }
 
-    private List<long[]> readIdAndLongColumn(Session session, String tableName, String column)
+    /**
+     * Reads the BIGINT lineage {@code column} for every row of a table created by
+     * {@link #createTestTable}, keyed by its {@code id} column.
+     */
+    private Map<Integer, Long> readLineageColumnById(Session session, String tableName, String column)
     {
         String sql = "SELECT id, \"" + column + "\" FROM " + tableName;
         assertMatchesExpectedEngine(session, sql);
-        List<long[]> rows = new ArrayList<>();
-        for (MaterializedRow row : computeActual(session, sql).getMaterializedRows()) {
-            rows.add(new long[] {(Integer) row.getField(0), (Long) row.getField(1)});
-        }
-        return rows;
+        return computeActual(session, sql).getMaterializedRows().stream()
+                .collect(toImmutableMap(row -> (Integer) row.getField(0), row -> (Long) row.getField(1)));
     }
 
-    private static List<Integer> sortedIdsOf(MaterializedResult result)
-    {
-        List<Integer> ids = new ArrayList<>();
-        for (MaterializedRow row : result.getMaterializedRows()) {
-            ids.add((Integer) row.getField(0));
-        }
-        ids.sort(Integer::compare);
-        return ids;
-    }
-
+    /**
+     * Expects {@code result} to have the columns {@code (id, _row_id, _last_updated_sequence_number)}
+     * and returns {@code [_row_id, _last_updated_sequence_number]} keyed by {@code id}.
+     */
     private static Map<Integer, long[]> rowIdAndSequenceNumberById(MaterializedResult result)
     {
         Map<Integer, long[]> byId = new HashMap<>();
@@ -534,17 +538,11 @@ public abstract class TestIcebergRowLineageBase
         return byId;
     }
 
-    private static long valueForId(List<long[]> rows, int id)
-    {
-        for (long[] row : rows) {
-            if (row[0] == id) {
-                return row[1];
-            }
-        }
-        throw new AssertionError("id not found: " + id);
-    }
-
-    private void appendOneRow(Table table, int id, String value)
+    /**
+     * Appends the {@code (id, value)} row to a table created by {@link #createTestTable} in its own
+     * commit.
+     */
+    private void appendIdAndValue(Table table, int id, String value)
             throws Exception
     {
         writeRecords(table, GenericRecord.create(table.schema()).copy("id", id, "value", value));
@@ -558,21 +556,21 @@ public abstract class TestIcebergRowLineageBase
     }
 
     /**
-     * Appends id 2, then simulates a row-preserving external copy-on-write UPDATE of it: the file
-     * holding id 2 is replaced by one that explicitly carries {@code _row_id} /
-     * {@code _last_updated_sequence_number} values that override the positional and file-level
-     * fallbacks.
+     * Appends the {@code (id, value)} row to a table created by {@link #createTestTable}, then
+     * simulates a row-preserving external copy-on-write UPDATE of it: the file holding the row is
+     * replaced by one that explicitly carries {@code _row_id} / {@code _last_updated_sequence_number}
+     * values that override the positional and file-level fallbacks.
      */
-    private static void writeOverriddenLineageRow(Table table)
+    private static void writeOverriddenLineageRow(Table table, int id, String value)
             throws Exception
     {
-        DataFile original = writeFile(table, table.schema(), GenericRecord.create(table.schema()).copy("id", 2, "value", "two"));
+        DataFile original = writeFile(table, table.schema(), GenericRecord.create(table.schema()).copy("id", id, "value", value));
         table.newAppend().appendFile(original).commit();
 
         Schema lineageSchema = MetadataColumns.schemaWithRowLineage(table.schema());
         Record updatedRow = GenericRecord.create(lineageSchema);
-        updatedRow.setField("id", 2);
-        updatedRow.setField("value", "two-updated");
+        updatedRow.setField("id", id);
+        updatedRow.setField("value", value + "-updated");
         updatedRow.setField(MetadataColumns.ROW_ID.name(), 42L);
         updatedRow.setField(MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER.name(), 99L);
         table.newOverwrite()
