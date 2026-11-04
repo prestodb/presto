@@ -105,33 +105,25 @@ public class TestPrestoNativeIcebergUnknownType
     public void testWriteUnknownColumn()
     {
         assertQuerySucceeds("DROP TABLE IF EXISTS test_native_unknown_write");
-        try {
-            assertQuerySucceeds("CREATE TABLE test_native_unknown_write (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3')");
-            assertQuerySucceeds("INSERT INTO test_native_unknown_write VALUES (1, NULL)");
-            assertQuerySucceeds("INSERT INTO test_native_unknown_write (id) VALUES 2");
-            assertQuerySucceeds("INSERT INTO test_native_unknown_write SELECT 3, NULL");
-            assertQuery("SELECT * FROM test_native_unknown_write", "VALUES (1, NULL), (2, NULL), (3, NULL)");
-            assertQuery("SELECT count(unknown_column) FROM test_native_unknown_write", "VALUES 0");
-        }
-        finally {
-            assertQuerySucceeds("DROP TABLE IF EXISTS test_native_unknown_write");
-        }
+        assertQuerySucceeds("CREATE TABLE test_native_unknown_write (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3')");
+        assertQuerySucceeds("INSERT INTO test_native_unknown_write VALUES (1, NULL)");
+        assertQuerySucceeds("INSERT INTO test_native_unknown_write (id) VALUES 2");
+        assertQuerySucceeds("INSERT INTO test_native_unknown_write SELECT 3, NULL");
+        assertQuery("SELECT * FROM test_native_unknown_write", "VALUES (1, NULL), (2, NULL), (3, NULL)");
+        assertQuery("SELECT count(unknown_column) FROM test_native_unknown_write", "VALUES 0");
+        assertQuerySucceeds("DROP TABLE IF EXISTS test_native_unknown_write");
     }
 
     @Test
     public void testAddUnknownColumn()
     {
         assertQuerySucceeds("DROP TABLE IF EXISTS test_native_unknown_add_column");
-        try {
-            assertQuerySucceeds("CREATE TABLE test_native_unknown_add_column (id INTEGER) WITH (\"format-version\" = '3')");
-            assertQuerySucceeds("INSERT INTO test_native_unknown_add_column VALUES 1");
-            assertQuerySucceeds("ALTER TABLE test_native_unknown_add_column ADD COLUMN unknown_column UNKNOWN");
-            assertQuerySucceeds("INSERT INTO test_native_unknown_add_column VALUES (2, NULL)");
-            assertQuery("SELECT * FROM test_native_unknown_add_column", "VALUES (1, NULL), (2, NULL)");
-        }
-        finally {
-            assertQuerySucceeds("DROP TABLE IF EXISTS test_native_unknown_add_column");
-        }
+        assertQuerySucceeds("CREATE TABLE test_native_unknown_add_column (id INTEGER) WITH (\"format-version\" = '3')");
+        assertQuerySucceeds("INSERT INTO test_native_unknown_add_column VALUES 1");
+        assertQuerySucceeds("ALTER TABLE test_native_unknown_add_column ADD COLUMN unknown_column UNKNOWN");
+        assertQuerySucceeds("INSERT INTO test_native_unknown_add_column VALUES (2, NULL)");
+        assertQuery("SELECT * FROM test_native_unknown_add_column", "VALUES (1, NULL), (2, NULL)");
+        assertQuerySucceeds("DROP TABLE IF EXISTS test_native_unknown_add_column");
     }
 
     @Test
@@ -172,28 +164,20 @@ public class TestPrestoNativeIcebergUnknownType
     public void testUnknownColumnWithSort()
     {
         assertQuerySucceeds("DROP TABLE IF EXISTS test_native_unknown_with_sort");
-        try {
-            assertQuerySucceeds("CREATE TABLE test_native_unknown_with_sort (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3', sorted_by = ARRAY['id'])");
-            assertQuerySucceeds("INSERT INTO test_native_unknown_with_sort VALUES (3, NULL), (1, NULL), (2, NULL)");
-            assertQuery("SELECT id FROM test_native_unknown_with_sort ORDER BY id", "VALUES 1, 2, 3");
-            assertQuery("SELECT unknown_column FROM test_native_unknown_with_sort", "VALUES NULL, NULL, NULL");
-        }
-        finally {
-            assertQuerySucceeds("DROP TABLE IF EXISTS test_native_unknown_with_sort");
-        }
+        assertQuerySucceeds("CREATE TABLE test_native_unknown_with_sort (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3', sorted_by = ARRAY['id'])");
+        assertQuerySucceeds("INSERT INTO test_native_unknown_with_sort VALUES (3, NULL), (1, NULL), (2, NULL)");
+        assertQuery("SELECT id FROM test_native_unknown_with_sort ORDER BY id", "VALUES 1, 2, 3");
+        assertQuery("SELECT unknown_column FROM test_native_unknown_with_sort", "VALUES NULL, NULL, NULL");
+        assertQuerySucceeds("DROP TABLE IF EXISTS test_native_unknown_with_sort");
     }
 
     @Test
     public void testCtasWithUnknownColumn()
     {
         assertQuerySucceeds("DROP TABLE IF EXISTS test_native_ctas_unknown");
-        try {
-            assertQuerySucceeds("CREATE TABLE test_native_ctas_unknown WITH (\"format-version\" = '3') AS SELECT 1 AS id, NULL AS marker");
-            assertQuery("SELECT id, marker FROM test_native_ctas_unknown", "VALUES (1, NULL)");
-        }
-        finally {
-            assertQuerySucceeds("DROP TABLE IF EXISTS test_native_ctas_unknown");
-        }
+        assertQuerySucceeds("CREATE TABLE test_native_ctas_unknown WITH (\"format-version\" = '3') AS SELECT 1 AS id, NULL AS marker");
+        assertQuery("SELECT id, marker FROM test_native_ctas_unknown", "VALUES (1, NULL)");
+        assertQuerySucceeds("DROP TABLE IF EXISTS test_native_ctas_unknown");
     }
 
     @Test
@@ -210,70 +194,54 @@ public class TestPrestoNativeIcebergUnknownType
     public void testWriteTableOfOnlyUnknownColumnsRejected()
     {
         assertQuerySucceeds("DROP TABLE IF EXISTS test_native_only_unknown");
-        try {
-            assertQuerySucceeds("CREATE TABLE test_native_only_unknown (unknown_column UNKNOWN) WITH (\"format-version\" = '3')");
-            assertQueryFails(
-                    "INSERT INTO test_native_only_unknown VALUES NULL",
-                    ".*Writing to a table where every column is of type UNKNOWN is not supported.*");
-            assertQuery("SELECT count(*) FROM test_native_only_unknown", "VALUES 0");
-        }
-        finally {
-            assertQuerySucceeds("DROP TABLE IF EXISTS test_native_only_unknown");
-        }
+        assertQuerySucceeds("CREATE TABLE test_native_only_unknown (unknown_column UNKNOWN) WITH (\"format-version\" = '3')");
+        assertQueryFails(
+                "INSERT INTO test_native_only_unknown VALUES NULL",
+                ".*Writing to a table where every column is of type UNKNOWN is not supported.*");
+        assertQuery("SELECT count(*) FROM test_native_only_unknown", "VALUES 0");
+        assertQuerySucceeds("DROP TABLE IF EXISTS test_native_only_unknown");
     }
 
     @Test
     public void testDropLastNonUnknownColumnRejectsWrite()
     {
         assertQuerySucceeds("DROP TABLE IF EXISTS test_native_drop_non_unknown");
-        try {
-            assertQuerySucceeds("CREATE TABLE test_native_drop_non_unknown (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3')");
-            assertQuerySucceeds("INSERT INTO test_native_drop_non_unknown VALUES (1, NULL)");
-            assertQuerySucceeds("ALTER TABLE test_native_drop_non_unknown DROP COLUMN id");
-            assertQueryFails(
-                    "INSERT INTO test_native_drop_non_unknown VALUES NULL",
-                    ".*Writing to a table where every column is of type UNKNOWN is not supported.*");
-            assertQuery("SELECT count(*) FROM test_native_drop_non_unknown", "VALUES 1");
-        }
-        finally {
-            assertQuerySucceeds("DROP TABLE IF EXISTS test_native_drop_non_unknown");
-        }
+        assertQuerySucceeds("CREATE TABLE test_native_drop_non_unknown (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3')");
+        assertQuerySucceeds("INSERT INTO test_native_drop_non_unknown VALUES (1, NULL)");
+        assertQuerySucceeds("ALTER TABLE test_native_drop_non_unknown DROP COLUMN id");
+        assertQueryFails(
+                "INSERT INTO test_native_drop_non_unknown VALUES NULL",
+                ".*Writing to a table where every column is of type UNKNOWN is not supported.*");
+        assertQuery("SELECT count(*) FROM test_native_drop_non_unknown", "VALUES 1");
+        assertQuerySucceeds("DROP TABLE IF EXISTS test_native_drop_non_unknown");
     }
 
     @Test
     public void testAddColumnToAllUnknownTableRestoresWritability()
     {
         assertQuerySucceeds("DROP TABLE IF EXISTS test_native_add_col_restores");
-        try {
-            assertQuerySucceeds("CREATE TABLE test_native_add_col_restores (marker UNKNOWN) WITH (\"format-version\" = '3')");
-            assertQueryFails(
-                    "INSERT INTO test_native_add_col_restores VALUES NULL",
-                    ".*Writing to a table where every column is of type UNKNOWN is not supported.*");
-            assertQuerySucceeds("ALTER TABLE test_native_add_col_restores ADD COLUMN id INTEGER");
-            assertQuerySucceeds("INSERT INTO test_native_add_col_restores (id, marker) VALUES (1, NULL)");
-            assertQuery("SELECT id, marker FROM test_native_add_col_restores", "VALUES (1, NULL)");
-        }
-        finally {
-            assertQuerySucceeds("DROP TABLE IF EXISTS test_native_add_col_restores");
-        }
+        assertQuerySucceeds("CREATE TABLE test_native_add_col_restores (marker UNKNOWN) WITH (\"format-version\" = '3')");
+        assertQueryFails(
+                "INSERT INTO test_native_add_col_restores VALUES NULL",
+                ".*Writing to a table where every column is of type UNKNOWN is not supported.*");
+        assertQuerySucceeds("ALTER TABLE test_native_add_col_restores ADD COLUMN id INTEGER");
+        assertQuerySucceeds("INSERT INTO test_native_add_col_restores (id, marker) VALUES (1, NULL)");
+        assertQuery("SELECT id, marker FROM test_native_add_col_restores", "VALUES (1, NULL)");
+        assertQuerySucceeds("DROP TABLE IF EXISTS test_native_add_col_restores");
     }
 
     @Test
     public void testRenameAndDropUnknownColumn()
     {
         assertQuerySucceeds("DROP TABLE IF EXISTS test_native_rename_unknown");
-        try {
-            assertQuerySucceeds("CREATE TABLE test_native_rename_unknown (id INTEGER) WITH (\"format-version\" = '3')");
-            assertQuerySucceeds("INSERT INTO test_native_rename_unknown VALUES 1");
-            assertQuerySucceeds("ALTER TABLE test_native_rename_unknown ADD COLUMN unknown_column UNKNOWN");
-            assertQuerySucceeds("ALTER TABLE test_native_rename_unknown RENAME COLUMN unknown_column TO renamed_unknown");
-            assertQuery("SELECT * FROM test_native_rename_unknown", "VALUES (1, NULL)");
-            assertQuerySucceeds("ALTER TABLE test_native_rename_unknown DROP COLUMN renamed_unknown");
-            assertQuery("SELECT * FROM test_native_rename_unknown", "VALUES 1");
-        }
-        finally {
-            assertQuerySucceeds("DROP TABLE IF EXISTS test_native_rename_unknown");
-        }
+        assertQuerySucceeds("CREATE TABLE test_native_rename_unknown (id INTEGER) WITH (\"format-version\" = '3')");
+        assertQuerySucceeds("INSERT INTO test_native_rename_unknown VALUES 1");
+        assertQuerySucceeds("ALTER TABLE test_native_rename_unknown ADD COLUMN unknown_column UNKNOWN");
+        assertQuerySucceeds("ALTER TABLE test_native_rename_unknown RENAME COLUMN unknown_column TO renamed_unknown");
+        assertQuery("SELECT * FROM test_native_rename_unknown", "VALUES (1, NULL)");
+        assertQuerySucceeds("ALTER TABLE test_native_rename_unknown DROP COLUMN renamed_unknown");
+        assertQuery("SELECT * FROM test_native_rename_unknown", "VALUES 1");
+        assertQuerySucceeds("DROP TABLE IF EXISTS test_native_rename_unknown");
     }
 
     @Test
