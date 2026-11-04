@@ -38,6 +38,7 @@ import static com.facebook.presto.common.type.StandardTypes.INTEGER;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
 import static com.facebook.presto.common.type.StandardTypes.VARCHAR;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
+import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.hive.HiveTestUtils.longDecimal;
 import static com.facebook.presto.hive.HiveTestUtils.shortDecimal;
@@ -49,6 +50,7 @@ import static com.facebook.presto.hive.HiveType.HIVE_TIMESTAMP;
 import static com.facebook.presto.hive.s3select.S3SelectDataType.CSV;
 import static com.facebook.presto.hive.s3select.S3SelectDataType.JSON;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
+import static io.airlift.slice.Slices.utf8Slice;
 import static org.testng.Assert.assertEquals;
 
 public class TestIonSqlQueryBuilder
@@ -77,6 +79,19 @@ public class TestIonSqlQueryBuilder
         assertEquals(queryBuilder.buildSql(columns, tupleDomain),
                 "SELECT s.n_nationkey, s.n_name, s.n_regionkey FROM S3Object s " +
                         "WHERE (case s.n_regionkey when '' then null else CAST(s.n_regionkey AS INT) end = 3)");
+    }
+
+    @Test
+    public void testVarcharLiteralIsEscaped()
+    {
+        List<HiveColumnHandle> columns = ImmutableList.of(
+                new HiveColumnHandle("n_name", HIVE_STRING, parseTypeSignature(VARCHAR), 0, REGULAR, Optional.empty(), Optional.empty()));
+        TupleDomain<HiveColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(
+                columns.get(0), Domain.singleValue(createUnboundedVarcharType(), utf8Slice("x' OR 'a' = 'a"))));
+
+        IonSqlQueryBuilder queryBuilder = new IonSqlQueryBuilder(createTestFunctionAndTypeManager(), JSON);
+        assertEquals(queryBuilder.buildSql(columns, tupleDomain),
+                "SELECT s.n_name FROM S3Object s WHERE (s.n_name = 'x'' OR ''a'' = ''a')");
     }
 
     @Test
