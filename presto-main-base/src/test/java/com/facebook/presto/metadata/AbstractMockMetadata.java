@@ -334,6 +334,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void dropField(Session session, TableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void dropTable(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
@@ -353,6 +359,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setFieldType(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type)
     {
         throw new UnsupportedOperationException();
     }

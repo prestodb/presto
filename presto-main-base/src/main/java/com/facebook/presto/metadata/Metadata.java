@@ -260,6 +260,11 @@ public interface Metadata
     void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type);
 
     /**
+     * Set the type of a nested field within a struct column.
+     */
+    void setFieldType(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type);
+
+    /**
      * Move the specified column to the specified position within the table's column order.
      */
     void setColumnPosition(Session session, TableHandle tableHandle, ColumnHandle column, ColumnPosition position);
@@ -268,6 +273,13 @@ public interface Metadata
      * Drop the specified column.
      */
     void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column);
+
+    /**
+     * Drop a field from a nested struct column by dotted field path (e.g. {@code ["info", "age"]}).
+     * {@code fieldPath} has at least 2 elements; all elements are normalized via the connector's
+     * {@code normalizeIdentifier} before this method is called.
+     */
+    void dropField(Session session, TableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent);
 
     /**
      * Drops the specified table

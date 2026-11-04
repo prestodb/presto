@@ -38,6 +38,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spark.PrestoSparkConfig;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
+import com.facebook.presto.spark.PrestoSparkTempStorageManager;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
@@ -167,6 +168,7 @@ public class PrestoSparkNativeTaskExecutorFactory
     private final PagesSerde pagesSerde;
     private final TempStorageManager tempStorageManager;
     private final String nativeTempStorage;
+    private final boolean nativeTempStorageDeferred;
     private NativeExecutionProcess nativeExecutionProcess;
 
     private static class CpuTracker
@@ -229,6 +231,15 @@ public class PrestoSparkNativeTaskExecutorFactory
         this.pagesSerde = PrestoSparkUtils.createPagesSerde(requireNonNull(blockEncodingManager, "blockEncodingManager is null"));
         this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
         this.nativeTempStorage = requireNonNull(featureConfig, "featureConfig is null").getSpillerTempStorage();
+        this.nativeTempStorageDeferred = tempStorageManager instanceof PrestoSparkTempStorageManager
+                && ((PrestoSparkTempStorageManager) tempStorageManager).isTempStorageDeferred(nativeTempStorage);
+        // The default decoder only reads the local temp storage format; fail at startup rather than per task
+        checkArgument(
+                !nativeTempStorageDeferred || nativeExecutionTaskFactory.getClass() != NativeExecutionTaskFactory.class,
+                "Temp storage %s is created on first use on this executor (spark.defer-native-executor-temp-storage), " +
+                        "but NativeExecutionTaskFactory.deserializeNativeTempStorageHandle() only decodes the local temp " +
+                        "storage format. Override it, or set experimental.spiller.spiller-temp-storage to local.",
+                nativeTempStorage);
     }
 
     @Override
@@ -273,9 +284,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         PrestoSparkTaskDescriptor taskDescriptor = taskDescriptorJsonCodec.fromJson(
                 serializedTaskDescriptor.getBytes());
         Optional<TempStorageHandle> nativeTempStorageHandle = Optional.of(
-                tempStorageManager.getTempStorage(
-                                this.nativeTempStorage)
-                        .deserialize(taskDescriptor.getSerializedNativeTempStorageHandle()));
+                deserializeNativeTempStorageHandle(taskDescriptor.getSerializedNativeTempStorageHandle()));
         ImmutableMap.Builder<String, TokenAuthenticator> extraAuthenticators = ImmutableMap.builder();
         authenticatorProviders.forEach(provider -> extraAuthenticators.putAll(provider.getTokenAuthenticators()));
 
@@ -429,6 +438,16 @@ public class PrestoSparkNativeTaskExecutorFactory
         }
 
         log.info("processTaskInfoForErrors: task completed successfully = %s", taskInfo);
+    }
+
+    private TempStorageHandle deserializeNativeTempStorageHandle(byte[] serializedNativeTempStorageHandle)
+    {
+        if (nativeTempStorageDeferred) {
+            // Decode without getTempStorage(), which would create the deferred temp storage on this executor
+            // (see PrestoSparkTempStorageManager)
+            return nativeExecutionTaskFactory.deserializeNativeTempStorageHandle(serializedNativeTempStorageHandle);
+        }
+        return tempStorageManager.getTempStorage(nativeTempStorage).deserialize(serializedNativeTempStorageHandle);
     }
 
     private void createAndStartNativeExecutionProcess(Session session,

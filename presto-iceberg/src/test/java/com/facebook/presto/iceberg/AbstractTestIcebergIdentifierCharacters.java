@@ -22,6 +22,7 @@ import static java.lang.String.format;
  * Identifier character coverage around which characters Presto accepts
  * in Iceberg schema and table names
  */
+@Test(singleThreaded = true)
 public abstract class AbstractTestIcebergIdentifierCharacters
         extends AbstractTestQueryFramework
 {

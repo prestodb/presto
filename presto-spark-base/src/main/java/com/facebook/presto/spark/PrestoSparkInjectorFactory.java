@@ -39,7 +39,6 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.expressions.ExpressionOptimizerManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.storage.TempStorageManager;
-import com.facebook.presto.storage.TempStorageModule;
 import com.facebook.presto.testing.TestingAccessControlManager;
 import com.facebook.presto.testing.TestingTempStorageManager;
 import com.google.common.collect.ImmutableList;
@@ -170,7 +169,10 @@ public class PrestoSparkInjectorFactory
         }
         else {
             modules.add(new AccessControlModule());
-            modules.add(new TempStorageModule());
+            modules.add(binder -> {
+                binder.bind(PrestoSparkTempStorageManager.class).in(Scopes.SINGLETON);
+                binder.bind(TempStorageManager.class).to(PrestoSparkTempStorageManager.class).in(Scopes.SINGLETON);
+            });
         }
 
         modules.addAll(additionalModules);

@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestIcebergBranchMutations
@@ -392,6 +393,42 @@ public class TestIcebergBranchMutations
             assertUpdate(session, "ALTER TABLE " + tableName + " CREATE BRANCH 'test_branch'");
             assertQueryFails(session, "ALTER TABLE \"" + tableName + ".branch_test_branch\" SET PROPERTIES (\"commit.retry.num-retries\" = 6)", ".*SET TABLE PROPERTIES is not supported on branch-specific tables.*");
             assertUpdate(session, "ALTER TABLE " + tableName + " DROP BRANCH 'test_branch'");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    /**
+     * A V3 branch DELETE must resolve the branch head as its read snapshot and reach the
+     * deletion-vector path. It cannot complete on a Java-only query runner, which writes no Puffin
+     * blobs, so the assertion is that it fails with a real execution error (not an NPE
+     * short-circuit before the DV path is reached) while the branch is left untouched — the
+     * point being that the branch resolves and no partial mutation lands.
+     * Guards the branch scoping of {@code IcebergAbstractMetadata.enumerateExistingDeletionVectors}.
+     */
+    @Test
+    public void testV3DeleteFromBranchReachesDeletionVectorPath()
+    {
+        String tableName = "test_v3_delete_branch";
+        try {
+            assertUpdate(session, "CREATE TABLE " + tableName
+                    + " (id BIGINT, name VARCHAR) WITH (format = 'PARQUET', \"format-version\" = '3')");
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, 'Alice'), (2, 'Bob')", 2);
+            assertUpdate(session, "ALTER TABLE " + tableName + " CREATE BRANCH 'v3_branch'");
+            assertUpdate(session, "INSERT INTO \"" + tableName + ".branch_v3_branch\" VALUES (3, 'Carol')", 1);
+
+            assertThatThrownBy(() -> getQueryRunner().execute(session,
+                    "DELETE FROM \"" + tableName + ".branch_v3_branch\" WHERE id = 1"))
+                    .isInstanceOf(RuntimeException.class)
+                    .isNotInstanceOf(NullPointerException.class);
+
+            // The branch is untouched by the rejected DELETE: all three rows (two inherited
+            // plus the branch-local insert) remain, proving no partial DV commit landed.
+            assertQuery(session, "SELECT count(*) FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'v3_branch'", "VALUES 3");
+            assertQuery(session, "SELECT id, name FROM " + tableName + " FOR SYSTEM_VERSION AS OF 'v3_branch' ORDER BY id",
+                    "VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Carol')");
+            assertUpdate(session, "ALTER TABLE " + tableName + " DROP BRANCH 'v3_branch'");
         }
         finally {
             dropTable(tableName);

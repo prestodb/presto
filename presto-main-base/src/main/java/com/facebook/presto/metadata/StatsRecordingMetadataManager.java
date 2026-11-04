@@ -1196,11 +1196,35 @@ public class StatsRecordingMetadataManager
     }
 
     @Override
+    public void setFieldType(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.setFieldType(session, tableHandle, column, fieldPath, type);
+        }
+        finally {
+            stats.recordSetFieldTypeCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
     public void dropColumn(Session session, TableHandle tableHandle, ColumnHandle column)
     {
         long startTime = System.nanoTime();
         try {
             delegate.dropColumn(session, tableHandle, column);
+        }
+        finally {
+            stats.recordDropColumnCall(System.nanoTime() - startTime);
+        }
+    }
+
+    @Override
+    public void dropField(Session session, TableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        long startTime = System.nanoTime();
+        try {
+            delegate.dropField(session, tableHandle, fieldPath, ignoreNonExistent);
         }
         finally {
             stats.recordDropColumnCall(System.nanoTime() - startTime);

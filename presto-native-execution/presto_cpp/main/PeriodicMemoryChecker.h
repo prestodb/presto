@@ -13,10 +13,12 @@
  */
 #pragma once
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <string>
 #include <vector>
@@ -89,6 +91,15 @@ class PeriodicMemoryChecker {
   /// 'Config::systemMemLimitBytes'.
   int64_t systemUsedMemoryBytes(bool fetchFresh = false);
 
+  /// Reads the current cached system-memory sample, records it to the
+  /// 'presto_cpp.memory_checker_used_bytes' metric, and returns it in a
+  /// shared_ptr. Used by PrestoServer::populateMemAndCPUInfo() to publish
+  /// the sample on 'MemoryInfo.systemMemoryBytes' and the metric endpoint in
+  /// one call; callers skip this (and leave the field as an empty
+  /// shared_ptr) when no checker is installed, so scrapers see the metric
+  /// time series as absent (not zero) in that case.
+  std::shared_ptr<int64_t> sampleAndRecord();
+
  protected:
   /// Fetches current system memory usage in bytes and publishes it to the
   /// cache. Callers must hold 'memoryUsageRefreshMutex_'; overrides must
@@ -155,7 +166,9 @@ class PeriodicMemoryChecker {
 
   // Serializes direct calls to the potentially stateful memory reader.
   std::mutex memoryUsageRefreshMutex_;
-  size_t lastHeapDumpAttemptTimestamp_{0};
+  // Steady clock time of the last heap dump attempt. Not set if there was
+  // none.
+  std::optional<std::chrono::steady_clock::time_point> lastHeapDumpAttemptTime_;
   std::priority_queue<
       DumpFileInfo,
       std::vector<DumpFileInfo>,

@@ -24,6 +24,7 @@ import com.facebook.presto.execution.TaskSource;
 import com.facebook.presto.execution.scheduler.TableWriteInfo;
 import com.facebook.presto.spark.execution.http.BatchTaskUpdateRequest;
 import com.facebook.presto.spark.execution.http.PrestoSparkHttpTaskClient;
+import com.facebook.presto.spi.storage.TempStorageHandle;
 import com.facebook.presto.spiller.LocalTempStorage;
 import com.facebook.presto.sql.planner.PlanFragment;
 import okhttp3.OkHttpClient;
@@ -90,7 +91,7 @@ public class NativeExecutionTaskFactory
     {
         Optional<String> broadcastBasePath =
                 serializedNativeTempStorageHandle.isPresent() ? Optional.of(
-                        LocalTempStorage.deserializeStatic(
+                        deserializeNativeTempStorageHandle(
                                 serializedNativeTempStorageHandle.get()).getPathAsString())
                         : Optional.empty();
         PrestoSparkHttpTaskClient workerClient = new PrestoSparkHttpTaskClient(
@@ -114,6 +115,12 @@ public class NativeExecutionTaskFactory
                 isFixedBroadcastDistribution ? broadcastBasePath : Optional.empty(),
                 scheduledExecutorService,
                 taskManagerConfig);
+    }
+
+    public TempStorageHandle deserializeNativeTempStorageHandle(byte[] serializedNativeTempStorageHandle)
+    {
+        return LocalTempStorage.deserializeStatic(
+                requireNonNull(serializedNativeTempStorageHandle, "serializedNativeTempStorageHandle is null"));
     }
 
     @PreDestroy

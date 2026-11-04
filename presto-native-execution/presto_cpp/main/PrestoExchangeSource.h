@@ -16,6 +16,7 @@
 #include <folly/Uri.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/futures/Retrying.h>
+#include <folly/stop_watch.h>
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpClient.h"
@@ -32,9 +33,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
  public:
   class RetryState {
    public:
-    RetryState(int64_t maxWaitMs = 1'000)
-        : maxWaitMs_(maxWaitMs),
-          startMs_(velox::EpochTime::now<std::chrono::milliseconds>()) {}
+    RetryState(int64_t maxWaitMs = 1'000) : maxWaitMs_(maxWaitMs) {}
 
     // Returns the delay in millis to wait before next try. This is an
     // exponential backoff delay with jitter. The first call to this always
@@ -54,7 +53,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     }
 
     int64_t durationMs() const {
-      return velox::EpochTime::now<std::chrono::milliseconds>() - startMs_;
+      return watch_.elapsed().count();
     }
 
     size_t numTries() const {
@@ -73,7 +72,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     static constexpr double kJitterParam = 0.1;
 
     int64_t maxWaitMs_;
-    int64_t startMs_;
+    folly::stop_watch<std::chrono::milliseconds> watch_;
     size_t numTries_{0};
   };
 

@@ -20,6 +20,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <folly/container/F14Set.h>
+#include <folly/stop_watch.h>
 #include <velox/core/PlanNode.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
@@ -154,13 +155,13 @@ void getData(
     return;
   }
 
-  int64_t startMs = EpochTime::now<std::chrono::milliseconds>();
+  const folly::stop_watch<std::chrono::milliseconds> watch;
   auto bufferFound = bufferManager.getData(
       taskId,
       destination,
       maxSize.getValue(protocol::DataUnit::BYTE),
       token,
-      [taskId = taskId, bufferId = destination, promiseHolder, startMs](
+      [taskId = taskId, bufferId = destination, promiseHolder, watch](
           std::vector<std::unique_ptr<folly::IOBuf>> pages,
           int64_t sequence,
           std::vector<int64_t> remainingBytes) mutable {
@@ -185,8 +186,7 @@ void getData(
           }
         }
 
-        int64_t waitTimeMs =
-            EpochTime::now<std::chrono::milliseconds>() - startMs;
+        const int64_t waitTimeMs = watch.elapsed().count();
         VLOG(1) << "Task " << taskId << " waited " << waitTimeMs
                 << "ms for data: "
                 << "buffer " << bufferId << ", sequence " << sequence
@@ -207,7 +207,7 @@ void getData(
 
         RECORD_METRIC_VALUE(
             kCounterPartitionedOutputBufferGetDataLatencyMs,
-            EpochTime::now<std::chrono::milliseconds>() - startMs);
+            watch.elapsed().count());
       },
       [stateHolder]() {
         auto state = stateHolder.lock();
@@ -374,7 +374,7 @@ TaskManager::TaskManager(
       bufferManager_(velox::exec::DefaultOutputBufferManager::getInstanceRef()),
       httpSrvCpuExecutor_(httpSrvCpuExecutor),
       lastNotOverloadedTimeInSecs_(
-          velox::EpochTime::now<std::chrono::seconds>()) {
+          velox::SteadyTime::now<std::chrono::seconds>()) {
   VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
 }
 
@@ -498,7 +498,7 @@ void TaskManager::setServerOverloaded(bool serverOverloaded) {
   serverOverloaded_ = serverOverloaded;
   if (!serverOverloaded) {
     lastNotOverloadedTimeInSecs_ =
-        velox::EpochTime::now<std::chrono::seconds>();
+        velox::SteadyTime::now<std::chrono::seconds>();
   }
 }
 
@@ -568,15 +568,15 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
-  auto receiveTaskUpdateMs = EpochTime::now<std::chrono::milliseconds>();
+  const folly::stop_watch<std::chrono::milliseconds> receiveTaskUpdateWatch;
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
   auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
-  if (prestoTask->firstTimeReceiveTaskUpdateMs == 0) {
-    prestoTask->firstTimeReceiveTaskUpdateMs = receiveTaskUpdateMs;
-  }
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
+    if (!prestoTask->firstTaskUpdateWatch.has_value()) {
+      prestoTask->firstTaskUpdateWatch = receiveTaskUpdateWatch;
+    }
     prestoTask->updateCoordinatorHeartbeatLocked();
     if ((prestoTask->task == nullptr) && (planFragment.planNode != nullptr)) {
       // If the task is aborted, no need to do anything else.
@@ -639,8 +639,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       prestoTask->task = std::move(newExecTask);
       prestoTask->info.needsPlan = false;
       startTask = true;
-      prestoTask->createFinishTimeMs =
-          EpochTime::now<std::chrono::milliseconds>();
+      prestoTask->taskCreationTimeMs =
+          prestoTask->firstTaskUpdateWatch->elapsed().count();
     }
     execTask = prestoTask->task;
   }
@@ -839,9 +839,7 @@ void TaskManager::startTaskLocked(std::shared_ptr<PrestoTask>& prestoTask) {
   // planned (queued) time.
   // Note task could be created at getTaskStatus/getTaskInfo endpoint and later
   // receive taskUpdate to create and start task.
-  const auto queuedTimeInMs =
-      velox::EpochTime::now<std::chrono::milliseconds>() -
-      prestoTask->createTimeMs;
+  const auto queuedTimeInMs = prestoTask->createWatch.elapsed().count();
   prestoTask->info.stats.queuedTimeInNanos = queuedTimeInMs * 1'000'000;
   RECORD_METRIC_VALUE(kCounterTaskPlannedTimeMs, queuedTimeInMs);
 }
@@ -1007,7 +1005,7 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
 }
 
 size_t TaskManager::cleanOldTasks() {
-  const auto startTimeMs = EpochTime::now<std::chrono::milliseconds>();
+  const folly::stop_watch<std::chrono::milliseconds> watch;
 
   folly::F14FastSet<protocol::TaskId> taskIdsToClean;
 
@@ -1074,8 +1072,7 @@ size_t TaskManager::cleanOldTasks() {
     cancelAbandonedTasksInternal(taskMap, oldTaskCleanUpMs_);
   }
 
-  const auto elapsedMs =
-      (EpochTime::now<std::chrono::milliseconds>() - startTimeMs);
+  const auto elapsedMs = watch.elapsed().count();
   if (not taskIdsToClean.empty()) {
     std::vector<std::shared_ptr<PrestoTask>> tasksToDelete;
     tasksToDelete.reserve(taskIdsToClean.size());

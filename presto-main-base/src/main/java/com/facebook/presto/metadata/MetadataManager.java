@@ -844,6 +844,14 @@ public class MetadataManager
     }
 
     @Override
+    public void dropField(Session session, TableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.dropField(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), fieldPath, ignoreNonExistent);
+    }
+
+    @Override
     public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
     {
         ConnectorId connectorId = tableHandle.getConnectorId();
@@ -857,6 +865,14 @@ public class MetadataManager
         ConnectorId connectorId = tableHandle.getConnectorId();
         ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
         metadata.setColumnPosition(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), column, position);
+    }
+
+    @Override
+    public void setFieldType(Session session, TableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type)
+    {
+        ConnectorId connectorId = tableHandle.getConnectorId();
+        ConnectorMetadata metadata = getMetadataForWrite(session, connectorId);
+        metadata.setFieldType(session.toConnectorSession(connectorId), tableHandle.getConnectorHandle(), column, fieldPath, type);
     }
 
     @Override

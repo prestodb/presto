@@ -483,6 +483,26 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Drop a field from a nested struct column.
+     *
+     * <p>{@code fieldPath} is the full dotted path to the field being dropped (e.g. {@code ["info", "age"]}).
+     * It always contains at least 2 elements (enforced by the caller), and all elements have already been
+     * normalized by the engine via the connector's own {@code normalizeIdentifier} before this method is invoked.
+     *
+     * <p>Path steps may traverse struct fields, list elements (using the pseudo-step {@code element}),
+     * or map values (using the pseudo-step {@code value}). Whether those collection steps are supported
+     * is connector-specific.
+     *
+     * <p>When {@code ignoreNonExistent} is {@code true}, the connector must silently return if the target
+     * field or any parent step in the path does not exist. When {@code false}, the connector must throw
+     * a {@code COLUMN_NOT_FOUND} error for a missing field.
+     */
+    default void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping nested fields");
+    }
+
+    /**
      * Get the physical layout for a new table.
      */
     default Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
@@ -518,6 +538,15 @@ public interface ConnectorMetadata
     default void setColumnType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Type type)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
+
+    /**
+     * Set the type of a nested field within a struct column.
+     * {@code fieldPath} is the sequence of field names below the top-level column (e.g. {@code ["nested"]} or {@code ["nested", "inner"]}).
+     */
+    default void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, List<String> fieldPath, Type type)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting field types");
     }
 
     /**

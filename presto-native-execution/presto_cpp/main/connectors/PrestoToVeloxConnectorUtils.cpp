@@ -780,8 +780,20 @@ std::unique_ptr<common::Filter> toFilter(
       auto allOrNoneValueSet =
           std::dynamic_pointer_cast<protocol::AllOrNoneValueSet>(
               domain.values)) {
-    VELOX_UNSUPPORTED(
-        "AllOrNoneValueSet to Velox filter conversion is not supported yet.");
+    // Presto uses AllOrNoneValueSet for types that are neither orderable nor
+    // comparable, e.g. Geometry and SphericalGeography. Such a domain holds
+    // either every non-null value or none, so 'IS NULL' and 'IS NOT NULL' are
+    // the only predicates it can express, and neither reads the value bytes.
+    if (allOrNoneValueSet->all) {
+      if (nullAllowed) {
+        return std::make_unique<common::AlwaysTrue>();
+      }
+      return std::make_unique<common::IsNotNull>();
+    }
+    if (nullAllowed) {
+      return std::make_unique<common::IsNull>();
+    }
+    return std::make_unique<common::AlwaysFalse>();
   }
   VELOX_UNSUPPORTED("Unsupported filter found.");
 }

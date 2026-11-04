@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -32,13 +33,30 @@ import static java.util.Objects.requireNonNull;
 public class MemoryInfo
 {
     private final DataSize totalNodeMemory;
+    // Total process-level memory on native workers, sampled by
+    // LinuxMemoryChecker (cgroup inactive_anon+active_anon, with /proc/meminfo
+    // fallback). Covers the server binary, shared libraries, mmap'd files and
+    // other process overhead that pool-tracked query memory does not.
+    // Optional.empty() signals "not sampled" — the worker is on a platform
+    // or build without a memory checker, or on JVM; Optional.of(0L) is a
+    // real zero sample. Keeping the two apart matters for dashboards.
+    private final Optional<Long> systemMemoryBytes;
     private final Map<MemoryPoolId, MemoryPoolInfo> pools;
+
+    public MemoryInfo(DataSize totalNodeMemory, Map<MemoryPoolId, MemoryPoolInfo> pools)
+    {
+        this(totalNodeMemory, Optional.empty(), pools);
+    }
 
     @ThriftConstructor
     @JsonCreator
-    public MemoryInfo(@JsonProperty("totalNodeMemory") DataSize totalNodeMemory, @JsonProperty("pools") Map<MemoryPoolId, MemoryPoolInfo> pools)
+    public MemoryInfo(
+            @JsonProperty("totalNodeMemory") DataSize totalNodeMemory,
+            @JsonProperty("systemMemoryBytes") Optional<Long> systemMemoryBytes,
+            @JsonProperty("pools") Map<MemoryPoolId, MemoryPoolInfo> pools)
     {
         this.totalNodeMemory = requireNonNull(totalNodeMemory, "totalNodeMemory is null");
+        this.systemMemoryBytes = requireNonNull(systemMemoryBytes, "systemMemoryBytes is null");
         this.pools = ImmutableMap.copyOf(requireNonNull(pools, "pools is null"));
     }
 
@@ -56,11 +74,19 @@ public class MemoryInfo
         return pools;
     }
 
+    @ThriftField(3)
+    @JsonProperty
+    public Optional<Long> getSystemMemoryBytes()
+    {
+        return systemMemoryBytes;
+    }
+
     @Override
     public String toString()
     {
         return toStringHelper(this)
                 .add("totalNodeMemory", totalNodeMemory)
+                .add("systemMemoryBytes", systemMemoryBytes)
                 .add("pools", pools)
                 .toString();
     }

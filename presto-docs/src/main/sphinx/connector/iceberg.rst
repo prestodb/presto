@@ -488,7 +488,10 @@ Property Name                                              Description          
                                                            in case of concurrent upsert requests, before failing.
 
 ``format-version``                                         Optionally specifies the format version of the Iceberg            ``2``                 Yes                 No, write is not supported
-                                                           specification to use for new tables, either ``1`` or ``2``.
+                                                           specification to use for new tables, either ``1``, ``2``, or
+                                                           ``3``. Row-level ``DELETE``/``UPDATE``/``MERGE`` on a
+                                                           ``3`` table is committed as a Puffin deletion vector, which
+                                                           only a Presto C++ (Prestissimo) worker can write.
 
 ``location``                                               Optionally specifies the file system location URI for                                   Yes                 Yes
                                                            the table.
@@ -941,11 +944,14 @@ See the `Iceberg spec — Row Lineage <https://iceberg.apache.org/spec/#row-line
 
 ``_row_id`` column
 ~~~~~~~~~~~~~~~~~~
-A globally unique, monotonically increasing ``BIGINT`` identifier for each row.
-The value is derived from the data file's ``firstRowId`` (stored in the Iceberg
-manifest) plus the row's ordinal position within that file
-(``firstRowId + position_in_file``).  Row IDs are stable across reads and are
-unique within the table at any given point in time.
+A globally unique ``BIGINT`` identifier for each row.
+If the data file stores a ``_row_id`` for the row, that value is returned.
+Otherwise the value is derived from the data file's ``firstRowId`` (stored in
+the Iceberg manifest) plus the row's ordinal position within that file
+(``firstRowId + position_in_file``).  Engines that preserve row lineage store
+each row's original ``_row_id`` when they rewrite the row, for example during
+compaction or a row-preserving ``UPDATE`` or ``MERGE``.  Row IDs are stable
+across reads and are unique within the table at any given point in time.
 
 .. code-block:: sql
 
@@ -977,7 +983,11 @@ The Iceberg data sequence number of the snapshot in which this row was last
 written (inserted or updated).  All rows written in the same ``APPEND`` or
 ``OVERWRITE`` commit share the same sequence number.  Later commits produce
 higher sequence numbers, so you can use this column to determine the relative
-write order of rows across snapshots.
+write order of rows across snapshots.  If the data file stores a
+``_last_updated_sequence_number`` for the row, that value is returned;
+otherwise the value is the data file's data sequence number.  Engines that
+preserve row lineage store each row's original value when compaction rewrites
+the row, so compaction does not change the column.
 
 .. code-block:: sql
 
@@ -997,6 +1007,15 @@ committed first (sequence number 1) and ``id = 2`` was committed next (sequence
 number 2).
 
 For V1/V2 tables, the column returns ``NULL``.
+
+A filter on ``_last_updated_sequence_number`` skips data files that cannot hold
+a matching value.  A data file that has no statistics for the column and was
+added by an ``APPEND`` snapshot the table still retains is assumed to store no
+values, so it is skipped when its data sequence number does not match.  A writer
+that adds files with stored values in an ``APPEND`` commit, such as a procedure
+that registers existing data files, breaks this assumption, and the filter can
+miss rows from those files.  Files that record value and null counts for the
+column are not affected.
 
 .. rubric:: Presto C++ Support
 
@@ -1854,6 +1873,22 @@ SQL Support
      - Yes
      - Yes
      -
+   * - ``ALTER TABLE ALTER COLUMN SET DATA TYPE`` (nested struct field)
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE DROP COLUMN`` (nested struct field)
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN SET NOT NULL``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN DROP NOT NULL``
+     - Yes
+     - Yes
+     -
    * - ``ALTER VIEW``
      - Yes
      - Yes
@@ -2272,6 +2307,121 @@ The dotted path may refer to arbitrarily nested fields. The following clauses ar
 for nested fields and will be rejected: ``NOT NULL``, ``COMMENT``, ``DEFAULT``,
 ``GENERATED``/``AS``, ``WITH`` properties, and ``FIRST``/``AFTER``.
 
+Adding a nested field whose name was previously used by a dropped or renamed field in the same
+struct is rejected to prevent stale data from appearing in existing rows.
+
+ALTER COLUMN SET DATA TYPE (nested struct field)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports widening the type of a nested field by specifying a dotted path
+in ``ALTER COLUMN … SET DATA TYPE``. This is a metadata-only change — no data files are
+rewritten, and previously written data remains readable under the new, wider type.
+
+Only widening conversions are permitted:
+
+* ``INTEGER`` → ``BIGINT``
+* ``REAL`` → ``DOUBLE``
+* ``DECIMAL(p, s)`` → ``DECIMAL(p2, s)`` where ``p2 >= p`` (scale must remain unchanged)
+
+Narrowing conversions (such as ``BIGINT`` → ``INTEGER``) are rejected. The path must point to a
+field inside a struct column; paths into the element type of an array or the key/value types of a
+map are not supported.
+
+Example — Widen ``age`` from ``INTEGER`` to ``BIGINT`` inside the ``info`` struct::
+
+     ALTER TABLE iceberg.web.users ALTER COLUMN info.age SET DATA TYPE BIGINT;
+
+Example — Widen ``score`` from ``REAL`` to ``DOUBLE`` inside the ``info`` struct::
+
+     ALTER TABLE iceberg.web.users ALTER COLUMN info.score SET DATA TYPE DOUBLE;
+
+Example — Widen a decimal column with increased precision::
+
+     ALTER TABLE iceberg.web.orders ALTER COLUMN totals.amount SET DATA TYPE DECIMAL(20, 2);
+
+DROP COLUMN (nested struct field)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports dropping a field from a ``ROW`` column using a dotted path. This is a
+metadata-only change — no data files are rewritten.
+
+Example::
+
+     ALTER TABLE iceberg.web.orders DROP COLUMN address.zip;
+
+The optional ``IF EXISTS`` clause suppresses the error if the field or any parent in the path does not exist::
+
+     ALTER TABLE iceberg.web.orders DROP COLUMN IF EXISTS address.zip;
+
+The dotted path may traverse arbitrarily nested structs, list elements (pseudo-step ``.element``,
+such as ``items.element.name``), and map values (pseudo-step ``.value``, such as ``m.value.name``).
+Dropping list elements, map keys, or map value containers directly is not supported.
+
+ALTER COLUMN SET NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports adding a ``NOT NULL`` constraint to a top-level column of a
+primitive type. No data files are read or rewritten, but the coordinator reads the manifests of
+every branch head, so the statement takes longer on a table with many branches or large manifests.
+The statement is not supported on a branch. Setting ``NOT NULL`` on a column that already has the
+constraint succeeds and does not change the schema.
+
+Example — Add a ``NOT NULL`` constraint to the ``user_id`` column::
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id SET NOT NULL;
+
+Before it changes the schema, Presto reads the ``NULL`` counts that Iceberg records in the manifests
+of every branch head. The statement fails if a data file has ``NULL`` values in the column, or has
+no ``NULL`` count for it. A data file has no ``NULL`` count for a column whose metrics mode is
+``none``, for a column past the ``metrics_max_inferred_column`` limit (100 columns by default), or
+for a column added after the file was written. For a column added with ``DEFAULT`` (Iceberg V3),
+files written before the column was added are accepted until the snapshots from before the column
+was added expire.
+
+* ``NULL`` counts do not reflect row-level deletes. After ``UPDATE`` or ``DELETE`` removes the
+  ``NULL`` values, run ``rewrite_data_files`` with the ``rewrite-all`` option before retrying. The
+  rewrite also adds ``NULL`` counts for a column added after the files were written, unless the
+  column's metrics mode is ``none`` or the column is past the ``metrics_max_inferred_column``
+  limit. ``rewrite_data_files`` rewrites only the ``main`` branch, so drop or replace any other
+  branch that holds such a file.
+* Tags are not checked, because they are read with the schema of their snapshot.
+* Moving a branch to a snapshot that can hold ``NULL`` values in a ``NOT NULL`` column fails. This
+  applies to ``rollback_to_snapshot``, ``rollback_to_timestamp``, ``set_current_snapshot``,
+  ``fast_forward``, and ``CREATE [OR REPLACE] BRANCH``. Drop the constraint first.
+* After the constraint is set, an ``INSERT``, ``UPDATE``, or ``MERGE`` that stores ``NULL`` in the
+  column fails. An ``INSERT`` that omits a column with a default writes the default, but a ``MERGE``
+  whose ``INSERT`` omits the column fails.
+* A write that read the table before another query set the constraint is checked again when it
+  commits. The commit fails if a data file it adds has ``NULL`` values in the column or has no
+  ``NULL`` count for it. A ``rollback_to_snapshot``, ``rollback_to_timestamp``, or
+  ``set_current_snapshot`` call that read the table before the constraint was set fails if its
+  target snapshot can hold ``NULL`` values in the column. ``fast_forward`` and
+  ``CREATE [OR REPLACE] BRANCH`` fail with ``Table metadata refresh is required``; retry them.
+* In an explicit transaction, if another query commits a write to the table after
+  ``SET NOT NULL``, ``COMMIT`` fails with ``Table metadata refresh is required`` and discards every
+  change in the transaction, as it does after other schema changes.
+
+.. warning::
+
+    Other engines can make a column required, or move a branch to an older snapshot, without
+    checking its data. Presto treats a required column as never ``NULL``, so queries on such a
+    column can return wrong results, and a ``DELETE`` or ``rewrite_data_files`` filter with
+    ``IS NOT NULL`` on a partition column can remove the rows that hold ``NULL``.
+
+ALTER COLUMN DROP NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports removing a ``NOT NULL`` constraint from a top-level column of any
+type. This is a metadata-only change — no data files are read or rewritten. The statement is not
+supported on a branch.
+
+Example — Remove the ``NOT NULL`` constraint from the ``user_id`` column::
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id DROP NOT NULL;
+
+The statement fails on a column that has no ``NOT NULL`` constraint, and on an Iceberg identifier
+field, which must stay ``NOT NULL``.
+
 ALTER VIEW
 ^^^^^^^^^^
 
@@ -2489,7 +2639,9 @@ UPDATE and MERGE
 
 The Iceberg connector supports :doc:`../sql/update` and :doc:`../sql/merge` operations on Iceberg
 tables. Only some tables support them. These tables must be at minimum format
-version 2, and the ``write.update.mode`` must be set to `merge-on-read`.
+version 2. On format version 2 the ``write.update.mode`` must be set to `merge-on-read`;
+format version 3 tables use deletion vectors natively and do not require that property, but
+their row-level writes require a Presto C++ (Prestissimo) worker.
 
 .. code-block:: sql
 
@@ -2506,7 +2658,22 @@ updates.
 
 .. code-block:: text
 
-    Query 20250204_010445_00022_ymwi5 failed: Iceberg table updates require at least format version 2 and update mode must be merge-on-read
+    Query 20250204_010445_00022_ymwi5 failed: Iceberg table updates require update mode to be merge-on-read
+
+On a format version 3 table, running the mutation on a Java worker returns:
+
+.. code-block:: text
+
+    Query 20250204_010445_00022_ymwi5 failed: Iceberg V3 deletion-vector writes (DELETE, UPDATE, MERGE) require the native (Prestissimo) worker. The Java worker cannot produce Puffin deletion vectors.
+
+Format version 3 tables always use deletion vectors for row-level writes, regardless of
+the ``write.delete.mode`` / ``write.update.mode`` table properties; those modes only
+apply to format version 2 tables. The following limitations apply to version 3 tables:
+
+* The set of existing deletion vectors is enumerated from the read snapshot on every
+  mutation and carried on the delete/insert handle to each writer task; on tables with
+  very many files carrying deletion vectors this handle payload grows accordingly.
+  Seeding writers from per-split delete files instead is a follow-up.
 
 Iceberg tables do not support running multiple :doc:`../sql/merge` statements on the same table in parallel. If two or more ``MERGE`` operations are executed concurrently on the same Iceberg table:
 
@@ -3082,7 +3249,7 @@ The following operations are **not supported** with branch-specific table names 
 * The branch must exist before performing mutations (create it with ``ALTER TABLE ... CREATE BRANCH``)
 * Changes are isolated to the specified branch and do not affect the main table or other branches
 * All standard SQL features work with branch mutations such as WHERE clauses, column lists, INSERT from SELECT, and others
-* For MERGE operations, the table must have format version 2 or higher and update mode set to ``merge-on-read``
+* For MERGE operations, the table must have format version 2 with update mode set to ``merge-on-read``, or format version 3 (which uses deletion vectors natively and requires a Presto C++ worker for the write)
 
 **Presto C++ Support**
 
@@ -3187,6 +3354,8 @@ with ``ALTER TABLE ... ADD COLUMN``.
   ``GEOGRAPHY`` columns.
 * A ``GEOGRAPHY`` column cannot be used as a partition column, because no Iceberg
   partition transform, including ``identity``, accepts geospatial types.
+* On Presto C++ (native execution), ``GEOGRAPHY`` columns can be read but not written.
+  Writes must go through a Java worker.
 
 PrestoDB to Iceberg type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

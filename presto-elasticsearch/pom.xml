@@ -17,6 +17,7 @@
         <dep.log4j.version>2.25.5</dep.log4j.version>
         <air.check.skip-modernizer>true</air.check.skip-modernizer>
         <dep.lucene.version>9.12.0</dep.lucene.version>
+        <dep.tools-jackson.version>3.2.4</dep.tools-jackson.version>
         <project.build.targetJdk>17</project.build.targetJdk>
     </properties>
 
@@ -26,13 +27,13 @@
             <dependency>
                 <groupId>tools.jackson.core</groupId>
                 <artifactId>jackson-core</artifactId>
-                <version>3.2.3</version>
+                <version>${dep.tools-jackson.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>tools.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
-                <version>3.2.3</version>
+                <version>${dep.tools-jackson.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

@@ -327,6 +327,39 @@ public abstract class IcebergDistributedTestBase
         assertQuerySucceeds("DROP TABLE test_delete");
     }
 
+    /**
+     * Row-level (merge-on-read) DELETE after partition evolution. The predicate is on a
+     * non-partition column, so this cannot be served by a metadata delete and each writer emits a
+     * position-delete fragment carrying the partition spec id of the data file it read. Those
+     * fragments span two specs here, so a fragment that lost its spec id in serialization would be
+     * committed against spec 0 and land in the wrong partition.
+     */
+    @Test
+    public void testRowLevelDeleteAcrossPartitionSpecs()
+    {
+        String tableName = "test_row_level_delete_spec_evolution";
+        try {
+            assertQuerySucceeds("CREATE TABLE " + tableName + " (a INTEGER, b VARCHAR)" +
+                    " WITH (\"format-version\" = '2', \"write.delete.mode\" = 'merge-on-read', partitioning = ARRAY['a'])");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'keep'), (1, 'drop'), (2, 'drop')", 3);
+
+            // Evolve the spec: rows inserted from here on carry a different partition spec id.
+            assertQuerySucceeds("ALTER TABLE " + tableName + " ADD COLUMN c BIGINT WITH (partitioning = 'identity')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, 'keep', 10), (3, 'drop', 20)", 2);
+
+            // 'b' is not a partition column in either spec, so this is a row-level delete that
+            // touches data files written under both specs.
+            assertUpdate("DELETE FROM " + tableName + " WHERE b = 'drop'", 3);
+
+            assertQuery("SELECT a, b, c FROM " + tableName + " ORDER BY a",
+                    "VALUES (1, 'keep', NULL), (3, 'keep', 10)");
+            assertQuery("SELECT count(*) FROM " + tableName, "VALUES 2");
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     @Test
     public void testRenameIdentityPartitionColumn()
     {
@@ -2561,8 +2594,10 @@ public abstract class IcebergDistributedTestBase
             assertHasDataFiles(icebergTable.currentSnapshot(), 4);
             assertHasDeleteFiles(icebergTable.currentSnapshot(), 2);
 
-            assertQueryFails("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'a > 3')", ".*");
-            assertQueryFails("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'c > 3')", ".*");
+            // Filters on non-enforceable columns leave a FilterNode in the procedure plan,
+            // which the plan sanity check rejects.
+            assertQueryFails("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'a > 3')", "Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
+            assertQueryFails("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', filter => 'c > 3')", "Unexpected FilterNode found in plan; probably connector was not able to handle provided WHERE expression");
 
             // Explicitly set min-input-files=1 since we only have 4 files and want to rewrite them
             assertUpdate("call system.rewrite_data_files(table_name => '" + tableName + "', schema => 'tpch', options => map(array['rewrite-all'], array['true']))", 3);
@@ -3546,6 +3581,30 @@ public abstract class IcebergDistributedTestBase
         assertQuery("SELECT int_t, row_t.f1, row_t.f2 FROM " + tableName, "VALUES (0, 2, 3), (11, 12, 14), (21, 44, 23)");
     }
 
+    @Test
+    public void testUpdateNullIntoNotNullColumn()
+    {
+        String tableName = "test_update_not_null_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (a BIGINT, b BIGINT NOT NULL, c BIGINT NOT NULL)");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 2, 3), (4, 5, 6)", 2);
+
+            assertQueryFails("UPDATE " + tableName + " SET b = NULL WHERE a = 1", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: b");
+            assertQueryFails("UPDATE " + tableName + " SET c = NULL", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: c");
+            assertQueryFails("UPDATE " + tableName + " SET c = IF(a = 4, NULL, c)", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: c");
+            assertQueryFails("UPDATE " + tableName + " SET c = NULL, b = 7 WHERE a = 1", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: c");
+            assertQueryFails("UPDATE " + tableName + " SET b = CAST(NULL AS INTEGER)", "NULL value not allowed for NOT NULL column\\. Table: " + tableName + " Column: b");
+            assertUpdate("UPDATE " + tableName + " SET b = NULL WHERE a = 999", 0);
+            assertQuery("SELECT a, b, c FROM " + tableName, "VALUES (1, 2, 3), (4, 5, 6)");
+
+            assertUpdate("UPDATE " + tableName + " SET a = NULL, b = b + 1 WHERE a = 1", 1);
+            assertQuery("SELECT a, b, c FROM " + tableName, "VALUES (NULL, 3, 3), (4, 5, 6)");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     public void testUpdateOnPartitionTable()
     {
         String tableName = "test_update_partition_column_" + randomTableSuffix();
@@ -4450,6 +4509,12 @@ public abstract class IcebergDistributedTestBase
             for (@Language("SQL") String sqlMergeCommand : sqlMergeCommands) {
                 assertQueryFails(sqlMergeCommand, "NULL value not allowed for NOT NULL column. Table: merge_non_nullable_target_.* Column: region_name");
             }
+
+            assertUpdate(format("MERGE INTO %s t ", targetTable) +
+                    "USING (VALUES ('CANADA', 'AMERICA')) s(nation_name, region_name) " +
+                    "ON (t.nation_name = s.nation_name) " +
+                    "WHEN MATCHED THEN" +
+                    "    UPDATE SET region_name = NULL", 0);
         }
         finally {
             assertUpdate("DROP TABLE " + targetTable);

@@ -72,7 +72,8 @@ public class TestPrestoSparkConfig
                 .setNativeTerminateWithCoreTimeout(new Duration(5, MINUTES))
                 .setDynamicPrestoMemoryPoolTuningEnabled(false)
                 .setDynamicPrestoMemoryPoolTuningFraction(0.7)
-                .setAttemptNumberToApplyDynamicMemoryPoolTuning(1));
+                .setAttemptNumberToApplyDynamicMemoryPoolTuning(1)
+                .setDeferNativeExecutorTempStorage(false));
     }
 
     @Test
@@ -118,6 +119,7 @@ public class TestPrestoSparkConfig
                 .put("spark.dynamic-presto-memory-pool-tuning-enabled", "true")
                 .put("spark.dynamic-presto-memory-pool-tuning-fraction", "0.8")
                 .put("spark.attempt-number-to-apply-dynamic-memory-pool-tuning", "0")
+                .put("spark.defer-native-executor-temp-storage", "true")
                 .build();
         PrestoSparkConfig expected = new PrestoSparkConfig()
                 .setSparkPartitionCountAutoTuneEnabled(false)
@@ -158,7 +160,8 @@ public class TestPrestoSparkConfig
                 .setNativeTerminateWithCoreTimeout(new Duration(1, MINUTES))
                 .setDynamicPrestoMemoryPoolTuningEnabled(true)
                 .setDynamicPrestoMemoryPoolTuningFraction(0.8)
-                .setAttemptNumberToApplyDynamicMemoryPoolTuning(0);
+                .setAttemptNumberToApplyDynamicMemoryPoolTuning(0)
+                .setDeferNativeExecutorTempStorage(true);
         assertFullMapping(properties, expected);
     }
 }

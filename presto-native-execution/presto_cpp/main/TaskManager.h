@@ -205,6 +205,9 @@ class TaskManager {
     return serverOverloaded_;
   }
 
+  /// Returns the last time the server was not overloaded, as
+  /// velox::SteadyTime::now<std::chrono::seconds>(). Compare only with other
+  /// SteadyTime readings.
   uint64_t lastNotOverloadedTimeInSecs() const {
     return lastNotOverloadedTimeInSecs_;
   }

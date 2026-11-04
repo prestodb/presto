@@ -78,7 +78,7 @@
         <dep.jayway.version>2.9.0</dep.jayway.version>
         <dep.ratis.version>3.2.2</dep.ratis.version>
         <dep.errorprone.version>2.50.0</dep.errorprone.version>
-        <dep.guava.version>32.1.0-jre</dep.guava.version>
+        <dep.guava.version>33.7.2-jre</dep.guava.version>
         <dep.jackson.version>2.18.11</dep.jackson.version>
         <dep.j2objc.version>3.0.0</dep.j2objc.version>
         <dep.avro.version>1.12.1</dep.avro.version>
@@ -205,6 +205,8 @@
         <module>presto-expressions</module>
         <module>presto-benchmark-runner</module>
         <module>presto-spark-classloader-interface</module>
+        <module>presto-spark-classloader-spark2</module>
+        <module>presto-spark-classloader-spark3</module>
         <module>presto-spark-base</module>
         <module>presto-spark-common</module>
         <module>presto-spark</module>
@@ -2310,7 +2312,7 @@
             <dependency>
                 <groupId>org.xerial.snappy</groupId>
                 <artifactId>snappy-java</artifactId>
-                <version>1.1.10.8</version>
+                <version>1.1.10.12</version>
             </dependency>
 
             <dependency>
@@ -3259,10 +3261,6 @@
                 <dep.spark.version>2.0.2-6</dep.spark.version>
             </properties>
 
-            <modules>
-                <module>presto-spark-classloader-spark2</module>
-            </modules>
-
             <build>
                 <pluginManagement>
                     <plugins>
@@ -3330,10 +3328,6 @@
             <properties>
                 <dep.spark.version>3.4.1-1</dep.spark.version>
             </properties>
-
-            <modules>
-                <module>presto-spark-classloader-spark3</module>
-            </modules>
 
             <build>
                 <pluginManagement>

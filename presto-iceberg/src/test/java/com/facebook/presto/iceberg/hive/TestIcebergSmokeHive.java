@@ -465,6 +465,130 @@ public class TestIcebergSmokeHive
         dropTable(session, tableName);
     }
 
+    /**
+     * Verifies that dropping a nested struct field whose descendant is referenced by a partition spec is rejected.
+     * Presto SQL cannot create a nested partition spec (ARRAY['...'] only supports top-level field names), so we
+     * inject the partition spec directly via the Iceberg API to simulate a table created by Spark or another engine.
+     */
+    @Test
+    public void testDropNestedFieldBlockedByDescendantPartitionSpec()
+    {
+        Session session = getSession();
+        String tableName = "test_nested_drop_partition_guard";
+        try {
+            // outer_col has two children (inner_col and sibling) so that inner_col is NOT the only
+            // child of outer_col. This is necessary because Presto rejects dropping the sole field
+            // of a nested struct before it ever reaches the partition-spec guard. Having a sibling
+            // ensures the "only field" check does not short-circuit the partition-spec validation.
+            assertUpdate(session,
+                    "CREATE TABLE " + tableName + " (" +
+                            "id BIGINT, " +
+                            "outer_col ROW(inner_col ROW(city VARCHAR, extra VARCHAR), sibling VARCHAR)" +
+                            ")");
+
+            // Inject a partition spec on the nested leaf field via the Iceberg API.
+            // This simulates a table created by Spark with a nested partition field.
+            Table icebergTable = getIcebergTable(session, tableName);
+            icebergTable.updateSpec()
+                    .addField("outer_col.inner_col.city")
+                    .commit();
+
+            // Dropping the immediate parent struct whose child is the partition source must be rejected.
+            assertQueryFails(session,
+                    "ALTER TABLE " + tableName + " DROP COLUMN outer_col.inner_col",
+                    "Cannot drop field 'outer_col.inner_col' which is used by a partition spec");
+
+            // Dropping the leaf partition field directly must also be rejected.
+            assertQueryFails(session,
+                    "ALTER TABLE " + tableName + " DROP COLUMN outer_col.inner_col.city",
+                    "Cannot drop field 'outer_col.inner_col.city' which is used by a partition spec");
+
+            // Guard must still apply when the field is only in a historical spec.
+            icebergTable.updateSpec()
+                    .removeField("outer_col.inner_col.city")
+                    .commit();
+            icebergTable = getIcebergTable(session, tableName);
+            assertQueryFails(session,
+                    "ALTER TABLE " + tableName + " DROP COLUMN outer_col.inner_col",
+                    "Cannot drop field 'outer_col.inner_col' which is used by a partition spec");
+
+            // Dropping an unrelated field from inner_col (not the partition source) must succeed.
+            assertUpdate(session,
+                    "ALTER TABLE " + tableName + " DROP COLUMN outer_col.inner_col.extra");
+
+            // Dropping the unrelated sibling field from outer_col must also succeed.
+            assertUpdate(session,
+                    "ALTER TABLE " + tableName + " DROP COLUMN outer_col.sibling");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    /**
+     * Re-using a previously dropped or renamed nested field name must be rejected.
+     * Readers match nested fields by name rather than field ID, so existing rows would
+     * return stale data for the new field. Renames are injected via the Iceberg API
+     * since Presto SQL has no nested-field RENAME syntax.
+     */
+    @Test
+    public void testAddFieldNameReuseIsRejected()
+    {
+        Session session = getSession();
+        String dropTableName = "test_nested_name_reuse_drop";
+        String renameTableName = "test_nested_name_reuse_rename";
+        try {
+            // Drop case: drop info.age, then attempt to re-add it.
+            assertUpdate(session,
+                    "CREATE TABLE " + dropTableName + " (" +
+                            "id BIGINT, " +
+                            "info ROW(name VARCHAR, age INTEGER)" +
+                            ")");
+            assertUpdate(session, "INSERT INTO " + dropTableName + " VALUES (1, ROW('alice', 30))", 1);
+            assertUpdate(session, "ALTER TABLE " + dropTableName + " DROP COLUMN info.age");
+
+            assertQueryFails(session,
+                    "ALTER TABLE " + dropTableName + " ADD COLUMN info.age INTEGER",
+                    "Cannot add field 'age' to 'info': that name was previously used by another field.*");
+
+            // A new name must still be addable after the drop.
+            assertUpdate(session, "ALTER TABLE " + dropTableName + " ADD COLUMN info.score INTEGER");
+            assertUpdate(session, "INSERT INTO " + dropTableName + " VALUES (2, ROW('bob', 99))", 1);
+            assertQuery(session, "SELECT id, info.name, info.score FROM " + dropTableName + " ORDER BY id",
+                    "VALUES (1, 'alice', NULL), (2, 'bob', 99)");
+
+            // Rename case: rename info.age → info.years, then attempt to re-add info.age.
+            assertUpdate(session,
+                    "CREATE TABLE " + renameTableName + " (" +
+                            "id BIGINT, " +
+                            "info ROW(name VARCHAR, age INTEGER)" +
+                            ")");
+            assertUpdate(session, "INSERT INTO " + renameTableName + " VALUES (1, ROW('alice', 30))", 1);
+
+            getIcebergTable(session, renameTableName).updateSchema()
+                    .renameColumn("info.age", "years")
+                    .commit();
+
+            assertQueryFails(session,
+                    "ALTER TABLE " + renameTableName + " ADD COLUMN info.age INTEGER",
+                    "Cannot add field 'age' to 'info': that name was previously used by another field.*");
+
+            // A new name must still be addable after the rename.
+            assertUpdate(session, "ALTER TABLE " + renameTableName + " ADD COLUMN info.score INTEGER");
+            assertUpdate(session, "INSERT INTO " + renameTableName + " VALUES (2, ROW('bob', 40, 99))", 1);
+            // Note: info.years is intentionally excluded from this SELECT. In Iceberg, a rename keeps
+            // the original field ID, so the correct value for the existing row is 30. Presto's nested
+            // readers match fields by name instead, so they return NULL here.
+            // Tracked in https://github.com/prestodb/presto/issues/28705.
+            assertQuery(session, "SELECT id, info.name, info.score FROM " + renameTableName + " ORDER BY id",
+                    "VALUES (1, 'alice', NULL), (2, 'bob', 99)");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS " + dropTableName);
+            assertUpdate(session, "DROP TABLE IF EXISTS " + renameTableName);
+        }
+    }
+
     private Table getIcebergTable(Session session, String tableName)
     {
         CatalogManager catalogManager = getDistributedQueryRunner().getCoordinator().getCatalogManager();

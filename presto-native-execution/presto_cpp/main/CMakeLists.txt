@@ -60,6 +60,7 @@ target_link_libraries(
   presto_exception
   presto_expression_optimizer
   presto_function_metadata
+  presto_scalar_function_registration
   presto_connectors
   presto_http
   presto_operators
