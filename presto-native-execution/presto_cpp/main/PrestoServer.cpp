@@ -212,6 +212,7 @@ std::unique_ptr<std::thread> ucxCommunicatorThread;
 void startUcxCommunicator() {
 #ifdef PRESTO_ENABLE_UCX_EXCHANGE
   if (ucxCommunicatorThread != nullptr) {
+    VLOG(1) << "UCX exchange Communicator already started";
     return;
   }
   auto* systemConfig = SystemConfig::instance();
