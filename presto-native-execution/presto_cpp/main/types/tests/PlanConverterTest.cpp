@@ -355,8 +355,7 @@ TEST_F(PlanConverterTest, transportTypeHttp) {
 }
 
 // ANY on a worker with the UCX transport registered, with the session property
-// unset: the property's default is this worker's capability, so the edge uses
-// UCX.
+// unset: an unset property lets the worker decide, so the edge uses UCX.
 TEST_F(PlanConverterTest, transportTypeAnyWithUcxRegistered) {
   ScopedUcxTransports ucxTransports;
 
@@ -374,8 +373,8 @@ TEST_F(PlanConverterTest, transportTypeAnyWithUcxRegistered) {
 }
 
 // ANY on a worker that has no UCX transport, with the session property unset:
-// the same default resolves the other way, and the query runs over the
-// in-memory transport instead of failing.
+// the worker decides the other way, and the query runs over the in-memory
+// transport instead of failing.
 TEST_F(PlanConverterTest, transportTypeAnyWithoutUcxRegistered) {
   const auto fragment = assertToVeloxFragment(
       "FinalAgg.json", {.annotate = annotateEdges("ANY")});

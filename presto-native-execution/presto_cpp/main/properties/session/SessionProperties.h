@@ -49,8 +49,7 @@ class SessionProperties : public SessionPropertiesProvider {
   ///
   /// Pass the query's QueryCtx to honor its per-query transport registries, the
   /// way exec::Task resolves a transport; null consults only the global
-  /// registries, which is what the default value of kCudfExchangeEnabled is
-  /// derived from.
+  /// registries.
   static bool isCudfExchangeAvailable(
       const velox::core::QueryCtx* queryCtx = nullptr);
 
