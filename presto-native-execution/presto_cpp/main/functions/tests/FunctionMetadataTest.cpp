@@ -71,6 +71,20 @@ class FunctionMetadataTest : public ::testing::Test {
     };
   }
 
+  // Stands in for a scalar that shares an RPC function's name. Publishing a
+  // function never evaluates it.
+  class UnreachableFunction : public exec::VectorFunction {
+   public:
+    void apply(
+        const SelectivityVector& /*rows*/,
+        std::vector<VectorPtr>& /*args*/,
+        const TypePtr& /*outputType*/,
+        exec::EvalCtx& /*context*/,
+        VectorPtr& /*result*/) const override {
+      VELOX_UNREACHABLE();
+    }
+  };
+
   static void SetUpTestSuite() {
     aggregate::prestosql::registerAllAggregateFunctions(kPrestoDefaultPrefix);
     window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
@@ -121,6 +135,25 @@ class FunctionMetadataTest : public ::testing::Test {
         exec::VectorFunctionMetadataBuilder()
             .defaultNullBehavior(false)
             .build());
+
+    // A scalar and an RPC function under one name: the scalar evaluates the
+    // calls that are not moved into an RPC node. The two declare different
+    // determinism, so the published entry shows which one it came from.
+    exec::registerVectorFunction(
+        kPrestoDefaultPrefix + "test_rpc_function_with_scalar",
+        {exec::FunctionSignatureBuilder()
+             .returnType("boolean")
+             .argumentType("varchar")
+             .build()},
+        std::make_unique<UnreachableFunction>());
+    exec::rpc::AsyncRPCFunctionRegistry::registerFunction(
+        "test_rpc_function_with_scalar",
+        rpcFunctionFactory(),
+        {exec::FunctionSignatureBuilder()
+             .returnType("boolean")
+             .argumentType("varchar")
+             .build()},
+        exec::VectorFunctionMetadataBuilder().deterministic(false).build());
   }
 
   static void TearDownTestSuite() {
@@ -266,6 +299,17 @@ TEST_F(FunctionMetadataTest, atTimezone) {
     }
   }
   EXPECT_EQ(numMatches, 1);
+}
+
+TEST_F(FunctionMetadataTest, rpcFunctionSharingNameWithScalar) {
+  const json::array_t metadataList =
+      functionMetadata_.at("test_rpc_function_with_scalar");
+  ASSERT_EQ(metadataList.size(), 1);
+  const auto& metadata = metadataList[0];
+  EXPECT_EQ(metadata["isRpcFunction"], true);
+  EXPECT_EQ(metadata["outputType"], "boolean");
+  EXPECT_EQ(
+      metadata["routineCharacteristics"]["determinism"], "NOT_DETERMINISTIC");
 }
 
 TEST_F(FunctionMetadataTest, catalog) {

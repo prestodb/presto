@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static com.facebook.presto.metadata.SignatureBinder.applyBoundVariables;
 import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -86,7 +87,7 @@ public abstract class BuiltInSpecialFunctionNamespaceManager
         specializedAggregationCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS)
-                .build(CacheLoader.from(key -> (sqlInvokedFunctionToAggregationImplementation((SqlInvokedFunction) key.getFunction(), functionAndTypeManager))));
+                .build(CacheLoader.from(key -> (sqlInvokedFunctionToAggregationImplementation((SqlInvokedFunction) key.getFunction(), key.getBoundVariables(), functionAndTypeManager))));
     }
 
     @Override
@@ -238,20 +239,27 @@ public abstract class BuiltInSpecialFunctionNamespaceManager
         this.functions = new FunctionMap(this.functions, aggregateFunctions);
     }
 
+    /**
+     * The types are resolved from the bound variables of the call rather than from the declared
+     * signature, because a declared signature may name type variables and a type variable is not
+     * a type: resolving one directly fails with UNKNOWN_TYPE. The variables are bound by the time
+     * an implementation is asked for, so binding them here is what lets a function declared over
+     * a type variable have an implementation at all.
+     */
     private AggregationFunctionImplementation sqlInvokedFunctionToAggregationImplementation(
             SqlInvokedFunction function,
-            TypeManager typeManager)
+            BoundVariables boundVariables,
+            FunctionAndTypeManager functionAndTypeManager)
     {
         checkArgument(
                 function.getAggregationMetadata().isPresent(),
                 "Need aggregationMetadata to get aggregation function implementation");
 
         AggregationFunctionMetadata aggregationMetadata = function.getAggregationMetadata().get();
-        List<Type> parameters = function.getSignature().getArgumentTypes().stream().map(
-                (typeManager::getType)).collect(toImmutableList());
+        List<Type> parameters = applyBoundVariables(functionAndTypeManager, function.getSignature().getArgumentTypes(), boundVariables);
         return new SqlInvokedAggregationFunctionImplementation(
-                typeManager.getType(aggregationMetadata.getIntermediateType()),
-                typeManager.getType(function.getSignature().getReturnType()),
+                applyBoundVariables(functionAndTypeManager, aggregationMetadata.getIntermediateType(), boundVariables),
+                applyBoundVariables(functionAndTypeManager, function.getSignature().getReturnType(), boundVariables),
                 aggregationMetadata.isOrderSensitive(),
                 parameters);
     }
