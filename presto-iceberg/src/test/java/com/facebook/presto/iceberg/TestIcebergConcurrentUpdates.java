@@ -35,7 +35,11 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 /**
- * An UPDATE of an Iceberg table is a merge-on-read operation: it writes position delete files for
+ * Verifies how Presto handles concurrent row-level modifications ({@code UPDATE} and {@code MERGE}) on Iceberg tables,
+ * using {@link TestingGateFunctions} to deterministically orchestrate snapshot commit conflicts.
+ * <p>
+ * <b>Iceberg Concurrent Update Semantics:</b>
+ * An {@code UPDATE} of an Iceberg table is a merge-on-read operation: it writes position delete files for
  * the rows it changes together with their new versions, and stages both as a row delta on top of the
  * snapshot the statement reads. Committing that row delta re-applies it to the latest table metadata and
  * checks that no delete file has appeared since that snapshot, because another writer may have deleted rows
@@ -44,6 +48,25 @@ import static org.testng.Assert.assertTrue;
  * commits a new snapshot, and the second one finds those delete files and has its commit rejected with an
  * Iceberg {@code org.apache.iceberg.exceptions.ValidationException}. The loser of the race writes nothing,
  * so the engine is expected to run the statement again against the new state of the table rather than fail it.
+ * <p>
+ * <b>Role of {@link TestingGateFunctions}:</b>
+ * Relying on thread scheduling alone cannot guarantee that two statements read the exact same table snapshot
+ * before either commits. This test installs {@link TestingGateFunctions.TestingGatePlugin} and appends
+ * {@code AND await_gate('<gate_name>')} to background {@code UPDATE} statements so that:
+ * <ol>
+ *   <li>Each background {@code UPDATE} starts a transaction, pins the current Iceberg snapshot, begins scanning rows,
+ *       and blocks inside {@code await_gate} upon evaluating the matching row.</li>
+ *   <li>The main test thread calls {@link TestingGateFunctions.Gate#awaitArrival} to confirm all background writers
+ *       have pinned the initial snapshot and are paused mid-execution.</li>
+ *   <li>While the background writers are held at their gates, the main thread executes an ungated {@code UPDATE}
+ *       or {@code MERGE} that reads the same snapshot and commits first, producing new delete files and advancing
+ *       the table snapshot.</li>
+ *   <li>The main thread releases the gates via {@link TestingGateFunctions.Gate#release()}, allowing the paused
+ *       background writers to finish execution and attempt to commit against the now-stale snapshot, which deterministically
+ *       triggers an {@code ICEBERG_COMMIT_CONFLICT} and exercises Presto's automatic query retry mechanism.</li>
+ *   <li>When Presto retries the failed queries, their gates are already in the released state, so {@code await_gate}
+ *       returns {@code true} immediately without blocking again.</li>
+ * </ol>
  */
 public class TestIcebergConcurrentUpdates
         extends AbstractTestQueryFramework
@@ -53,6 +76,10 @@ public class TestIcebergConcurrentUpdates
 
     private ExecutorService executor;
 
+    /**
+     * Creates a distributed Iceberg query runner with {@link TestingGateFunctions.TestingGatePlugin} installed
+     * so that tests can invoke the {@code await_gate(VARCHAR)} SQL function to coordinate concurrent queries.
+     */
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -78,6 +105,14 @@ public class TestIcebergConcurrentUpdates
         executor = null;
     }
 
+    /**
+     * Verifies that when multiple concurrent {@code UPDATE} statements read the same Iceberg table snapshot,
+     * the statements that lose the commit race are automatically retried by Presto until all updates succeed.
+     * <p>
+     * In each round, {@code WRITERS - 1} background {@code UPDATE} queries are paused mid-execution using
+     * {@link TestingGateFunctions} after pinning the current snapshot, while one ungated {@code UPDATE} commits
+     * a new snapshot. Releasing the gates forces every gated {@code UPDATE} to encounter a commit conflict and retry.
+     */
     @Test
     public void testConcurrentUpdatesAreRetried()
             throws Exception
@@ -153,6 +188,14 @@ public class TestIcebergConcurrentUpdates
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    /**
+     * Verifies that an {@code UPDATE} statement conflicting with a concurrent {@code MERGE} statement over the same
+     * Iceberg snapshot is automatically retried and both statements' changes are preserved.
+     * <p>
+     * Uses {@link TestingGateFunctions} to hold the {@code UPDATE} in-flight after it pins the initial table snapshot,
+     * executes the {@code MERGE} to completion so it commits a new snapshot with delete files, and then releases the gate
+     * so the {@code UPDATE} hits a commit conflict and retries against the post-{@code MERGE} snapshot.
+     */
     @Test
     public void testConcurrentUpdateAndMergeAreRetried()
             throws Exception
@@ -223,6 +266,10 @@ public class TestIcebergConcurrentUpdates
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    /**
+     * Counts how many queries recorded by the coordinator's {@code QueryManager} were retry attempts
+     * matching the given SQL regular expression pattern.
+     */
     private long countRetriedQueries(String queryPattern)
     {
         Pattern retryPattern = Pattern.compile("-- retry query.*?; attempt:.*?" + queryPattern, Pattern.DOTALL);
@@ -231,6 +278,11 @@ public class TestIcebergConcurrentUpdates
                 .count();
     }
 
+    /**
+     * Verifies that when an {@code UPDATE} runs inside an explicit multi-statement transaction ({@code START TRANSACTION} ...
+     * {@code COMMIT}) and conflicts with another concurrent {@code UPDATE}, the conflict is not silently retried and is
+     * surfaced to the client at {@code COMMIT} time.
+     */
     @Test
     public void testConflictingUpdateIsReportedAsRetriableError()
     {
