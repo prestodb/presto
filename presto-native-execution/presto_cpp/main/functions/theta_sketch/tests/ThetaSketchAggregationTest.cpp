@@ -47,7 +47,10 @@ class ThetaSketchAggregationTest : public AggregationTestBase {
     auto expected = makeRowVector({makeFlatVector<std::string>(
         {getExpectedResult<T>(values)}, VARBINARY())});
 
-    testAggregations({vectors}, {}, {"sketch_theta(c0)"}, {expected});
+    AggregationTester(*this)
+        .inputs(vectors)
+        .aggregates({"sketch_theta(c0)"})
+        .assertResults(expected);
   }
 
   template <typename T>
@@ -142,8 +145,11 @@ class ThetaSketchAggregationTest : public AggregationTestBase {
     auto vectors = makeRowVector({keys, values});
     auto expectedResults = getExpectedResultForGroupBy<T>(keys, values);
 
-    testAggregations(
-        {vectors}, {"c0"}, {"sketch_theta(c1)"}, {expectedResults});
+    AggregationTester(*this)
+        .inputs(vectors)
+        .groupBy({"c0"})
+        .aggregates({"sketch_theta(c1)"})
+        .assertResults(expectedResults);
   }
 
   template <typename T>
