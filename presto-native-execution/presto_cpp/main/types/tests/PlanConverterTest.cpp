@@ -13,6 +13,8 @@
  */
 #include <gtest/gtest.h>
 
+#include <functional>
+
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/tests/MutableConfigs.h"
 #include "presto_cpp/main/common/tests/test_json.h"
@@ -39,20 +41,45 @@ using namespace facebook::velox;
 
 namespace {
 
+// Edits a fragment's parsed JSON before it is converted, e.g. to set the
+// transport types the coordinator would annotate.
+using FragmentAnnotator = std::function<void(json&)>;
+
+// Optional inputs of assertToVeloxFragment() and assertToBatchVeloxQueryPlan().
+struct FragmentOptions {
+  // Pool of the converted plan. A new leaf pool is used when null.
+  memory::MemoryPool* pool{nullptr};
+  // Applied to the fragment's JSON before conversion, when set.
+  FragmentAnnotator annotate;
+  // Config of the query the fragment belongs to, e.g. session properties.
+  std::unordered_map<std::string, std::string> queryConfigs;
+};
+
+// Reads the plan fragment in 'fileName' and applies 'annotate' to it, if set.
+protocol::PlanFragment readFragment(
+    const std::string& fileName,
+    const FragmentAnnotator& annotate) {
+  json fragment = json::parse(slurp(test::utils::getDataPath(fileName)));
+  if (annotate) {
+    annotate(fragment);
+  }
+  return fragment;
+}
+
 core::PlanFragment assertToVeloxFragment(
     const std::string& fileName,
-    memory::MemoryPool* pool = nullptr) {
-  std::string fragment = slurp(test::utils::getDataPath(fileName));
-
-  protocol::PlanFragment prestoPlan = json::parse(fragment);
+    FragmentOptions options = {}) {
+  const protocol::PlanFragment prestoPlan =
+      readFragment(fileName, options.annotate);
   std::shared_ptr<memory::MemoryPool> poolPtr;
-  if (pool == nullptr) {
+  if (options.pool == nullptr) {
     poolPtr = memory::deprecatedAddDefaultLeafMemoryPool();
-    pool = poolPtr.get();
+    options.pool = poolPtr.get();
   }
 
-  auto queryCtx = core::QueryCtx::create();
-  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool);
+  auto queryCtx = core::QueryCtx::create(
+      nullptr, core::QueryConfig{std::move(options.queryConfigs)});
+  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), options.pool);
   return converter.toVeloxQueryPlan(
       prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3");
 }
@@ -60,26 +87,7 @@ core::PlanFragment assertToVeloxFragment(
 std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
     const std::string& fileName,
     memory::MemoryPool* pool = nullptr) {
-  return assertToVeloxFragment(fileName, pool).planNode;
-}
-
-json parseFragmentJson(const std::string& fileName) {
-  return json::parse(slurp(test::utils::getDataPath(fileName)));
-}
-
-// Converts an interactive plan fragment from already parsed JSON, so that a
-// test can annotate transport types on the fragment before conversion, and with
-// 'queryConfigs' as the query's config, so that it can set session properties.
-core::PlanFragment toVeloxFragment(
-    const json& fragmentJson,
-    std::unordered_map<std::string, std::string> queryConfigs = {}) {
-  const protocol::PlanFragment prestoPlan = fragmentJson;
-  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
-  auto queryCtx = core::QueryCtx::create(
-      nullptr, core::QueryConfig{std::move(queryConfigs)});
-  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
-  return converter.toVeloxQueryPlan(
-      prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3");
+  return assertToVeloxFragment(fileName, {.pool = pool}).planNode;
 }
 
 // Annotates every RemoteSourceNode found in 'node' with 'transportType', the
@@ -100,6 +108,29 @@ void annotateRemoteSources(json& node, const std::string& transportType) {
       annotateRemoteSources(element, transportType);
     }
   }
+}
+
+// Annotates the fragment's output edge with 'transportType'.
+FragmentAnnotator annotateOutput(const std::string& transportType) {
+  return [transportType](json& fragment) {
+    fragment["outputTransportType"] = transportType;
+  };
+}
+
+// Annotates every input edge of the fragment with 'transportType'.
+FragmentAnnotator annotateInputs(const std::string& transportType) {
+  return [transportType](json& fragment) {
+    annotateRemoteSources(fragment["root"], transportType);
+  };
+}
+
+// Annotates the fragment's output edge and every input edge with
+// 'transportType'.
+FragmentAnnotator annotateEdges(const std::string& transportType) {
+  return [transportType](json& fragment) {
+    annotateOutput(transportType)(fragment);
+    annotateInputs(transportType)(fragment);
+  };
 }
 
 // Returns the first ExchangeNode found in the plan rooted at 'node', or nullptr
@@ -148,43 +179,28 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
     const std::string& fileName,
     const std::string& shuffleName,
     std::shared_ptr<std::string>&& serializedShuffleWriteInfo,
-    std::shared_ptr<std::string>&& broadcastBasePath) {
-  const std::string fragment = slurp(test::utils::getDataPath(fileName));
+    std::shared_ptr<std::string>&& broadcastBasePath,
+    FragmentOptions options = {}) {
+  const protocol::PlanFragment prestoPlan =
+      readFragment(fileName, options.annotate);
+  std::shared_ptr<memory::MemoryPool> poolPtr;
+  if (options.pool == nullptr) {
+    poolPtr = memory::deprecatedAddDefaultLeafMemoryPool();
+    options.pool = poolPtr.get();
+  }
 
-  protocol::PlanFragment prestoPlan = json::parse(fragment);
-  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
-  auto queryCtx = core::QueryCtx::create();
+  auto queryCtx = core::QueryCtx::create(
+      nullptr, core::QueryConfig{std::move(options.queryConfigs)});
   VeloxBatchQueryPlanConverter converter(
       shuffleName,
       std::move(serializedShuffleWriteInfo),
       std::move(broadcastBasePath),
       queryCtx.get(),
-      pool.get());
+      options.pool);
   return converter
       .toVeloxQueryPlan(
           prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3")
       .planNode;
-}
-
-// Converts a batch plan fragment from already parsed JSON, like
-// toVeloxFragment(), so that a test can annotate transport types and set
-// session properties.
-core::PlanFragment toBatchVeloxFragment(
-    const json& fragmentJson,
-    std::shared_ptr<std::string>&& serializedShuffleWriteInfo,
-    std::unordered_map<std::string, std::string> queryConfigs = {}) {
-  const protocol::PlanFragment prestoPlan = fragmentJson;
-  auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
-  auto queryCtx = core::QueryCtx::create(
-      nullptr, core::QueryConfig{std::move(queryConfigs)});
-  VeloxBatchQueryPlanConverter converter(
-      std::string(operators::LocalPersistentShuffleFactory::kShuffleName),
-      std::move(serializedShuffleWriteInfo),
-      std::make_shared<std::string>("/tmp"),
-      queryCtx.get(),
-      pool.get());
-  return converter.toVeloxQueryPlan(
-      prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3");
 }
 
 std::shared_ptr<std::string> shuffleWriteInfo() {
@@ -253,7 +269,7 @@ TEST_F(PlanConverterTest, partitionedOutput) {
   std::shared_ptr<memory::MemoryPool> poolPtr =
       memory::deprecatedAddDefaultLeafMemoryPool();
   core::PlanFragment fragment =
-      assertToVeloxFragment("PartitionedOutput.json", poolPtr.get());
+      assertToVeloxFragment("PartitionedOutput.json", {.pool = poolPtr.get()});
   auto partitionedOutput =
       dynamic_cast<const core::PartitionedOutputNode*>(fragment.planNode.get());
 
@@ -301,12 +317,14 @@ TEST_F(PlanConverterTest, offsetLimit) {
 // A coordinator that annotates no transport at all leaves both ends of the
 // exchange edge on the default in-memory transport.
 TEST_F(PlanConverterTest, transportTypeAbsentDefaultsToInMemory) {
-  auto fragmentJson = parseFragmentJson("FinalAgg.json");
-  ASSERT_FALSE(fragmentJson.count("outputTransportType"));
-  ASSERT_FALSE(
-      fragmentJson["root"]["source"]["sources"][0].count("transportType"));
-
-  const auto fragment = toVeloxFragment(fragmentJson);
+  // Annotates nothing, only checks that the fragment carries no annotation.
+  const auto fragment = assertToVeloxFragment(
+      "FinalAgg.json", {.annotate = [](json& fragmentJson) {
+        EXPECT_FALSE(fragmentJson.count("outputTransportType"));
+        EXPECT_FALSE(
+            fragmentJson["root"]["source"]["sources"][0].count(
+                "transportType"));
+      }});
 
   const auto* partitionedOutput =
       dynamic_cast<const core::PartitionedOutputNode*>(fragment.planNode.get());
@@ -323,11 +341,8 @@ TEST_F(PlanConverterTest, transportTypeAbsentDefaultsToInMemory) {
 TEST_F(PlanConverterTest, transportTypeHttp) {
   ScopedUcxTransports ucxTransports;
 
-  auto fragmentJson = parseFragmentJson("FinalAgg.json");
-  fragmentJson["outputTransportType"] = "HTTP";
-  annotateRemoteSources(fragmentJson["root"], "HTTP");
-
-  const auto fragment = toVeloxFragment(fragmentJson);
+  const auto fragment = assertToVeloxFragment(
+      "FinalAgg.json", {.annotate = annotateEdges("HTTP")});
 
   const auto* partitionedOutput =
       dynamic_cast<const core::PartitionedOutputNode*>(fragment.planNode.get());
@@ -345,11 +360,8 @@ TEST_F(PlanConverterTest, transportTypeHttp) {
 TEST_F(PlanConverterTest, transportTypeAnyWithUcxRegistered) {
   ScopedUcxTransports ucxTransports;
 
-  auto fragmentJson = parseFragmentJson("FinalAgg.json");
-  fragmentJson["outputTransportType"] = "ANY";
-  annotateRemoteSources(fragmentJson["root"], "ANY");
-
-  const auto fragment = toVeloxFragment(fragmentJson);
+  const auto fragment = assertToVeloxFragment(
+      "FinalAgg.json", {.annotate = annotateEdges("ANY")});
 
   const auto* partitionedOutput =
       dynamic_cast<const core::PartitionedOutputNode*>(fragment.planNode.get());
@@ -365,11 +377,8 @@ TEST_F(PlanConverterTest, transportTypeAnyWithUcxRegistered) {
 // the same default resolves the other way, and the query runs over the
 // in-memory transport instead of failing.
 TEST_F(PlanConverterTest, transportTypeAnyWithoutUcxRegistered) {
-  auto fragmentJson = parseFragmentJson("FinalAgg.json");
-  fragmentJson["outputTransportType"] = "ANY";
-  annotateRemoteSources(fragmentJson["root"], "ANY");
-
-  const auto fragment = toVeloxFragment(fragmentJson);
+  const auto fragment = assertToVeloxFragment(
+      "FinalAgg.json", {.annotate = annotateEdges("ANY")});
 
   const auto* partitionedOutput =
       dynamic_cast<const core::PartitionedOutputNode*>(fragment.planNode.get());
@@ -386,12 +395,11 @@ TEST_F(PlanConverterTest, transportTypeAnyWithoutUcxRegistered) {
 TEST_F(PlanConverterTest, transportTypeAnyDisabledBySessionProperty) {
   ScopedUcxTransports ucxTransports;
 
-  auto fragmentJson = parseFragmentJson("FinalAgg.json");
-  fragmentJson["outputTransportType"] = "ANY";
-  annotateRemoteSources(fragmentJson["root"], "ANY");
-
-  const auto fragment = toVeloxFragment(
-      fragmentJson, {{SessionProperties::kCudfExchangeEnabledConfig, "false"}});
+  const auto fragment = assertToVeloxFragment(
+      "FinalAgg.json",
+      {.annotate = annotateEdges("ANY"),
+       .queryConfigs = {
+           {SessionProperties::kCudfExchangeEnabledConfig, "false"}}});
 
   const auto* partitionedOutput =
       dynamic_cast<const core::PartitionedOutputNode*>(fragment.planNode.get());
@@ -408,14 +416,12 @@ TEST_F(PlanConverterTest, transportTypeAnyDisabledBySessionProperty) {
 // asking for UCX and getting HTTP performance without being told is worse than
 // a failure that names the switch.
 TEST_F(PlanConverterTest, transportTypeAnyEnabledWithoutUcxFails) {
-  auto fragmentJson = parseFragmentJson("FinalAgg.json");
-  fragmentJson["outputTransportType"] = "ANY";
-  annotateRemoteSources(fragmentJson["root"], "ANY");
-
   VELOX_ASSERT_USER_THROW(
-      toVeloxFragment(
-          fragmentJson,
-          {{SessionProperties::kCudfExchangeEnabledConfig, "true"}}),
+      assertToVeloxFragment(
+          "FinalAgg.json",
+          {.annotate = annotateEdges("ANY"),
+           .queryConfigs =
+               {{SessionProperties::kCudfExchangeEnabledConfig, "true"}}}),
       "the cuDF UCX exchange is disabled on this worker");
 }
 
@@ -423,12 +429,11 @@ TEST_F(PlanConverterTest, transportTypeAnyEnabledWithoutUcxFails) {
 TEST_F(PlanConverterTest, transportTypeAnyEnabledWithUcxRegistered) {
   ScopedUcxTransports ucxTransports;
 
-  auto fragmentJson = parseFragmentJson("FinalAgg.json");
-  fragmentJson["outputTransportType"] = "ANY";
-  annotateRemoteSources(fragmentJson["root"], "ANY");
-
-  const auto fragment = toVeloxFragment(
-      fragmentJson, {{SessionProperties::kCudfExchangeEnabledConfig, "true"}});
+  const auto fragment = assertToVeloxFragment(
+      "FinalAgg.json",
+      {.annotate = annotateEdges("ANY"),
+       .queryConfigs = {
+           {SessionProperties::kCudfExchangeEnabledConfig, "true"}}});
 
   const auto* partitionedOutput =
       dynamic_cast<const core::PartitionedOutputNode*>(fragment.planNode.get());
@@ -447,11 +452,8 @@ TEST_F(PlanConverterTest, transportTypeAnyEnabledWithUcxRegistered) {
 TEST_F(PlanConverterTest, transportTypeMergeExchange) {
   ScopedUcxTransports ucxTransports;
 
-  auto fragmentJson = parseFragmentJson("OffsetLimit.json");
-  fragmentJson["outputTransportType"] = "ANY";
-  annotateRemoteSources(fragmentJson["root"], "ANY");
-
-  const auto fragment = toVeloxFragment(fragmentJson);
+  const auto fragment = assertToVeloxFragment(
+      "OffsetLimit.json", {.annotate = annotateEdges("ANY")});
 
   const auto* partitionedOutput =
       dynamic_cast<const core::PartitionedOutputNode*>(fragment.planNode.get());
@@ -473,18 +475,16 @@ TEST_F(PlanConverterTest, transportTypeEdgeAgreement) {
   ScopedUcxTransports ucxTransports;
 
   // Producer fragment of the edge.
-  auto producerJson = parseFragmentJson("ScanAgg.json");
-  producerJson["outputTransportType"] = "ANY";
-  const auto producerFragment = toVeloxFragment(producerJson);
+  const auto producerFragment = assertToVeloxFragment(
+      "ScanAgg.json", {.annotate = annotateOutput("ANY")});
   const auto* partitionedOutput =
       dynamic_cast<const core::PartitionedOutputNode*>(
           producerFragment.planNode.get());
   ASSERT_NE(partitionedOutput, nullptr);
 
   // Consumer fragment of the same edge, annotated with the same value.
-  auto consumerJson = parseFragmentJson("FinalAgg.json");
-  annotateRemoteSources(consumerJson["root"], "ANY");
-  const auto consumerFragment = toVeloxFragment(consumerJson);
+  const auto consumerFragment = assertToVeloxFragment(
+      "FinalAgg.json", {.annotate = annotateInputs("ANY")});
   const auto* exchange = findExchangeNode(consumerFragment.planNode);
   ASSERT_NE(exchange, nullptr);
 
@@ -494,12 +494,16 @@ TEST_F(PlanConverterTest, transportTypeEdgeAgreement) {
   // The same edge with the query opted out agrees on the in-memory transport.
   const std::unordered_map<std::string, std::string> disabled{
       {SessionProperties::kCudfExchangeEnabledConfig, "false"}};
-  const auto disabledProducer = toVeloxFragment(producerJson, disabled);
+  const auto disabledProducer = assertToVeloxFragment(
+      "ScanAgg.json",
+      {.annotate = annotateOutput("ANY"), .queryConfigs = disabled});
   const auto* disabledPartitionedOutput =
       dynamic_cast<const core::PartitionedOutputNode*>(
           disabledProducer.planNode.get());
   ASSERT_NE(disabledPartitionedOutput, nullptr);
-  const auto disabledConsumer = toVeloxFragment(consumerJson, disabled);
+  const auto disabledConsumer = assertToVeloxFragment(
+      "FinalAgg.json",
+      {.annotate = annotateInputs("ANY"), .queryConfigs = disabled});
   const auto* disabledExchange = findExchangeNode(disabledConsumer.planNode);
   ASSERT_NE(disabledExchange, nullptr);
 
@@ -637,18 +641,22 @@ TEST_F(PlanConverterTest, batchPlanConversionExchangeWrite) {
 // fail a batch shuffle or broadcast.
 TEST_F(PlanConverterTest, batchTransportIgnoresCudfExchangeEnabled) {
   filesystems::registerLocalFileSystem();
-  for (const auto* function : {"HASH", "BROADCAST"}) {
+  for (const std::string function : {"HASH", "BROADCAST"}) {
     SCOPED_TRACE(function);
-    auto fragmentJson = parseFragmentJson("ScanAggBatch.json");
-    fragmentJson["outputTransportType"] = "ANY";
-    fragmentJson["partitioningScheme"]["partitioning"]["handle"]
-                ["connectorHandle"]["function"] = function;
-
-    const auto fragment = toBatchVeloxFragment(
-        fragmentJson,
+    const auto root = assertToBatchVeloxQueryPlan(
+        "ScanAggBatch.json",
+        std::string(operators::LocalPersistentShuffleFactory::kShuffleName),
         shuffleWriteInfo(),
-        {{SessionProperties::kCudfExchangeEnabledConfig, "true"}});
-    ASSERT_NE(fragment.planNode, nullptr);
+        std::make_shared<std::string>("/tmp"),
+        {.annotate =
+             [function](json& fragment) {
+               annotateOutput("ANY")(fragment);
+               fragment["partitioningScheme"]["partitioning"]["handle"]
+                       ["connectorHandle"]["function"] = function;
+             },
+         .queryConfigs = {
+             {SessionProperties::kCudfExchangeEnabledConfig, "true"}}});
+    ASSERT_NE(root, nullptr);
   }
 }
 
@@ -658,14 +666,15 @@ TEST_F(PlanConverterTest, batchTransportIgnoresCudfExchangeEnabled) {
 TEST_F(PlanConverterTest, batchTransportStaysInMemoryWithUcxRegistered) {
   ScopedUcxTransports ucxTransports;
 
-  auto fragmentJson = parseFragmentJson("FinalAgg.json");
-  fragmentJson["outputTransportType"] = "ANY";
-  annotateRemoteSources(fragmentJson["root"], "ANY");
-
-  const auto fragment = toBatchVeloxFragment(fragmentJson, nullptr);
+  const auto root = assertToBatchVeloxQueryPlan(
+      "FinalAgg.json",
+      std::string(operators::LocalPersistentShuffleFactory::kShuffleName),
+      nullptr,
+      std::make_shared<std::string>("/tmp"),
+      {.annotate = annotateEdges("ANY")});
 
   const auto* partitionedOutput =
-      dynamic_cast<const core::PartitionedOutputNode*>(fragment.planNode.get());
+      dynamic_cast<const core::PartitionedOutputNode*>(root.get());
   ASSERT_NE(partitionedOutput, nullptr);
   ASSERT_EQ(partitionedOutput->transportKind(), core::TransportKind::kInMemory);
 }
