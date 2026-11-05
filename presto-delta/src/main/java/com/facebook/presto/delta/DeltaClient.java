@@ -63,6 +63,11 @@ public class DeltaClient
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
     }
 
+    public HdfsEnvironment getHdfsEnvironment()
+    {
+        return hdfsEnvironment;
+    }
+
     /**
      * Load the delta table.
      *
