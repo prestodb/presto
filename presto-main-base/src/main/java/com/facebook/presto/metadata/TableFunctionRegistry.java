@@ -29,12 +29,12 @@ import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.ThreadSafe;
+import jakarta.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -111,8 +111,12 @@ public class TableFunctionRegistry
     /**
      * Resolve table function with given qualified name.
      * Table functions are resolved case-insensitive for consistency with existing scalar function resolution.
+     *
+     * @return the resolved table function, or {@code null} if no table function is registered under
+     * any of the candidate names for the given session.
      */
-    public Optional<TableFunctionMetadata> resolve(Session session, QualifiedName qualifiedName)
+    @Nullable
+    public TableFunctionMetadata resolve(Session session, QualifiedName qualifiedName)
     {
         for (CatalogSchemaFunctionName name : toPath(session, qualifiedName)) {
             ConnectorId connectorId = new ConnectorId(name.getCatalogName());
@@ -122,12 +126,12 @@ public class TableFunctionRegistry
                 String lowercasedFunctionName = name.getSchemaFunctionName().getFunctionName().toLowerCase(ENGLISH);
                 TableFunctionMetadata function = catalogFunctions.get(new SchemaFunctionName(lowercasedSchemaName, lowercasedFunctionName));
                 if (function != null) {
-                    return Optional.of(function);
+                    return function;
                 }
             }
         }
 
-        return Optional.empty();
+        return null;
     }
 
     private static void validateTableFunction(ConnectorTableFunction tableFunction)
