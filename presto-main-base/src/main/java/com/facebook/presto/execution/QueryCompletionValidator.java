@@ -17,7 +17,8 @@ import com.facebook.presto.Session;
 import com.facebook.presto.sql.planner.PlanFragment;
 
 /**
- * Coordinator server modules register this hook through Guice multibinding.
+ * Coordinator server and Presto on Spark modules register this hook through
+ * Guice multibinding.
  * Implementations may be shared across queries and invoked concurrently on
  * query notification threads. They must be thread safe and avoid blocking I/O.
  */
