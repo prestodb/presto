@@ -89,50 +89,69 @@ std::string getFunctionName(const protocol::SqlFunctionId& functionId) {
                                       : functionId;
 }
 
+velox::variant variantAt(
+    const velox::BaseVector& vector,
+    velox::vector_size_t index) {
+  if (vector.isNullAt(index)) {
+    return velox::variant(vector.typeKind());
+  }
+  switch (vector.typeKind()) {
+    case TypeKind::HUGEINT:
+      return vector.as<velox::SimpleVector<velox::int128_t>>()->valueAt(index);
+    case TypeKind::BIGINT:
+      return vector.as<velox::SimpleVector<int64_t>>()->valueAt(index);
+    case TypeKind::INTEGER:
+      return vector.as<velox::SimpleVector<int32_t>>()->valueAt(index);
+    case TypeKind::SMALLINT:
+      return vector.as<velox::SimpleVector<int16_t>>()->valueAt(index);
+    case TypeKind::TINYINT:
+      return vector.as<velox::SimpleVector<int8_t>>()->valueAt(index);
+    case TypeKind::TIMESTAMP:
+      return vector.as<velox::SimpleVector<velox::Timestamp>>()->valueAt(index);
+    case TypeKind::BOOLEAN:
+      return vector.as<velox::SimpleVector<bool>>()->valueAt(index);
+    case TypeKind::DOUBLE:
+      return vector.as<velox::SimpleVector<double>>()->valueAt(index);
+    case TypeKind::REAL:
+      return vector.as<velox::SimpleVector<float>>()->valueAt(index);
+    case TypeKind::VARCHAR:
+      return velox::variant(
+          vector.as<velox::SimpleVector<velox::StringView>>()->valueAt(index));
+    case TypeKind::VARBINARY:
+      return velox::variant::binary(std::string(
+          vector.as<velox::SimpleVector<velox::StringView>>()->valueAt(index)));
+    case TypeKind::ARRAY: {
+      auto arrayVector = vector.as<velox::ArrayVector>();
+      const auto offset = arrayVector->offsetAt(index);
+      const auto size = arrayVector->sizeAt(index);
+      std::vector<velox::variant> elements;
+      elements.reserve(size);
+      for (auto i = 0; i < size; ++i) {
+        elements.push_back(variantAt(*arrayVector->elements(), offset + i));
+      }
+      return velox::variant::array(std::move(elements));
+    }
+    default:
+      VELOX_UNSUPPORTED("Unexpected Block type: {}", vector.typeKind());
+  }
+}
+
 } // namespace
 
 velox::variant VeloxExprConverter::getConstantValue(
     const velox::TypePtr& type,
     const protocol::Block& block) const {
   auto valueVector = protocol::readBlock(type, block.data, pool_);
+  return variantAt(*valueVector, 0);
+}
 
-  auto typeKind = type->kind();
-  if (valueVector->isNullAt(0)) {
-    return velox::variant(typeKind);
-  }
-
-  switch (typeKind) {
-    case TypeKind::HUGEINT:
-      return valueVector->as<velox::SimpleVector<velox::int128_t>>()->valueAt(
-          0);
-    case TypeKind::BIGINT:
-      return valueVector->as<velox::SimpleVector<int64_t>>()->valueAt(0);
-    case TypeKind::INTEGER:
-      return valueVector->as<velox::SimpleVector<int32_t>>()->valueAt(0);
-    case TypeKind::SMALLINT:
-      return valueVector->as<velox::SimpleVector<int16_t>>()->valueAt(0);
-    case TypeKind::TINYINT:
-      return valueVector->as<velox::SimpleVector<int8_t>>()->valueAt(0);
-    case TypeKind::TIMESTAMP:
-      return valueVector->as<velox::SimpleVector<velox::Timestamp>>()->valueAt(
-          0);
-    case TypeKind::BOOLEAN:
-      return valueVector->as<velox::SimpleVector<bool>>()->valueAt(0);
-    case TypeKind::DOUBLE:
-      return valueVector->as<velox::SimpleVector<double>>()->valueAt(0);
-    case TypeKind::REAL:
-      return valueVector->as<velox::SimpleVector<float>>()->valueAt(0);
-    case TypeKind::VARCHAR:
-      return velox::variant(
-          valueVector->as<velox::SimpleVector<velox::StringView>>()->valueAt(
-              0));
-    case TypeKind::VARBINARY:
-      return velox::variant::binary(
-          std::string(valueVector->as<velox::SimpleVector<velox::StringView>>()
-                          ->valueAt(0)));
-    default:
-      VELOX_UNSUPPORTED("Unexpected Block type: {}", typeKind);
-  }
+std::shared_ptr<const ConstantTypedExpr>
+VeloxExprConverter::toConstantExpr(
+    const velox::TypePtr& type,
+    const protocol::Block& block) const {
+  auto valueVector = protocol::readBlock(type, block.data, pool_);
+  return std::make_shared<ConstantTypedExpr>(
+      velox::BaseVector::wrapInConstant(1, 0, std::move(valueVector)));
 }
 
 std::vector<TypedExprPtr> VeloxExprConverter::toVeloxExpr(

@@ -60,6 +60,11 @@ class VeloxQueryPlanConverterBase {
 
   virtual velox::connector::CommitStrategy getCommitStrategy() const = 0;
 
+  velox::core::TypedExprPtr domainToFilterExpr(
+      const protocol::Domain& domain,
+      const std::string& columnName,
+      const velox::TypePtr& type);
+
   velox::core::PlanNodePtr toVeloxQueryPlan(
       const std::shared_ptr<const protocol::OutputNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
