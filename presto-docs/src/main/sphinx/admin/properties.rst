@@ -1182,6 +1182,19 @@ join and thereby produces more optimal plans.
 Extract expressions which have constant value from filter and assignment expressions, and replace the expressions with
 constant value.
 
+``optimizer.evaluate-filter-on-values``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, evaluates a deterministic filter against each row of a constant
+``VALUES`` input and removes the rows for which the filter is false or null.
+When every row is removed, the empty input lets the optimizer simplify the
+joins, aggregations, and unions above it.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`evaluate_filter_on_values\`\``.
+
 ``optimizer.simplify-aggregations-over-constant``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
