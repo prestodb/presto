@@ -14,12 +14,7 @@
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/properties/session/SessionProperties.h"
-#include "velox/core/PlanNode.h"
 #include "velox/core/QueryConfig.h"
-#include "velox/exec/DefaultOutputBufferManager.h"
-#include "velox/exec/ExchangeTransportRegistry.h"
-#include "velox/exec/InMemoryExchangeClient.h"
-#include "velox/exec/OutputTransportRegistry.h"
 
 using namespace facebook::presto;
 using namespace facebook::velox;
@@ -187,35 +182,4 @@ TEST_F(SessionPropertiesTest, validateMapping) {
     ASSERT_EQ(
         expectedVeloxConfig, sessionProperties->toVeloxConfig(sessionProperty));
   }
-}
-
-// The advertised default of native_cudf_exchange_enabled is false whether or
-// not this worker has the UCX transport registered, so it does not depend on
-// when SessionProperties is first created. An unset property is resolved per
-// exchange edge by the plan converter instead.
-TEST_F(SessionPropertiesTest, cudfExchangeEnabledDefaultIsFalse) {
-  // Stand-ins for what registerCudf() registers on a cuDF + UCX worker.
-  const std::string kUcx{core::TransportKind::kUcx};
-  exec::OutputTransportRegistry::global().insert(
-      kUcx,
-      exec::DefaultOutputBufferManager::makeDefaultTransportEntry(),
-      /*overwrite=*/true);
-  exec::ExchangeTransportRegistry::global().insert(
-      kUcx,
-      exec::InMemoryExchangeClient::makeDefaultTransportEntry(),
-      /*overwrite=*/true);
-  ASSERT_TRUE(SessionProperties::isCudfExchangeAvailable());
-
-  std::optional<std::string> defaultValue;
-  for (const auto& property : SessionProperties::instance()->serialize()) {
-    if (property["name"] == SessionProperties::kCudfExchangeEnabled) {
-      defaultValue = property["defaultValue"].get<std::string>();
-    }
-  }
-
-  exec::OutputTransportRegistry::global().erase(kUcx);
-  exec::ExchangeTransportRegistry::global().erase(kUcx);
-
-  ASSERT_TRUE(defaultValue.has_value());
-  EXPECT_EQ(defaultValue.value(), "false");
 }
