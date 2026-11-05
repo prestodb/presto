@@ -519,12 +519,14 @@ public final class VarbinaryFunctions
         return slice.slice(indexStart, indexEnd - indexStart);
     }
 
+    public static final int MAX_PAD_LENGTH = 1_048_576;
+
     private static Slice pad(Slice inputSlice, long targetLength, Slice padSlice, int paddingOffset)
     {
         checkCondition(
-                0 <= targetLength && targetLength <= Integer.MAX_VALUE,
+                0 <= targetLength && targetLength <= MAX_PAD_LENGTH,
                 INVALID_FUNCTION_ARGUMENT,
-                "Target length must be in the range [0.." + Integer.MAX_VALUE + "]");
+                "Target length must be in the range [0.." + MAX_PAD_LENGTH + "]");
         checkCondition(padSlice.length() > 0, INVALID_FUNCTION_ARGUMENT, "Padding bytes must not be empty");
 
         int inputLength = inputSlice.length();
