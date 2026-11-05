@@ -339,6 +339,7 @@ public class FeaturesConfig
     private boolean useHistograms;
 
     private boolean isInlineProjectionsOnValuesEnabled;
+    private boolean evaluateFilterOnValues;
     private boolean includeValuesNodeInConnectorOptimizer = true;
 
     private boolean eagerPlanValidationEnabled;
@@ -3521,6 +3522,19 @@ public class FeaturesConfig
     public FeaturesConfig setInlineProjectionsOnValues(boolean isInlineProjectionsOnValuesEnabled)
     {
         this.isInlineProjectionsOnValuesEnabled = isInlineProjectionsOnValuesEnabled;
+        return this;
+    }
+
+    public boolean isEvaluateFilterOnValues()
+    {
+        return evaluateFilterOnValues;
+    }
+
+    @Config("optimizer.evaluate-filter-on-values")
+    @ConfigDescription("Evaluate deterministic filters on each row of a values input and remove the rows that do not pass")
+    public FeaturesConfig setEvaluateFilterOnValues(boolean evaluateFilterOnValues)
+    {
+        this.evaluateFilterOnValues = evaluateFilterOnValues;
         return this;
     }
 

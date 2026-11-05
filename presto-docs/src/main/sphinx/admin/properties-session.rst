@@ -789,6 +789,19 @@ while aggregate runtime statistics continue to be recorded.
 The corresponding configuration property is
 :ref:`admin/properties:\`\`query.runtime-stats-tracing.max-events\`\``.
 
+``evaluate_filter_on_values``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, evaluates a deterministic filter against each row of a constant
+``VALUES`` input and removes the rows for which the filter is false or null.
+When every row is removed, the empty input lets the optimizer simplify the
+joins, aggregations, and unions above it.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.evaluate-filter-on-values\`\``.
+
 ``simplify_aggregations_over_constant``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
