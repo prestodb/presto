@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.RuntimeStats;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Storage;
@@ -43,6 +44,7 @@ import java.util.zip.ZipInputStream;
 
 import static com.facebook.presto.hive.BucketFunctionType.HIVE_COMPATIBLE;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
+import static com.facebook.presto.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static com.facebook.presto.hive.HiveTestUtils.SESSION;
 import static com.facebook.presto.hive.HiveTestUtils.TEST_CLIENT_TAGS;
 import static com.facebook.presto.hive.HiveTestUtils.getAllSessionProperties;
@@ -168,7 +170,7 @@ public class TestHudiDirectoryLister
                                     .setHudiTablesUseMergedView(mockTable.getSchemaTableName().toString()),
                             new HiveCommonClientConfig()),
                     TEST_CLIENT_TAGS);
-            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, session, mockTable);
+            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, session, mockTable, TupleDomain.all(), HDFS_ENVIRONMENT);
             HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
             assertEquals(metaClient.getBasePath().toString(), mockTable.getStorage().getLocation());
             Path path = new Path(mockTable.getStorage().getLocation());
@@ -207,7 +209,7 @@ public class TestHudiDirectoryLister
                                     .setHudiMetadataEnabled(true),
                             new HiveCommonClientConfig()),
                     TEST_CLIENT_TAGS);
-            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, session, mockTable);
+            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, session, mockTable, TupleDomain.all(), HDFS_ENVIRONMENT);
             HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
             assertEquals(metaClient.getBasePath().toString(), mockTable.getStorage().getLocation());
             Path path = new Path(mockTable.getStorage().getLocation(), "p1");
@@ -251,7 +253,7 @@ public class TestHudiDirectoryLister
         Table mockTable = getMockTable();
         Configuration hadoopConf = getHadoopConfWithCopyOnFirstWriteDisabled();
         try {
-            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, SESSION, mockTable);
+            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, SESSION, mockTable, TupleDomain.all(), HDFS_ENVIRONMENT);
             HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
             assertEquals(metaClient.getBasePath().toString(), mockTable.getStorage().getLocation());
             Path path = new Path(mockTable.getStorage().getLocation());
@@ -279,7 +281,7 @@ public class TestHudiDirectoryLister
         Table mockTable = getMockTable();
         Configuration hadoopConf = getHadoopConfWithCopyOnFirstWriteEnabled();
         try {
-            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, SESSION, mockTable);
+            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, SESSION, mockTable, TupleDomain.all(), HDFS_ENVIRONMENT);
             HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
             assertEquals(metaClient.getBasePath().toString(), mockTable.getStorage().getLocation());
             Path path = new Path(mockTable.getStorage().getLocation());
@@ -326,7 +328,7 @@ public class TestHudiDirectoryLister
                 Optional.empty(),
                 Optional.empty());
 
-        assertThrows(TableNotFoundException.class, () -> new HudiDirectoryLister(getHadoopConfWithCopyOnFirstWriteDisabled(), SESSION, mockTable));
+        assertThrows(TableNotFoundException.class, () -> new HudiDirectoryLister(getHadoopConfWithCopyOnFirstWriteDisabled(), SESSION, mockTable, TupleDomain.all(), HDFS_ENVIRONMENT));
     }
 
     @Test
@@ -361,7 +363,7 @@ public class TestHudiDirectoryLister
             String tableLocation = "file://" + tempDir.resolve("hudi-data-1x/stock_ticks_cown").toAbsolutePath();
             Table mockTable = getMockTable("stock_ticks_cown_1x", tableLocation);
             Configuration hadoopConf = getHadoopConfWithCopyOnFirstWriteDisabled();
-            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, session, mockTable);
+            HudiDirectoryLister directoryLister = new HudiDirectoryLister(hadoopConf, session, mockTable, TupleDomain.all(), HDFS_ENVIRONMENT);
             HoodieTableMetaClient metaClient = directoryLister.getMetaClient();
             Path path = new Path(tableLocation);
             assertEquals(metaClient.getBasePath().toString(), path.toString());

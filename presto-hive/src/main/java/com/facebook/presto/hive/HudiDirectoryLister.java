@@ -14,11 +14,14 @@
 package com.facebook.presto.hive;
 
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration.CachingJobConf;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
 import com.facebook.presto.hive.util.HiveFileIterator;
+import com.facebook.presto.hudi.common.HudiColumnStatsPruner;
+import com.facebook.presto.hudi.common.LatestHudiColumnStatsReader;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PrestoException;
 import com.google.common.base.Splitter;
@@ -50,15 +53,21 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseParquetColumnNames;
 import static com.facebook.presto.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static com.facebook.presto.hive.HiveFileInfo.createHiveFileInfo;
 import static com.facebook.presto.hive.HiveSessionProperties.getHudiTablesUseMergedView;
+import static com.facebook.presto.hive.HiveSessionProperties.isHudiMdtDataSkippingEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isHudiMetadataEnabled;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_DEFAULT_PORT;
+import static org.apache.hudi.common.model.HoodieFileFormat.PARQUET;
+import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 import static org.apache.hudi.common.model.HoodieTableType.MERGE_ON_READ;
+import static org.apache.hudi.metadata.MetadataPartitionType.COLUMN_STATS;
 
 public class HudiDirectoryLister
         implements DirectoryLister
@@ -71,8 +80,15 @@ public class HudiDirectoryLister
     private final boolean metadataEnabled;
     private final String latestInstant;
     private final boolean shouldUseMergedView;
+    private final Optional<HudiColumnStatsPruner> pruner;
+    private final AtomicBoolean pruningDisabled = new AtomicBoolean();
 
-    public HudiDirectoryLister(Configuration conf, ConnectorSession session, Table table)
+    public HudiDirectoryLister(
+            Configuration conf,
+            ConnectorSession session,
+            Table table,
+            TupleDomain<String> dataColumnPredicate,
+            HdfsEnvironment hdfsEnvironment)
     {
         log.info("Using Hudi Directory Lister.");
         this.metadataEnabled = isHudiMetadataEnabled(session);
@@ -105,6 +121,21 @@ public class HudiDirectoryLister
                 .enable(metadataEnabled)
                 .build();
         this.fileSystemView = FileSystemViewManager.createInMemoryFileSystemView(engineContext, metaClient, metadataConfig);
+        // Listing can use the filesystem even when statistics come from the MDT.
+        // An absent or not-yet-built column-stat index leaves listing unchanged.
+        if (isHudiMdtDataSkippingEnabled(session) && isUseParquetColumnNames(session) &&
+                metaClient.getTableType() == COPY_ON_WRITE && metaClient.getTableConfig().getBaseFileFormat() == PARQUET &&
+                !metaClient.getTableConfig().getBootstrapBasePath().isPresent() &&
+                !table.getStorage().getBucketProperty().isPresent() &&
+                metaClient.getTableConfig().isMetadataPartitionAvailable(COLUMN_STATS)) {
+            LatestHudiColumnStatsReader reader = new LatestHudiColumnStatsReader(metaClient);
+            this.pruner = Optional.of(new HudiColumnStatsPruner(dataColumnPredicate,
+                    (files, columns) -> hdfsEnvironment.doAs(session.getUser(), () -> reader.readColumnStats(files, columns))))
+                    .filter(HudiColumnStatsPruner::isUseful);
+        }
+        else {
+            this.pruner = Optional.empty();
+        }
     }
 
     public HoodieTableMetaClient getMetaClient()
@@ -122,7 +153,7 @@ public class HudiDirectoryLister
             HiveDirectoryContext hiveDirectoryContext)
     {
         log.debug("Listing path using Hudi directory lister: %s", path.toString());
-        return new HiveFileIterator(
+        Iterator<HiveFileInfo> files = new HiveFileIterator(
                 path,
                 p -> new HudiFileInfoIterator(
                         fileSystemView,
@@ -135,6 +166,13 @@ public class HudiDirectoryLister
                 namenodeStats,
                 hiveDirectoryContext.getNestedDirectoryPolicy(),
                 hiveDirectoryContext.isSkipEmptyFilesEnabled());
+        // A mixed-format partition must continue through its original listing path.
+        boolean eligiblePartition = !partition.isPresent() ||
+                (partition.get().getStorage().getStorageFormat().equals(table.getStorage().getStorageFormat()) &&
+                        !partition.get().getStorage().getBucketProperty().isPresent());
+        return pruner.isPresent() && eligiblePartition
+                ? new HudiPruningIterator(files, pruner.get(), table.getStorage().getLocation(), pruningDisabled, hiveDirectoryContext.getRuntimeStats())
+                : files;
     }
 
     public static class HudiFileInfoIterator

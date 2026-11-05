@@ -145,6 +145,7 @@
         <module>presto-hive</module>
         <module>presto-hdfs-core</module>
         <module>presto-hive-common</module>
+        <module>presto-hudi-common</module>
         <module>presto-hive-hadoop2</module>
         <module>presto-hive-metastore</module>
         <module>presto-iceberg</module>
@@ -453,6 +454,12 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-hive-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-hudi-common</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

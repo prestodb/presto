@@ -17,6 +17,7 @@ import com.facebook.airlift.stats.CounterStat;
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType;
 import com.facebook.presto.hive.HiveBucketing.HiveBucketFilter;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
@@ -529,6 +530,7 @@ public class TestBackgroundHiveSplitLoader
                 table,
                 hivePartitionMetadatas,
                 constraints,
+                TupleDomain.all(),
                 createBucketSplitInfo(bucketHandle, hiveBucketFilter),
                 connectorSession,
                 new TestingHdfsEnvironment(files),
@@ -564,6 +566,7 @@ public class TestBackgroundHiveSplitLoader
                 SIMPLE_TABLE,
                 samplePartitionMetadatas(),
                 ImmutableMap.of(),
+                TupleDomain.all(),
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,
                 new TestingHdfsEnvironment(files),
@@ -586,6 +589,7 @@ public class TestBackgroundHiveSplitLoader
                 SIMPLE_TABLE,
                 createPartitionMetadataWithOfflinePartitions(),
                 ImmutableMap.of(),
+                TupleDomain.all(),
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,
                 new TestingHdfsEnvironment(TEST_FILES),

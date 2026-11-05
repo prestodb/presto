@@ -290,6 +290,50 @@ Property Name                                            Description            
                                                          Not supported by native execution.
 ======================================================== ============================================================ ============
 
+Hudi Copy-on-Write Data Skipping
+--------------------------------
+
+The Hive connector can prune Hudi copy-on-write (COW) Parquet files using column
+statistics from an existing Hudi metadata table (MDT). Pruning runs on the
+coordinator before split creation, so it does not change workers, split formats,
+or data readers. Enable it with:
+
+.. code-block:: none
+
+    hive.parquet.use-column-names=true
+    hive.hudi-mdt-data-skipping-enabled=true
+
+``hive.hudi-mdt-data-skipping-enabled`` defaults to ``false``. The corresponding
+session property is ``hudi_mdt_data_skipping_enabled``.
+
+``hive.hudi-metadata-enabled`` independently controls file listing. With
+``false``, files are listed from storage while MDT statistics are still used for
+pruning. With ``true``, listing also uses the MDT when available.
+
+Indexes are optional. If a table has no MDT or no completed ``column_stats``
+metadata partition, the scan proceeds without statistics lookups. Missing or
+unusable statistics for a file or column cannot exclude that file, although
+another indexed column may still rule it out. Row filters still apply to
+retained files.
+
+The initial implementation supports top-level ``BOOLEAN``, ``INTEGER`` and
+``BIGINT`` columns whose Hudi schema types match the query types without
+coercion. Merge-on-read, bootstrap and bucketed tables, mixed-format partitions,
+and positional Parquet reads are excluded. Statistics are read in batches of at
+most 128 files. A recoverable MDT lookup failure disables pruning for the rest
+of the scan; authorization failures and cancellation still propagate.
+
+.. warning::
+
+    This version reads the latest MDT state independently of the file-listing
+    snapshot. It does not guarantee snapshot-matched statistics under concurrent
+    commits.
+
+The following runtime metrics are recorded: ``hudiDataSkippingCandidateFiles``,
+``hudiDataSkippingCandidateBytes``, ``hudiDataSkippingSkippedFiles``,
+``hudiDataSkippingSkippedBytes``, ``hudiDataSkippingLookupTime`` and
+``hudiDataSkippingFallbacks``.
+
 Avro Configuration Properties
 -----------------------------
 
