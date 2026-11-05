@@ -3450,8 +3450,6 @@ Writing any other value is an error, because the value cannot be stored.
   view's query (for instance, ``SELECT id, CAST(NULL AS INTEGER) AS x FROM t``).
 * Promoting an ``unknown`` column to a concrete type, such as ``ALTER TABLE ... ALTER COLUMN ... SET DATA TYPE``,
   is not yet supported in Presto, though the Iceberg spec allows it.
-* This feature is currently supported in the Java (JVM) connector only.  The Presto C++ (Velox-based)
-  worker cannot currently create or write tables with ``unknown`` columns.
 * **Note:** tables that contain an ``unknown`` column cannot be read by Presto versions
   that predate rollback.  Drop any ``unknown`` columns before rolling back a cluster.
   Rolling back while any ``unknown``-column table exists causes ``information_schema.columns``
