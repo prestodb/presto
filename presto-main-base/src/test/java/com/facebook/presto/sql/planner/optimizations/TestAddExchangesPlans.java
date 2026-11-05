@@ -146,6 +146,20 @@ public class TestAddExchangesPlans
                                                         tableScan("region", ImmutableMap.of("regionkey", "regionkey"))))))));
     }
 
+    @Test
+    public void testUnionWithUntranslatablePreferredPartitioning()
+    {
+        Session session = Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(SIMPLIFY_PLAN_WITH_EMPTY_INPUT, "true")
+                .build();
+        String sql = "SELECT (SELECT orders.orderkey " +
+                "FROM orders JOIN (SELECT nationkey FROM nation WHERE false) empty_relation ON true " +
+                "WHERE orders.orderkey = outer_relation.key) " +
+                "FROM (SELECT nationkey AS key FROM nation UNION ALL SELECT regionkey AS key FROM region) outer_relation";
+
+        assertPlanValidatorWithSession(sql, session, false, ignored -> {});
+    }
+
     private void assertPlanWithMergePartitionStrategy(
             String sql,
             String partitionMergingStrategy,
