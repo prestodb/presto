@@ -800,4 +800,89 @@ public class TestUnpartitionedWrite
             assertUpdate(String.format("DROP TABLE IF EXISTS %s", tableName));
         }
     }
+
+    @Test
+    public void testDecimalTypeCastingOnInsert()
+    {
+        String sourceTable = "decimal_source";
+        String targetTable = "decimal_target";
+
+        try {
+            assertUpdate(String.format("CREATE TABLE %s (" +
+                    "id INTEGER, " +
+                    "short_decimal DECIMAL(10, 2), " +
+                    "long_decimal DECIMAL(30, 10)" +
+                    ") WITH (format = 'PARQUET')", sourceTable));
+
+            assertUpdate(String.format("INSERT INTO %s VALUES " +
+                    "(1, DECIMAL '12345.67', DECIMAL '12345678901234567890.1234567890'), " +
+                    "(2, DECIMAL '999.99', DECIMAL '999999999999999999.9999999999'), " +
+                    "(3, DECIMAL '-123.45', DECIMAL '-123456789012345.123456')", sourceTable), 3);
+
+            assertUpdate(String.format("CREATE TABLE %s (" +
+                    "id INTEGER, " +
+                    "short_decimal DECIMAL(15, 2), " +
+                    "long_decimal DECIMAL(38, 10)" +
+                    ") WITH (format = 'PARQUET')", targetTable));
+
+            assertUpdate(String.format("INSERT INTO %s SELECT * FROM %s", targetTable, sourceTable), 3);
+
+            assertQuery(String.format("SELECT COUNT(*) FROM %s", targetTable), "VALUES (BIGINT '3')");
+            assertQuery(String.format("SELECT id, short_decimal, long_decimal FROM %s WHERE id = 1", targetTable),
+                    "VALUES (1, CAST('12345.67' AS DECIMAL(15,2)), CAST('12345678901234567890.1234567890' AS DECIMAL(38,10)))");
+            assertQuery(String.format("SELECT id, short_decimal, long_decimal FROM %s WHERE id = 2", targetTable),
+                    "VALUES (2, CAST('999.99' AS DECIMAL(15,2)), CAST('999999999999999999.9999999999' AS DECIMAL(38,10)))");
+            assertQuery(String.format("SELECT id, short_decimal FROM %s WHERE id = 3", targetTable),
+                    "VALUES (3, CAST('-123.45' AS DECIMAL(15,2)))");
+
+            // Test direct INSERT with literal values that need casting
+            assertUpdate(String.format("INSERT INTO %s VALUES " +
+                    "(4, DECIMAL '1.23', DECIMAL '1.2345678901')", targetTable), 1);
+            assertQuery(String.format("SELECT short_decimal, long_decimal FROM %s WHERE id = 4", targetTable),
+                    "VALUES (CAST('1.23' AS DECIMAL(15,2)), CAST('1.2345678901' AS DECIMAL(38,10)))");
+        }
+        finally {
+            assertUpdate(String.format("DROP TABLE IF EXISTS %s", targetTable));
+            assertUpdate(String.format("DROP TABLE IF EXISTS %s", sourceTable));
+        }
+    }
+
+    @Test
+    public void testInsertWithDuplicateExpressionColumnsAndCast()
+    {
+        String sourceTable = "dup_expr_source";
+        String targetTable = "dup_expr_target";
+
+        try {
+            assertUpdate(String.format("CREATE TABLE %s (id INTEGER, amount DECIMAL(10, 2)) WITH (format = 'PARQUET')", sourceTable));
+            assertUpdate(String.format("INSERT INTO %s VALUES (1, DECIMAL '12.34'), (2, DECIMAL '56.78')", sourceTable), 2);
+
+            // The target DECIMAL is wider than the source, so the native writer adds a cast
+            // projection. The identical expressions below are deduplicated by the planner into
+            // a single symbol that feeds two target columns.
+            assertUpdate(String.format("CREATE TABLE %s (" +
+                    "id INTEGER, " +
+                    "amount DECIMAL(15, 2), " +
+                    "created_at TIMESTAMP, " +
+                    "updated_at TIMESTAMP, " +
+                    "dup_a BIGINT, " +
+                    "dup_b BIGINT" +
+                    ") WITH (format = 'PARQUET')", targetTable));
+
+            assertUpdate(String.format("INSERT INTO %s SELECT id, amount, " +
+                    "CAST(CURRENT_TIMESTAMP AS TIMESTAMP), CAST(CURRENT_TIMESTAMP AS TIMESTAMP), " +
+                    "CAST(id AS BIGINT) * 2, CAST(id AS BIGINT) * 2 FROM %s", targetTable, sourceTable), 2);
+
+            assertQuery(String.format("SELECT COUNT(*) FROM %s", targetTable), "VALUES (BIGINT '2')");
+            assertQuery(String.format("SELECT id, amount, dup_a, dup_b FROM %s ORDER BY id", targetTable),
+                    "VALUES (1, CAST('12.34' AS DECIMAL(15,2)), BIGINT '2', BIGINT '2'), " +
+                            "(2, CAST('56.78' AS DECIMAL(15,2)), BIGINT '4', BIGINT '4')");
+            assertQuery(String.format("SELECT COUNT(*) FROM %s WHERE created_at IS NULL OR updated_at IS NULL OR created_at <> updated_at", targetTable),
+                    "VALUES (BIGINT '0')");
+        }
+        finally {
+            assertUpdate(String.format("DROP TABLE IF EXISTS %s", targetTable));
+            assertUpdate(String.format("DROP TABLE IF EXISTS %s", sourceTable));
+        }
+    }
 }
