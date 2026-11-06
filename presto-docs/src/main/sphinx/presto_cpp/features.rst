@@ -295,6 +295,32 @@ The function execution endpoint is responsible for:
 For complete API details, request/response schemas, and examples, refer to the
 `OpenAPI specification <https://github.com/prestodb/presto/blob/master/presto-openapi/src/main/resources/rest_function_server.yaml>`_.
 
+Internal communication over HTTP
+--------------------------------
+
+``internal-communication.https.required``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type** ``boolean``
+* **Default value:** value of ``http-server.https.enabled``
+
+Whether the worker's requests to the coordinator, announcements and
+heartbeats, use HTTPS, and whether the task URIs the worker reports to the
+coordinator are ``https`` URIs. Setting it to ``true`` requires
+``http-server.https.enabled``. When ``false``, these use plaintext HTTP, while
+the HTTPS listener keeps serving other clients.
+
+Fetches of task output use the scheme of the location that the coordinator
+gives for the output, so a worker can fetch some output over HTTPS and some over
+plaintext. Fetching from ``https`` locations needs the client TLS context that
+the worker sets up only when this property is ``true``.
+
+The worker announces both its ``http`` and ``https`` URIs, so the coordinator
+can reach it with either setting. The value must match the coordinator's
+``internal-communication.https.required``. Nodes with different values cannot
+exchange data, so change it on every node of the cluster at the same time. See
+`Secure Internal Communication <../security/internal-communication.html>`_.
+
 JWT authentication support
 --------------------------
 
