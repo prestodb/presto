@@ -25,6 +25,23 @@ subsets of large tables.
     is set in the server configuration. The toggle option should only be used in non-production environments
     for testing and migration purposes.
 
+Materialized Views over Materialized Views
+------------------------------------------
+
+The ``materialized_view_on_materialized_view_enabled`` session property allows
+``CREATE MATERIALIZED VIEW`` to read from an existing materialized view. It is
+disabled by default.
+
+Both the source and destination catalogs must advertise support for storing the
+additional materialized-view definition metadata. Enabling the session property
+does not override a connector that does not support this capability.
+
+The OSS Hive connector does not advertise this capability because its materialized-view
+data-consistency checks do not support chained materialized views.
+
+Validation is conservative for joins: duplicate-sensitive rollups are rejected whenever
+the defining query contains a join, even when external constraints make that join one-to-one.
+
 Security Modes
 --------------
 
