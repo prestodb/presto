@@ -15,10 +15,12 @@ package com.facebook.presto.server.security.oauth2;
 
 import jakarta.ws.rs.core.Cookie;
 import jakarta.ws.rs.core.NewCookie;
+import jakarta.ws.rs.core.NewCookie.SameSite;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.Instant;
 import java.util.Date;
+import java.util.Locale;
 import java.util.Optional;
 
 import static com.facebook.presto.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
@@ -35,17 +37,16 @@ public final class NonceCookie
 
     public static NewCookie create(String nonce, Instant tokenExpiration)
     {
-        return new NewCookie(
-                NONCE_COOKIE,
-                nonce,
-                CALLBACK_ENDPOINT,
-                null,
-                DEFAULT_VERSION,
-                null,
-                DEFAULT_MAX_AGE,
-                Date.from(tokenExpiration),
-                true,
-                true);
+        return new NewCookie.Builder(NONCE_COOKIE)
+                .value(nonce)
+                .path(CALLBACK_ENDPOINT)
+                .version(DEFAULT_VERSION)
+                .maxAge(DEFAULT_MAX_AGE)
+                .expiry(Date.from(tokenExpiration))
+                .secure(true)
+                .httpOnly(true)
+                .sameSite(SameSite.LAX)
+                .build();
     }
 
     public static jakarta.servlet.http.Cookie createServletCookie(String nonce, Instant tokenExpiration)
@@ -60,6 +61,10 @@ public final class NonceCookie
         servletCookie.setMaxAge(cookie.getMaxAge());
         servletCookie.setSecure(cookie.isSecure());
         servletCookie.setHttpOnly(cookie.isHttpOnly());
+        if (cookie.getSameSite() != null) {
+            String sameSite = cookie.getSameSite().name();
+            servletCookie.setAttribute("SameSite", sameSite.charAt(0) + sameSite.substring(1).toLowerCase(Locale.ROOT));
+        }
 
         return servletCookie;
     }
@@ -73,16 +78,14 @@ public final class NonceCookie
 
     public static NewCookie delete()
     {
-        return new NewCookie(
-                NONCE_COOKIE,
-                "delete",
-                CALLBACK_ENDPOINT,
-                null,
-                DEFAULT_VERSION,
-                null,
-                0,
-                null,
-                true,
-                true);
+        return new NewCookie.Builder(NONCE_COOKIE)
+                .value("delete")
+                .path(CALLBACK_ENDPOINT)
+                .version(DEFAULT_VERSION)
+                .maxAge(0)
+                .secure(true)
+                .httpOnly(true)
+                .sameSite(SameSite.LAX)
+                .build();
     }
 }

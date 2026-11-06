@@ -14,6 +14,7 @@
 package com.facebook.presto.server.security.oauth2;
 
 import jakarta.ws.rs.core.NewCookie;
+import jakarta.ws.rs.core.NewCookie.SameSite;
 
 import java.time.Instant;
 import java.util.Date;
@@ -32,30 +33,28 @@ public final class OAuthWebUiCookie
 
     public static NewCookie create(String token, Instant tokenExpiration)
     {
-        return new NewCookie(
-                OAUTH2_COOKIE,
-                token,
-                API_PATH,
-                null,
-                DEFAULT_VERSION,
-                null,
-                DEFAULT_MAX_AGE,
-                Date.from(tokenExpiration),
-                true,
-                true);
+        return new NewCookie.Builder(OAUTH2_COOKIE)
+                .value(token)
+                .path(API_PATH)
+                .version(DEFAULT_VERSION)
+                .maxAge(DEFAULT_MAX_AGE)
+                .expiry(Date.from(tokenExpiration))
+                .secure(true)
+                .httpOnly(true)
+                .sameSite(SameSite.LAX)
+                .build();
     }
+
     public static NewCookie delete()
     {
-        return new NewCookie(
-                OAUTH2_COOKIE,
-                "delete",
-                API_PATH,
-                null,
-                DEFAULT_VERSION,
-                null,
-                0,
-                null,
-                true,
-                true);
+        return new NewCookie.Builder(OAUTH2_COOKIE)
+                .value("delete")
+                .path(API_PATH)
+                .version(DEFAULT_VERSION)
+                .maxAge(0)
+                .secure(true)
+                .httpOnly(true)
+                .sameSite(SameSite.LAX)
+                .build();
     }
 }
