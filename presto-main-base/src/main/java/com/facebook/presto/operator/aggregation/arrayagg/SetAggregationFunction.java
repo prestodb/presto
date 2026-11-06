@@ -114,10 +114,8 @@ public class SetAggregationFunction
                 GroupedAccumulator.class,
                 metadata,
                 classLoader);
-        return new
-
-                BuiltInAggregationFunctionImplementation(NAME, inputTypes, ImmutableList.of(intermediateType), outputType,
-                true, true, metadata, accumulatorClass, groupedAccumulatorClass);
+        return new BuiltInAggregationFunctionImplementation(NAME, inputTypes, ImmutableList.of(intermediateType), outputType,
+                true, true, false, metadata, accumulatorClass, groupedAccumulatorClass);
     }
 
     private static List<AggregationMetadata.ParameterMetadata> createInputParameterMetadata(Type valueType)

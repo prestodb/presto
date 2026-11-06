@@ -3,7 +3,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "row(double,bigint,double,double)",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": true
       },
       "docString": "presto.default.covar_samp",
       "functionKind": "AGGREGATE",
@@ -26,7 +27,8 @@
     {
       "aggregateMetadata": {
         "intermediateType": "row(double,bigint,double,double)",
-        "isOrderSensitive": true
+        "isOrderSensitive": true,
+        "isDistinctSensitive": true
       },
       "docString": "presto.default.covar_samp",
       "functionKind": "AGGREGATE",
