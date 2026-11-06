@@ -234,6 +234,9 @@ public class PluginManager
             metadata.registerBuiltInFunctions(extractFunctions(functionClass));
         }
 
+        metadata.getFunctionAndTypeManager().registerMaterializedViewAggregationMergeStrategies(plugin.getMaterializedViewAggregationMergeStrategies());
+        metadata.getFunctionAndTypeManager().registerMaterializedViewPartitionTransformProviders(plugin.getMaterializedViewPartitionTransformProviders());
+
         for (FunctionNamespaceManagerFactory functionNamespaceManagerFactory : plugin.getFunctionNamespaceManagerFactories()) {
             log.info("Registering function namespace manager %s", functionNamespaceManagerFactory.getName());
             metadata.getFunctionAndTypeManager().addFunctionNamespaceFactory(functionNamespaceManagerFactory);
