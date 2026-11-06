@@ -569,8 +569,8 @@ public class MySqlClient
                 while (resultSet.next()) {
                     remoteViews.add(new RemoteView(
                             new SchemaTableName(resultSet.getString("TABLE_SCHEMA"), resultSet.getString("TABLE_NAME")),
-                            // StatementAnalyzer can't parse sql with back ticks, so we replace them here
-                            resultSet.getString("VIEW_DEFINITION").replace('`', '"'),
+                            // the Presto parser does not read back-ticked identifiers
+                            MySqlViewQuery.toPrestoQuoting(resultSet.getString("VIEW_DEFINITION")),
                             extractDefinerUser(resultSet.getString("DEFINER")),
                             "INVOKER".equals(resultSet.getString("SECURITY_TYPE"))));
                 }

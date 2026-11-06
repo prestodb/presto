@@ -532,6 +532,24 @@ public class TestMySqlViews
     }
 
     @Test
+    public void testViewWithQuotesInLiteralsAndIdentifiers()
+            throws SQLException
+    {
+        // MySQL back-ticks every identifier in the definition it stores; only those quotes may be
+        // converted for Presto, not a back-tick that is part of a string value
+        String viewName = "test_view_with_quotes";
+        dropViewIfExists(viewName);
+
+        try {
+            executeOnMySql("CREATE VIEW tpch." + viewName + " AS SELECT 'a`b' AS c, orderkey AS `o\"k` FROM tpch.orders WHERE orderkey = 1");
+            assertQuery("SELECT c, \"o\"\"k\" FROM " + viewName, "VALUES ('a`b', 1)");
+        }
+        finally {
+            dropViewIfExists(viewName);
+        }
+    }
+
+    @Test
     public void testViewWithAliasAndOrderBy()
             throws SQLException
     {

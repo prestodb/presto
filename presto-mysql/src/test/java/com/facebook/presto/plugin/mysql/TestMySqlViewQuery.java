@@ -143,6 +143,33 @@ public class TestMySqlViewQuery
     }
 
     @Test
+    public void testBackTickedIdentifiersDoubleQuoted()
+    {
+        assertEquals(
+                MySqlViewQuery.toPrestoQuoting("select `o`.`orderkey` AS `orderkey` from `tpch`.`orders` `o`"),
+                "select \"o\".\"orderkey\" AS \"orderkey\" from \"tpch\".\"orders\" \"o\"");
+    }
+
+    @Test
+    public void testQuotesInsideIdentifiers()
+    {
+        // a doubled back-tick is one back-tick, and a double quote has to be doubled for Presto
+        assertEquals(MySqlViewQuery.toPrestoQuoting("select 1 AS `a``b`"), "select 1 AS \"a`b\"");
+        assertEquals(MySqlViewQuery.toPrestoQuoting("select 1 AS `a\"b`"), "select 1 AS \"a\"\"b\"");
+    }
+
+    @Test
+    public void testStringLiteralsUnchanged()
+    {
+        // quotes of either kind inside a literal are its value, including after an escaped quote
+        assertEquals(MySqlViewQuery.toPrestoQuoting("select 'a`b' AS `c`"), "select 'a`b' AS \"c\"");
+        assertEquals(MySqlViewQuery.toPrestoQuoting("select 'say \"hi\"' AS `c`"), "select 'say \"hi\"' AS \"c\"");
+        assertEquals(MySqlViewQuery.toPrestoQuoting("select 'it''s `x`' AS `c`"), "select 'it''s `x`' AS \"c\"");
+        assertEquals(MySqlViewQuery.toPrestoQuoting("select 'it\\'s `x`' AS `c`"), "select 'it\\'s `x`' AS \"c\"");
+        assertEquals(MySqlViewQuery.toPrestoQuoting("select _utf8mb4'`' AS `c`"), "select _utf8mb4'`' AS \"c\"");
+    }
+
+    @Test
     public void testTableInAnotherCatalogRejected()
     {
         assertNotSupported("SELECT orderkey FROM tpch.tiny.orders", Optional.empty());

@@ -52,6 +52,8 @@ import static java.util.stream.Collectors.joining;
  * names are touched: SqlFormatter double-quotes every function name, as in "upper"(name), which
  * MySQL reads as a string literal followed by a parenthesis rather than as a call. The rest of
  * that text is what MySQL receives either way, so it is not formatted a second time.
+ *
+ * <p>{@link #toPrestoQuoting} goes the other way, for a definition read back from MySQL.
  */
 final class MySqlViewQuery
 {
@@ -133,6 +135,70 @@ final class MySqlViewQuery
         }
 
         return new MySqlViewQuery(rewritten.toString(), hasUnqualified ? sessionSchema : Optional.empty());
+    }
+
+    /**
+     * Converts a view definition as MySQL stores it, with every identifier back-ticked, into SQL the
+     * Presto parser reads, which quotes identifiers with double quotes. Only identifier quoting
+     * changes: a back-tick or double quote inside a string literal is part of its value and is kept,
+     * a doubled back-tick inside an identifier is one back-tick, and a double quote inside an
+     * identifier is doubled. A backslash in a literal escapes the next character, as in MySQL's
+     * default SQL mode, so an escaped quote does not end the literal.
+     */
+    static String toPrestoQuoting(String mySqlDefinition)
+    {
+        StringBuilder sql = new StringBuilder(mySqlDefinition.length());
+        int length = mySqlDefinition.length();
+        int position = 0;
+        while (position < length) {
+            char current = mySqlDefinition.charAt(position);
+            if (current == '\'') {
+                int end = position + 1;
+                while (end < length) {
+                    char literal = mySqlDefinition.charAt(end);
+                    if (literal == '\\') {
+                        end += 2;
+                    }
+                    else if (literal == '\'' && end + 1 < length && mySqlDefinition.charAt(end + 1) == '\'') {
+                        end += 2;
+                    }
+                    else if (literal == '\'') {
+                        break;
+                    }
+                    else {
+                        end++;
+                    }
+                }
+                end = Math.min(end + 1, length);
+                sql.append(mySqlDefinition, position, end);
+                position = end;
+            }
+            else if (current == '`') {
+                sql.append('"');
+                position++;
+                while (position < length) {
+                    char identifier = mySqlDefinition.charAt(position);
+                    if (identifier == '`' && position + 1 < length && mySqlDefinition.charAt(position + 1) == '`') {
+                        sql.append('`');
+                        position += 2;
+                    }
+                    else if (identifier == '`') {
+                        position++;
+                        break;
+                    }
+                    else {
+                        sql.append(identifier == '"' ? "\"\"" : String.valueOf(identifier));
+                        position++;
+                    }
+                }
+                sql.append('"');
+            }
+            else {
+                sql.append(current);
+                position++;
+            }
+        }
+        return sql.toString();
     }
 
     String getSql()
