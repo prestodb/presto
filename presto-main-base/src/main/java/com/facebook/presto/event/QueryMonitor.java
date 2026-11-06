@@ -33,6 +33,8 @@ import com.facebook.presto.execution.Input;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryStats;
 import com.facebook.presto.execution.StageExecutionInfo;
+import com.facebook.presto.execution.StageExecutionTaskSummary;
+import com.facebook.presto.execution.StageExecutionTaskSummary.FailedTask;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskId;
 import com.facebook.presto.execution.TaskInfo;
@@ -73,6 +75,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.CanonicalPlanWithInfo;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -650,28 +653,34 @@ public class QueryMonitor
             return Optional.empty();
         }
 
-        Optional<TaskInfo> failedTask = outputStage.flatMap(QueryMonitor::findFailedTask);
+        Optional<FailedTask> failedTask = outputStage.flatMap(QueryMonitor::findFailedTask);
 
         return Optional.of(new QueryFailureInfo(
                 failureInfo.getErrorCode(),
                 Optional.ofNullable(failureInfo.getType()),
                 Optional.ofNullable(failureInfo.getMessage()),
                 failedTask.map(task -> task.getTaskId().toString()),
-                failedTask.map(task -> task.getTaskStatus().getSelf().getHost()),
+                failedTask.map(task -> task.getSelf().getHost()),
                 executionFailureInfoCodec.toJson(failureInfo)));
     }
 
-    private static Optional<TaskInfo> findFailedTask(StageInfo stageInfo)
+    @VisibleForTesting
+    static Optional<FailedTask> findFailedTask(StageInfo stageInfo)
     {
         for (StageInfo subStage : stageInfo.getSubStages()) {
-            Optional<TaskInfo> task = findFailedTask(subStage);
+            Optional<FailedTask> task = findFailedTask(subStage);
             if (task.isPresent()) {
                 return task;
             }
         }
-        return stageInfo.getLatestAttemptExecutionInfo().getTasks().stream()
+        StageExecutionInfo executionInfo = stageInfo.getLatestAttemptExecutionInfo();
+        if (executionInfo.getTaskSummary().isPresent()) {
+            return executionInfo.getTaskSummary().get().getFirstFailedTask();
+        }
+        return executionInfo.getTasks().stream()
                 .filter(taskInfo -> taskInfo.getTaskStatus().getState() == TaskState.FAILED)
-                .findFirst();
+                .findFirst()
+                .map(FailedTask::from);
     }
 
     private static Map<String, String> mergeSessionAndCatalogProperties(SessionRepresentation session)
@@ -716,6 +725,26 @@ public class QueryMonitor
             for (StageInfo stage : stages) {
                 // only consider leaf stages
                 if (!stage.getSubStages().isEmpty()) {
+                    continue;
+                }
+
+                Optional<StageExecutionTaskSummary> taskSummary = stage.getLatestAttemptExecutionInfo().getTaskSummary();
+                if (taskSummary.isPresent()) {
+                    StageExecutionTaskSummary summary = taskSummary.get();
+                    long minFirstStartTimeInMillis = summary.getMinFirstStartTimeInMillis();
+                    if (minFirstStartTimeInMillis != 0) {
+                        firstTaskStartTime = Math.min(minFirstStartTimeInMillis, firstTaskStartTime);
+                    }
+
+                    long maxLastStartTimeInMillis = summary.getMaxLastStartTimeInMillis();
+                    if (maxLastStartTimeInMillis != 0) {
+                        lastTaskStartTime = max(maxLastStartTimeInMillis, lastTaskStartTime);
+                    }
+
+                    long maxEndTimeInMillis = summary.getMaxEndTimeInMillis();
+                    if (maxEndTimeInMillis != 0) {
+                        lastTaskEndTime = max(maxEndTimeInMillis, lastTaskEndTime);
+                    }
                     continue;
                 }
 
@@ -823,24 +852,41 @@ public class QueryMonitor
                 distributionSnapshot.getTotal() / distributionSnapshot.getCount());
     }
 
-    private static void computeStageStatistics(
+    @VisibleForTesting
+    static void computeStageStatistics(
             StageInfo stageInfo,
             ImmutableList.Builder<StageStatistics> stageStatisticsBuilder)
     {
-        Distribution cpuDistribution = new Distribution();
-        Distribution memoryDistribution = new Distribution();
-
         StageExecutionInfo executionInfo = stageInfo.getLatestAttemptExecutionInfo();
 
-        for (TaskInfo taskInfo : executionInfo.getTasks()) {
-            cpuDistribution.add(NANOSECONDS.toMillis(taskInfo.getStats().getTotalCpuTimeInNanos()));
-            memoryDistribution.add(taskInfo.getStats().getPeakTotalMemoryInBytes());
+        int taskCount;
+        DistributionSnapshot cpuDistribution;
+        DistributionSnapshot memoryDistribution;
+        Optional<StageExecutionTaskSummary> taskSummary = executionInfo.getTaskSummary();
+        if (taskSummary.isPresent()) {
+            StageExecutionTaskSummary summary = taskSummary.get();
+            taskCount = summary.getTaskCount();
+            cpuDistribution = summary.getTaskCpuTimeMillisDistribution();
+            memoryDistribution = summary.getTaskPeakTotalMemoryDistribution();
+        }
+        else {
+            Distribution taskCpuDistribution = new Distribution();
+            Distribution taskMemoryDistribution = new Distribution();
+
+            for (TaskInfo taskInfo : executionInfo.getTasks()) {
+                taskCpuDistribution.add(NANOSECONDS.toMillis(taskInfo.getStats().getTotalCpuTimeInNanos()));
+                taskMemoryDistribution.add(taskInfo.getStats().getPeakTotalMemoryInBytes());
+            }
+
+            taskCount = executionInfo.getTasks().size();
+            cpuDistribution = taskCpuDistribution.snapshot();
+            memoryDistribution = taskMemoryDistribution.snapshot();
         }
 
         stageStatisticsBuilder.add(new StageStatistics(
                 stageInfo.getStageId().getId(),
                 executionInfo.getStats().getGcInfo().getStageExecutionId(),
-                executionInfo.getTasks().size(),
+                taskCount,
                 executionInfo.getStats().getTotalScheduledTime(),
                 executionInfo.getStats().getTotalCpuTime(),
                 executionInfo.getStats().getRetriedCpuTime(),
@@ -849,8 +895,8 @@ public class QueryMonitor
                 succinctBytes(executionInfo.getStats().getProcessedInputDataSizeInBytes()),
                 succinctBytes(executionInfo.getStats().getPhysicalWrittenDataSizeInBytes()),
                 executionInfo.getStats().getGcInfo(),
-                createResourceDistribution(cpuDistribution.snapshot()),
-                createResourceDistribution(memoryDistribution.snapshot())));
+                createResourceDistribution(cpuDistribution),
+                createResourceDistribution(memoryDistribution)));
 
         stageInfo.getSubStages().forEach(subStage -> computeStageStatistics(subStage, stageStatisticsBuilder));
     }

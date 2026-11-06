@@ -14,6 +14,8 @@
 package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.airlift.units.Duration;
+import com.facebook.presto.execution.StageExecutionInfo;
+import com.facebook.presto.execution.StageExecutionTaskSummary;
 import com.facebook.presto.execution.StageInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.DynamicFilterStats;
@@ -38,6 +40,7 @@ import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.airlift.units.DataSize.succinctDataSize;
 import static com.facebook.presto.util.MoreMaps.mergeMaps;
 import static com.google.common.collect.Lists.reverse;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 
@@ -47,25 +50,28 @@ public class PlanNodeStatsSummarizer
 
     public static Map<PlanNodeId, PlanNodeStats> aggregateStageStats(List<StageInfo> stageInfos)
     {
-        return aggregateTaskStats(stageInfos.stream()
-                .flatMap(s -> s.getLatestAttemptExecutionInfo().getTasks().stream())
-                .collect(toList()));
+        PlanNodeStatsAccumulator accumulator = new PlanNodeStatsAccumulator(false);
+        for (StageInfo stageInfo : stageInfos) {
+            StageExecutionInfo executionInfo = stageInfo.getLatestAttemptExecutionInfo();
+            Optional<StageExecutionTaskSummary> taskSummary = executionInfo.getTaskSummary();
+            if (taskSummary.isPresent()) {
+                taskSummary.get().getPlanNodeStats().values().forEach(accumulator::add);
+            }
+            else {
+                executionInfo.getTasks().forEach(accumulator::add);
+            }
+        }
+        return accumulator.build();
     }
 
     public static Map<PlanNodeId, PlanNodeStats> aggregateTaskStats(List<TaskInfo> taskInfos)
     {
-        Map<PlanNodeId, PlanNodeStats> aggregatedStats = new HashMap<>();
-        List<PlanNodeStats> planNodeStats = taskInfos.stream()
-                .map(TaskInfo::getStats)
-                .flatMap(taskStats -> getPlanNodeStats(taskStats).stream())
-                .collect(toList());
-        for (PlanNodeStats stats : planNodeStats) {
-            aggregatedStats.merge(stats.getPlanNodeId(), stats, (left, right) -> left.mergeWith(right));
-        }
-        return aggregatedStats;
+        PlanNodeStatsAccumulator accumulator = new PlanNodeStatsAccumulator(false);
+        taskInfos.forEach(accumulator::add);
+        return accumulator.build();
     }
 
-    private static List<PlanNodeStats> getPlanNodeStats(TaskStats taskStats)
+    static List<PlanNodeStats> getPlanNodeStats(TaskStats taskStats, boolean copyDynamicFilterStats)
     {
         // Best effort to reconstruct the plan nodes from operators.
         // Because stats are collected separately from query execution,
@@ -172,7 +178,12 @@ public class PlanNodeStatsSummarizer
                 planNodeNullJoinProbeKeyCount.merge(planNodeId, operatorStats.getNullJoinProbeKeyCount(), Long::sum);
                 planNodeJoinProbeKeyCount.merge(planNodeId, operatorStats.getJoinProbeKeyCount(), Long::sum);
 
-                planNodeIdDynamicFilterStatsMap.merge(planNodeId, Optional.of(operatorStats.getDynamicFilterStats()), PlanNodeStats::mergeDynamicFilterStats);
+                DynamicFilterStats dynamicFilterStats = operatorStats.getDynamicFilterStats();
+                if (copyDynamicFilterStats) {
+                    dynamicFilterStats = new DynamicFilterStats(new HashSet<>());
+                    dynamicFilterStats.mergeWith(requireNonNull(operatorStats.getDynamicFilterStats(), "dynamicFilterStats is null"));
+                }
+                planNodeIdDynamicFilterStatsMap.merge(planNodeId, Optional.of(dynamicFilterStats), PlanNodeStats::mergeDynamicFilterStats);
 
                 processedNodes.add(planNodeId);
             }
@@ -199,7 +210,7 @@ public class PlanNodeStatsSummarizer
         // Convert native statistics.
         // Remove statistics for the 'output' plan node to avoid double counting.
         List<PlanNodeStats> nativePlanNodeStats = nativeTaskStats.stream()
-                .flatMap(stats -> getPlanNodeStats(stats).stream())
+                .flatMap(stats -> getPlanNodeStats(stats, copyDynamicFilterStats).stream())
                 .filter(stats -> !nativePlanNodeIds.contains(stats.getPlanNodeId()))
                 .collect(toList());
 
