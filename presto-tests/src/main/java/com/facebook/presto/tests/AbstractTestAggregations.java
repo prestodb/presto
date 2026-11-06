@@ -1463,6 +1463,62 @@ public abstract class AbstractTestAggregations
                 "SELECT orderpriority, count(*) FROM orders GROUP BY orderpriority");
     }
 
+    /**
+     * differential_entropy with a fixed histogram (methods fixed_histogram_mle and
+     * fixed_histogram_jacknife) is deterministic, so it is checked against hand-computed
+     * expected values. The reservoir-sampling signatures are random and are covered in
+     * presto-native-execution/AbstractTestNativeAggregations.
+     *
+     * <p>Although this test is declared in presto-tests, it also exercises the native
+     * (Velox) implementation: presto-native-tests/AbstractTestAggregationsNative extends
+     * this class, so the method is inherited and executed against the native query runner.
+     */
+    @Test
+    public void testDifferentialEntropyFixedHistogram()
+    {
+        // MLE: one sample in each of 4 of the 5 buckets over [0, 5) gives log2(4) = 2.
+        assertQuery(
+                "SELECT differential_entropy(5, x, w, 'fixed_histogram_mle', 0.0E0, 5.0E0) " +
+                        "FROM (VALUES (1.0E0, 1.0E0), (2.0E0, 1.0E0), (3.0E0, 1.0E0), (4.0E0, 1.0E0)) t(x, w)",
+                "SELECT 2.0E0");
+
+        // MLE with non-uniform weights.
+        assertQuery(
+                "SELECT differential_entropy(5, x, w, 'fixed_histogram_mle', 0.0E0, 5.0E0) " +
+                        "FROM (VALUES (1.0E0, 1.0E0), (2.0E0, 1.0E0), (3.0E0, 2.0E0), (4.0E0, 1.0E0)) t(x, w)",
+                "SELECT 1.9219280948873625E0");
+
+        // MLE, GROUP BY: group 2 has two samples in bucket 3 and one in bucket 4.
+        assertQuery(
+                "SELECT g, differential_entropy(5, x, 1.0E0, 'fixed_histogram_mle', 0.0E0, 5.0E0) " +
+                        "FROM (VALUES (1, 1.0E0), (1, 2.0E0), (2, 3.0E0), (2, 3.5E0), (2, 4.0E0)) t(g, x) GROUP BY g",
+                "VALUES (1, 1.0E0), (2, 0.9182958340544894E0)");
+
+        // Jacknife, global aggregation, with a non-unit weight.
+        assertQuery(
+                "SELECT differential_entropy(5, x, w, 'fixed_histogram_jacknife', 0.0E0, 5.0E0) " +
+                        "FROM (VALUES (1.0E0, 1.0E0), (2.0E0, 1.0E0), (3.0E0, 2.0E0), (4.0E0, 1.0E0)) t(x, w)",
+                "SELECT 3.1239905040085816E0");
+
+        // Jacknife, GROUP BY.
+        assertQuery(
+                "SELECT g, differential_entropy(5, x, w, 'fixed_histogram_jacknife', 0.0E0, 5.0E0) " +
+                        "FROM (VALUES (1, 1.0E0, 1.0E0), (1, 2.0E0, 2.0E0), (2, 3.0E0, 1.0E0), (2, 4.0E0, 3.0E0)) t(g, x, w) GROUP BY g",
+                "VALUES (1, 1.8365916681089796E0), (2, 1.6225562489182657E0)");
+
+        // Rows with a NULL sample are skipped.
+        assertQuery(
+                "SELECT differential_entropy(5, x, 1.0E0, 'fixed_histogram_mle', 0.0E0, 5.0E0) " +
+                        "FROM (VALUES (1.0E0), (CAST(NULL AS DOUBLE)), (2.0E0)) t(x)",
+                "SELECT 1.0E0");
+
+        // A group without any non-NULL input returns NaN, not NULL.
+        assertQuery(
+                "SELECT is_nan(differential_entropy(5, x, 1.0E0, 'fixed_histogram_mle', 0.0E0, 5.0E0)) " +
+                        "FROM (VALUES (CAST(NULL AS DOUBLE))) t(x)",
+                "SELECT true");
+    }
+
     @Test
     public void testGroupedRow()
     {
