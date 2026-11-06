@@ -20,6 +20,7 @@ import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.matching.Captures;
 import com.facebook.presto.matching.Pattern;
 import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ChangedRowsPredicate;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
@@ -47,7 +48,6 @@ import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.iterative.Rule;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.relational.RowExpressionDomainTranslator;
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -61,6 +61,7 @@ import java.util.Optional;
 import static com.facebook.presto.SystemSessionProperties.getMaterializedViewDefaultRefreshType;
 import static com.facebook.presto.SystemSessionProperties.getMaterializedViewIncrementalRefreshStrategy;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
+import static com.facebook.presto.expressions.LogicalRowExpressions.and;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedDataPredicates;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardWarningCode.MATERIALIZED_VIEW_STITCHING_FALLBACK;
@@ -143,6 +144,10 @@ public class IncrementalRefreshRule
 
         MaterializedViewStatus status = metadataResolver.getMaterializedViewStatus(qualifiedViewName, TupleDomain.all());
 
+        // Row-level eligibility is decided below, against the storage table's partitioning, rather
+        // than by a blanket capability check here: a base with row lineage must still be able to
+        // reach the partition-level refresh it would have received without it.
+
         // If fully materialized, nothing to refresh - return empty result
         if (status.isFullyMaterialized()) {
             return Result.ofPlanNode(new ValuesNode(
@@ -162,13 +167,88 @@ public class IncrementalRefreshRule
             return Result.ofPlanNode(node.getSource());
         }
 
-        // If no partition info available (unpartitioned tables or connector doesn't track partitions),
-        // fall back to full refresh since we can't determine which partitions are stale
+        SchemaTableName dataTable = new SchemaTableName(materializedViewDefinition.get().getSchema(), materializedViewDefinition.get().getTable());
+        PassthroughColumnEquivalences columnEquivalences = new PassthroughColumnEquivalences(materializedViewDefinition.get(), dataTable);
+
+        // A mergeable view can be refreshed from its own stored aggregates plus the appended rows,
+        // which reads one row per group instead of rereading every row of each affected group. Tried
+        // first; it declines quietly when the view or the change set does not qualify.
+        //
+        // It needs neither partition-level staleness nor a storage table partitioned by the grouping
+        // columns, because it emits the complete view: replacing the written partitions and
+        // overwriting the whole table then produce the same table, so either commit mode is correct.
+        //
+        // Recomputing affected groups from the base is not offered. The affected keys are runtime
+        // values, so nothing prunes that scan, and it was reachable only where partition-level
+        // already was.
+        Map<SchemaTableName, ChangedRowsPredicate> rowLevelPredicates = ImmutableMap.of();
+
+        boolean rowLevelEnabled = RowLevelRefreshEnablement.isEnabled(
+                session, materializedViewDefinition.get().getRowLevelIncrementalRefresh());
+
+        // Whether a bounded refresh is in force, which is all this path needs: the merged plan below
+        // declines when one is, and no plan here applies the bound itself.
+        //
+        // The bound is a cap on $data_sequence_number, while the partition-level path caps
+        // _last_updated_sequence_number through incrementalRefreshPredicate. Those are not
+        // interchangeable. A compaction or rewrite after the target moves an unchanged row into a new
+        // file, raising its data sequence number past the target while its last-updated sequence
+        // stays within it; capping on the former would then drop a row the refresh has to
+        // materialize. So the bound is never applied to a partition-level or full plan, and the only
+        // plan it could legitimately cap -- the merged one -- does not run while it exists.
+        boolean refreshIsBounded = rowLevelEnabled
+                && status.getChangedRowsPredicates().values().stream()
+                        .anyMatch(predicate -> !predicate.getRefreshBound().isAll());
+
+        // A bounded refresh is not merged. The merged plan adds its delta onto the stored value, so
+        // the range it reads has to be the same range the watermark then advances over. It is not:
+        // the delta leaf is built from the changed-rows disjuncts alone, which are open above and so
+        // reach HEAD, while finishRefresh advances the watermark only to the bounded target. The
+        // next refresh would read the rows past the target a second time and add them again, so a
+        // bounded SUM or COUNT would drift upward by one refresh's worth of data each time.
+        //
+        // Falling through to the partition-level path is what serves a bounded refresh, via
+        // incrementalRefreshPredicate, which caps the column that actually records when a row
+        // changed.
+        if (status.hasRowLevelChanges()
+                && rowLevelEnabled
+                && !refreshIsBounded) {
+            Map<SchemaTableName, List<TupleDomain<String>>> staleBases = status.getPartitionsFromBaseTables().entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getPredicateDisjuncts()));
+            Optional<PlanNode> mergedRefresh = DifferentialPlanRewriter.buildMergedRefreshPlan(
+                    node,
+                    storageTableHandle,
+                    metadata,
+                    session,
+                    idAllocator,
+                    variableAllocator,
+                    staleBases,
+                    status.getChangedRowsPredicates(),
+                    columnEquivalences,
+                    context.getLookup(),
+                    context.getWarningCollector());
+            if (mergedRefresh.isPresent()) {
+                // No incrementalRefreshPredicates: those bound a recomputation of the base, and this
+                // plan does not read the base at all beyond the delta. Nor any refresh bound -- the
+                // guard above means there is none to apply here.
+                return Result.ofPlanNode(mergedRefresh.get());
+            }
+        }
+
+        // Bail out only when the connector reported no stale base at all. A base that is stale but
+        // carries no partition disjuncts -- an unpartitioned or bounded V3 base -- must still reach
+        // the predicate rewriter below: its incrementalRefreshPredicate is the whole point of a
+        // bounded refresh, and the full storage overwrite the connector then performs is exactly
+        // the right commit for a recompute that is complete up to that bound. Requiring
+        // hasPartitionRefreshData() here, as the row-level guard above legitimately does, silently
+        // dropped that bound and refreshed unbounded.
         if (status.getPartitionsFromBaseTables().isEmpty()) {
             context.getWarningCollector().add(new PrestoWarning(
                     MATERIALIZED_VIEW_STITCHING_FALLBACK,
                     "Cannot perform incremental refresh for materialized view " + qualifiedViewName +
-                            ": no partition-level staleness available (unpartitioned base, untracked partitions, or non-append base changes). Falling back to full refresh."));
+                            ": no partition-level staleness available (unpartitioned base, untracked partitions, or " +
+                            "non-append base changes), and the refresh commit replaces the whole storage table without " +
+                            "it. Falling back to full refresh."));
             return Result.ofPlanNode(node.getSource());
         }
 
@@ -177,9 +257,6 @@ public class IncrementalRefreshRule
         Map<SchemaTableName, TupleDomain<String>> incrementalRefreshPredicates = constraints.entrySet().stream()
                 .filter(entry -> !entry.getValue().getIncrementalRefreshPredicate().isAll())
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getIncrementalRefreshPredicate()));
-
-        SchemaTableName dataTable = new SchemaTableName(materializedViewDefinition.get().getSchema(), materializedViewDefinition.get().getTable());
-        PassthroughColumnEquivalences columnEquivalences = new PassthroughColumnEquivalences(materializedViewDefinition.get(), dataTable);
 
         Map<SchemaTableName, List<TupleDomain<String>>> filteredConstraints =
                 filterToValidRefreshColumns(materializedViewDefinition.get(), constraints, columnEquivalences, dataTable);
@@ -200,6 +277,7 @@ public class IncrementalRefreshRule
                 idAllocator,
                 variableAllocator,
                 filteredConstraints,
+                rowLevelPredicates,
                 columnEquivalences,
                 context.getLookup(),
                 context.getWarningCollector());
@@ -227,7 +305,10 @@ public class IncrementalRefreshRule
                             deltaWithPredicates,
                             catalogName,
                             materializedViewName.getSchemaName(),
-                            materializedViewName.getTableName())),
+                            materializedViewName.getTableName(),
+                            // The delta recomputes only changed groups exactly when the connector
+                            // supplied changed-rows predicates and they survived the safety checks.
+                            !rowLevelPredicates.isEmpty())),
                     node.getOutputVariables()));
         }
 
@@ -379,34 +460,54 @@ public class IncrementalRefreshRule
         public PlanNode visitTableScan(TableScanNode node, RewriteContext<Void> context)
         {
             SchemaTableName tableName = metadata.getTableMetadata(session, node.getTable()).getTable();
-            TupleDomain<String> predicate = perBasePredicates.get(tableName);
-            if (predicate == null || predicate.isAll() || !predicate.getDomains().isPresent()) {
+            TupleDomain<String> byName = perBasePredicates.getOrDefault(tableName, TupleDomain.all());
+            if (isUnconstrained(byName)) {
                 return node;
             }
 
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, node.getTable());
-            Map<ColumnHandle, VariableReferenceExpression> variableByColumnHandle =
-                    ImmutableBiMap.copyOf(node.getAssignments()).inverse();
+
+            // A column can be read into more than one variable; either binding evaluates the same,
+            // so keep the first rather than letting an inverted map reject the duplicate.
+            Map<ColumnHandle, VariableReferenceExpression> variableByColumnHandle = new HashMap<>();
+            node.getAssignments().forEach((variable, handle) -> variableByColumnHandle.putIfAbsent(handle, variable));
 
             List<VariableReferenceExpression> outputs = new ArrayList<>(node.getOutputVariables());
             Map<VariableReferenceExpression, ColumnHandle> assignments = new HashMap<>(node.getAssignments());
-            Map<String, VariableReferenceExpression> columnToVariable = new HashMap<>();
-            for (String columnName : predicate.getDomains().get().keySet()) {
+
+            // Resolve every column both predicates constrain, reading it from the table when the
+            // scan does not already produce it. The refresh bound in particular is expressed over a
+            // change-tracking column the view query has no reason to project.
+            Map<ColumnHandle, VariableReferenceExpression> resolved = new HashMap<>();
+            List<ColumnHandle> required = new ArrayList<>();
+            for (String columnName : byName.getDomains().orElse(ImmutableMap.of()).keySet()) {
                 ColumnHandle columnHandle = columnHandles.get(columnName);
                 if (columnHandle == null) {
                     // Connector doesn't expose this column; skip the bound and run unbounded.
                     return node;
                 }
+                required.add(columnHandle);
+            }
+
+            for (ColumnHandle columnHandle : required) {
+                if (resolved.containsKey(columnHandle)) {
+                    continue;
+                }
                 VariableReferenceExpression existing = variableByColumnHandle.get(columnHandle);
                 if (existing != null) {
-                    columnToVariable.put(columnName, existing);
+                    resolved.put(columnHandle, existing);
                     continue;
                 }
                 ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, node.getTable(), columnHandle);
-                VariableReferenceExpression newVar = variableAllocator.newVariable(columnName, columnMetadata.getType());
+                VariableReferenceExpression newVar = variableAllocator.newVariable(columnMetadata.getName(), columnMetadata.getType());
                 outputs.add(newVar);
                 assignments.put(newVar, columnHandle);
-                columnToVariable.put(columnName, newVar);
+                resolved.put(columnHandle, newVar);
+            }
+
+            ImmutableList.Builder<RowExpression> predicates = ImmutableList.builder();
+            if (!isUnconstrained(byName)) {
+                predicates.add(translator.toPredicate(byName.transform(column -> resolved.get(columnHandles.get(column)))));
             }
 
             boolean addedColumns = outputs.size() != node.getOutputVariables().size();
@@ -423,17 +524,21 @@ public class IncrementalRefreshRule
                             node.getCteMaterializationInfo())
                     : node;
 
-            RowExpression filterPredicate = translator.toPredicate(predicate.transform(columnToVariable::get));
             FilterNode filterNode = new FilterNode(
                     node.getSourceLocation(),
                     idAllocator.getNextId(),
                     rewrittenScan,
-                    filterPredicate);
+                    and(predicates.build()));
 
             if (!addedColumns) {
                 return filterNode;
             }
             return new ProjectNode(idAllocator.getNextId(), filterNode, identityAssignments(node.getOutputVariables()));
+        }
+
+        private static <T> boolean isUnconstrained(TupleDomain<T> domain)
+        {
+            return domain.isAll() || !domain.getDomains().isPresent();
         }
     }
 }

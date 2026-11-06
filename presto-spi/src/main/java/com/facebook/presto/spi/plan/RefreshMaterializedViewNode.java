@@ -109,7 +109,7 @@ public final class RefreshMaterializedViewNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         if (newChildren.size() != 1) {
-            throw new IllegalArgumentException("Expected exactly one child, got " + newChildren.size());
+            throw new IllegalArgumentException("Expected 1 child, got " + newChildren.size());
         }
         return new RefreshMaterializedViewNode(
                 getSourceLocation(),
