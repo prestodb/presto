@@ -134,9 +134,39 @@ public class TestMySqlViews
             assertUpdate("CREATE VIEW " + viewName + " AS " + viewDefinition);
             assertTrue(viewExistsInMySQL(viewName), "View should exist after creation");
 
+            // a rejected duplicate must leave the existing view's definition in place
             assertQueryFails(
-                    "CREATE VIEW " + viewName + " AS " + viewDefinition,
+                    "CREATE VIEW " + viewName + " AS SELECT custkey FROM tpch.orders",
                     ".*already exists.*");
+            assertQuery("SELECT orderkey FROM " + viewName, "SELECT orderkey FROM orders WHERE orderkey < 100");
+
+            // MySQL keeps views and tables in one namespace, so a view cannot take a table's name either
+            assertQueryFails(
+                    "CREATE VIEW orders AS " + viewDefinition,
+                    ".*already exists.*");
+        }
+        finally {
+            dropViewIfExists(viewName);
+        }
+    }
+
+    @Test
+    public void testViewWithFunctions()
+            throws SQLException
+    {
+        // MySQL stores the definition in its own rewritten form (count(*) becomes count(0), every
+        // identifier is back-ticked), which the Presto analyzer has to parse back when the view is read
+        String viewName = "test_view_with_functions";
+        String viewDefinition = "SELECT upper(orderstatus) AS status, count(*) AS order_count, " +
+                "coalesce(max(custkey), 0) AS max_custkey FROM tpch.orders GROUP BY orderstatus";
+        dropViewIfExists(viewName);
+
+        try {
+            assertUpdate("CREATE VIEW " + viewName + " AS " + viewDefinition);
+            assertTrue(viewExistsInMySQL(viewName), "View should exist in MySQL");
+            assertQuery(
+                    "SELECT status, order_count, max_custkey FROM " + viewName,
+                    "SELECT upper(orderstatus), count(*), coalesce(max(custkey), 0) FROM orders GROUP BY orderstatus");
         }
         finally {
             dropViewIfExists(viewName);

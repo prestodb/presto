@@ -505,17 +505,9 @@ public class TestMySqlIntegrationSmokeTest
 
     // CROSS-MODE: same MySQL view, different behavior per catalog
     @Test
-    public void testStandardViewWorksInBothModes()
-    {
-        // Standard view with no MySQL-native functions should work in both modes
-        assertQuerySucceeds("SELECT * FROM " + MYSQL_CATALOG + ".tpch.v_standard");
-        assertQuerySucceeds("SELECT * FROM " + MYSQL_PASSTHROUGH_CATALOG + ".tpch.v_standard");
-    }
-
-    @Test
     public void testResultsConsistentAcrossModes()
     {
-        // Standard view results should be identical in both modes
+        // A standard view with no MySQL-native functions is queryable in both modes, with identical results
         MaterializedResult managed = computeActual("SELECT orderkey, custkey FROM " + MYSQL_CATALOG + ".tpch.v_standard ORDER BY orderkey");
         MaterializedResult passthrough = computeActual("SELECT orderkey, custkey FROM " + MYSQL_PASSTHROUGH_CATALOG + ".tpch.v_standard ORDER BY orderkey");
         assertEquals(managed.getMaterializedRows(), passthrough.getMaterializedRows());

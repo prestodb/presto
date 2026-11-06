@@ -218,6 +218,10 @@ public class TestMySqlIntegrationMixedCaseTest
             assertQuery(session, "SELECT nationkey FROM TEST_VIEW", "SELECT nationkey FROM nation");
             assertQuery(session, viewsInSchema, "VALUES 'Test_View', 'TEST_VIEW'");
 
+            // a name differing only in case is a new view, but the exact name again is a duplicate
+            assertQueryFails(session, "CREATE VIEW Test_View AS SELECT nationkey FROM tpch.nation", ".*already exists.*");
+            assertQuery(session, "SELECT regionkey, name FROM Test_View", "SELECT regionkey, name FROM region");
+
             // replacing, renaming and dropping one view must leave the other untouched
             assertUpdate(session, "CREATE OR REPLACE VIEW TEST_VIEW AS SELECT name FROM tpch.nation");
             assertQuery(session, "SELECT name FROM TEST_VIEW", "SELECT name FROM nation");
@@ -241,9 +245,9 @@ public class TestMySqlIntegrationMixedCaseTest
     public void testCreateViewOnUppercaseTableWithoutSessionCatalog()
             throws SQLException
     {
-        // lakehouse/tracker#96633: with no session catalog, CREATE VIEW over a fully qualified
-        // uppercase table sent the catalog on to MySQL, and querying the view as another user
-        // failed because MySQL had recorded its connection user, not the Presto user, as DEFINER
+        // With no session catalog, CREATE VIEW over a fully qualified uppercase table must not send
+        // the catalog on to MySQL, and must record the Presto user rather than the connection user
+        // as DEFINER, so that another user can still query the view
         Session noCatalog = Session.builder(getSession())
                 .setCatalog(null)
                 .setSchema(null)
