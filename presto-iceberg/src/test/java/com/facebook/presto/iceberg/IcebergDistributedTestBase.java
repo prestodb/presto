@@ -102,9 +102,13 @@ import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.TableScanUtil;
 import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.apache.parquet.example.data.Group;
+import org.apache.parquet.example.data.simple.SimpleGroup;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.hadoop.example.ExampleParquetWriter;
 import org.apache.parquet.hadoop.example.GroupReadSupport;
+import org.apache.parquet.hadoop.example.GroupWriteSupport;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.MessageType;
 import org.intellij.lang.annotations.Language;
@@ -117,6 +121,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -198,6 +203,9 @@ import static org.apache.iceberg.SnapshotSummary.TOTAL_DELETE_FILES_PROP;
 import static org.apache.iceberg.types.Type.TypeID.TIME;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.stringType;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -5380,6 +5388,58 @@ public abstract class IcebergDistributedTestBase
         }
         finally {
             dropTable(session, tableName);
+        }
+    }
+
+    @Test
+    public void testReadParquetWithPhysicalNamesDifferentFromIcebergSchema()
+            throws IOException
+    {
+        // Parquet files may use physical column names that differ from the Iceberg schema names
+        // (e.g. Delta UniForm with column mapping writes "col-N"). Columns must be matched by field ID
+        // and the physical name must be used as-is for the lookup, including characters such as '-'.
+        String tableName = "test_physical_names_by_field_id";
+        File dataFile = new File(getDistributedQueryRunner().getCoordinator().getDataDirectory().toFile(), tableName + "_" + randomUUID() + ".parquet");
+        try {
+            assertUpdate(format("CREATE TABLE %s (device_id INT, model VARCHAR, region VARCHAR) WITH (\"write.format.default\" = 'PARQUET')", tableName));
+            Table icebergTable = loadTable(tableName);
+
+            MessageType parquetSchema = org.apache.parquet.schema.Types.buildMessage()
+                    .optional(INT32).id(1).named("col-1")
+                    .optional(BINARY).as(stringType()).id(2).named("col-2")
+                    .optional(BINARY).as(stringType()).id(3).named("col-3")
+                    .named("spark_schema");
+
+            Configuration conf = new Configuration();
+            GroupWriteSupport.setSchema(parquetSchema, conf);
+            Object[][] rows = {{1, "AP-535", "US-East"}, {2, "AP-635", "US-West"}, {3, "AP-735", "EU-Central"}};
+            try (ParquetWriter<Group> writer = ExampleParquetWriter.builder(new Path(dataFile.toURI())).withConf(conf).build()) {
+                for (Object[] row : rows) {
+                    SimpleGroup group = new SimpleGroup(parquetSchema);
+                    group.add("col-1", (int) row[0]);
+                    group.add("col-2", (String) row[1]);
+                    group.add("col-3", (String) row[2]);
+                    writer.write(group);
+                }
+            }
+
+            icebergTable.newAppend()
+                    .appendFile(DataFiles.builder(icebergTable.spec())
+                            .withPath(dataFile.toURI().toString())
+                            .withFormat("PARQUET")
+                            .withFileSizeInBytes(dataFile.length())
+                            .withRecordCount(rows.length)
+                            .build())
+                    .commit();
+
+            assertQuery("SELECT * FROM " + tableName,
+                    "VALUES (1, 'AP-535', 'US-East'), (2, 'AP-635', 'US-West'), (3, 'AP-735', 'EU-Central')");
+            assertQuery("SELECT model, region FROM " + tableName + " WHERE device_id = 2", "VALUES ('AP-635', 'US-West')");
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE device_id IS NULL OR model IS NULL OR region IS NULL", "VALUES 0");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            Files.deleteIfExists(dataFile.toPath());
         }
     }
 
