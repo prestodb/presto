@@ -26,6 +26,7 @@ import static com.facebook.presto.sql.SqlFormatter.formatSql;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestMySqlViewQuery
 {
@@ -113,6 +114,32 @@ public class TestMySqlViewQuery
                 Optional.empty(),
                 "WITH t AS (SELECT orderkey FROM tpch.orders) SELECT orderkey FROM t",
                 Optional.empty());
+    }
+
+    @Test
+    public void testFunctionNamesUnquoted()
+    {
+        // SqlFormatter double-quotes every function name, which MySQL would read as a string literal
+        String sql = formatted("SELECT upper(orderstatus) status, count(*) n, coalesce(max(custkey), 0) m, " +
+                "count(DISTINCT custkey) OVER (PARTITION BY orderstatus) w FROM mysql.tpch.orders GROUP BY orderstatus, custkey");
+        assertTrue(sql.contains("\"upper\"(") && sql.contains("\"count\"(") && sql.contains("\"max\"("), sql);
+        assertEquals(
+                MySqlViewQuery.rewrite(sql, CATALOG, Optional.empty(), Optional.empty()).getSql(),
+                sql.replace("\"upper\"(", "upper(")
+                        .replace("\"count\"(", "count(")
+                        .replace("\"max\"(", "max(")
+                        .replace("mysql.tpch.orders", "tpch.orders"));
+    }
+
+    @Test
+    public void testFunctionNameNotPlainIsBackTicked()
+    {
+        // a function name MySQL does not accept bare is back-ticked rather than double-quoted
+        String sql = formatted("SELECT \"my-func\"(orderkey), web.\"F`n\"(orderkey) FROM tpch.orders");
+        assertTrue(sql.contains("\"my-func\"(") && sql.contains("\"web\".\"f`n\"("), sql);
+        assertEquals(
+                MySqlViewQuery.rewrite(sql, CATALOG, Optional.of(CATALOG), Optional.empty()).getSql(),
+                sql.replace("\"my-func\"(", "`my-func`(").replace("\"web\".\"f`n\"(", "web.`f``n`("));
     }
 
     @Test
