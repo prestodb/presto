@@ -13,6 +13,10 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftUnion;
+import com.facebook.drift.annotations.ThriftUnionId;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -22,6 +26,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import java.util.Collection;
 import java.util.List;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 @JsonTypeInfo(
@@ -172,4 +177,77 @@ public interface ValueSet
      * All types and bounds information is preserved.
      */
     ValueSet canonicalize(boolean removeSafeConstants);
+
+    /*
+        For Thrift serialization ONLY
+     */
+    @ThriftUnion
+    final class ThriftValueSet
+    {
+        private final ValueSet valueSet;
+
+        @ThriftUnionId
+        public short getSetField()
+        {
+            if (valueSet instanceof EquatableValueSet) {
+                return 1;
+            }
+            if (valueSet instanceof SortedRangeSet) {
+                return 2;
+            }
+            if (valueSet instanceof AllOrNoneValueSet) {
+                return 3;
+            }
+            throw new IllegalStateException("No value set in ThriftValueSet");
+        }
+
+        @ThriftField(1)
+        public EquatableValueSet getEquatableValueSet()
+        {
+            return valueSet instanceof EquatableValueSet ? (EquatableValueSet) valueSet : null;
+        }
+
+        @ThriftConstructor
+        public ThriftValueSet(EquatableValueSet equatableValueSet)
+        {
+            this((ValueSet) equatableValueSet);
+        }
+
+        @ThriftField(2)
+        public SortedRangeSet getSortedRangeSet()
+        {
+            return valueSet instanceof SortedRangeSet ? (SortedRangeSet) valueSet : null;
+        }
+
+        @ThriftConstructor
+        public ThriftValueSet(SortedRangeSet sortedRangeSet)
+        {
+            this((ValueSet) sortedRangeSet);
+        }
+
+        @ThriftField(3)
+        public AllOrNoneValueSet getAllOrNoneValueSet()
+        {
+            return valueSet instanceof AllOrNoneValueSet ? (AllOrNoneValueSet) valueSet : null;
+        }
+
+        @ThriftConstructor
+        public ThriftValueSet(AllOrNoneValueSet allOrNoneValueSet)
+        {
+            this((ValueSet) allOrNoneValueSet);
+        }
+
+        public ThriftValueSet(ValueSet valueSet)
+        {
+            this.valueSet = requireNonNull(valueSet, "valueSet is null");
+            if (!(valueSet instanceof EquatableValueSet) && !(valueSet instanceof SortedRangeSet) && !(valueSet instanceof AllOrNoneValueSet)) {
+                throw new IllegalArgumentException("Unsupported value set: " + valueSet.getClass().getName());
+            }
+        }
+
+        public ValueSet getValueSet()
+        {
+            return valueSet;
+        }
+    }
 }

@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.DataTypeMismatchException;
 import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
@@ -47,6 +50,7 @@ import static java.util.stream.Collectors.toList;
  * Assumes an infinite number of possible values. The values may be collectively included (aka whitelist)
  * or collectively excluded (aka !whitelist).
  */
+@ThriftStruct
 public class EquatableValueSet
         implements ValueSet
 {
@@ -55,6 +59,7 @@ public class EquatableValueSet
     private final Set<ValueEntry> entries;
 
     @JsonCreator
+    @ThriftConstructor
     public EquatableValueSet(
             @JsonProperty("type") Type type,
             @JsonProperty("whiteList") boolean whiteList,
@@ -102,6 +107,7 @@ public class EquatableValueSet
     }
 
     @JsonProperty
+    @ThriftField(1)
     @Override
     public Type getType()
     {
@@ -109,12 +115,14 @@ public class EquatableValueSet
     }
 
     @JsonProperty
+    @ThriftField(2)
     public boolean isWhiteList()
     {
         return whiteList;
     }
 
     @JsonProperty
+    @ThriftField(3)
     public Set<ValueEntry> getEntries()
     {
         return entries;
@@ -324,12 +332,14 @@ public class EquatableValueSet
         return toCollection(LinkedHashSet::new);
     }
 
+    @ThriftStruct
     public static class ValueEntry
     {
         private final Type type;
         private final Block block;
 
         @JsonCreator
+        @ThriftConstructor
         public ValueEntry(
                 @JsonProperty("type") Type type,
                 @JsonProperty("block") Block block)
@@ -348,12 +358,14 @@ public class EquatableValueSet
         }
 
         @JsonProperty
+        @ThriftField(1)
         public Type getType()
         {
             return type;
         }
 
         @JsonProperty
+        @ThriftField(2)
         public Block getBlock()
         {
             return block;

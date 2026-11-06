@@ -1,0 +1,1870 @@
+[ {
+  "kind" : "column",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAIAAAABYQwAAwgAAf////sLAAIAAAAGYmlnaW50CAADAAAAEwgABAAAAAAADAAECwABAAAABmJpZ2ludAACAAUBCwAGAAAAC2Rlc2NyaXB0aW9uAA==",
+  "json" : {
+    "connectorId" : "catalog",
+    "columnName" : "a",
+    "jdbcTypeHandle" : {
+      "jdbcType" : -5,
+      "jdbcTypeName" : "bigint",
+      "columnSize" : 19,
+      "decimalDigits" : 0
+    },
+    "columnType" : "bigint",
+    "nullable" : true,
+    "comment" : "description",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "table",
+  "thrift" : "CwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUA",
+  "json" : {
+    "connectorId" : "catalog",
+    "schemaTableName" : {
+      "schema" : "schema",
+      "table" : "table"
+    },
+    "schemaName" : "schema",
+    "tableName" : "table",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "transaction",
+  "thrift" : "CwABAAAAEBI0VngSNFZ4mrze8BI0VngA",
+  "json" : {
+    "uuid" : "12345678-1234-5678-9abc-def012345678",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAAAA",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAAACwAEAAAABmxheW91dAA=",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAAAMAAYLAAEAAAAZYSA9ID8gQU5EIGIgPSA/IEFORCBjID0gPw8AAgwAAAADDAABCwABAAAAGwoAAABMT05HX0FSUkFZAQAAAAAqAAAAAAAAAAAMAAILAAEAAAAGYmlnaW50AAAMAAELAAEAAAAkDgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxvAAwAAgsAAQAAAAd2YXJjaGFyAAAMAAELAAEAAAAfAwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgAAMAAILAAEAAAAGYmlnaW50AAAAAA==",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ ]
+    },
+    "additionalProperty" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAAADAADCwABAAAAGWEgPSA/IEFORCBiID0gPyBBTkQgYyA9ID8PAAIMAAAAAwwAAQsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAKgAAAAAAAAAADAACCwABAAAABmJpZ2ludAAADAABCwABAAAAJA4AAABWQVJJQUJMRV9XSURUSAEAAAAFAAAAAAUAAABoZWxsbwAMAAILAAEAAAAHdmFyY2hhcgAADAABCwABAAAAHwMAAABSTEUBAAAACgAAAExPTkdfQVJSQVkBAAAAAYAADAACCwABAAAABmJpZ2ludAAAAAsABAAAAAZsYXlvdXQA",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ ]
+    },
+    "additionalPredicate" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUAAA==",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : { },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACAAsABAAAAAZsYXlvdXQA",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : { },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUADAAGCwABAAAAGWEgPSA/IEFORCBiID0gPyBBTkQgYyA9ID8PAAIMAAAAAwwAAQsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAKgAAAAAAAAAADAACCwABAAAABmJpZ2ludAAADAABCwABAAAAJA4AAABWQVJJQUJMRV9XSURUSAEAAAAFAAAAAAUAAABoZWxsbwAMAAILAAEAAAAHdmFyY2hhcgAADAABCwABAAAAHwMAAABSTEUBAAAACgAAAExPTkdfQVJSQVkBAAAAAYAADAACCwABAAAABmJpZ2ludAAAAAA=",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : { },
+    "additionalProperty" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACAAwAAwsAAQAAABlhID0gPyBBTkQgYiA9ID8gQU5EIGMgPSA/DwACDAAAAAMMAAELAAEAAAAbCgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAAAAwAAgsAAQAAAAZiaWdpbnQAAAwAAQsAAQAAACQOAAAAVkFSSUFCTEVfV0lEVEgBAAAABQAAAAAFAAAAaGVsbG8ADAACCwABAAAAB3ZhcmNoYXIAAAwAAQsAAQAAAB8DAAAAUkxFAQAAAAoAAABMT05HX0FSUkFZAQAAAAGAAAwAAgsAAQAAAAZiaWdpbnQAAAALAAQAAAAGbGF5b3V0AA==",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : { },
+    "additionalPredicate" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAABmJpZ2ludAACAAUBAAwAAgwAAQwAAgwAAQsAAQAAAAZiaWdpbnQADwACDAAAAAAAAAIAAgEAAAAA",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ ]
+          },
+          "nullAllowed" : true
+        }
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAAZiaWdpbnQAAgAFAQAMAAIMAAEMAAIMAAELAAEAAAAGYmlnaW50AA8AAgwAAAAAAAACAAIBAAAACwAEAAAABmxheW91dAA=",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ ]
+          },
+          "nullAllowed" : true
+        }
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAABmJpZ2ludAACAAUBAAwAAgwAAQwAAgwAAQsAAQAAAAZiaWdpbnQADwACDAAAAAAAAAIAAgEAAAAMAAYLAAEAAAAZYSA9ID8gQU5EIGIgPSA/IEFORCBjID0gPw8AAgwAAAADDAABCwABAAAAGwoAAABMT05HX0FSUkFZAQAAAAAqAAAAAAAAAAAMAAILAAEAAAAGYmlnaW50AAAMAAELAAEAAAAkDgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxvAAwAAgsAAQAAAAd2YXJjaGFyAAAMAAELAAEAAAAfAwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgAAMAAILAAEAAAAGYmlnaW50AAAAAA==",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ ]
+          },
+          "nullAllowed" : true
+        }
+      } ]
+    },
+    "additionalProperty" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAAZiaWdpbnQAAgAFAQAMAAIMAAEMAAIMAAELAAEAAAAGYmlnaW50AA8AAgwAAAAAAAACAAIBAAAADAADCwABAAAAGWEgPSA/IEFORCBiID0gPyBBTkQgYyA9ID8PAAIMAAAAAwwAAQsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAKgAAAAAAAAAADAACCwABAAAABmJpZ2ludAAADAABCwABAAAAJA4AAABWQVJJQUJMRV9XSURUSAEAAAAFAAAAAAUAAABoZWxsbwAMAAILAAEAAAAHdmFyY2hhcgAADAABCwABAAAAHwMAAABSTEUBAAAACgAAAExPTkdfQVJSQVkBAAAAAYAADAACCwABAAAABmJpZ2ludAAAAAsABAAAAAZsYXlvdXQA",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ ]
+          },
+          "nullAllowed" : true
+        }
+      } ]
+    },
+    "additionalPredicate" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAABmJpZ2ludAACAAUBAAwAAgwAAQwAAgwAAQsAAQAAAAZiaWdpbnQADwACDAAAAAEMAAEMAAELAAEAAAAGYmlnaW50AAgAAwAAAAIADAACDAABCwABAAAABmJpZ2ludAAIAAMAAAAAAAAAAAIAAgAAAAAA",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ {
+              "low" : {
+                "type" : "bigint",
+                "bound" : "ABOVE"
+              },
+              "high" : {
+                "type" : "bigint",
+                "bound" : "BELOW"
+              }
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAAZiaWdpbnQAAgAFAQAMAAIMAAEMAAIMAAELAAEAAAAGYmlnaW50AA8AAgwAAAABDAABDAABCwABAAAABmJpZ2ludAAIAAMAAAACAAwAAgwAAQsAAQAAAAZiaWdpbnQACAADAAAAAAAAAAACAAIAAAAACwAEAAAABmxheW91dAA=",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ {
+              "low" : {
+                "type" : "bigint",
+                "bound" : "ABOVE"
+              },
+              "high" : {
+                "type" : "bigint",
+                "bound" : "BELOW"
+              }
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAABmJpZ2ludAACAAUBAAwAAgwAAQwAAgwAAQsAAQAAAAZiaWdpbnQADwACDAAAAAEMAAEMAAELAAEAAAAGYmlnaW50AAgAAwAAAAIADAACDAABCwABAAAABmJpZ2ludAAIAAMAAAAAAAAAAAIAAgAAAAAMAAYLAAEAAAAZYSA9ID8gQU5EIGIgPSA/IEFORCBjID0gPw8AAgwAAAADDAABCwABAAAAGwoAAABMT05HX0FSUkFZAQAAAAAqAAAAAAAAAAAMAAILAAEAAAAGYmlnaW50AAAMAAELAAEAAAAkDgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxvAAwAAgsAAQAAAAd2YXJjaGFyAAAMAAELAAEAAAAfAwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgAAMAAILAAEAAAAGYmlnaW50AAAAAA==",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ {
+              "low" : {
+                "type" : "bigint",
+                "bound" : "ABOVE"
+              },
+              "high" : {
+                "type" : "bigint",
+                "bound" : "BELOW"
+              }
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "additionalProperty" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAAZiaWdpbnQAAgAFAQAMAAIMAAEMAAIMAAELAAEAAAAGYmlnaW50AA8AAgwAAAABDAABDAABCwABAAAABmJpZ2ludAAIAAMAAAACAAwAAgwAAQsAAQAAAAZiaWdpbnQACAADAAAAAAAAAAACAAIAAAAADAADCwABAAAAGWEgPSA/IEFORCBiID0gPyBBTkQgYyA9ID8PAAIMAAAAAwwAAQsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAKgAAAAAAAAAADAACCwABAAAABmJpZ2ludAAADAABCwABAAAAJA4AAABWQVJJQUJMRV9XSURUSAEAAAAFAAAAAAUAAABoZWxsbwAMAAILAAEAAAAHdmFyY2hhcgAADAABCwABAAAAHwMAAABSTEUBAAAACgAAAExPTkdfQVJSQVkBAAAAAYAADAACCwABAAAABmJpZ2ludAAAAAsABAAAAAZsYXlvdXQA",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ {
+              "low" : {
+                "type" : "bigint",
+                "bound" : "ABOVE"
+              },
+              "high" : {
+                "type" : "bigint",
+                "bound" : "BELOW"
+              }
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "additionalPredicate" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAABmJpZ2ludAACAAUBAAwAAgwAAQwAAgwAAQsAAQAAAAZiaWdpbnQADwACDAAAAAEMAAEMAAELAAEAAAAGYmlnaW50AAwAAgsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAKgAAAAAAAAAACAADAAAAAQAMAAIMAAELAAEAAAAGYmlnaW50AAwAAgsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAKgAAAAAAAAAACAADAAAAAQAAAAACAAIAAAAAAA==",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ {
+              "low" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+                "bound" : "EXACTLY"
+              },
+              "high" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+                "bound" : "EXACTLY"
+              }
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAAZiaWdpbnQAAgAFAQAMAAIMAAEMAAIMAAELAAEAAAAGYmlnaW50AA8AAgwAAAABDAABDAABCwABAAAABmJpZ2ludAAMAAILAAEAAAAbCgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAAAAgAAwAAAAEADAACDAABCwABAAAABmJpZ2ludAAMAAILAAEAAAAbCgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAAAAgAAwAAAAEAAAAAAgACAAAAAAsABAAAAAZsYXlvdXQA",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ {
+              "low" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+                "bound" : "EXACTLY"
+              },
+              "high" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+                "bound" : "EXACTLY"
+              }
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAABmJpZ2ludAACAAUBAAwAAgwAAQwAAgwAAQsAAQAAAAZiaWdpbnQADwACDAAAAAEMAAEMAAELAAEAAAAGYmlnaW50AAwAAgsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAKgAAAAAAAAAACAADAAAAAQAMAAIMAAELAAEAAAAGYmlnaW50AAwAAgsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAKgAAAAAAAAAACAADAAAAAQAAAAACAAIAAAAADAAGCwABAAAAGWEgPSA/IEFORCBiID0gPyBBTkQgYyA9ID8PAAIMAAAAAwwAAQsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAKgAAAAAAAAAADAACCwABAAAABmJpZ2ludAAADAABCwABAAAAJA4AAABWQVJJQUJMRV9XSURUSAEAAAAFAAAAAAUAAABoZWxsbwAMAAILAAEAAAAHdmFyY2hhcgAADAABCwABAAAAHwMAAABSTEUBAAAACgAAAExPTkdfQVJSQVkBAAAAAYAADAACCwABAAAABmJpZ2ludAAAAAA=",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ {
+              "low" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+                "bound" : "EXACTLY"
+              },
+              "high" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+                "bound" : "EXACTLY"
+              }
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "additionalProperty" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAAZiaWdpbnQAAgAFAQAMAAIMAAEMAAIMAAELAAEAAAAGYmlnaW50AA8AAgwAAAABDAABDAABCwABAAAABmJpZ2ludAAMAAILAAEAAAAbCgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAAAAgAAwAAAAEADAACDAABCwABAAAABmJpZ2ludAAMAAILAAEAAAAbCgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAAAAgAAwAAAAEAAAAAAgACAAAAAAwAAwsAAQAAABlhID0gPyBBTkQgYiA9ID8gQU5EIGMgPSA/DwACDAAAAAMMAAELAAEAAAAbCgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAAAAwAAgsAAQAAAAZiaWdpbnQAAAwAAQsAAQAAACQOAAAAVkFSSUFCTEVfV0lEVEgBAAAABQAAAAAFAAAAaGVsbG8ADAACCwABAAAAB3ZhcmNoYXIAAAwAAQsAAQAAAB8DAAAAUkxFAQAAAAoAAABMT05HX0FSUkFZAQAAAAGAAAwAAgsAAQAAAAZiaWdpbnQAAAALAAQAAAAGbGF5b3V0AA==",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ {
+              "low" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+                "bound" : "EXACTLY"
+              },
+              "high" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+                "bound" : "EXACTLY"
+              }
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "additionalPredicate" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAABmJpZ2ludAACAAUBAAwAAgwAAQwAAgwAAQsAAQAAAAZiaWdpbnQADwACDAAAAAMMAAEMAAELAAEAAAAGYmlnaW50AAgAAwAAAAIADAACDAABCwABAAAABmJpZ2ludAAMAAILAAEAAAAbCgAAAExPTkdfQVJSQVkBAAAAAPb/////////AAgAAwAAAAAAAAwAAQwAAQsAAQAAAAZiaWdpbnQADAACCwABAAAAGwoAAABMT05HX0FSUkFZAQAAAAABAAAAAAAAAAAIAAMAAAABAAwAAgwAAQsAAQAAAAZiaWdpbnQADAACCwABAAAAGwoAAABMT05HX0FSUkFZAQAAAAAKAAAAAAAAAAAIAAMAAAAAAAAMAAEMAAELAAEAAAAGYmlnaW50AAwAAgsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAZAAAAAAAAAAACAADAAAAAgAMAAIMAAELAAEAAAAGYmlnaW50AAgAAwAAAAAAAAAAAgACAQAAAAA=",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ {
+              "low" : {
+                "type" : "bigint",
+                "bound" : "ABOVE"
+              },
+              "high" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAPb/////////",
+                "bound" : "BELOW"
+              }
+            }, {
+              "low" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAEAAAAAAAAA",
+                "bound" : "EXACTLY"
+              },
+              "high" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAoAAAAAAAAA",
+                "bound" : "BELOW"
+              }
+            }, {
+              "low" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAGQAAAAAAAAA",
+                "bound" : "ABOVE"
+              },
+              "high" : {
+                "type" : "bigint",
+                "bound" : "BELOW"
+              }
+            } ]
+          },
+          "nullAllowed" : true
+        }
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAAZiaWdpbnQAAgAFAQAMAAIMAAEMAAIMAAELAAEAAAAGYmlnaW50AA8AAgwAAAADDAABDAABCwABAAAABmJpZ2ludAAIAAMAAAACAAwAAgwAAQsAAQAAAAZiaWdpbnQADAACCwABAAAAGwoAAABMT05HX0FSUkFZAQAAAAD2/////////wAIAAMAAAAAAAAMAAEMAAELAAEAAAAGYmlnaW50AAwAAgsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAAQAAAAAAAAAACAADAAAAAQAMAAIMAAELAAEAAAAGYmlnaW50AAwAAgsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAACgAAAAAAAAAACAADAAAAAAAADAABDAABCwABAAAABmJpZ2ludAAMAAILAAEAAAAbCgAAAExPTkdfQVJSQVkBAAAAAGQAAAAAAAAAAAgAAwAAAAIADAACDAABCwABAAAABmJpZ2ludAAIAAMAAAAAAAAAAAIAAgEAAAALAAQAAAAGbGF5b3V0AA==",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ {
+              "low" : {
+                "type" : "bigint",
+                "bound" : "ABOVE"
+              },
+              "high" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAPb/////////",
+                "bound" : "BELOW"
+              }
+            }, {
+              "low" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAEAAAAAAAAA",
+                "bound" : "EXACTLY"
+              },
+              "high" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAoAAAAAAAAA",
+                "bound" : "BELOW"
+              }
+            }, {
+              "low" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAGQAAAAAAAAA",
+                "bound" : "ABOVE"
+              },
+              "high" : {
+                "type" : "bigint",
+                "bound" : "BELOW"
+              }
+            } ]
+          },
+          "nullAllowed" : true
+        }
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAABmJpZ2ludAACAAUBAAwAAgwAAQwAAgwAAQsAAQAAAAZiaWdpbnQADwACDAAAAAMMAAEMAAELAAEAAAAGYmlnaW50AAgAAwAAAAIADAACDAABCwABAAAABmJpZ2ludAAMAAILAAEAAAAbCgAAAExPTkdfQVJSQVkBAAAAAPb/////////AAgAAwAAAAAAAAwAAQwAAQsAAQAAAAZiaWdpbnQADAACCwABAAAAGwoAAABMT05HX0FSUkFZAQAAAAABAAAAAAAAAAAIAAMAAAABAAwAAgwAAQsAAQAAAAZiaWdpbnQADAACCwABAAAAGwoAAABMT05HX0FSUkFZAQAAAAAKAAAAAAAAAAAIAAMAAAAAAAAMAAEMAAELAAEAAAAGYmlnaW50AAwAAgsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAZAAAAAAAAAAACAADAAAAAgAMAAIMAAELAAEAAAAGYmlnaW50AAgAAwAAAAAAAAAAAgACAQAAAAwABgsAAQAAABlhID0gPyBBTkQgYiA9ID8gQU5EIGMgPSA/DwACDAAAAAMMAAELAAEAAAAbCgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAAAAwAAgsAAQAAAAZiaWdpbnQAAAwAAQsAAQAAACQOAAAAVkFSSUFCTEVfV0lEVEgBAAAABQAAAAAFAAAAaGVsbG8ADAACCwABAAAAB3ZhcmNoYXIAAAwAAQsAAQAAAB8DAAAAUkxFAQAAAAoAAABMT05HX0FSUkFZAQAAAAGAAAwAAgsAAQAAAAZiaWdpbnQAAAAA",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ {
+              "low" : {
+                "type" : "bigint",
+                "bound" : "ABOVE"
+              },
+              "high" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAPb/////////",
+                "bound" : "BELOW"
+              }
+            }, {
+              "low" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAEAAAAAAAAA",
+                "bound" : "EXACTLY"
+              },
+              "high" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAoAAAAAAAAA",
+                "bound" : "BELOW"
+              }
+            }, {
+              "low" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAGQAAAAAAAAA",
+                "bound" : "ABOVE"
+              },
+              "high" : {
+                "type" : "bigint",
+                "bound" : "BELOW"
+              }
+            } ]
+          },
+          "nullAllowed" : true
+        }
+      } ]
+    },
+    "additionalProperty" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAAZiaWdpbnQAAgAFAQAMAAIMAAEMAAIMAAELAAEAAAAGYmlnaW50AA8AAgwAAAADDAABDAABCwABAAAABmJpZ2ludAAIAAMAAAACAAwAAgwAAQsAAQAAAAZiaWdpbnQADAACCwABAAAAGwoAAABMT05HX0FSUkFZAQAAAAD2/////////wAIAAMAAAAAAAAMAAEMAAELAAEAAAAGYmlnaW50AAwAAgsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAAQAAAAAAAAAACAADAAAAAQAMAAIMAAELAAEAAAAGYmlnaW50AAwAAgsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAACgAAAAAAAAAACAADAAAAAAAADAABDAABCwABAAAABmJpZ2ludAAMAAILAAEAAAAbCgAAAExPTkdfQVJSQVkBAAAAAGQAAAAAAAAAAAgAAwAAAAIADAACDAABCwABAAAABmJpZ2ludAAIAAMAAAAAAAAAAAIAAgEAAAAMAAMLAAEAAAAZYSA9ID8gQU5EIGIgPSA/IEFORCBjID0gPw8AAgwAAAADDAABCwABAAAAGwoAAABMT05HX0FSUkFZAQAAAAAqAAAAAAAAAAAMAAILAAEAAAAGYmlnaW50AAAMAAELAAEAAAAkDgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxvAAwAAgsAAQAAAAd2YXJjaGFyAAAMAAELAAEAAAAfAwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgAAMAAILAAEAAAAGYmlnaW50AAAACwAEAAAABmxheW91dAA=",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "bigint",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "sortable",
+            "type" : "bigint",
+            "ranges" : [ {
+              "low" : {
+                "type" : "bigint",
+                "bound" : "ABOVE"
+              },
+              "high" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAPb/////////",
+                "bound" : "BELOW"
+              }
+            }, {
+              "low" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAEAAAAAAAAA",
+                "bound" : "EXACTLY"
+              },
+              "high" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAAoAAAAAAAAA",
+                "bound" : "BELOW"
+              }
+            }, {
+              "low" : {
+                "type" : "bigint",
+                "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAAGQAAAAAAAAA",
+                "bound" : "ABOVE"
+              },
+              "high" : {
+                "type" : "bigint",
+                "bound" : "BELOW"
+              }
+            } ]
+          },
+          "nullAllowed" : true
+        }
+      } ]
+    },
+    "additionalPredicate" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAABGpzb24AAgAFAQAMAAIMAAEMAAEMAAELAAEAAAAEanNvbgACAAIBDgADDAAAAAEMAAELAAEAAAAEanNvbgAMAAILAAEAAAAgDgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADEAAAAAAgACAAAAAAA=",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "json",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "equatable",
+            "type" : "json",
+            "whiteList" : true,
+            "entries" : [ {
+              "type" : "json",
+              "block" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADE="
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAARqc29uAAIABQEADAACDAABDAABDAABCwABAAAABGpzb24AAgACAQ4AAwwAAAABDAABCwABAAAABGpzb24ADAACCwABAAAAIA4AAABWQVJJQUJMRV9XSURUSAEAAAABAAAAAAEAAAAxAAAAAAIAAgAAAAALAAQAAAAGbGF5b3V0AA==",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "json",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "equatable",
+            "type" : "json",
+            "whiteList" : true,
+            "entries" : [ {
+              "type" : "json",
+              "block" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADE="
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAABGpzb24AAgAFAQAMAAIMAAEMAAEMAAELAAEAAAAEanNvbgACAAIBDgADDAAAAAEMAAELAAEAAAAEanNvbgAMAAILAAEAAAAgDgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADEAAAAAAgACAAAAAAwABgsAAQAAABlhID0gPyBBTkQgYiA9ID8gQU5EIGMgPSA/DwACDAAAAAMMAAELAAEAAAAbCgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAAAAwAAgsAAQAAAAZiaWdpbnQAAAwAAQsAAQAAACQOAAAAVkFSSUFCTEVfV0lEVEgBAAAABQAAAAAFAAAAaGVsbG8ADAACCwABAAAAB3ZhcmNoYXIAAAwAAQsAAQAAAB8DAAAAUkxFAQAAAAoAAABMT05HX0FSUkFZAQAAAAGAAAwAAgsAAQAAAAZiaWdpbnQAAAAA",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "json",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "equatable",
+            "type" : "json",
+            "whiteList" : true,
+            "entries" : [ {
+              "type" : "json",
+              "block" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADE="
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "additionalProperty" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAARqc29uAAIABQEADAACDAABDAABDAABCwABAAAABGpzb24AAgACAQ4AAwwAAAABDAABCwABAAAABGpzb24ADAACCwABAAAAIA4AAABWQVJJQUJMRV9XSURUSAEAAAABAAAAAAEAAAAxAAAAAAIAAgAAAAAMAAMLAAEAAAAZYSA9ID8gQU5EIGIgPSA/IEFORCBjID0gPw8AAgwAAAADDAABCwABAAAAGwoAAABMT05HX0FSUkFZAQAAAAAqAAAAAAAAAAAMAAILAAEAAAAGYmlnaW50AAAMAAELAAEAAAAkDgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxvAAwAAgsAAQAAAAd2YXJjaGFyAAAMAAELAAEAAAAfAwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgAAMAAILAAEAAAAGYmlnaW50AAAACwAEAAAABmxheW91dAA=",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "json",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "equatable",
+            "type" : "json",
+            "whiteList" : true,
+            "entries" : [ {
+              "type" : "json",
+              "block" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADE="
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "additionalPredicate" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAABGpzb24AAgAFAQAMAAIMAAEMAAEMAAELAAEAAAAEanNvbgACAAIADgADDAAAAAIMAAELAAEAAAAEanNvbgAMAAILAAEAAAAgDgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADIAAAwAAQsAAQAAAARqc29uAAwAAgsAAQAAACAOAAAAVkFSSUFCTEVfV0lEVEgBAAAAAQAAAAABAAAAMwAAAAACAAIAAAAAAA==",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "json",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "equatable",
+            "type" : "json",
+            "whiteList" : false,
+            "entries" : [ {
+              "type" : "json",
+              "block" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADI="
+            }, {
+              "type" : "json",
+              "block" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADM="
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAARqc29uAAIABQEADAACDAABDAABDAABCwABAAAABGpzb24AAgACAA4AAwwAAAACDAABCwABAAAABGpzb24ADAACCwABAAAAIA4AAABWQVJJQUJMRV9XSURUSAEAAAABAAAAAAEAAAAyAAAMAAELAAEAAAAEanNvbgAMAAILAAEAAAAgDgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADMAAAAAAgACAAAAAAsABAAAAAZsYXlvdXQA",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "json",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "equatable",
+            "type" : "json",
+            "whiteList" : false,
+            "entries" : [ {
+              "type" : "json",
+              "block" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADI="
+            }, {
+              "type" : "json",
+              "block" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADM="
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAABGpzb24AAgAFAQAMAAIMAAEMAAEMAAELAAEAAAAEanNvbgACAAIADgADDAAAAAIMAAELAAEAAAAEanNvbgAMAAILAAEAAAAgDgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADIAAAwAAQsAAQAAAARqc29uAAwAAgsAAQAAACAOAAAAVkFSSUFCTEVfV0lEVEgBAAAAAQAAAAABAAAAMwAAAAACAAIAAAAADAAGCwABAAAAGWEgPSA/IEFORCBiID0gPyBBTkQgYyA9ID8PAAIMAAAAAwwAAQsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAKgAAAAAAAAAADAACCwABAAAABmJpZ2ludAAADAABCwABAAAAJA4AAABWQVJJQUJMRV9XSURUSAEAAAAFAAAAAAUAAABoZWxsbwAMAAILAAEAAAAHdmFyY2hhcgAADAABCwABAAAAHwMAAABSTEUBAAAACgAAAExPTkdfQVJSQVkBAAAAAYAADAACCwABAAAABmJpZ2ludAAAAAA=",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "json",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "equatable",
+            "type" : "json",
+            "whiteList" : false,
+            "entries" : [ {
+              "type" : "json",
+              "block" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADI="
+            }, {
+              "type" : "json",
+              "block" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADM="
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "additionalProperty" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAARqc29uAAIABQEADAACDAABDAABDAABCwABAAAABGpzb24AAgACAA4AAwwAAAACDAABCwABAAAABGpzb24ADAACCwABAAAAIA4AAABWQVJJQUJMRV9XSURUSAEAAAABAAAAAAEAAAAyAAAMAAELAAEAAAAEanNvbgAMAAILAAEAAAAgDgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADMAAAAAAgACAAAAAAwAAwsAAQAAABlhID0gPyBBTkQgYiA9ID8gQU5EIGMgPSA/DwACDAAAAAMMAAELAAEAAAAbCgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAAAAwAAgsAAQAAAAZiaWdpbnQAAAwAAQsAAQAAACQOAAAAVkFSSUFCTEVfV0lEVEgBAAAABQAAAAAFAAAAaGVsbG8ADAACCwABAAAAB3ZhcmNoYXIAAAwAAQsAAQAAAB8DAAAAUkxFAQAAAAoAAABMT05HX0FSUkFZAQAAAAGAAAwAAgsAAQAAAAZiaWdpbnQAAAALAAQAAAAGbGF5b3V0AA==",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "json",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "equatable",
+            "type" : "json",
+            "whiteList" : false,
+            "entries" : [ {
+              "type" : "json",
+              "block" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADI="
+            }, {
+              "type" : "json",
+              "block" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAEAAAAAAQAAADM="
+            } ]
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "additionalPredicate" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAAC0h5cGVyTG9nTG9nAAIABQEADAACDAABDAADDAABCwABAAAAC0h5cGVyTG9nTG9nAAIAAgAAAAIAAgEAAAAA",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "HyperLogLog",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "allOrNone",
+            "type" : "HyperLogLog",
+            "all" : false
+          },
+          "nullAllowed" : true
+        }
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAAtIeXBlckxvZ0xvZwACAAUBAAwAAgwAAQwAAwwAAQsAAQAAAAtIeXBlckxvZ0xvZwACAAIAAAACAAIBAAAACwAEAAAABmxheW91dAA=",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "HyperLogLog",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "allOrNone",
+            "type" : "HyperLogLog",
+            "all" : false
+          },
+          "nullAllowed" : true
+        }
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAAC0h5cGVyTG9nTG9nAAIABQEADAACDAABDAADDAABCwABAAAAC0h5cGVyTG9nTG9nAAIAAgAAAAIAAgEAAAAMAAYLAAEAAAAZYSA9ID8gQU5EIGIgPSA/IEFORCBjID0gPw8AAgwAAAADDAABCwABAAAAGwoAAABMT05HX0FSUkFZAQAAAAAqAAAAAAAAAAAMAAILAAEAAAAGYmlnaW50AAAMAAELAAEAAAAkDgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxvAAwAAgsAAQAAAAd2YXJjaGFyAAAMAAELAAEAAAAfAwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgAAMAAILAAEAAAAGYmlnaW50AAAAAA==",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "HyperLogLog",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "allOrNone",
+            "type" : "HyperLogLog",
+            "all" : false
+          },
+          "nullAllowed" : true
+        }
+      } ]
+    },
+    "additionalProperty" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAAtIeXBlckxvZ0xvZwACAAUBAAwAAgwAAQwAAwwAAQsAAQAAAAtIeXBlckxvZ0xvZwACAAIAAAACAAIBAAAADAADCwABAAAAGWEgPSA/IEFORCBiID0gPyBBTkQgYyA9ID8PAAIMAAAAAwwAAQsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAKgAAAAAAAAAADAACCwABAAAABmJpZ2ludAAADAABCwABAAAAJA4AAABWQVJJQUJMRV9XSURUSAEAAAAFAAAAAAUAAABoZWxsbwAMAAILAAEAAAAHdmFyY2hhcgAADAABCwABAAAAHwMAAABSTEUBAAAACgAAAExPTkdfQVJSQVkBAAAAAYAADAACCwABAAAABmJpZ2ludAAAAAsABAAAAAZsYXlvdXQA",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "HyperLogLog",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "allOrNone",
+            "type" : "HyperLogLog",
+            "all" : false
+          },
+          "nullAllowed" : true
+        }
+      } ]
+    },
+    "additionalPredicate" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAAC0h5cGVyTG9nTG9nAAIABQEADAACDAABDAADDAABCwABAAAAC0h5cGVyTG9nTG9nAAIAAgEAAAIAAgAAAAAA",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "HyperLogLog",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "allOrNone",
+            "type" : "HyperLogLog",
+            "all" : true
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAAtIeXBlckxvZ0xvZwACAAUBAAwAAgwAAQwAAwwAAQsAAQAAAAtIeXBlckxvZ0xvZwACAAIBAAACAAIAAAAACwAEAAAABmxheW91dAA=",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "HyperLogLog",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "allOrNone",
+            "type" : "HyperLogLog",
+            "all" : true
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "split",
+  "thrift" : "CwABAAAAB2NhdGFsb2cLAAQAAAAFdGFibGUMAAUPAAEMAAAAAQwAAQsAAQAAAAdjYXRhbG9nCwACAAAAAWEMAAMIAAEAAARXCwACAAAABW90aGVyCAADAAAAAAgABAAAAAAADAAECwABAAAAC0h5cGVyTG9nTG9nAAIABQEADAACDAABDAADDAABCwABAAAAC0h5cGVyTG9nTG9nAAIAAgEAAAIAAgAAAAAMAAYLAAEAAAAZYSA9ID8gQU5EIGIgPSA/IEFORCBjID0gPw8AAgwAAAADDAABCwABAAAAGwoAAABMT05HX0FSUkFZAQAAAAAqAAAAAAAAAAAMAAILAAEAAAAGYmlnaW50AAAMAAELAAEAAAAkDgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxvAAwAAgsAAQAAAAd2YXJjaGFyAAAMAAELAAEAAAAfAwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgAAMAAILAAEAAAAGYmlnaW50AAAAAA==",
+  "json" : {
+    "connectorId" : "catalog",
+    "tableName" : "table",
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "HyperLogLog",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "allOrNone",
+            "type" : "HyperLogLog",
+            "all" : true
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "additionalProperty" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "@type" : "arrow-federation"
+  }
+}, {
+  "kind" : "layout",
+  "thrift" : "DAABCwABAAAAB2NhdGFsb2cMAAILAAEAAAAGc2NoZW1hCwACAAAABXRhYmxlAAsABAAAAAZzY2hlbWELAAUAAAAFdGFibGUADAACDwABDAAAAAEMAAELAAEAAAAHY2F0YWxvZwsAAgAAAAFhDAADCAABAAAEVwsAAgAAAAVvdGhlcggAAwAAAAAIAAQAAAAAAAwABAsAAQAAAAtIeXBlckxvZ0xvZwACAAUBAAwAAgwAAQwAAwwAAQsAAQAAAAtIeXBlckxvZ0xvZwACAAIBAAACAAIAAAAADAADCwABAAAAGWEgPSA/IEFORCBiID0gPyBBTkQgYyA9ID8PAAIMAAAAAwwAAQsAAQAAABsKAAAATE9OR19BUlJBWQEAAAAAKgAAAAAAAAAADAACCwABAAAABmJpZ2ludAAADAABCwABAAAAJA4AAABWQVJJQUJMRV9XSURUSAEAAAAFAAAAAAUAAABoZWxsbwAMAAILAAEAAAAHdmFyY2hhcgAADAABCwABAAAAHwMAAABSTEUBAAAACgAAAExPTkdfQVJSQVkBAAAAAYAADAACCwABAAAABmJpZ2ludAAAAAsABAAAAAZsYXlvdXQA",
+  "json" : {
+    "table" : {
+      "connectorId" : "catalog",
+      "schemaTableName" : {
+        "schema" : "schema",
+        "table" : "table"
+      },
+      "schemaName" : "schema",
+      "tableName" : "table"
+    },
+    "tupleDomain" : {
+      "columnDomains" : [ {
+        "column" : {
+          "connectorId" : "catalog",
+          "columnName" : "a",
+          "jdbcTypeHandle" : {
+            "jdbcType" : 1111,
+            "jdbcTypeName" : "other",
+            "columnSize" : 0,
+            "decimalDigits" : 0
+          },
+          "columnType" : "HyperLogLog",
+          "nullable" : true
+        },
+        "domain" : {
+          "values" : {
+            "@type" : "allOrNone",
+            "type" : "HyperLogLog",
+            "all" : true
+          },
+          "nullAllowed" : false
+        }
+      } ]
+    },
+    "additionalPredicate" : {
+      "translatedString" : "a = ? AND b = ? AND c = ?",
+      "boundConstantValues" : [ {
+        "@type" : "constant",
+        "valueBlock" : "CgAAAExPTkdfQVJSQVkBAAAAACoAAAAAAAAA",
+        "type" : "bigint"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "DgAAAFZBUklBQkxFX1dJRFRIAQAAAAUAAAAABQAAAGhlbGxv",
+        "type" : "varchar"
+      }, {
+        "@type" : "constant",
+        "valueBlock" : "AwAAAFJMRQEAAAAKAAAATE9OR19BUlJBWQEAAAABgA==",
+        "type" : "bigint"
+      } ]
+    },
+    "layoutString" : "layout",
+    "@type" : "arrow-federation"
+  }
+} ]

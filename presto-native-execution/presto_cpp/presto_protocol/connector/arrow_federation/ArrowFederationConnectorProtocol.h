@@ -12,10 +12,43 @@
  * limitations under the License.
  */
 #pragma once
+#include <folly/base64.h>
+#include "presto_cpp/main/thrift/JdbcThriftToJson.h"
 #include "presto_cpp/presto_protocol/connector/arrow_federation/presto_protocol_arrow_federation.h"
 #include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
 
 namespace facebook::presto::protocol::arrow_federation {
+template <typename Protocol, json (*Decode)(const std::string&)>
+struct JdbcFederationHandle : Protocol {
+  static std::shared_ptr<JdbcFederationHandle> deserialize(
+      const std::string& data,
+      std::shared_ptr<JdbcFederationHandle>) {
+    auto result = std::make_shared<JdbcFederationHandle>();
+    from_json(Decode(data), static_cast<Protocol&>(*result));
+    return result;
+  }
+};
+
+using JdbcArrowFederationConnectorProtocol = ConnectorProtocolTemplate<
+    JdbcFederationHandle<ArrowFederationTableHandle, jdbcTableHandleFromThrift>,
+    JdbcFederationHandle<
+        ArrowFederationTableLayoutHandle,
+        jdbcTableLayoutHandleFromThrift>,
+    JdbcFederationHandle<
+        ArrowFederationColumnHandle,
+        jdbcColumnHandleFromThrift>,
+    UnsupportedOperation,
+    UnsupportedOperation,
+    JdbcFederationHandle<ArrowFederationSplit, jdbcSplitFromThrift>,
+    NotImplemented,
+    JdbcFederationHandle<
+        ArrowFederationTransactionHandle,
+        jdbcTransactionHandleFromThrift>,
+    NotImplemented,
+    UnsupportedOperation,
+    NotImplemented,
+    UnsupportedOperation>;
+
 using ArrowFederationConnectorProtocol = ConnectorProtocolTemplate<
     ArrowFederationTableHandle,
     ArrowFederationTableLayoutHandle,
