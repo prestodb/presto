@@ -107,4 +107,21 @@ public class TestMaterializedViewDefinition
         ColumnMapping legacy = codec.fromJson(mapper.writeValueAsString(node));
         assertFalse(legacy.isDerived());
     }
+
+    @Test
+    public void testColumnMappingInfoJsonRoundTrip()
+            throws Exception
+    {
+        JsonCodec<TableColumn> codec = jsonCodec(TableColumn.class);
+
+        Map<String, String> transform = ImmutableMap.of("transform", "test_partition_bucket", "mode", "many");
+        TableColumn column = new TableColumn(BASE, "partition_key", false, transform);
+        assertEquals(codec.fromJson(codec.toJson(column)).getColumnMappingInfo(), transform);
+
+        // Definitions stored before mapping metadata existed carry no columnMappingInfo.
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode node = (ObjectNode) mapper.readTree(codec.toJson(column));
+        node.remove("columnMappingInfo");
+        assertTrue(codec.fromJson(mapper.writeValueAsString(node)).getColumnMappingInfo().isEmpty());
+    }
 }
