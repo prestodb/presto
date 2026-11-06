@@ -22,12 +22,14 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
 import io.airlift.slice.Slice;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
+import static java.lang.Float.intBitsToFloat;
 
 public final class CassandraCqlUtils
 {
@@ -172,8 +174,14 @@ public final class CassandraCqlUtils
             case VARCHAR:
                 return quoteStringLiteral(value);
             case INET:
-                // remove '/' in the string. e.g. /127.0.0.1
-                return quoteStringLiteral(value.substring(1));
+                // value comes from InetAddresses.toAddrString(), so it has no leading '/'
+                return quoteStringLiteral(value);
+            case DATE:
+                // Cassandra reads a bare integer as days since 2^31, not since 1970-01-01
+                return quoteStringLiteral(LocalDate.ofEpochDay(Long.parseLong(value)).toString());
+            case FLOAT:
+                // REAL is stored as the raw int bits of the float
+                return Float.toString(intBitsToFloat((int) Long.parseLong(value)));
             default:
                 return value;
         }

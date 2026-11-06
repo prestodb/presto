@@ -16,6 +16,7 @@ package com.facebook.presto.cassandra;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.testing.QueryRunner;
@@ -38,6 +39,10 @@ import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_ALL_TYPE
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_INEQUALITY;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEYS_LARGE;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEY_DATE;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEY_FLOAT;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEY_INET;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_INDEXED_DATE_FLOAT_INET;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_MULTI_PARTITION_CLUSTERING_KEYS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -48,6 +53,9 @@ import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAM
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.VarcharType.createUnboundedVarcharType;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.testing.MaterializedResult.DEFAULT_PRECISION;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.tests.QueryAssertions.assertContains;
@@ -56,6 +64,7 @@ import static com.google.common.primitives.Ints.toByteArray;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class TestCassandraIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
@@ -251,6 +260,56 @@ public class TestCassandraIntegrationSmokeTest
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2,3) AND clust_two > 2";
         assertEquals(execute(sql).getRowCount(), 1);
         sql = "SELECT * FROM " + TABLE_CLUSTERING_KEYS_INEQUALITY + " WHERE key='key_1' AND clust_one='clust_one' AND clust_two IN (1,2,3) AND clust_two = 2";
+        assertEquals(execute(sql).getRowCount(), 1);
+    }
+
+    @Test
+    public void testClusteringKeyPushdownDate()
+    {
+        // rows hold ck = 2026-09-01 .. 2026-09-10
+        String from = "SELECT * FROM " + TABLE_CLUSTERING_KEY_DATE + " WHERE pk = 1 AND ";
+        assertEquals(execute(from + "ck = DATE '2026-09-06'").getRowCount(), 1);
+        assertEquals(execute(from + "ck >= DATE '2026-09-06'").getRowCount(), 5);
+        assertEquals(execute(from + "ck BETWEEN DATE '2026-09-03' AND DATE '2026-09-05'").getRowCount(), 3);
+        assertEquals(execute(from + "ck IN (DATE '2026-09-02', DATE '2026-09-09')").getRowCount(), 2);
+    }
+
+    @Test
+    public void testClusteringKeyPushdownFloat()
+    {
+        // rows hold ck = 1.5 .. 10.5
+        String from = "SELECT * FROM " + TABLE_CLUSTERING_KEY_FLOAT + " WHERE pk = 1 AND ";
+        assertEquals(execute(from + "ck = REAL '6.5'").getRowCount(), 1);
+        assertEquals(execute(from + "ck >= REAL '6.5'").getRowCount(), 5);
+        assertEquals(execute(from + "ck IN (REAL '1.5', REAL '2.5')").getRowCount(), 2);
+    }
+
+    @Test
+    public void testClusteringKeyPushdownInet()
+    {
+        // rows hold ck = 10.0.0.1 .. 10.0.0.10
+        String from = "SELECT * FROM " + TABLE_CLUSTERING_KEY_INET + " WHERE pk = 1 AND ";
+        assertEquals(execute(from + "ck = '10.0.0.6'").getRowCount(), 1);
+        assertEquals(execute(from + "ck IN ('10.0.0.1', '10.0.0.2')").getRowCount(), 2);
+        // inet compares as varchar, so '10.0.0.10' < '10.0.0.2'
+        assertEquals(execute(from + "ck >= '10.0.0.2'").getRowCount(), 8);
+    }
+
+    @Test
+    public void testIndexPushdownDateFloatInet()
+    {
+        // row n holds d = 2026-09-nn, f = n.5, ip = 10.0.0.n
+        String from = "SELECT * FROM " + TABLE_INDEXED_DATE_FLOAT_INET + " WHERE ";
+        assertIndexPushdown(from + "d = DATE '2026-09-06'");
+        assertIndexPushdown(from + "f = REAL '6.5'");
+        assertIndexPushdown(from + "ip = '10.0.0.6'");
+    }
+
+    private void assertIndexPushdown(String sql)
+    {
+        // a pushed-down predicate is enforced by Cassandra, so the plan has no filter
+        assertPlan(SESSION, sql, anyTree(tableScan(TABLE_INDEXED_DATE_FLOAT_INET)),
+                plan -> assertFalse(searchFrom(plan.getRoot()).where(FilterNode.class::isInstance).matches(), "predicate was not pushed down: " + sql));
         assertEquals(execute(sql).getRowCount(), 1);
     }
 
