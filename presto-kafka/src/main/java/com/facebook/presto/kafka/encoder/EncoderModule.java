@@ -17,6 +17,8 @@ import com.facebook.presto.kafka.encoder.avro.AvroRowEncoder;
 import com.facebook.presto.kafka.encoder.avro.AvroRowEncoderFactory;
 import com.facebook.presto.kafka.encoder.csv.CsvRowEncoder;
 import com.facebook.presto.kafka.encoder.csv.CsvRowEncoderFactory;
+import com.facebook.presto.kafka.encoder.json.JsonRowEncoder;
+import com.facebook.presto.kafka.encoder.json.JsonRowEncoderFactory;
 import com.facebook.presto.kafka.encoder.raw.RawRowEncoder;
 import com.facebook.presto.kafka.encoder.raw.RawRowEncoderFactory;
 import com.google.inject.Binder;
@@ -35,6 +37,7 @@ public class EncoderModule
 
         encoderFactoriesByName.addBinding(AvroRowEncoder.NAME).to(AvroRowEncoderFactory.class).in(SINGLETON);
         encoderFactoriesByName.addBinding(CsvRowEncoder.NAME).to(CsvRowEncoderFactory.class).in(SINGLETON);
+        encoderFactoriesByName.addBinding(JsonRowEncoder.NAME).to(JsonRowEncoderFactory.class).in(SINGLETON);
         encoderFactoriesByName.addBinding(RawRowEncoder.NAME).to(RawRowEncoderFactory.class).in(SINGLETON);
 
         binder.bind(DispatchingRowEncoderFactory.class).in(SINGLETON);

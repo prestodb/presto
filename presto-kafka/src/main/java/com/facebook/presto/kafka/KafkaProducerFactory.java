@@ -15,6 +15,7 @@ package com.facebook.presto.kafka;
 
 import com.facebook.presto.spi.HostAddress;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 
 import java.util.List;
 import java.util.Properties;
@@ -23,7 +24,7 @@ public interface KafkaProducerFactory
 {
     default KafkaProducer<byte[], byte[]> create(List<HostAddress> bootstrapServers)
     {
-        return new KafkaProducer<>(configure(bootstrapServers));
+        return new KafkaProducer<>(configure(bootstrapServers), new ByteArraySerializer(), new ByteArraySerializer());
     }
 
     Properties configure(List<HostAddress> bootstrapServers);
