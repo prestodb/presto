@@ -58,6 +58,7 @@ if(PRESTO_ENABLE_CUDF)
   # Enable CUDA in project() itself: rapids_cuda_set_architectures, which runs
   # from project(), returns early unless the CUDA compiler is already known.
   set(_cuda_lang CUDA)
+  add_compile_definitions(PRESTO_ENABLE_CUDF)
 endif()
 
 # set the project name
@@ -161,11 +162,6 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
 endif()
 
 set(VELOX_ENABLE_CUDF ${PRESTO_ENABLE_CUDF} CACHE BOOL "Enable cuDF support")
-if(PRESTO_ENABLE_CUDF)
-  add_compile_definitions(PRESTO_ENABLE_CUDF)
-  # Determine CUDA_ARCHITECTURES automatically.
-  cmake_policy(SET CMP0104 NEW)
-endif()
 
 set(
   VELOX_ENABLE_GEO
