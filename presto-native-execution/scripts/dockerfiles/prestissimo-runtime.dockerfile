@@ -64,7 +64,14 @@ RUN !(LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/local/lib:/usr/local/lib64 ldd /pr
 # COPY in the runtime stage finds it.
 RUN mkdir -p /runtime-libraries/ucx && \
     if [ "${OSNAME}" = "centos" ]; then cp -rf /usr/local/lib/ucx/. /runtime-libraries/ucx/; fi
-RUN echo "${CUDA_VERSION}" > /cuda_version
+# Record the CUDA version only for cuDF builds; an empty file tells the runtime stage
+# to skip the CUDA runtime install.
+RUN /bin/bash -c '\
+    if [[ "${EXTRA_CMAKE_FLAGS}" =~ -DPRESTO_ENABLE_CUDF=ON ]] || [[ ",${PRESTO_OPTIONAL_FEATURES}," =~ ,cudf, ]]; then \
+        echo "${CUDA_VERSION}" > /cuda_version; \
+    else \
+        : > /cuda_version; \
+    fi'
 
 #/////////////////////////////////////////////
 #          prestissimo-runtime
@@ -80,14 +87,15 @@ ENV BUILD_DIR=""
 COPY --from=prestissimo-image /prestissimo/velox/scripts/ /tmp/scripts/
 COPY --from=prestissimo-image /cuda_version /tmp/
 
-# Install CUDA runtime packages and RDMA libraries (CentOS only)
-RUN if [ "${OSNAME}" = "centos" ]; then \
+# Install CUDA runtime packages and RDMA libraries (CentOS cuDF builds only)
+RUN if [ "${OSNAME}" = "centos" ] && [ -s /tmp/cuda_version ]; then \
         CUDA_VERSION=$(cat /tmp/cuda_version) && \
         source /tmp/scripts/setup-centos-adapters.sh && \
         install_cuda_runtime "${CUDA_VERSION}" && \
         dnf install -y librdmacm libibverbs && \
         dnf clean all && \
-        rm -rf /var/cache/dnf; \
+        rm -rf /var/cache/dnf && \
+        echo "/usr/local/cuda/lib64" > /etc/ld.so.conf.d/cuda.conf; \
     fi && \
     rm -rf /tmp/scripts /tmp/cuda_version
 
@@ -98,7 +106,6 @@ COPY --chmod=0755 ./etc /opt/presto-server/etc
 COPY --chmod=0775 ./entrypoint.sh /opt/entrypoint.sh
 RUN echo "/usr/lib64/prestissimo-libs" > /etc/ld.so.conf.d/prestissimo.conf && \
     echo "/usr/lib64/prestissimo-libs/ucx" >> /etc/ld.so.conf.d/prestissimo.conf && \
-    echo "/usr/local/cuda/lib64" > /etc/ld.so.conf.d/cuda.conf && \
     ldconfig
 
 ENTRYPOINT ["/opt/entrypoint.sh"]
