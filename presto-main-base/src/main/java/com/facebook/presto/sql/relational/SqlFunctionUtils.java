@@ -48,6 +48,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.spi.function.FunctionImplementationType.SQL;
 import static com.facebook.presto.sql.analyzer.ExpressionAnalyzer.analyzeSqlFunctionExpression;
 import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.createSymbolReference;
@@ -87,6 +88,7 @@ public final class SqlFunctionUtils
             FunctionAndTypeManager functionAndTypeManager,
             SqlFunctionProperties sqlFunctionProperties,
             Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions,
+            boolean nativeExecutionEnabled,
             List<RowExpression> arguments)
     {
         VariableAllocator variableAllocator = new VariableAllocator();
@@ -109,7 +111,8 @@ public final class SqlFunctionUtils
                         Optional.empty(),
                         sqlFunctionProperties,
                         sessionFunctions,
-                        new SqlToRowExpressionTranslator.Context()),
+                        new SqlToRowExpressionTranslator.Context(),
+                        nativeExecutionEnabled),
                 functionMetadata.getArgumentNames().get(),
                 arguments,
                 argumentVariables);
@@ -156,7 +159,8 @@ public final class SqlFunctionUtils
                 Optional.empty(),
                 session.getSqlFunctionProperties(),
                 session.getSessionFunctions(),
-                new SqlToRowExpressionTranslator.Context());
+                new SqlToRowExpressionTranslator.Context(),
+                isNativeExecutionEnabled(session));
     }
 
     private static Expression getSqlFunctionImplementationExpression(

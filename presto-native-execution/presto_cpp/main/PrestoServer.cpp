@@ -15,9 +15,11 @@
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <folly/CppAttributes.h>
 #include <folly/system/HardwareConcurrency.h>
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
+#include <velox/common/base/Exceptions.h>
 #include <cerrno>
 #include <chrono>
 #include <cstdio>
@@ -1570,7 +1572,12 @@ void PrestoServer::registerCustomOperators() {
 }
 
 void PrestoServer::registerFunctions() {
-  functions::registerPrestoScalarFunctions(prestoBuiltinFunctionPrefix_);
+  const SystemConfig* FOLLY_NONNULL const systemConfig =
+      SystemConfig::instance();
+  VELOX_CHECK_NOT_NULL(systemConfig);
+  functions::registerPrestoScalarFunctions(
+      prestoBuiltinFunctionPrefix_,
+      !systemConfig->legacyTimestampWithTimezone());
   velox::aggregate::prestosql::registerAllAggregateFunctions(
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(

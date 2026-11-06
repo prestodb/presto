@@ -147,6 +147,7 @@ public class RowExpressionCompiler
                             metadata.getFunctionAndTypeManager(),
                             sqlFunctionProperties,
                             sessionFunctions,
+                            false,
                             call.getArguments());
 
                     // Pre-compile lambda bytecode and update compiled lambda map

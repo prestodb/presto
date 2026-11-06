@@ -241,7 +241,7 @@ public final class SqlToRowExpressionTranslator
                 false);
     }
 
-    private static RowExpression translate(
+    static RowExpression translate(
             Expression expression,
             Map<NodeRef<Expression>, Type> types,
             Map<VariableReferenceExpression, Integer> layout,
@@ -1215,8 +1215,15 @@ public final class SqlToRowExpressionTranslator
             }
 
             Type returnType = getType(node);
-            String functionName = returnType.equals(TIMESTAMP) ? "at_timezone_convert" : "at_timezone";
-            return call(functionAndTypeResolver, functionName, returnType, value, timeZone);
+            return call(
+                    functionAndTypeResolver,
+                    functionAndTypeManager.resolveAtTimeZoneFunctionName(
+                            returnType,
+                            nativeExecutionEnabled,
+                            sqlFunctionProperties.isLegacyTimestampWithTimezone()).toString(),
+                    returnType,
+                    value,
+                    timeZone);
         }
 
         @Override

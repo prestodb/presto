@@ -166,6 +166,7 @@ public class FunctionAndTypeManager
     private final boolean nativeExecution;
     private final boolean isBuiltInSidecarFunctionsEnabled;
     private final CatalogSchemaName defaultNamespace;
+    private final AtTimeZoneExecutionPolicy atTimeZoneExecutionPolicy;
     private final AtomicReference<TypeManager> servingTypeManager;
     private final AtomicReference<Supplier<Map<String, ParametricType>>> servingTypeManagerParametricTypesSupplier;
     private final BuiltInWorkerFunctionNamespaceManager builtInWorkerFunctionNamespaceManager;
@@ -176,7 +177,6 @@ public class FunctionAndTypeManager
     private final FunctionsConfig functionsConfig;
     private final Set<Type> types;
 
-    @Inject
     public FunctionAndTypeManager(
             TransactionManager transactionManager,
             TableFunctionRegistry tableFunctionRegistry,
@@ -186,10 +186,33 @@ public class FunctionAndTypeManager
             HandleResolver handleResolver,
             Set<Type> types)
     {
+        this(
+                transactionManager,
+                tableFunctionRegistry,
+                blockEncodingSerde,
+                featuresConfig,
+                functionsConfig,
+                handleResolver,
+                new DefaultAtTimeZoneExecutionPolicy(functionsConfig),
+                types);
+    }
+
+    @Inject
+    public FunctionAndTypeManager(
+            TransactionManager transactionManager,
+            TableFunctionRegistry tableFunctionRegistry,
+            BlockEncodingSerde blockEncodingSerde,
+            FeaturesConfig featuresConfig,
+            FunctionsConfig functionsConfig,
+            HandleResolver handleResolver,
+            AtTimeZoneExecutionPolicy atTimeZoneExecutionPolicy,
+            Set<Type> types)
+    {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.tableFunctionRegistry = requireNonNull(tableFunctionRegistry, "tableFunctionRegistry is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.functionsConfig = requireNonNull(functionsConfig, "functionsConfig is null");
+        this.atTimeZoneExecutionPolicy = requireNonNull(atTimeZoneExecutionPolicy, "atTimeZoneExecutionPolicy is null");
         this.types = requireNonNull(types, "types is null");
         this.builtInTypeAndFunctionNamespaceManager = new BuiltInTypeAndFunctionNamespaceManager(blockEncodingSerde, functionsConfig, types, this);
         this.functionNamespaceManagers.put(JAVA_BUILTIN_NAMESPACE.getCatalogName(), builtInTypeAndFunctionNamespaceManager);
@@ -218,13 +241,24 @@ public class FunctionAndTypeManager
 
     public static FunctionAndTypeManager createTestFunctionAndTypeManager()
     {
+        FunctionsConfig functionsConfig = new FunctionsConfig();
+        return createTestFunctionAndTypeManager(
+                functionsConfig,
+                new DefaultAtTimeZoneExecutionPolicy(functionsConfig));
+    }
+
+    public static FunctionAndTypeManager createTestFunctionAndTypeManager(
+            FunctionsConfig functionsConfig,
+            AtTimeZoneExecutionPolicy atTimeZoneExecutionPolicy)
+    {
         return new FunctionAndTypeManager(
                 createTestTransactionManager(),
                 new TableFunctionRegistry(),
                 new BlockEncodingManager(),
                 new FeaturesConfig(),
-                new FunctionsConfig(),
+                functionsConfig,
                 new HandleResolver(),
+                atTimeZoneExecutionPolicy,
                 ImmutableSet.of());
     }
 
@@ -365,6 +399,19 @@ public class FunctionAndTypeManager
                 return QualifiedObjectName.valueOf(name.getParts().get(0), name.getParts().get(1), name.getParts().get(2));
             }
         };
+    }
+
+    public QualifiedName resolveAtTimeZoneFunctionName(
+            Type returnType,
+            boolean nativeExecutionEnabled,
+            boolean legacyTimestampWithTimezone)
+    {
+        return requireNonNull(
+                atTimeZoneExecutionPolicy.resolveAtTimeZoneFunctionName(
+                        requireNonNull(returnType, "returnType is null"),
+                        nativeExecutionEnabled,
+                        legacyTimestampWithTimezone),
+                "AT TIME ZONE function name is null");
     }
 
     @Managed
