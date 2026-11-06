@@ -257,7 +257,7 @@ public class ParquetColumnChunk
                 firstRowIndex,
                 MetadataReader.readStats(
                         dataHeaderV1.getStatistics(),
-                        descriptor.getColumnDescriptor().getType()),
+                        descriptor.getColumnDescriptor().getPrimitiveType()),
                 getParquetEncoding(Encoding.valueOf(dataHeaderV1.getRepetition_level_encoding().name())),
                 getParquetEncoding(Encoding.valueOf(dataHeaderV1.getDefinition_level_encoding().name())),
                 getParquetEncoding(Encoding.valueOf(dataHeaderV1.getEncoding().name())));
@@ -284,7 +284,7 @@ public class ParquetColumnChunk
                 uncompressedPageSize,
                 MetadataReader.readStats(
                         dataHeaderV2.getStatistics(),
-                        descriptor.getColumnDescriptor().getType()),
+                        descriptor.getColumnDescriptor().getPrimitiveType()),
                 dataHeaderV2.isIs_compressed());
     }
 
