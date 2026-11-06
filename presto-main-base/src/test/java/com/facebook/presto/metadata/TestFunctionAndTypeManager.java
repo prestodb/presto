@@ -24,6 +24,8 @@ import com.facebook.presto.functionNamespace.execution.SqlFunctionExecutors;
 import com.facebook.presto.functionNamespace.testing.InMemoryFunctionNamespaceManager;
 import com.facebook.presto.operator.scalar.BuiltInScalarFunctionImplementation;
 import com.facebook.presto.operator.scalar.CustomFunctions;
+import com.facebook.presto.spi.function.AggregationFunctionImplementation;
+import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionImplementationType;
 import com.facebook.presto.spi.function.Parameter;
@@ -33,6 +35,7 @@ import com.facebook.presto.spi.function.Signature;
 import com.facebook.presto.spi.function.SqlFunction;
 import com.facebook.presto.spi.function.SqlFunctionId;
 import com.facebook.presto.spi.function.SqlFunctionVisibility;
+import com.facebook.presto.spi.function.SqlInvokedAggregationFunctionImplementation;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.function.TypeVariableConstraint;
@@ -61,8 +64,10 @@ import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.ArgumentProperty.valueTypeArgumentProperty;
 import static com.facebook.presto.operator.scalar.ScalarFunctionImplementationChoice.NullConvention.RETURN_NULL_ON_NULL;
+import static com.facebook.presto.spi.function.FunctionKind.AGGREGATE;
 import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.FunctionVersion.notVersioned;
+import static com.facebook.presto.spi.function.RoutineCharacteristics.Determinism.DETERMINISTIC;
 import static com.facebook.presto.spi.function.Signature.typeVariable;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.PUBLIC;
 import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
@@ -337,6 +342,39 @@ public class TestFunctionAndTypeManager
 
         assertTrue(names.contains("length"), "Expected built-in function 'length' to be present");
         assertFalse(names.contains("custom_func"), "Expected custom function NOT to be present when list_built_in_functions_only is true");
+    }
+
+    @Test
+    public void testAggregateDeclaredOverTypeVariableResolvesToConcreteTypes()
+    {
+        // A native worker declares a polymorphic aggregate the way it declares any other: with
+        // its type variables left in the argument, intermediate and return types.
+        SqlInvokedFunction anyValue = new SqlInvokedFunction(
+                QualifiedObjectName.valueOf("presto", "default", "worker_any_value"),
+                ImmutableList.of(new Parameter("x", parseTypeSignature("T"))),
+                ImmutableList.of(typeVariable("T")),
+                ImmutableList.of(),
+                parseTypeSignature("T"),
+                "Returns an arbitrary value of its argument",
+                RoutineCharacteristics.builder().setDeterminism(DETERMINISTIC).setLanguage(RoutineCharacteristics.Language.CPP).build(),
+                "",
+                false,
+                notVersioned(),
+                AGGREGATE,
+                Optional.of(new AggregationFunctionMetadata(parseTypeSignature("T"), false)));
+
+        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+        functionAndTypeManager.registerWorkerAggregateFunctions(ImmutableList.of(anyValue));
+
+        FunctionHandle functionHandle = functionAndTypeManager.lookupFunction(
+                anyValue.getSignature().getName(),
+                fromTypeSignatures(BIGINT.getTypeSignature()));
+        AggregationFunctionImplementation implementation = functionAndTypeManager.getAggregateFunctionImplementation(functionHandle);
+        assertTrue(implementation instanceof SqlInvokedAggregationFunctionImplementation);
+
+        assertEquals(((SqlInvokedAggregationFunctionImplementation) implementation).getParameterTypes(), ImmutableList.of(BIGINT));
+        assertEquals(implementation.getIntermediateType(), BIGINT);
+        assertEquals(implementation.getFinalType(), BIGINT);
     }
 
     @Test

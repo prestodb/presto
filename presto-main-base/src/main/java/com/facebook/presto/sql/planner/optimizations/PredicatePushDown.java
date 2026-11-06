@@ -60,6 +60,7 @@ import com.facebook.presto.sql.planner.plan.AssignUniqueId;
 import com.facebook.presto.sql.planner.plan.AssignmentUtils;
 import com.facebook.presto.sql.planner.plan.ExchangeNode;
 import com.facebook.presto.sql.planner.plan.GroupIdNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
 import com.facebook.presto.sql.relational.Expressions;
@@ -396,6 +397,27 @@ public class PredicatePushDown
             Set<VariableReferenceExpression> pushDownableVariables = ImmutableSet.copyOf(node.getDistinctVariables());
             Map<Boolean, List<RowExpression>> conjuncts = extractConjuncts(context.get()).stream()
                     .collect(Collectors.partitioningBy(conjunct -> pushDownableVariables.containsAll(extractUnique(conjunct))));
+
+            PlanNode rewrittenNode = context.defaultRewrite(node, logicalRowExpressions.combineConjuncts(conjuncts.get(true)));
+
+            if (!conjuncts.get(false).isEmpty()) {
+                planChanged = true;
+                rewrittenNode = new FilterNode(node.getSourceLocation(), idAllocator.getNextId(), rewrittenNode, logicalRowExpressions.combineConjuncts(conjuncts.get(false)));
+            }
+            return rewrittenNode;
+        }
+
+        @Override
+        public PlanNode visitRPC(RPCNode node, RewriteContext<RowExpression> context)
+        {
+            // The node produces one output row per input row, adds one column, and passes every other
+            // column through unchanged. A deterministic conjunct that does not read the added column
+            // therefore keeps the same rows on either side of the node, and evaluating it below spares
+            // the remote call the rows it discards. Non-deterministic conjuncts stay above, as they do
+            // elsewhere in this rule.
+            Map<Boolean, List<RowExpression>> conjuncts = extractConjuncts(context.get()).stream()
+                    .collect(Collectors.partitioningBy(conjunct -> determinismEvaluator.isDeterministic(conjunct)
+                            && !extractUnique(conjunct).contains(node.getOutputVariable())));
 
             PlanNode rewrittenNode = context.defaultRewrite(node, logicalRowExpressions.combineConjuncts(conjuncts.get(true)));
 
