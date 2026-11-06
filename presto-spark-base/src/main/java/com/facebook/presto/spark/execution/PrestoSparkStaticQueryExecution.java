@@ -20,6 +20,7 @@ import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.event.QueryMonitor;
+import com.facebook.presto.execution.QueryCompletionValidator;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryStateTimer;
 import com.facebook.presto.execution.TaskInfo;
@@ -115,7 +116,8 @@ public class PrestoSparkStaticQueryExecution
             Metadata metadata,
             PartitioningProviderManager partitioningProviderManager,
             HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker,
-            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
+            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector,
+            Set<QueryCompletionValidator> completionValidators)
     {
         super(
                 sparkContext,
@@ -154,7 +156,8 @@ public class PrestoSparkStaticQueryExecution
                 metadata,
                 partitioningProviderManager,
                 historyBasedPlanStatisticsTracker,
-                bootstrapMetricsCollector);
+                bootstrapMetricsCollector,
+                completionValidators);
     }
 
     @Override

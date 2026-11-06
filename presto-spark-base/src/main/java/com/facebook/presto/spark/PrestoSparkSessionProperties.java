@@ -225,7 +225,8 @@ public class PrestoSparkSessionProperties
                         false),
                 integerProperty(
                         SPARK_MAX_TASK_INFOS_IN_QUERY_COMPLETED_EVENT,
-                        "Maximum number of task infos to deserialize and retain when assembling the query completed event; bounds driver memory on queries with very large task counts",
+                        "Maximum executor task infos to deserialize and retain for completed-event statistics and completion validation; bounds driver memory. " +
+                                "Exceeding this limit drops all executor task statistics and skips completion validation; driver task infos are retained",
                         prestoSparkConfig.getMaxTaskInfosInQueryCompletedEvent(),
                         false),
                 dataSizeProperty(
