@@ -18,6 +18,7 @@ add_library(
   ConfigReader.cpp
   Configs.cpp
   LegacyHiveConfigKeys.cpp
+  JavaWriterConfigKeys.cpp
 )
 
 target_link_libraries(presto_exception velox)
