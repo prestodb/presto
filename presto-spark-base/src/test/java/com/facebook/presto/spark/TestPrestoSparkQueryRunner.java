@@ -15,6 +15,9 @@ package com.facebook.presto.spark;
 
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
+import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
+import com.facebook.presto.spi.plan.TableWriterNode;
+import com.facebook.presto.sql.planner.SubPlan;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
@@ -31,6 +34,8 @@ import java.io.File;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
 import static com.facebook.presto.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -52,9 +57,12 @@ import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ENABLED;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_RETRY_ON_OUT_OF_MEMORY_WITH_INCREASED_MEMORY_SETTINGS_ERROR_CODES;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_SPLIT_ASSIGNMENT_BATCH_SIZE;
+import static com.facebook.presto.spark.PrestoSparkSessionProperties.SPARK_TABLE_WRITER_PARTITION_COUNT;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.STORAGE_BASED_BROADCAST_JOIN_ENABLED;
 import static com.facebook.presto.sql.analyzer.FeaturesConfig.PartialMergePushdownStrategy.PUSH_THROUGH_LOW_MEMORY_OPERATORS;
+import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.facebook.presto.tests.QueryAssertions.assertEqualsIgnoreOrder;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -64,6 +72,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.FileAssert.assertFile;
 
 public class TestPrestoSparkQueryRunner
@@ -310,6 +319,172 @@ public class TestPrestoSparkQueryRunner
         dropTable("hive_test", "test_hive_orders_bucketed_join_input_1");
         dropTable("hive_test", "test_hive_orders_bucketed_join_input_2");
         dropTable("hive_test", "test_hive_orders_bucketed_join_output");
+    }
+
+    @Test
+    public void testTableWriterPartitionCountForPartitionedTable()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPARK_TABLE_WRITER_PARTITION_COUNT, "4")
+                .build();
+        String expectedFileCountQuery = "SELECT count(*) FROM (SELECT DISTINCT orderpriority, orderstatus FROM orders)";
+
+        assertWriterPartitionCount(
+                session,
+                "CREATE TABLE hive.hive_test.test_table_writer_partition_count_ctas WITH (partitioned_by = ARRAY['orderpriority', 'orderstatus']) AS " +
+                        "SELECT orderkey, custkey, orderpriority, orderstatus FROM orders",
+                15000,
+                4);
+        assertQuery(
+                "SELECT orderkey, custkey, orderpriority, orderstatus FROM hive.hive_test.test_table_writer_partition_count_ctas",
+                "SELECT orderkey, custkey, orderpriority, orderstatus FROM orders");
+        // a single writer per table partition writes one file per partition
+        assertQuery("SELECT count(DISTINCT \"$path\") FROM hive.hive_test.test_table_writer_partition_count_ctas", expectedFileCountQuery);
+
+        assertQuerySucceeds(
+                session,
+                "CREATE TABLE hive.hive_test.test_table_writer_partition_count_insert (orderkey BIGINT, custkey BIGINT, orderpriority VARCHAR, orderstatus VARCHAR) " +
+                        "WITH (partitioned_by = ARRAY['orderpriority', 'orderstatus'])");
+        assertWriterPartitionCount(
+                session,
+                "INSERT INTO hive.hive_test.test_table_writer_partition_count_insert SELECT orderkey, custkey, orderpriority, orderstatus FROM orders",
+                15000,
+                4);
+        assertQuery(
+                "SELECT orderkey, custkey, orderpriority, orderstatus FROM hive.hive_test.test_table_writer_partition_count_insert",
+                "SELECT orderkey, custkey, orderpriority, orderstatus FROM orders");
+        assertQuery("SELECT count(DISTINCT \"$path\") FROM hive.hive_test.test_table_writer_partition_count_insert", expectedFileCountQuery);
+
+        dropTable("hive_test", "test_table_writer_partition_count_ctas");
+        dropTable("hive_test", "test_table_writer_partition_count_insert");
+    }
+
+    @Test
+    public void testTableWriterPartitionCountForBucketedTable()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPARK_TABLE_WRITER_PARTITION_COUNT, "2")
+                .build();
+
+        // without the property the write runs with ceil(13 / task_partitioned_writer_count) = 4 partitions
+        assertWriterPartitionCount(
+                session,
+                "CREATE TABLE hive.hive_test.test_table_writer_partition_count_bucketed WITH (bucketed_by = ARRAY['orderkey'], bucket_count = 13) AS " +
+                        "SELECT orderkey, custkey, orderstatus FROM orders",
+                15000,
+                2);
+        assertQuery(
+                "SELECT \"$bucket\", count(*) FROM hive.hive_test.test_table_writer_partition_count_bucketed GROUP BY \"$bucket\"",
+                "SELECT orderkey % 13, count(*) FROM orders GROUP BY orderkey % 13");
+        // a bucket is never split between writers
+        assertQuery("SELECT count(DISTINCT \"$path\") FROM hive.hive_test.test_table_writer_partition_count_bucketed", "SELECT 13");
+
+        assertQuerySucceeds(
+                session,
+                "CREATE TABLE hive.hive_test.test_table_writer_partition_count_partitioned_bucketed (orderkey BIGINT, custkey BIGINT, orderstatus VARCHAR) " +
+                        "WITH (partitioned_by = ARRAY['orderstatus'], bucketed_by = ARRAY['orderkey'], bucket_count = 13)");
+        assertWriterPartitionCount(
+                session,
+                "INSERT INTO hive.hive_test.test_table_writer_partition_count_partitioned_bucketed SELECT orderkey, custkey, orderstatus FROM orders",
+                15000,
+                2);
+        assertQuery(
+                "SELECT orderstatus, \"$bucket\", count(*) FROM hive.hive_test.test_table_writer_partition_count_partitioned_bucketed GROUP BY orderstatus, \"$bucket\"",
+                "SELECT orderstatus, orderkey % 13, count(*) FROM orders GROUP BY orderstatus, orderkey % 13");
+        assertQuery(
+                "SELECT count(DISTINCT \"$path\") FROM hive.hive_test.test_table_writer_partition_count_partitioned_bucketed",
+                "SELECT count(*) FROM (SELECT DISTINCT orderstatus, orderkey % 13 FROM orders)");
+
+        dropTable("hive_test", "test_table_writer_partition_count_bucketed");
+        dropTable("hive_test", "test_table_writer_partition_count_partitioned_bucketed");
+    }
+
+    @Test
+    public void testTableWriterPartitionCountForUnionAll()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPARK_TABLE_WRITER_PARTITION_COUNT, "4")
+                .build();
+
+        assertWriterPartitionCount(
+                session,
+                "CREATE TABLE hive.hive_test.test_table_writer_partition_count_union WITH (partitioned_by = ARRAY['orderpriority', 'orderstatus']) AS " +
+                        "SELECT orderkey, custkey, orderpriority, orderstatus FROM orders WHERE orderkey % 2 = 0 " +
+                        "UNION ALL " +
+                        "SELECT orderkey, custkey, orderpriority, orderstatus FROM orders WHERE orderkey % 2 = 1",
+                15000,
+                4);
+        assertQuery(
+                "SELECT orderkey, custkey, orderpriority, orderstatus FROM hive.hive_test.test_table_writer_partition_count_union",
+                "SELECT orderkey, custkey, orderpriority, orderstatus FROM orders");
+        // each branch of the union has its own writers, each writing one file per partition
+        assertQuery(
+                "SELECT count(DISTINCT \"$path\") FROM hive.hive_test.test_table_writer_partition_count_union",
+                "SELECT count(*) FROM (SELECT DISTINCT orderkey % 2, orderpriority, orderstatus FROM orders)");
+
+        dropTable("hive_test", "test_table_writer_partition_count_union");
+    }
+
+    @Test
+    public void testTableWriterPartitionCountForUnsupportedPartitionColumnType()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPARK_TABLE_WRITER_PARTITION_COUNT, "4")
+                .build();
+
+        // the Hive bucket function cannot hash DECIMAL, so the write is not shuffled on the partition column
+        assertUpdate(
+                session,
+                "CREATE TABLE hive.hive_test.test_table_writer_partition_count_decimal WITH (partitioned_by = ARRAY['shippriority']) AS " +
+                        "SELECT orderkey, custkey, CAST(shippriority AS DECIMAL(10, 2)) AS shippriority FROM orders",
+                15000);
+        assertQuery(
+                "SELECT orderkey, custkey, shippriority FROM hive.hive_test.test_table_writer_partition_count_decimal",
+                "SELECT orderkey, custkey, CAST(shippriority AS DECIMAL(10, 2)) FROM orders");
+
+        dropTable("hive_test", "test_table_writer_partition_count_decimal");
+    }
+
+    @Test
+    public void testInvalidTableWriterPartitionCount()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(SPARK_TABLE_WRITER_PARTITION_COUNT, "0")
+                .build();
+        assertQueryFails(session, "SELECT 1", "(?s).*spark_table_writer_partition_count must be equal or greater than 1.*");
+
+        session = Session.builder(getSession())
+                .setSystemProperty(SPARK_TABLE_WRITER_PARTITION_COUNT, "1")
+                .build();
+        assertQuerySucceeds(session, "SELECT 1");
+    }
+
+    /**
+     * Runs a write and checks that the table writers of the executed plan read shuffles with the expected number of
+     * partitions, which is the number of writer tasks.
+     */
+    private void assertWriterPartitionCount(Session session, String sql, long expectedRowCount, int expectedPartitionCount)
+    {
+        AbstractPrestoSparkQueryExecution execution = (AbstractPrestoSparkQueryExecution) ((PrestoSparkQueryRunner) getQueryRunner())
+                .createPrestoSparkQueryExecution(session, sql, ImmutableList.of());
+        assertEquals(execution.execute(), ImmutableList.of(ImmutableList.of(expectedRowCount)));
+        List<SubPlan> writerFragments = flatten(execution.getFinalFragmentedPlan().get())
+                .filter(subPlan -> searchFrom(subPlan.getFragment().getRoot()).where(TableWriterNode.class::isInstance).matches())
+                .collect(toImmutableList());
+        assertFalse(writerFragments.isEmpty(), "no table writer in the executed plan");
+        List<SubPlan> writerInputs = writerFragments.stream()
+                .flatMap(writerFragment -> writerFragment.getChildren().stream())
+                .collect(toImmutableList());
+        assertFalse(writerInputs.isEmpty(), "no shuffle into a table writer in the executed plan");
+        for (SubPlan writerInput : writerInputs) {
+            int[] bucketToPartition = writerInput.getFragment().getPartitioningScheme().getBucketToPartition().get();
+            assertEquals(IntStream.of(bucketToPartition).max().getAsInt() + 1, expectedPartitionCount, "writer partition count");
+        }
+    }
+
+    private static Stream<SubPlan> flatten(SubPlan subPlan)
+    {
+        return Stream.concat(Stream.of(subPlan), subPlan.getChildren().stream().flatMap(TestPrestoSparkQueryRunner::flatten));
     }
 
     private void dropTable(String schema, String table)
