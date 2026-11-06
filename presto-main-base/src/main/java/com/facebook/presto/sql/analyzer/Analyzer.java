@@ -23,6 +23,7 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.rewrite.MaterializedViewRewriteResult;
 import com.facebook.presto.sql.rewrite.StatementRewrite;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingOperation;
@@ -132,6 +133,33 @@ public class Analyzer
         analyzer.analyze(rewrittenStatement, Optional.empty());
         analyzeForUtilizedColumns(analysis, analysis.getStatement(), warningCollector);
         analysis.populateTableColumnAndSubfieldReferencesForAccessControl(isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session), isLegacyMaterializedViews(session));
+        return analysis;
+    }
+
+    Analysis analyzeMaterializedViewDefinition(CreateMaterializedView statement)
+    {
+        MaterializedViewRewriteResult rewriteResult = StatementRewrite.rewrite(
+                session,
+                metadata,
+                sqlParser,
+                queryExplainer,
+                statement,
+                parameters,
+                parameterLookup,
+                accessControl,
+                warningCollector,
+                query,
+                viewDefinitionReferences);
+        CreateMaterializedView rewrittenStatement = (CreateMaterializedView) rewriteResult.getStatement();
+        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, false, viewDefinitionReferences);
+        metadataExtractor.populateMetadataHandle(session, rewrittenStatement, analysis.getMetadataHandle());
+        StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
+        analyzer.analyze(rewrittenStatement.getQuery(), Optional.empty());
+        analyzeForUtilizedColumns(analysis, rewrittenStatement.getQuery(), warningCollector);
+        analysis.populateTableColumnAndSubfieldReferencesForAccessControl(
+                isCheckAccessControlOnUtilizedColumnsOnly(session),
+                isCheckAccessControlWithSubfields(session),
+                isLegacyMaterializedViews(session));
         return analysis;
     }
 
