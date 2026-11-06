@@ -55,6 +55,7 @@ import java.util.stream.IntStream;
 import static com.facebook.presto.SystemSessionProperties.ADD_DISTINCT_BELOW_SEMI_JOIN_BUILD;
 import static com.facebook.presto.SystemSessionProperties.ADD_PARTIAL_NODE_FOR_ROW_NUMBER_WITH_LIMIT;
 import static com.facebook.presto.SystemSessionProperties.ENABLE_INTERMEDIATE_AGGREGATIONS;
+import static com.facebook.presto.SystemSessionProperties.EVALUATE_FILTER_ON_VALUES;
 import static com.facebook.presto.SystemSessionProperties.FIELD_NAMES_IN_JSON_CAST_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.GENERATE_DOMAIN_FILTERS;
 import static com.facebook.presto.SystemSessionProperties.HASH_PARTITION_COUNT;
@@ -7645,6 +7646,45 @@ public abstract class AbstractTestQueries
         assertQuery(enableOptimization, "select * from (select orderkey, row_number() over (partition by orderpriority order by orderkey) row_number, orderpriority from (select orderkey, orderpriority from orders where false)) where row_number < 2");
 
         emptyJoinQueries(enableOptimization);
+    }
+
+    @Test
+    public void testEvaluateFilterOnValues()
+    {
+        Session enabled = Session.builder(getSession())
+                .setSystemProperty(EVALUATE_FILTER_ON_VALUES, "true")
+                .build();
+        Session disabled = Session.builder(getSession())
+                .setSystemProperty(EVALUATE_FILTER_ON_VALUES, "false")
+                .build();
+
+        // Filter keeps some rows, keeps none, and drops a row whose predicate is NULL.
+        assertQueryWithSameQueryRunner(enabled, "SELECT * FROM (VALUES (1, 'a'), (2, 'b'), (3, 'c')) t(k, ds) WHERE ds = 'b' OR k = 3", disabled);
+        assertQueryWithSameQueryRunner(enabled, "SELECT count(*) FROM (VALUES (1, 'a'), (2, 'b')) t(k, ds) WHERE ds = 'z'", disabled);
+        assertQueryWithSameQueryRunner(enabled, "SELECT * FROM (VALUES (1, 'a'), (2, NULL)) t(k, ds) WHERE ds = 'a'", disabled);
+
+        // Full outer join against a values relation whose filter removes every row, grouped by the coalesced join key.
+        @Language("SQL") String fullJoinWithEmptyValues =
+                "SELECT to_hex(checksum(k)), to_hex(checksum(cnt)) FROM (" +
+                "  SELECT coalesce(o.orderkey, v.k) AS k, count(*) AS cnt" +
+                "  FROM orders o" +
+                "  FULL JOIN (SELECT k FROM (VALUES (BIGINT '1', 'a')) t(k, ds) WHERE ds = 'b') v ON o.orderkey = v.k" +
+                "  GROUP BY coalesce(o.orderkey, v.k))";
+        assertQueryWithSameQueryRunner(enabled, fullJoinWithEmptyValues, disabled);
+
+        // Full outer join where the filter keeps a matching row and a non-matching row (the non-matching key is beyond every
+        // orderkey; negative keys cannot be bucketed by the TPC-H connector when the values are routed into the orders partitioning).
+        @Language("SQL") String fullJoinWithRetainedValues =
+                "SELECT to_hex(checksum(k)), to_hex(checksum(ds)) FROM (" +
+                "  SELECT coalesce(o.orderkey, v.k) AS k, v.ds" +
+                "  FROM orders o" +
+                "  FULL JOIN (SELECT k, ds FROM (VALUES (BIGINT '1', 'a'), (BIGINT '1', 'b'), (BIGINT '100000000', 'b')) t(k, ds) WHERE ds = 'b') v ON o.orderkey = v.k)";
+        assertQueryWithSameQueryRunner(enabled, fullJoinWithRetainedValues, disabled);
+
+        // Left join against a filtered values relation.
+        assertQueryWithSameQueryRunner(enabled,
+                "SELECT o.orderkey, v.ds FROM orders o LEFT JOIN (SELECT * FROM (VALUES (BIGINT '1', 'a'), (BIGINT '2', 'b')) t(k, ds) WHERE ds = 'b') v ON o.orderkey = v.k",
+                disabled);
     }
 
     @Test
