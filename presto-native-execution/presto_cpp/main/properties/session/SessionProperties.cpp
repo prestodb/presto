@@ -24,7 +24,10 @@
 
 #include <velox/common/base/Exceptions.h>
 #include "presto_cpp/main/common/Utils.h"
+#include "velox/core/PlanNode.h"
 #include "velox/core/QueryConfig.h"
+#include "velox/exec/ExchangeTransportRegistry.h"
+#include "velox/exec/OutputTransportRegistry.h"
 #include "velox/type/Type.h"
 
 using namespace facebook::velox;
@@ -37,11 +40,47 @@ SessionProperties* SessionProperties::instance() {
   return instance.get();
 }
 
+bool SessionProperties::isCudfExchangeAvailable(
+    const velox::core::QueryCtx* queryCtx) {
+  const std::string kUcx{velox::core::TransportKind::kUcx};
+  // Both ends: the producing task resolves the output transport and the
+  // consuming task the exchange one, so an edge is only usable when both are
+  // registered.
+  if (queryCtx != nullptr) {
+    return velox::exec::ExchangeTransportRegistry::tryGet(*queryCtx, kUcx) !=
+        nullptr &&
+        velox::exec::OutputTransportRegistry::tryGet(*queryCtx, kUcx) !=
+        nullptr;
+  }
+  return velox::exec::ExchangeTransportRegistry::tryGet(kUcx) != nullptr &&
+      velox::exec::OutputTransportRegistry::tryGet(kUcx) != nullptr;
+}
+
 // List of native session properties is kept as the source of truth here.
 SessionProperties::SessionProperties() {
   using velox::core::QueryConfig;
   // Use empty instance to get default property values.
   QueryConfig c{{}};
+
+  // A constant default, so that it does not depend on when this singleton is
+  // first created relative to registerCudf(). The coordinator sends this
+  // property only when a query sets it, so the default never reaches the plan
+  // converter, which resolves an unset value per exchange edge from what this
+  // worker has registered.
+  addSessionProperty(
+      kCudfExchangeEnabled,
+      "Native Execution only. Whether this query's worker-to-worker exchanges "
+      "may use the cuDF UCX transport. When unset, the worker decides: it uses "
+      "the transport where it is registered, which is a worker with "
+      "'cudf.exchange' enabled in a build that has the UCX exchange, and the "
+      "in-memory transport elsewhere. Leaving it unset is therefore not the "
+      "same as setting it false, which always uses the in-memory transport. "
+      "Setting it true on a worker without the transport fails the query "
+      "instead of silently using the in-memory transport.",
+      BOOLEAN(),
+      false,
+      kCudfExchangeEnabledConfig,
+      "false");
 
   addSessionProperty(
       kExprEvalSimplified,
