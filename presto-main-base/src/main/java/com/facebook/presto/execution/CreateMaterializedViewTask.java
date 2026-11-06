@@ -33,6 +33,7 @@ import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.spi.security.ViewSecurity;
 import com.facebook.presto.sql.analyzer.Analysis;
 import com.facebook.presto.sql.analyzer.Analyzer;
+import com.facebook.presto.sql.analyzer.MaterializedViewColumnDerivationResolver;
 import com.facebook.presto.sql.analyzer.MaterializedViewColumnMappingExtractor;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.parser.SqlParser;
@@ -172,7 +173,18 @@ public class CreateMaterializedViewTask
                 })
                 .collect(toImmutableList());
 
-        MaterializedViewColumnMappingExtractor extractor = new MaterializedViewColumnMappingExtractor(analysis, session, metadata);
+        MaterializedViewColumnDerivationResolver derivationResolver = new MaterializedViewColumnDerivationResolver(
+                session,
+                metadata,
+                sqlParser,
+                accessControl,
+                warningCollector);
+        MaterializedViewColumnMappingExtractor extractor = new MaterializedViewColumnMappingExtractor(
+                analysis,
+                session,
+                metadata,
+                derivationResolver);
+        extractor.validateAggregateMergePartners();
         Map<String, Map<SchemaTableName, String>> columnMappings = extractor.getMaterializedViewColumnMappings();
         Map<String, List<TableColumn>> derivedColumnMappings = extractor.getMaterializedViewDerivedColumnMappings();
 
