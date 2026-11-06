@@ -122,8 +122,9 @@ SYNOPSIS
                 [--external-authentication-redirect-handler <redirect-handler>]
                 [--truststore-password <truststore password>]
                 [--truststore-path <truststore path>]
-                [--truststore-type <truststore type>] [--user <user>]
-                [--validate-nexturi-source] [--version]
+                [--truststore-type <truststore type>]
+                [--trusted-redirect-host <trusted redirect host>...]
+                [--user <user>] [--validate-nexturi-source] [--version]
 
 OPTIONS
         --access-token <access token>
@@ -250,6 +251,13 @@ OPTIONS
 
         --truststore-type <truststore type>
             Truststore type
+
+        --trusted-redirect-host <trusted redirect host>
+            HTTPS host or host:port that may receive the configured password or
+            access token when the server redirects there (property can be used
+            multiple times). By default credentials are only sent to the host
+            and port the client connected to. Unlisted hosts and redirects to
+            plain HTTP never receive credentials; wildcards are not supported.
 
         --user <user>
             Username

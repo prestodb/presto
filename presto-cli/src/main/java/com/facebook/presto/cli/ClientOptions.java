@@ -91,6 +91,9 @@ public class ClientOptions
     @Option(name = "--access-token", title = "access token", description = "Access token")
     public String accessToken;
 
+    @Option(name = "--trusted-redirect-host", title = "trusted redirect host", description = "HTTPS host or host:port that may receive the configured password or access token when the server redirects there (property can be used multiple times)")
+    public List<String> trustedRedirectHosts = new ArrayList<>();
+
     @Option(name = "--insecure", title = "trust all certificates", description = "Skip validation of HTTP server certificates (should only be used for debugging)")
     public boolean insecure;
 
