@@ -6,7 +6,8 @@ When you implement a new Presto plugin, you implement interfaces and
 override methods defined by the SPI.
 
 Plugins can provide additional :doc:`connectors`, :doc:`types`,
-:doc:`functions` and :doc:`system-access-control`.
+:doc:`functions`, :doc:`materialized-view-rollups` and
+:doc:`system-access-control`.
 In particular, connectors are the source of all data for queries in
 Presto: they back each catalog available to Presto.
 
@@ -46,7 +47,9 @@ to understand the Presto SPI. It contains access methods to retrieve
 various classes that a Plugin can provide. For example, the ``getConnectorFactories()``
 method is a top-level function that Presto calls to retrieve a ``ConnectorFactory`` when Presto
 is ready to create an instance of a connector to back a catalog. There are similar
-methods for ``Type``, ``ParametricType``, ``Function``, ``SystemAccessControl``, and
+methods for ``Type``, ``ParametricType``, ``Function``,
+``MaterializedViewAggregationMergeStrategy``,
+``MaterializedViewPartitionTransformProvider``, ``SystemAccessControl``, and
 ``EventListenerFactory`` objects.
 
 Building Plugins with Maven
