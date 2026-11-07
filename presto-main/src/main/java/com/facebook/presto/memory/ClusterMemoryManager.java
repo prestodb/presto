@@ -130,6 +130,7 @@ public class ClusterMemoryManager
     private final AtomicLong queriesKilledDueToOutOfMemory = new AtomicLong();
     private final boolean isWorkScheduledOnCoordinator;
     private final boolean isBinaryTransportEnabled;
+    private final boolean useWorkerAdvertisedMemoryForLimit;
 
     @GuardedBy("this")
     private final Map<String, RemoteNodeMemory> nodes = new HashMap<>();
@@ -183,6 +184,7 @@ public class ClusterMemoryManager
         this.killOnOutOfMemoryDelay = config.getKillOnOutOfMemoryDelay();
         this.isWorkScheduledOnCoordinator = schedulerConfig.isIncludeCoordinator();
         this.isBinaryTransportEnabled = communicationConfig.isBinaryTransportEnabled();
+        this.useWorkerAdvertisedMemoryForLimit = config.isUseWorkerAdvertisedMemoryForLimit();
         if (this.isBinaryTransportEnabled) {
             this.memoryInfoCodec = requireNonNull(memoryInfoSmileCodec, "memoryInfoSmileCodec is null");
             this.assignmentsRequestCodec = requireNonNull(assignmentsRequestSmileCodec, "assignmentsRequestSmileCodec is null");
@@ -236,6 +238,28 @@ public class ClusterMemoryManager
         return pools.containsKey(poolId);
     }
 
+    /**
+     * Computes effective query memory limits from config and worker-advertised capacity.
+     * Used by {@link #process(Iterable)} and by tests to verify worker-advertised capping behavior.
+     *
+     * @return long[0] = effective max query user memory in bytes, long[1] = effective max query total memory in bytes
+     */
+    static long[] computeEffectiveQueryMemoryLimits(
+            long maxQueryMemoryInBytes,
+            long maxQueryTotalMemoryInBytes,
+            boolean useWorkerAdvertisedMemoryForLimit,
+            boolean isWorkScheduledOnCoordinator,
+            long workerTotalCapacityBytes)
+    {
+        long effectiveMaxQueryMemoryInBytes = maxQueryMemoryInBytes;
+        long effectiveMaxQueryTotalMemoryInBytes = maxQueryTotalMemoryInBytes;
+        if (useWorkerAdvertisedMemoryForLimit && !isWorkScheduledOnCoordinator && workerTotalCapacityBytes > 0) {
+            effectiveMaxQueryTotalMemoryInBytes = min(maxQueryTotalMemoryInBytes, workerTotalCapacityBytes);
+            effectiveMaxQueryMemoryInBytes = min(maxQueryMemoryInBytes, effectiveMaxQueryTotalMemoryInBytes);
+        }
+        return new long[] {effectiveMaxQueryMemoryInBytes, effectiveMaxQueryTotalMemoryInBytes};
+    }
+
     public synchronized void process(Iterable<QueryExecution> runningQueries)
     {
         if (!enabled) {
@@ -246,6 +270,22 @@ public class ClusterMemoryManager
         if (!outOfMemory) {
             lastTimeNotOutOfMemory = System.nanoTime();
         }
+
+        // When coordinator does not schedule work, cap query limits by worker-advertised capacity
+        // so the coordinator uses min(configured limit, sum of worker general pool capacity).
+        long workerTotalCapacity = 0;
+        ClusterMemoryPool generalPool = pools.get(GENERAL_POOL);
+        if (generalPool != null) {
+            workerTotalCapacity = generalPool.getTotalDistributedBytes();
+        }
+        long[] effective = computeEffectiveQueryMemoryLimits(
+                maxQueryMemoryInBytes,
+                maxQueryTotalMemoryInBytes,
+                useWorkerAdvertisedMemoryForLimit,
+                isWorkScheduledOnCoordinator,
+                workerTotalCapacity);
+        long effectiveMaxQueryMemoryInBytes = effective[0];
+        long effectiveMaxQueryTotalMemoryInBytes = effective[1];
 
         boolean queryKilled = false;
         long totalUserMemoryBytes = 0L;
@@ -264,13 +304,13 @@ public class ClusterMemoryManager
             }
 
             if (!resourceOvercommit) {
-                long userMemoryLimit = min(maxQueryMemoryInBytes, getQueryMaxMemory(query.getSession()).toBytes());
+                long userMemoryLimit = min(effectiveMaxQueryMemoryInBytes, getQueryMaxMemory(query.getSession()).toBytes());
                 if (userMemoryReservation > userMemoryLimit) {
                     query.fail(exceededGlobalUserLimit(succinctBytes(userMemoryLimit)));
                     queryKilled = true;
                 }
                 QueryLimit<Long> queryTotalMemoryLimit = getMinimum(
-                        createDataSizeLimit(maxQueryTotalMemoryInBytes, SYSTEM),
+                        createDataSizeLimit(effectiveMaxQueryTotalMemoryInBytes, SYSTEM),
                         query.getResourceGroupQueryLimits()
                                 .flatMap(ResourceGroupQueryLimits::getTotalMemoryLimit)
                                 .map(rgLimit -> createDataSizeLimit(rgLimit.toBytes(), RESOURCE_GROUP))
