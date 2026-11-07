@@ -21,6 +21,7 @@ import io.airlift.slice.Slices;
 import org.testng.annotations.Test;
 
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.type.LikeFunctions.castCharToLikePattern;
 import static com.facebook.presto.type.LikeFunctions.isLikePattern;
 import static com.facebook.presto.type.LikeFunctions.likeChar;
@@ -167,6 +168,22 @@ public class TestLikeFunctions
         assertThrows(PrestoException.class, () -> likePattern(utf8Slice("abc#abc"), utf8Slice("#")));
         assertThrows(PrestoException.class, () -> likePattern(utf8Slice("abc#"), utf8Slice("#")));
         assertThrows(PrestoException.class, () -> likePattern(utf8Slice("abc#"), utf8Slice("c#")));
+    }
+
+    @Test
+    public void testEmptyEscapeString()
+    {
+        // The worker execution path (likePattern/getEscapeChar) used to treat an empty
+        // escape string as "escaping disabled" while the coordinator constant-folding
+        // path (isLikePattern) rejected it, so logically equivalent LIKE forms
+        // disagreed (#24747). Both paths must reject ESCAPE ''.
+        assertThrows(PrestoException.class, () -> likePattern(utf8Slice("a_%"), utf8Slice("")));
+        assertThrows(PrestoException.class, () -> isLikePattern(utf8Slice("a_%"), utf8Slice("")));
+        assertInvalidFunction("'a_c' LIKE 'a_%' ESCAPE ''", INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
+
+        // a null escape still means "escaping disabled"
+        Regex regex = likePattern(utf8Slice("a%b"), null);
+        assertTrue(likeVarchar(utf8Slice("axxb"), regex));
     }
 
     @Test
