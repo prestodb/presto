@@ -36,7 +36,10 @@ public class TestJdbcMetadataConfig
                 .setMetadataCacheTtl(new Duration(0, SECONDS))
                 .setMetadataCacheRefreshInterval(new Duration(0, SECONDS))
                 .setMetadataCacheMaximumSize(10000)
-                .setMetadataTransactionCacheMaximumSize(1000));
+                .setMetadataTransactionCacheMaximumSize(1000)
+                .setTableStatisticsCacheTtl(new Duration(0, SECONDS))
+                .setTableStatisticsCacheRefreshInterval(new Duration(0, SECONDS))
+                .setTableStatisticsCacheMaximumSize(10000));
     }
 
     @Test
@@ -49,6 +52,9 @@ public class TestJdbcMetadataConfig
                 .put("metadata-cache-refresh-interval", "10s")
                 .put("metadata-cache-maximum-size", "100")
                 .put("metadata-transaction-cache-maximum-size", "200")
+                .put("table-statistics-cache-ttl", "1h")
+                .put("table-statistics-cache-refresh-interval", "10s")
+                .put("table-statistics-cache-maximum-size", "500")
                 .build();
 
         JdbcMetadataConfig expected = new JdbcMetadataConfig()
@@ -57,7 +63,10 @@ public class TestJdbcMetadataConfig
                 .setMetadataCacheTtl(new Duration(1, HOURS))
                 .setMetadataCacheRefreshInterval(new Duration(10, SECONDS))
                 .setMetadataCacheMaximumSize(100)
-                .setMetadataTransactionCacheMaximumSize(200);
+                .setMetadataTransactionCacheMaximumSize(200)
+                .setTableStatisticsCacheTtl(new Duration(1, HOURS))
+                .setTableStatisticsCacheRefreshInterval(new Duration(10, SECONDS))
+                .setTableStatisticsCacheMaximumSize(500);
 
         assertFullMapping(properties, expected);
     }

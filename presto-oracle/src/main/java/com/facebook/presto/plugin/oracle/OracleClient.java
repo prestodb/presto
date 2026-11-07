@@ -37,6 +37,7 @@ import com.facebook.presto.spi.statistics.ColumnStatistics;
 import com.facebook.presto.spi.statistics.DoubleRange;
 import com.facebook.presto.spi.statistics.Estimate;
 import com.facebook.presto.spi.statistics.TableStatistics;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import jakarta.inject.Inject;
 import oracle.jdbc.OracleTypes;
@@ -48,7 +49,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -173,56 +173,91 @@ public class OracleClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, List<JdbcColumnHandle> columnHandles, TupleDomain<ColumnHandle> tupleDomain)
     {
-        try {
-            requireNonNull(handle.getSchemaName(), "schema name is null");
-            requireNonNull(handle.getTableName(), "table name is null");
-            String sql = format(
-                    "SELECT NUM_ROWS, AVG_ROW_LEN, LAST_ANALYZED\n" +
-                            "FROM   ALL_TAB_STATISTICS\n" +
-                            "WHERE  OWNER='%s'\n" +
-                            "AND    TABLE_NAME='%s'",
-                    handle.getSchemaName().toUpperCase(), handle.getTableName().toUpperCase());
-            try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session));
-                    PreparedStatement preparedStatement = getPreparedStatement(session, connection, sql);
-                    PreparedStatement preparedStatementCol = getPreparedStatement(session, connection, getColumnStaticsSql(handle));
-                    ResultSet resultSet = preparedStatement.executeQuery();
-                    ResultSet resultSetColumnStats = preparedStatementCol.executeQuery()) {
-                if (!resultSet.next()) {
-                    LOG.debug("Stats not found for table : %s.%s", handle.getSchemaName(), handle.getTableName());
-                    return TableStatistics.empty();
-                }
-                double numRows = resultSet.getDouble("NUM_ROWS");
-                // double avgRowLen = resultSet.getDouble("AVG_ROW_LEN");
-                Date lastAnalyzed = resultSet.getDate("LAST_ANALYZED");
+        requireNonNull(handle.getSchemaName(), "schema name is null");
+        requireNonNull(handle.getTableName(), "table name is null");
 
-                Map<ColumnHandle, ColumnStatistics> columnStatisticsMap = new HashMap<>();
-                Map<String, JdbcColumnHandle> columnHandleMap = Maps.uniqueIndex(columnHandles, JdbcColumnHandle::getColumnName);
-                while (resultSetColumnStats.next() && numRows > 0) {
-                    String columnName = resultSetColumnStats.getString("COLUMN_NAME");
-                    double nullsCount = resultSetColumnStats.getDouble("NUM_NULLS");
-                    double ndv = resultSetColumnStats.getDouble("NUM_DISTINCT");
-                    // Oracle stores low and high values as RAW(1000) i.e. a byte array. No way to unwrap it, without a clue about the underlying type
-                    // So we use column type as a clue and parse to double by converting as string first.
-                    double lowValue = toDouble(resultSetColumnStats.getString("LOW_VALUE"));
-                    double highValue = toDouble(resultSetColumnStats.getString("HIGH_VALUE"));
-                    ColumnStatistics.Builder columnStatisticsBuilder = ColumnStatistics.builder()
-                            .setNullsFraction(Estimate.estimateFromDouble(nullsCount / numRows))
-                            .setDistinctValuesCount(Estimate.estimateFromDouble(ndv));
-                    if (resultSetColumnStats.getString("DATA_TYPE").startsWith("VARCHAR") ||
-                            resultSetColumnStats.getString("DATA_TYPE").startsWith("CHAR")) {
-                        columnStatisticsBuilder.setDataSize(Estimate.estimateFromDouble(resultSetColumnStats.getDouble("DATA_LENGTH")));
+        String schema = handle.getSchemaName();
+        String table = handle.getTableName();
+
+        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
+            DatabaseMetaData metadata = connection.getMetaData();
+            if (metadata.storesUpperCaseIdentifiers() && !caseSensitiveNameMatchingEnabled) {
+                schema = schema.toUpperCase(ENGLISH);
+                table = table.toUpperCase(ENGLISH);
+            }
+
+            String sql = "SELECT NUM_ROWS, AVG_ROW_LEN, LAST_ANALYZED\n" +
+                    "FROM   ALL_TAB_STATISTICS\n" +
+                    "WHERE  OWNER = ? " +
+                    "AND    TABLE_NAME = ?";
+
+            try (PreparedStatement preparedStatement = getPreparedStatement(session, connection, sql);
+                    PreparedStatement preparedStatementCol = getPreparedStatement(session, connection, getColumnStatisticsSql())) {
+                preparedStatement.setString(1, schema);
+                preparedStatement.setString(2, table);
+                preparedStatementCol.setString(1, schema);
+                preparedStatementCol.setString(2, table);
+
+                try (ResultSet resultSet = preparedStatement.executeQuery();
+                        ResultSet resultSetColumnStats = preparedStatementCol.executeQuery()) {
+                    if (!resultSet.next()) {
+                        LOG.debug("Stats not found for table : %s.%s", handle.getSchemaName(), handle.getTableName());
+                        return TableStatistics.empty();
                     }
-                    ColumnStatistics columnStatistics = columnStatisticsBuilder.build();
-                    if (Double.isFinite(lowValue) && Double.isFinite(highValue)) {
-                        columnStatistics = columnStatisticsBuilder.setRange(new DoubleRange(lowValue, highValue)).build();
+                    double numRows = resultSet.getDouble("NUM_ROWS");
+                    // double avgRowLen = resultSet.getDouble("AVG_ROW_LEN");
+                    Date lastAnalyzed = resultSet.getDate("LAST_ANALYZED");
+
+                    // Empty columnHandles means "return stats for all columns".
+                    // Non-empty means the caller supplied a specific projection, skip unlisted columns.
+                    ImmutableMap.Builder<ColumnHandle, ColumnStatistics> columnStatisticsMap = ImmutableMap.builder();
+                    boolean allColumnsRequested = columnHandles.isEmpty();
+                    Map<String, JdbcColumnHandle> columnHandleMap = allColumnsRequested
+                            ? null
+                            : Maps.uniqueIndex(columnHandles, JdbcColumnHandle::getColumnName);
+                    while (resultSetColumnStats.next() && numRows > 0) {
+                        String columnName = resultSetColumnStats.getString("COLUMN_NAME");
+                        JdbcColumnHandle targetHandle;
+                        if (allColumnsRequested) {
+                            targetHandle = new JdbcColumnHandle(
+                                    connectorId,
+                                    columnName,
+                                    new JdbcTypeHandle(Types.OTHER, "UNKNOWN", 0, 0),
+                                    createUnboundedVarcharType(),
+                                    true,
+                                    Optional.empty());
+                        }
+                        else {
+                            targetHandle = columnHandleMap.get(columnName);
+                            if (targetHandle == null) {
+                                continue;
+                            }
+                        }
+                        double nullsCount = resultSetColumnStats.getDouble("NUM_NULLS");
+                        double ndv = resultSetColumnStats.getDouble("NUM_DISTINCT");
+                        // Oracle stores low and high values as RAW(1000) i.e. a byte array. No way to unwrap it, without a clue about the underlying type
+                        // So we use column type as a clue and parse to double by converting as string first.
+                        double lowValue = toDouble(resultSetColumnStats.getString("LOW_VALUE"));
+                        double highValue = toDouble(resultSetColumnStats.getString("HIGH_VALUE"));
+                        ColumnStatistics.Builder columnStatisticsBuilder = ColumnStatistics.builder()
+                                .setNullsFraction(Estimate.estimateFromDouble(nullsCount / numRows))
+                                .setDistinctValuesCount(Estimate.estimateFromDouble(ndv));
+                        String dataType = resultSetColumnStats.getString("DATA_TYPE");
+                        if (dataType != null && (dataType.startsWith("VARCHAR") || dataType.startsWith("CHAR"))) {
+                            columnStatisticsBuilder.setDataSize(Estimate.estimateFromDouble(resultSetColumnStats.getDouble("DATA_LENGTH")));
+                        }
+                        ColumnStatistics columnStatistics = columnStatisticsBuilder.build();
+                        if (Double.isFinite(lowValue) && Double.isFinite(highValue)) {
+                            columnStatistics = columnStatisticsBuilder.setRange(new DoubleRange(lowValue, highValue)).build();
+                        }
+                        columnStatisticsMap.put(targetHandle, columnStatistics);
                     }
-                    columnStatisticsMap.put(columnHandleMap.get(columnName), columnStatistics);
+                    LOG.debug("Fetching statistics for table %s.%s.%s (last analyzed: %s, row count: %.0f)",
+                            handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), lastAnalyzed, numRows);
+                    return TableStatistics.builder()
+                            .setColumnStatistics(columnStatisticsMap.build())
+                            .setRowCount(Estimate.estimateFromDouble(numRows)).build();
                 }
-                LOG.info("getTableStatics for table: %s.%s.%s with last analyzed: %s",
-                        handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), lastAnalyzed);
-                return TableStatistics.builder()
-                        .setColumnStatistics(columnStatisticsMap)
-                        .setRowCount(Estimate.estimateFromDouble(numRows)).build();
             }
         }
         catch (SQLException | RuntimeException e) {
@@ -230,27 +265,26 @@ public class OracleClient
         }
     }
 
-    private String getColumnStaticsSql(JdbcTableHandle handle)
+    private String getColumnStatisticsSql()
     {
         // UTL_RAW.CAST_TO_BINARY_X does not render correctly so those types are not supported.
-        return format(
-                "SELECT COLUMN_NAME,\n" +
-                        "DATA_TYPE,\n" +
-                        "DATA_LENGTH,\n" +
-                        "NUM_NULLS,\n" +
-                        "NUM_DISTINCT,\n" +
-                        "DENSITY,\n" +
-                        "CASE DATA_TYPE\n" +
-                        "   WHEN 'NUMBER'   THEN TO_CHAR(UTL_RAW.CAST_TO_NUMBER(LOW_VALUE))\n" +
-                        "   ELSE NULL\n" +
-                        "END AS LOW_VALUE,\n" +
-                        "CASE DATA_TYPE\n" +
-                        "   WHEN 'NUMBER'   THEN TO_CHAR(UTL_RAW.CAST_TO_NUMBER(HIGH_VALUE))\n" +
-                        "   ELSE NULL\n" +
-                        "END AS HIGH_VALUE\n" +
-                        "FROM ALL_TAB_COLUMNS\n" +
-                        "WHERE OWNER = '%s'\n" +
-                        "  AND TABLE_NAME = '%s'", handle.getSchemaName().toUpperCase(), handle.getTableName().toUpperCase());
+        return "SELECT COLUMN_NAME,\n" +
+                "DATA_TYPE,\n" +
+                "DATA_LENGTH,\n" +
+                "NUM_NULLS,\n" +
+                "NUM_DISTINCT,\n" +
+                "DENSITY,\n" +
+                "CASE DATA_TYPE\n" +
+                "   WHEN 'NUMBER'   THEN TO_CHAR(UTL_RAW.CAST_TO_NUMBER(LOW_VALUE))\n" +
+                "   ELSE NULL\n" +
+                "END AS LOW_VALUE,\n" +
+                "CASE DATA_TYPE\n" +
+                "   WHEN 'NUMBER'   THEN TO_CHAR(UTL_RAW.CAST_TO_NUMBER(HIGH_VALUE))\n" +
+                "   ELSE NULL\n" +
+                "END AS HIGH_VALUE\n" +
+                "FROM ALL_TAB_COLUMNS\n" +
+                "WHERE OWNER = ?\n" +
+                "  AND TABLE_NAME = ?";
     }
 
     private double toDouble(String number)
