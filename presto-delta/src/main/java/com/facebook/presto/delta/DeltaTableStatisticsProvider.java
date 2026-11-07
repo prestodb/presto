@@ -33,7 +33,7 @@ import com.facebook.presto.spi.statistics.TableStatistics;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import io.delta.kernel.utils.CloseableIterator;
 import jakarta.inject.Inject;
 
@@ -44,6 +44,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -163,9 +164,11 @@ public class DeltaTableStatisticsProvider
                     legacyTimestamp,
                     // the zone only affects partition pruning under legacy timestamp semantics
                     legacyTimestamp ? Optional.of(session.getSqlFunctionProperties().getTimeZoneKey()) : Optional.empty());
-            // Concurrent callers for the same key share a single log scan
-            CachedStatistics cached = cache.get(key, () -> loadStatistics(session, deltaTable, key.partitionConstraint));
-            return cached.project(columnHandles);
+            // Concurrent callers for the same key share a single log scan; columns requested later are
+            // aggregated by a further scan restricted to just those columns and merged into the entry
+            CachedStatistics cached = cache.get(key, () -> new CachedStatistics(
+                    loadStatistics(session, deltaTable, key.partitionConstraint, distinctTopLevelColumns(columnHandles))));
+            return cached.project(columnHandles, missing -> loadStatistics(session, deltaTable, key.partitionConstraint, missing));
         }
         catch (Exception e) {
             log.warn(e, "Failed to compute statistics for Delta table '%s.%s'; continuing without statistics",
@@ -174,13 +177,37 @@ public class DeltaTableStatisticsProvider
         }
     }
 
-    private CachedStatistics loadStatistics(ConnectorSession session, DeltaTable deltaTable, TupleDomain<DeltaColumnHandle> partitionConstraint)
+    private TableStatistics loadStatistics(
+            ConnectorSession session,
+            DeltaTable deltaTable,
+            TupleDomain<DeltaColumnHandle> partitionConstraint,
+            List<ColumnHandle> columns)
             throws IOException
     {
-        // Always aggregate every column so one scan serves any later column subset requested for this key
+        // Only the requested columns are aggregated so wide tables do not pay for columns no query touches
         try (CloseableIterator<DeltaFileEntry> fileEntries = fileEntrySource.getFileEntries(session, deltaTable, partitionConstraint, typeManager)) {
-            return new CachedStatistics(computeTableStatistics(fileEntries, deltaTable, null));
+            return computeTableStatistics(fileEntries, deltaTable, columns);
         }
+    }
+
+    // Subfield handles carry no statistics, and handles sharing a logical name share one cache slot
+    private static List<ColumnHandle> distinctTopLevelColumns(List<ColumnHandle> columnHandles)
+    {
+        Map<String, ColumnHandle> byName = new LinkedHashMap<>();
+        for (ColumnHandle handle : columnHandles) {
+            DeltaColumnHandle column = (DeltaColumnHandle) handle;
+            if (!column.getSubfield().isPresent()) {
+                byName.putIfAbsent(column.getLogicalName(), handle);
+            }
+        }
+        return ImmutableList.copyOf(byName.values());
+    }
+
+    @VisibleForTesting
+    interface ColumnStatisticsLoader
+    {
+        TableStatistics load(List<ColumnHandle> columns)
+                throws IOException;
     }
 
     // Only partition predicates prune files, so other domains must not fragment the cache
@@ -250,29 +277,55 @@ public class DeltaTableStatisticsProvider
         }
     }
 
-    /** Full-table statistics, re-keyable to whichever column handles the planner passes in. */
+    /**
+     * Table-level statistics plus the per-column statistics aggregated so far for one cache key.
+     * Columns are added on demand, keyed by logical name and re-keyed to whichever handles the planner passes in.
+     */
     private static final class CachedStatistics
     {
-        private final TableStatistics statistics;
-        private final Map<String, ColumnStatistics> byColumnName;
+        private final Estimate rowCount;
+        private final Estimate totalSize;
+        // False when a file lacked stats; that is a property of the file set, so it holds for every column
+        private final boolean computable;
+        private final Map<String, ColumnStatistics> byColumnName = new HashMap<>();
 
         CachedStatistics(TableStatistics statistics)
         {
-            this.statistics = requireNonNull(statistics, "statistics is null");
-            Map<String, ColumnStatistics> byName = new HashMap<>();
-            statistics.getColumnStatistics().forEach((handle, columnStatistics) ->
-                    byName.put(((DeltaColumnHandle) handle).getLogicalName(), columnStatistics));
-            this.byColumnName = ImmutableMap.copyOf(byName);
+            requireNonNull(statistics, "statistics is null");
+            this.computable = !isUncomputable(statistics);
+            this.rowCount = statistics.getRowCount();
+            this.totalSize = statistics.getTotalSize();
+            merge(statistics);
         }
 
-        TableStatistics project(List<ColumnHandle> requestedColumns)
+        // computeTableStatistics returns TableStatistics.empty() when it gives up; a real result has a row count
+        private static boolean isUncomputable(TableStatistics statistics)
         {
-            if (statistics.getRowCount().isUnknown() && statistics.getColumnStatistics().isEmpty()) {
-                return statistics;
+            return statistics.getRowCount().isUnknown() && statistics.getColumnStatistics().isEmpty();
+        }
+
+        private void merge(TableStatistics statistics)
+        {
+            statistics.getColumnStatistics().forEach((handle, columnStatistics) ->
+                    byColumnName.put(((DeltaColumnHandle) handle).getLogicalName(), columnStatistics));
+        }
+
+        synchronized TableStatistics project(List<ColumnHandle> requestedColumns, ColumnStatisticsLoader loader)
+                throws IOException
+        {
+            if (!computable) {
+                return TableStatistics.empty();
+            }
+            List<ColumnHandle> missing = distinctTopLevelColumns(requestedColumns).stream()
+                    .filter(handle -> !byColumnName.containsKey(((DeltaColumnHandle) handle).getLogicalName()))
+                    .collect(toImmutableList());
+            if (!missing.isEmpty()) {
+                // Nothing is mutated until the scan succeeds, so a failure leaves the entry reusable
+                merge(loader.load(missing));
             }
             TableStatistics.Builder builder = TableStatistics.builder()
-                    .setRowCount(statistics.getRowCount())
-                    .setTotalSize(statistics.getTotalSize());
+                    .setRowCount(rowCount)
+                    .setTotalSize(totalSize);
             for (ColumnHandle handle : requestedColumns) {
                 DeltaColumnHandle column = (DeltaColumnHandle) handle;
                 if (column.getSubfield().isPresent()) {

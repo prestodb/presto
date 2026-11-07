@@ -350,7 +350,7 @@ public class TestDeltaTableStatisticsProvider
     }
 
     @Test
-    public void testRegularColumnNdvIsUnknownInPhase1()
+    public void testRegularColumnDistinctCountIsUnknown()
     {
         DeltaColumn id = regular("id", "bigint");
         String statsJson = "{\"numRecords\":5,\"nullCount\":{\"id\":0}}";
@@ -442,7 +442,7 @@ public class TestDeltaTableStatisticsProvider
     }
 
     @Test
-    public void testUnreliableBounds()
+    public void testFileMissingMinMaxInvalidatesRange()
     {
         DeltaColumn id = regular("id", "bigint");
         // File 0 has non-null rows and min/max stats
@@ -545,7 +545,7 @@ public class TestDeltaTableStatisticsProvider
     }
 
     @Test
-    public void testResolveColumnsUsesPlannerHandles()
+    public void testStatisticsAreKeyedByRequestedColumnHandles()
     {
         DeltaColumn id = regular("id", "bigint");
         DeltaColumn name = regular("name", "varchar");
@@ -580,19 +580,90 @@ public class TestDeltaTableStatisticsProvider
         DeltaTableHandle handle = new DeltaTableHandle("delta", deltaTable);
         Constraint<ColumnHandle> all = Constraint.alwaysTrue();
         TableStatistics first = provider.getTableStatistics(SESSION, handle, singletonList(handle(id)), all);
-        // different column subset, same key: served from cache and re-keyed to the requested handles
-        TableStatistics second = provider.getTableStatistics(SESSION, handle, singletonList(handle(name)), all);
+        TableStatistics repeat = provider.getTableStatistics(SESSION, handle, singletonList(handle(id)), all);
 
         assertEquals(scans.get(), 1);
         assertEquals(first.getRowCount(), Estimate.of(5));
         assertTrue(first.getColumnStatistics().containsKey(handle(id)));
-        assertEquals(second.getColumnStatistics().keySet(), ImmutableSet.of(handle(name)));
+        assertEquals(repeat, first);
 
         // a different snapshot is a different key
         DeltaTable newer = new DeltaTable("schema", "t", "s3://b/t", Optional.of(8L), Arrays.asList(id, name));
         provider.getTableStatistics(SESSION, new DeltaTableHandle("delta", newer), singletonList(handle(id)), all);
         assertEquals(scans.get(), 2);
         assertEquals(provider.cacheSize(), 2);
+    }
+
+    @Test
+    public void testColumnStatisticsAreBuiltIncrementallyAndMerged()
+    {
+        DeltaColumn id = regular("id", "bigint");
+        DeltaColumn name = regular("name", "varchar");
+        DeltaTable deltaTable = new DeltaTable("schema", "t", "s3://b/t", Optional.of(7L), Arrays.asList(id, name));
+        String stats = "{\"numRecords\":5,\"minValues\":{\"id\":1},\"maxValues\":{\"id\":5},\"nullCount\":{\"id\":0,\"name\":2}}";
+        AtomicInteger scans = new AtomicInteger();
+        DeltaTableStatisticsProvider provider = new DeltaTableStatisticsProvider(
+                (session, table, constraint, types) -> {
+                    scans.incrementAndGet();
+                    return iterator(singletonList(entry("p0.parquet", stats, emptyMap())));
+                },
+                TYPE_MANAGER,
+                new DeltaConfig());
+
+        DeltaTableHandle handle = new DeltaTableHandle("delta", deltaTable);
+        Constraint<ColumnHandle> all = Constraint.alwaysTrue();
+
+        TableStatistics idOnly = provider.getTableStatistics(SESSION, handle, singletonList(handle(id)), all);
+        assertEquals(idOnly.getColumnStatistics().keySet(), ImmutableSet.of(handle(id)));
+        assertEquals(scans.get(), 1);
+
+        // a new column triggers one more scan, and only that column is computed
+        TableStatistics nameOnly = provider.getTableStatistics(SESSION, handle, singletonList(handle(name)), all);
+        assertEquals(nameOnly.getColumnStatistics().keySet(), ImmutableSet.of(handle(name)));
+        assertEquals(nameOnly.getColumnStatistics().get(handle(name)).getNullsFraction(), Estimate.of(0.4));
+        assertEquals(nameOnly.getRowCount(), Estimate.of(5));
+        assertEquals(scans.get(), 2);
+
+        // both columns are now merged into the same entry and need no further scan
+        TableStatistics both = provider.getTableStatistics(SESSION, handle, Arrays.asList(handle(id), handle(name)), all);
+        assertEquals(both.getColumnStatistics().keySet(), ImmutableSet.of(handle(id), handle(name)));
+        assertEquals(both.getColumnStatistics().get(handle(id)), idOnly.getColumnStatistics().get(handle(id)));
+        assertEquals(both.getColumnStatistics().get(handle(name)), nameOnly.getColumnStatistics().get(handle(name)));
+        assertEquals(scans.get(), 2);
+        assertEquals(provider.cacheSize(), 1);
+    }
+
+    @Test
+    public void testIncrementalScanFailureLeavesCachedColumnsUsable()
+    {
+        DeltaColumn id = regular("id", "bigint");
+        DeltaColumn name = regular("name", "varchar");
+        DeltaTable deltaTable = new DeltaTable("schema", "t", "s3://b/t", Optional.of(7L), Arrays.asList(id, name));
+        String stats = "{\"numRecords\":5,\"nullCount\":{\"id\":0,\"name\":0}}";
+        AtomicInteger scans = new AtomicInteger();
+        DeltaTableStatisticsProvider provider = new DeltaTableStatisticsProvider(
+                (session, table, constraint, types) -> {
+                    if (scans.incrementAndGet() == 2) {
+                        throw new IllegalStateException("log unreadable");
+                    }
+                    return iterator(singletonList(entry("p0.parquet", stats, emptyMap())));
+                },
+                TYPE_MANAGER,
+                new DeltaConfig());
+
+        DeltaTableHandle handle = new DeltaTableHandle("delta", deltaTable);
+        Constraint<ColumnHandle> all = Constraint.alwaysTrue();
+        provider.getTableStatistics(SESSION, handle, singletonList(handle(id)), all);
+
+        // the failed incremental scan degrades to empty without discarding what is cached
+        assertEquals(provider.getTableStatistics(SESSION, handle, singletonList(handle(name)), all), TableStatistics.empty());
+        assertEquals(provider.cacheSize(), 1);
+        assertEquals(provider.getTableStatistics(SESSION, handle, singletonList(handle(id)), all).getRowCount(), Estimate.of(5));
+        assertEquals(scans.get(), 2);
+
+        // and the missing column is retried on the next request
+        assertTrue(provider.getTableStatistics(SESSION, handle, singletonList(handle(name)), all).getColumnStatistics().containsKey(handle(name)));
+        assertEquals(scans.get(), 3);
     }
 
     @Test
@@ -653,7 +724,7 @@ public class TestDeltaTableStatisticsProvider
     }
 
     @Test
-    public void testFailuresReturnEmptyStatisticsAndAreNotCached()
+    public void testUncomputableStatisticsDegradeToEmpty()
     {
         DeltaColumn id = regular("id", "bigint");
         DeltaTable deltaTable = new DeltaTable("schema", "t", "s3://b/t", Optional.of(1L), singletonList(id));
