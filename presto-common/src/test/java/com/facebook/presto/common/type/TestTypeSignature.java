@@ -35,6 +35,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
 public class TestTypeSignature
@@ -300,6 +301,30 @@ public class TestTypeSignature
         assertEquals(createUnboundedVarcharType().getTypeSignature(), parseTypeSignature("varchar"));
         assertEquals(parseTypeSignature("varchar").hashCode(), createUnboundedVarcharType().getTypeSignature().hashCode());
         assertNotEquals(createUnboundedVarcharType().getTypeSignature(), parseTypeSignature("varchar(10)"));
+    }
+
+    @Test
+    public void testTimestampWithTimeZone()
+    {
+        TypeSignature precisionSix = new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TypeSignatureParameter.of(6L));
+        assertEquals(precisionSix.toString(), "timestamp(6) with time zone");
+        assertEquals(parseTypeSignature("timestamp(6) with time zone"), precisionSix);
+
+        assertSignature("timestamp with time zone", "timestamp with time zone", ImmutableList.of());
+        assertSignature("timestamp(3) with time zone", "timestamp with time zone", ImmutableList.of(), "timestamp with time zone");
+        assertEquals(parseTypeSignature("timestamp(3) with time zone"), TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE.getTypeSignature());
+        assertSignature("timestamp(0) with time zone", "timestamp with time zone", ImmutableList.of("0"));
+        assertSignature("TIMESTAMP(9) WITH TIME ZONE", "timestamp with time zone", ImmutableList.of("9"), "timestamp(9) with time zone");
+        assertSignature("timestamp( 6 ) with time zone", "timestamp with time zone", ImmutableList.of("6"), "timestamp(6) with time zone");
+        assertSignature("array(timestamp(6) with time zone)", "array", ImmutableList.of("timestamp(6) with time zone"));
+        assertSignature("map(timestamp(6) with time zone, bigint)", "map", ImmutableList.of("timestamp(6) with time zone", "bigint"), "map(timestamp(6) with time zone,bigint)");
+        assertRowSignature("row(a timestamp(6) with time zone)", rowSignature(namedParameter("a", false, precisionSix)));
+        assertRowSignature("row(timestamp(6) with time zone)", rowSignature(unnamedParameter(precisionSix)));
+
+        assertTrue(parseTypeSignature("timestamp(p) with time zone", ImmutableSet.of("p")).isCalculated());
+        assertSignatureFail("timestamp(p) with time zone");
+        IllegalArgumentException e = expectThrows(IllegalArgumentException.class, () -> parseTypeSignature("timestamp(6x) with time zone"));
+        assertEquals(e.getMessage(), "Bad type signature: 'timestamp(6x) with time zone'");
     }
 
     @Test
