@@ -20,12 +20,12 @@ import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import jakarta.inject.Inject;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.HadoopExtendedFileSystem;
 import org.apache.hadoop.fs.HadoopExtendedFileSystemCache;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 
-import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
 public class HdfsEnvironment
@@ -69,7 +69,9 @@ public class HdfsEnvironment
         return hdfsAuthentication.doAs(user, () -> {
             FileSystem fileSystem = path.getFileSystem(configuration);
             fileSystem.setVerifyChecksum(verifyChecksum);
-            checkState(fileSystem instanceof ExtendedFileSystem);
+            if (!(fileSystem instanceof ExtendedFileSystem)) {
+                fileSystem = new HadoopExtendedFileSystem(fileSystem);
+            }
             return (ExtendedFileSystem) fileSystem;
         });
     }
