@@ -345,6 +345,49 @@ public class TestSfmSketch
     }
 
     @Test
+    public void testMergePrivatePrivate()
+    {
+        // Merging two private sketches should be unbiased: the average estimated cardinality
+        // over repeated runs should match the true cardinality of the union. Tolerances are
+        // roughly 6x the theoretical standard error of the 10-run average (Eq. 2,
+        // https://arxiv.org/pdf/2302.02056.pdf), mirroring the Velox-side test added with
+        // https://github.com/facebookincubator/velox/pull/18790.
+        // The epsilon = 1.0 case guards the randomized-merge debiasing formula: the typo
+        // fixed for #28461 inflated merged estimates by ~17% at that epsilon and was not
+        // covered by the existing epsilon >= 3 cases above.
+        testPrivateMerge(1.0, 10_000, 0.10);
+        testPrivateMerge(2.0, 10_000, 0.04);
+        testPrivateMerge(5.0, 10_000, 0.02);
+    }
+
+    private static void testPrivateMerge(double epsilon, int numPerSketch, double relativeTolerance)
+    {
+        int numRuns = 10;
+        double totalCardinality = 2 * (double) numPerSketch;
+        double sumOfEstimates = 0;
+
+        for (int run = 0; run < numRuns; run++) {
+            SfmSketch sketch = SfmSketch.create(4096, 24);
+            SfmSketch sketch2 = SfmSketch.create(4096, 24);
+
+            // insert numPerSketch integers in each of two disjoint ranges
+            for (int i = 0; i < numPerSketch; i++) {
+                sketch.add(i);
+                sketch2.add(numPerSketch + i);
+            }
+
+            sketch.enablePrivacy(epsilon, new TestingSeededRandomizationStrategy(42 + 2 * run));
+            sketch2.enablePrivacy(epsilon, new TestingSeededRandomizationStrategy(43 + 2 * run));
+            sketch.mergeWith(sketch2, new TestingSeededRandomizationStrategy(44 + 2 * run));
+
+            sumOfEstimates += sketch.cardinality();
+        }
+
+        double averageEstimate = sumOfEstimates / numRuns;
+        assertEquals(averageEstimate, totalCardinality, totalCardinality * relativeTolerance);
+    }
+
+    @Test
     public void testEnablePrivacy()
     {
         SfmSketch sketch = SfmSketch.create(4096, 24);
