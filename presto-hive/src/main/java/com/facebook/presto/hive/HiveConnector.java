@@ -241,6 +241,7 @@ public class HiveConnector
     @Override
     public Set<ConnectorCapabilities> getCapabilities()
     {
+        // Do not advertise MV-on-MV until Hive data consistency supports chained materialized views.
         return ImmutableSet.of(SUPPORTS_REWINDABLE_SPLIT_SOURCE,
                 SUPPORTS_PAGE_SINK_COMMIT,
                 PRIMARY_KEY_CONSTRAINT,

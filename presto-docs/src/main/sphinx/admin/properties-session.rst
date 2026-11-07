@@ -1165,6 +1165,20 @@ in the server configuration.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`experimental.legacy-materialized-views\`\``.
 
+``materialized_view_on_materialized_view_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Allows ``CREATE MATERIALIZED VIEW`` to read from an existing materialized
+view. Both the source and destination catalogs must advertise
+``SUPPORTS_MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW``. Enabling this property
+does not override connector capability checks.
+
+See :ref:`materialized-views-over-materialized-views` for supported query
+shapes, validation rules, and connector limitations.
+
 ``materialized_view_query_rewrite_cost_based_selection_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
