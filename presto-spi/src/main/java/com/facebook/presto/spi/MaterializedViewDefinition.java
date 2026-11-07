@@ -20,11 +20,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
@@ -43,7 +45,6 @@ public final class MaterializedViewDefinition
     private final Optional<List<String>> validRefreshColumns;
     private final Optional<MaterializedViewStalenessConfig> stalenessConfig;
     private final Optional<MaterializedViewRefreshType> refreshType;
-
     @JsonCreator
     public MaterializedViewDefinition(
             @JsonProperty("originalSql") String originalSql,
@@ -124,7 +125,7 @@ public final class MaterializedViewDefinition
                 convertFromMapToColumnMappings(
                         requireNonNull(originalColumnMapping, "originalColumnMapping is null"),
                         requireNonNull(nonNullColumnMappings, "nonNullColumnMappings is null"),
-                        Collections.emptyMap(),
+                        emptyMap(),
                         new SchemaTableName(schema, table)),
                 baseTablesOnOuterJoinSide,
                 validRefreshColumns,
@@ -156,7 +157,7 @@ public final class MaterializedViewDefinition
                 securityMode,
                 originalColumnMapping,
                 nonNullColumnMappings,
-                Collections.emptyMap(),
+                emptyMap(),
                 baseTablesOnOuterJoinSide,
                 validRefreshColumns);
     }
@@ -406,16 +407,32 @@ public final class MaterializedViewDefinition
         // t2_a -> t2.a is direct mapped(value can become null but column mapping is not altered)
         // t2_a -> t1.a is NOT direct mapped(as t1,t2 are in outer join)
         private final Optional<Boolean> isDirectMapped;
+        /**
+         * Provider-defined metadata describing how this source column maps to the view column.
+         * An empty map denotes an ordinary mapping.
+         */
+        private final Map<String, String> columnMappingInfo;
 
         @JsonCreator
         public TableColumn(
                 @JsonProperty("tableName") SchemaTableName tableName,
                 @JsonProperty("columnName") String columnName,
-                @JsonProperty("isDirectMapped") Optional<Boolean> isDirectMapped)
+                @JsonProperty("isDirectMapped") Optional<Boolean> isDirectMapped,
+                @JsonProperty("columnMappingInfo") Optional<Map<String, String>> columnMappingInfo)
         {
             this.tableName = requireNonNull(tableName, "tableName is null");
             this.columnName = requireNonNull(columnName, "columnName is null");
             this.isDirectMapped = requireNonNull(isDirectMapped, "isDirectMapped is null");
+            this.columnMappingInfo = Collections.unmodifiableMap(new LinkedHashMap<>(
+                    requireNonNull(columnMappingInfo, "columnMappingInfo is null").orElse(emptyMap())));
+        }
+
+        public TableColumn(
+                SchemaTableName tableName,
+                String columnName,
+                Optional<Boolean> isDirectMapped)
+        {
+            this(tableName, columnName, isDirectMapped, Optional.empty());
         }
 
         public TableColumn(
@@ -431,6 +448,15 @@ public final class MaterializedViewDefinition
                 boolean isDirectMapped)
         {
             this(tableName, columnName, Optional.of(isDirectMapped));
+        }
+
+        public TableColumn(
+                SchemaTableName tableName,
+                String columnName,
+                boolean isDirectMapped,
+                Map<String, String> columnMappingInfo)
+        {
+            this(tableName, columnName, Optional.of(isDirectMapped), Optional.of(requireNonNull(columnMappingInfo, "columnMappingInfo is null")));
         }
 
         @JsonProperty
@@ -449,6 +475,12 @@ public final class MaterializedViewDefinition
         public Optional<Boolean> isDirectMapped()
         {
             return isDirectMapped;
+        }
+
+        @JsonProperty
+        public Map<String, String> getColumnMappingInfo()
+        {
+            return columnMappingInfo;
         }
 
         @Override
@@ -475,7 +507,9 @@ public final class MaterializedViewDefinition
         @Override
         public String toString()
         {
-            return tableName + ":" + columnName + (isDirectMapped.orElse(true) ? "" : "isDirectMapped:false");
+            return tableName + ":" + columnName
+                    + (isDirectMapped.orElse(true) ? "" : "isDirectMapped:false")
+                    + (columnMappingInfo.isEmpty() ? "" : columnMappingInfo.toString());
         }
     }
 }
