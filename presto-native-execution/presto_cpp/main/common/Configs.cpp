@@ -13,6 +13,7 @@
  */
 
 #include "presto_cpp/main/common/Configs.h"
+
 #include <folly/portability/GFlags.h>
 #include <folly/system/HardwareConcurrency.h>
 #include "presto_cpp/main/common/ConfigReader.h"
@@ -294,6 +295,7 @@ SystemConfig::SystemConfig() {
           STR_PROP(kCacheVeloxTtlThreshold, "2d"),
           STR_PROP(kCacheVeloxTtlCheckInterval, "1h"),
           BOOL_PROP(kEnableRuntimeMetricsCollection, false),
+          BOOL_PROP(kLegacyTimestampWithTimezone, true),
           BOOL_PROP(kPlanValidatorFailOnNestedLoopJoin, false),
           STR_PROP(kPrestoDefaultNamespacePrefix, "presto.default"),
           STR_PROP(kPoolType, "DEFAULT"),
@@ -664,6 +666,10 @@ uint32_t SystemConfig::systemMemoryGb() const {
 
 bool SystemConfig::prestoNativeSidecar() const {
   return optionalProperty<bool>(kNativeSidecar).value();
+}
+
+bool SystemConfig::legacyTimestampWithTimezone() const {
+  return optionalProperty<bool>(kLegacyTimestampWithTimezone).value_or(true);
 }
 
 uint32_t SystemConfig::systemMemLimitGb() const {

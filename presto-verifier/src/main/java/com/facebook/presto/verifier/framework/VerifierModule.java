@@ -20,7 +20,9 @@ import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.metadata.AtTimeZoneExecutionPolicy;
 import com.facebook.presto.metadata.CatalogManager;
+import com.facebook.presto.metadata.DefaultAtTimeZoneExecutionPolicy;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.TableFunctionRegistry;
@@ -72,6 +74,7 @@ import static com.facebook.presto.verifier.framework.Column.Category.ROW;
 import static com.facebook.presto.verifier.framework.Column.Category.SIMPLE;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -117,6 +120,7 @@ public class VerifierModule
         binder.bind(ConnectorManager.class).toProvider(() -> null).in(Scopes.SINGLETON);
 
         // function
+        newOptionalBinder(binder, AtTimeZoneExecutionPolicy.class).setDefault().to(DefaultAtTimeZoneExecutionPolicy.class).in(SINGLETON);
         binder.bind(FunctionAndTypeManager.class).in(SINGLETON);
         binder.bind(TableFunctionRegistry.class).in(SINGLETON);
 
