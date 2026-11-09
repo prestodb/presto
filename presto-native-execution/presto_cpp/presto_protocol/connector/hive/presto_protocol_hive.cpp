@@ -605,7 +605,8 @@ static const std::pair<HiveCompressionCodec, json>
             {HiveCompressionCodec::SNAPPY, "SNAPPY"},
             {HiveCompressionCodec::GZIP, "GZIP"},
             {HiveCompressionCodec::LZ4, "LZ4"},
-            {HiveCompressionCodec::ZSTD, "ZSTD"}};
+            {HiveCompressionCodec::ZSTD, "ZSTD"},
+            {HiveCompressionCodec::LZ4_RAW, "LZ4_RAW"}};
 void to_json(json& j, const HiveCompressionCodec& e) {
   static_assert(
       std::is_enum<HiveCompressionCodec>::value,

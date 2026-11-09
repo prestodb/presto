@@ -418,8 +418,10 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
       toFileFormat(hiveOutputTableHandle->actualStorageFormat, "TableWrite"),
       toHiveBucketProperty(
           inputColumns, hiveOutputTableHandle->bucketProperty, typeParser),
-      std::optional(
-          toFileCompressionKind(hiveOutputTableHandle->compressionCodec)),
+      std::optional(toFileCompressionKind(
+          hiveOutputTableHandle->compressionCodec,
+          toFileFormat(
+              hiveOutputTableHandle->actualStorageFormat, "TableWrite"))),
       std::move(serdeParameters));
 }
 
@@ -446,8 +448,10 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
       toFileFormat(hiveInsertTableHandle->actualStorageFormat, "TableWrite"),
       toHiveBucketProperty(
           inputColumns, hiveInsertTableHandle->bucketProperty, typeParser),
-      std::optional(
-          toFileCompressionKind(hiveInsertTableHandle->compressionCodec)),
+      std::optional(toFileCompressionKind(
+          hiveInsertTableHandle->compressionCodec,
+          toFileFormat(
+              hiveInsertTableHandle->actualStorageFormat, "TableWrite"))),
       std::unordered_map<std::string, std::string>(
           table->storage.serdeParameters.begin(),
           table->storage.serdeParameters.end()),
