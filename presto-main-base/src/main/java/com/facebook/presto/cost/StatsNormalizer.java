@@ -94,7 +94,7 @@ public class StatsNormalizer
         }
 
         double outputRowCount = stats.getOutputRowCount();
-        checkArgument(outputRowCount > 0, "outputRowCount must be greater than zero: %s", outputRowCount);
+        checkArgument(outputRowCount >= 0, "outputRowCount must be greater than or equal to zero: %s", outputRowCount);
         double distinctValuesCount = variableStats.getDistinctValuesCount();
         double nullsFraction = variableStats.getNullsFraction();
 
