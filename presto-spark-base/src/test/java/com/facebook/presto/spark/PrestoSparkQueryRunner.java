@@ -336,6 +336,7 @@ public class PrestoSparkQueryRunner
         configProperties.put("task.writer-count", Integer.toString(2));
         configProperties.put("task.partitioned-writer-count", Integer.toString(4));
         configProperties.put("task.concurrency", Integer.toString(DEFAULT_TASK_CONCURRENCY));
+        configProperties.put("spark.task-info-aggregation-locking-collector-enabled-for-testing", "true");
         configProperties.putAll(additionalConfigProperties);
 
         ImmutableList.Builder<Module> moduleBuilder = ImmutableList.builder();
@@ -773,6 +774,20 @@ public class PrestoSparkQueryRunner
     public SparkContext getSparkContext()
     {
         return sparkContext;
+    }
+
+    /**
+     * Returns the SparkContext that the query runners share, since only one can run in a JVM. Release it with
+     * {@link #releaseSharedSparkContext}.
+     */
+    public static SparkContext acquireSharedSparkContext()
+    {
+        return sparkContextHolder.get();
+    }
+
+    public static void releaseSharedSparkContext(SparkContext sparkContext)
+    {
+        sparkContextHolder.release(sparkContext);
     }
 
     public void resetSparkContext()
