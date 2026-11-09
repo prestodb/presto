@@ -18,9 +18,11 @@ import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
+import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.Multibinder;
 
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.json.JsonCodecBinder.jsonCodecBinder;
@@ -43,5 +45,8 @@ public class LanceModule
         binder.bind(ConnectorPlanOptimizerProvider.class).to(LanceConnectorPlanOptimizerProvider.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(LanceCommitTaskData.class);
         jsonCodecBinder(binder).bindJsonCodec(LanceMergeCommitData.class);
+
+        Multibinder.newSetBinder(binder, ConnectorTableFunction.class)
+                .addBinding().to(LanceVectorSearchTableFunction.class).in(Scopes.SINGLETON);
     }
 }

@@ -30,14 +30,15 @@ import org.lance.Fragment;
 import org.lance.FragmentMetadata;
 import org.lance.FragmentOperation;
 import org.lance.ReadOptions;
+import org.lance.SourcedTransaction;
 import org.lance.WriteParams;
 import org.lance.namespace.LanceNamespace;
 import org.lance.namespace.errors.ErrorCode;
 import org.lance.namespace.errors.LanceNamespaceException;
 import org.lance.namespace.errors.NamespaceNotFoundException;
 import org.lance.namespace.errors.TableNotFoundException;
-import org.lance.namespace.model.CreateEmptyTableRequest;
-import org.lance.namespace.model.CreateEmptyTableResponse;
+import org.lance.namespace.model.DeclareTableRequest;
+import org.lance.namespace.model.DeclareTableResponse;
 import org.lance.namespace.model.DescribeTableRequest;
 import org.lance.namespace.model.DescribeTableResponse;
 import org.lance.namespace.model.DropTableRequest;
@@ -71,7 +72,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -219,13 +219,10 @@ public class LanceNamespaceHolder
         try {
             return datasetCache.get(cacheKey, () -> {
                 if (version.isPresent()) {
-                    long v = version.get();
-                    checkArgument(v <= Integer.MAX_VALUE,
-                            "Dataset version %s exceeds maximum supported version", v);
                     ReadOptions versionedOptions = new ReadOptions.Builder()
                             .setIndexCacheSizeBytes(readOptions.getIndexCacheSizeBytes())
                             .setMetadataCacheSizeBytes(readOptions.getMetadataCacheSizeBytes())
-                            .setVersion((int) v)
+                            .setVersion(version.get())
                             .build();
                     return Dataset.open(tablePath, versionedOptions);
                 }
@@ -522,9 +519,9 @@ public class LanceNamespaceHolder
     public String createTable(String schemaName, String tableName, Schema arrowSchema)
     {
         List<String> tableId = getTableId(schemaName, tableName);
-        CreateEmptyTableRequest createRequest = new CreateEmptyTableRequest()
+        DeclareTableRequest createRequest = new DeclareTableRequest()
                 .id(tableId);
-        CreateEmptyTableResponse createResponse = namespace.createEmptyTable(createRequest);
+        DeclareTableResponse createResponse = namespace.declareTable(createRequest);
         String tablePath = createResponse.getLocation();
 
         try {
@@ -661,12 +658,12 @@ public class LanceNamespaceHolder
 
     private void commitTransaction(Dataset dataset, org.lance.operation.Operation operation, long readVersion)
     {
-        dataset.commitTransaction(
-                dataset.newTransactionBuilder()
-                        .operation(operation)
-                        .readVersion(readVersion)
-                        .build())
-                .close();
+        try (SourcedTransaction transaction = dataset.newTransactionBuilder()
+                .operation(operation)
+                .readVersion(readVersion)
+                .build()) {
+            transaction.commit().close();
+        }
     }
 
     private static PrestoException wrapCommitException(Exception e)

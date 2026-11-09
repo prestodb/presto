@@ -433,6 +433,50 @@ and the pushdown can be turned off with ``vector_search_pushdown_enabled``.
     search. Set ``vector_search_pushdown_enabled`` to ``false`` to get exact
     results from a full scan.
 
+Vector Search Table Function
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``vector_search`` table function runs a nearest-neighbor search directly.
+It returns the ``k`` rows nearest to the query vector, with all of the table's
+columns plus a ``_distance`` column:
+
+.. code-block:: sql
+
+    SELECT id, title, _distance
+    FROM TABLE(lance.system.vector_search(
+        schema_name => 'default',
+        table_name => 'documents',
+        vector_col => 'embedding',
+        query_vector => ARRAY[0.1, 0.2, 0.3, 0.4],
+        k => 10))
+    ORDER BY _distance;
+
+=================== =================== ======================================================
+Argument            Default             Description
+=================== =================== ======================================================
+``schema_name``     (required)          Schema of the table to search.
+``table_name``      (required)          Table to search.
+``vector_col``      (required)          Vector column. It must be an array of ``REAL`` or
+                                        ``DOUBLE`` with the same dimension as
+                                        ``query_vector``.
+``query_vector``    (required)          Query vector, as an ``ARRAY(DOUBLE)``. It must not
+                                        be empty or contain nulls.
+``k``               ``10``              Number of nearest rows to return.
+``metric``          ``'l2'``            Distance metric: ``'l2'``, ``'cosine'``, or ``'dot'``.
+``nprobes``         (Lance default)     Number of IVF partitions to probe.
+``ef``              (Lance default)     HNSW ``ef`` search parameter.
+``refine_factor``   (Lance default)     Re-rank ``k * refine_factor`` candidates with exact
+                                        distances.
+=================== =================== ======================================================
+
+The table must not already have a column named ``_distance``. Results are
+not ordered unless the query has an ``ORDER BY``.
+
+By default, a search runs as a single split. On Presto C++ workers, setting the
+``vector_search_per_segment_splits`` session property runs one split per vector
+index segment instead, plus one split for rows that no index covers, and
+merges the results into the exact top ``k``.
+
 DROP TABLE
 ^^^^^^^^^^
 
@@ -481,6 +525,9 @@ Property Name                                     Description                   
 ``vector_search_ef``                               HNSW ``ef`` search parameter. ``0`` uses the Lance default.      ``0``
 ``vector_search_refine_factor``                    Re-rank ``k * refine_factor`` candidates with exact distances.   ``0``
                                                    ``0`` uses the Lance default.
+``vector_search_per_segment_splits``              Run a vector search as one split per vector index segment.       ``false``
+                                                  Use only with Presto C++ workers: Java workers can't restrict
+                                                  a nearest-neighbor search to a split's fragments.
 ================================================= ================================================================ =========
 
 Native Execution

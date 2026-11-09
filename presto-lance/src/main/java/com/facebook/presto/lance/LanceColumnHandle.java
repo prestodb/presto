@@ -62,6 +62,8 @@ public class LanceColumnHandle
         ROW_ADDRESS,
         /** The synthetic struct row id used by UPDATE (row address + unmodified columns). */
         UPDATE_ROW_ID,
+        /** The {@code _distance} column Lance appends to the batches of a nearest (ANN) scan. */
+        DISTANCE,
     }
 
     private final String columnName;
@@ -115,6 +117,16 @@ public class LanceColumnHandle
         return new LanceColumnHandle(UPDATE_ROW_ID_COLUMN_NAME, RowType.from(fields), false, ColumnHandleType.UPDATE_ROW_ID);
     }
 
+    /**
+     * The {@code _distance} column emitted by a Lance nearest scan (REAL, smaller = nearer
+     * for every metric). Not a stored column: it must be excluded from the Lance projection
+     * list and is materialized from the scan batches by name.
+     */
+    public static LanceColumnHandle distanceColumn()
+    {
+        return new LanceColumnHandle(LanceVectorSearch.DISTANCE_COLUMN_NAME, RealType.REAL, false, ColumnHandleType.DISTANCE);
+    }
+
     @JsonProperty
     public String getColumnName()
     {
@@ -147,6 +159,11 @@ public class LanceColumnHandle
     public boolean isUpdateRowId()
     {
         return columnHandleType == ColumnHandleType.UPDATE_ROW_ID;
+    }
+
+    public boolean isDistance()
+    {
+        return columnHandleType == ColumnHandleType.DISTANCE;
     }
 
     public boolean isSynthetic()

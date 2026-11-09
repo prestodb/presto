@@ -43,7 +43,8 @@ static const std::pair<ColumnHandleType, json> ColumnHandleType_enum_table[] =
     { // NOLINT: cert-err58-cpp
         {ColumnHandleType::REGULAR, "REGULAR"},
         {ColumnHandleType::ROW_ADDRESS, "ROW_ADDRESS"},
-        {ColumnHandleType::UPDATE_ROW_ID, "UPDATE_ROW_ID"}};
+        {ColumnHandleType::UPDATE_ROW_ID, "UPDATE_ROW_ID"},
+        {ColumnHandleType::DISTANCE, "DISTANCE"}};
 void to_json(json& j, const ColumnHandleType& e) {
   static_assert(
       std::is_enum<ColumnHandleType>::value,
@@ -171,6 +172,13 @@ void to_json(json& j, const LanceVectorSearch& p) {
       "LanceVectorSearch",
       "Integer",
       "refineFactor");
+  to_json_key(
+      j,
+      "requiresGlobalTopK",
+      p.requiresGlobalTopK,
+      "LanceVectorSearch",
+      "bool",
+      "requiresGlobalTopK");
 }
 
 void from_json(const json& j, LanceVectorSearch& p) {
@@ -194,6 +202,13 @@ void from_json(const json& j, LanceVectorSearch& p) {
       "LanceVectorSearch",
       "Integer",
       "refineFactor");
+  from_json_key(
+      j,
+      "requiresGlobalTopK",
+      p.requiresGlobalTopK,
+      "LanceVectorSearch",
+      "bool",
+      "requiresGlobalTopK");
 }
 } // namespace facebook::presto::protocol::lance
 namespace facebook::presto::protocol::lance {

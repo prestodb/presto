@@ -32,6 +32,7 @@ public final class LanceSessionProperties
     public static final String VECTOR_SEARCH_NPROBES = "vector_search_nprobes";
     public static final String VECTOR_SEARCH_EF = "vector_search_ef";
     public static final String VECTOR_SEARCH_REFINE_FACTOR = "vector_search_refine_factor";
+    public static final String VECTOR_SEARCH_PER_SEGMENT_SPLITS = "vector_search_per_segment_splits";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -63,6 +64,14 @@ public final class LanceSessionProperties
                         VECTOR_SEARCH_REFINE_FACTOR,
                         "Refine factor for ANN search re-ranking (0 = Lance default)",
                         0,
+                        false))
+                .add(booleanProperty(
+                        VECTOR_SEARCH_PER_SEGMENT_SPLITS,
+                        "Fan a vector search out as one split per vector-index segment. Requires native " +
+                                "(Velox) execution: the Java page source cannot run a fragment-scoped nearest " +
+                                "scan, so per-segment splits would each search the whole dataset and duplicate " +
+                                "the top-k. Leave off for Java execution.",
+                        false,
                         false))
                 .build();
     }
@@ -96,6 +105,11 @@ public final class LanceSessionProperties
     public static Optional<Integer> getVectorSearchRefineFactor(ConnectorSession session)
     {
         return positiveOrEmpty(session.getProperty(VECTOR_SEARCH_REFINE_FACTOR, Integer.class));
+    }
+
+    public static boolean isVectorSearchPerSegmentSplits(ConnectorSession session)
+    {
+        return session.getProperty(VECTOR_SEARCH_PER_SEGMENT_SPLITS, Boolean.class);
     }
 
     private static Optional<Integer> positiveOrEmpty(Integer value)

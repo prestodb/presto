@@ -36,7 +36,8 @@ TEST(LanceProtocolTest, tableHandleWithVectorSearch) {
           "queryVector": [0.3, 0.0, 0.0, 0.0],
           "k": 3,
           "metric": "l2",
-          "nprobes": 10
+          "nprobes": 10,
+          "requiresGlobalTopK": true
         }
       }
   )";
@@ -58,6 +59,7 @@ TEST(LanceProtocolTest, tableHandleWithVectorSearch) {
   ASSERT_EQ(*handle.vectorSearch->nprobes, 10);
   ASSERT_EQ(handle.vectorSearch->ef, nullptr);
   ASSERT_EQ(handle.vectorSearch->refineFactor, nullptr);
+  ASSERT_TRUE(handle.vectorSearch->requiresGlobalTopK);
 
   // Round-trip back to JSON: present fields survive, absent stay absent.
   json out = handle;

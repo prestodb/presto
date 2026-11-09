@@ -102,13 +102,15 @@ public class LanceFragmentPageSource
 
             // Combine output columns with filter projection columns. The _rowaddr metadata
             // column is produced via withRowAddress(true), not via the column projection list,
-            // so it must be excluded from columns().
+            // so it must be excluded from columns(). _distance is appended by Lance to every
+            // nearest-scan batch and is likewise not a stored column.
             List<String> allColumns = ImmutableList.<String>builder()
                     .addAll(columns)
                     .addAll(filterProjectionColumns)
                     .build()
                     .stream()
-                    .filter(name -> !RowAddress.ROW_ADDRESS_COLUMN_NAME.equals(name))
+                    .filter(name -> !RowAddress.ROW_ADDRESS_COLUMN_NAME.equals(name)
+                            && !LanceVectorSearch.DISTANCE_COLUMN_NAME.equals(name))
                     .distinct()
                     .collect(toImmutableList());
 
@@ -116,7 +118,12 @@ public class LanceFragmentPageSource
                 optionsBuilder.columns(allColumns);
             }
             optionsBuilder.batchSize(readBatchSize);
-            optionsBuilder.fragmentIds(fragmentIds);
+            // Do NOT set fragmentIds when a nearest (vector search) query is active:
+            // lance-core (verified through 11.0.0) silently downgrades a nearest scan to a plain scan when
+            // fragment IDs are specified, producing batches without the _distance column.
+            if (!vectorSearch.isPresent()) {
+                optionsBuilder.fragmentIds(fragmentIds);
+            }
             if (includeRowAddress) {
                 optionsBuilder.withRowAddress(true);
             }

@@ -31,7 +31,7 @@ void to_json(json& j, const LanceTransactionHandle& p);
 void from_json(const json& j, LanceTransactionHandle& p);
 } // namespace facebook::presto::protocol::lance
 namespace facebook::presto::protocol::lance {
-enum class ColumnHandleType { REGULAR, ROW_ADDRESS, UPDATE_ROW_ID };
+enum class ColumnHandleType { REGULAR, ROW_ADDRESS, UPDATE_ROW_ID, DISTANCE };
 extern void to_json(json& j, const ColumnHandleType& e);
 extern void from_json(const json& j, ColumnHandleType& e);
 } // namespace facebook::presto::protocol::lance
@@ -76,6 +76,7 @@ struct LanceVectorSearch {
   std::shared_ptr<Integer> nprobes = {};
   std::shared_ptr<Integer> ef = {};
   std::shared_ptr<Integer> refineFactor = {};
+  bool requiresGlobalTopK = {};
 };
 void to_json(json& j, const LanceVectorSearch& p);
 void from_json(const json& j, LanceVectorSearch& p);

@@ -32,6 +32,8 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -236,6 +238,18 @@ public class LanceMetadata
         ConnectorTableLayout layout = new ConnectorTableLayout(
                 new LanceTableLayoutHandle(lanceTable, constraint.getSummary()));
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
+    }
+
+    @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (!(handle instanceof LanceVectorSearchFunctionHandle)) {
+            return Optional.empty();
+        }
+        LanceVectorSearchFunctionHandle functionHandle = (LanceVectorSearchFunctionHandle) handle;
+        return Optional.of(new TableFunctionApplicationResult<>(
+                functionHandle.getTableHandle(),
+                ImmutableList.copyOf(functionHandle.getColumns())));
     }
 
     @Override

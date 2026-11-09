@@ -41,6 +41,12 @@ public class LanceVectorSearch
     public static final String METRIC_COSINE = "cosine";
     public static final String METRIC_DOT = "dot";
 
+    /**
+     * Name of the distance column Lance appends to every batch of a {@code nearest} scan.
+     * Smaller is always nearer, for every metric.
+     */
+    public static final String DISTANCE_COLUMN_NAME = "_distance";
+
     private final String column;
     private final List<Double> queryVector;
     private final int k;
@@ -48,6 +54,19 @@ public class LanceVectorSearch
     private final Optional<Integer> nprobes;
     private final Optional<Integer> ef;
     private final Optional<Integer> refineFactor;
+    private final boolean requiresGlobalTopK;
+
+    public LanceVectorSearch(
+            String column,
+            List<Double> queryVector,
+            int k,
+            String metric,
+            Optional<Integer> nprobes,
+            Optional<Integer> ef,
+            Optional<Integer> refineFactor)
+    {
+        this(column, queryVector, k, metric, nprobes, ef, refineFactor, false);
+    }
 
     @JsonCreator
     public LanceVectorSearch(
@@ -57,7 +76,8 @@ public class LanceVectorSearch
             @JsonProperty("metric") String metric,
             @JsonProperty("nprobes") Optional<Integer> nprobes,
             @JsonProperty("ef") Optional<Integer> ef,
-            @JsonProperty("refineFactor") Optional<Integer> refineFactor)
+            @JsonProperty("refineFactor") Optional<Integer> refineFactor,
+            @JsonProperty("requiresGlobalTopK") boolean requiresGlobalTopK)
     {
         this.column = requireNonNull(column, "column is null");
         this.queryVector = ImmutableList.copyOf(requireNonNull(queryVector, "queryVector is null"));
@@ -66,6 +86,7 @@ public class LanceVectorSearch
         this.nprobes = requireNonNull(nprobes, "nprobes is null");
         this.ef = requireNonNull(ef, "ef is null");
         this.refineFactor = requireNonNull(refineFactor, "refineFactor is null");
+        this.requiresGlobalTopK = requiresGlobalTopK;
     }
 
     @JsonProperty
@@ -110,6 +131,20 @@ public class LanceVectorSearch
         return refineFactor;
     }
 
+    /**
+     * When true, no TopN above this scan merges per-split results yet. Set by the
+     * {@code vector_search} table function; {@code LanceVectorSearchTopNRewriter} inserts a
+     * global-merge TopN over the scan and clears the flag. If it is still set at split
+     * generation (connector optimization disabled), the split manager runs the scan as a
+     * single split over all fragments so one Lance {@code nearest} query computes the exact
+     * global top-k.
+     */
+    @JsonProperty
+    public boolean isRequiresGlobalTopK()
+    {
+        return requiresGlobalTopK;
+    }
+
     public float[] getQueryVectorAsFloats()
     {
         float[] key = new float[queryVector.size()];
@@ -130,6 +165,7 @@ public class LanceVectorSearch
         }
         LanceVectorSearch that = (LanceVectorSearch) o;
         return k == that.k &&
+                requiresGlobalTopK == that.requiresGlobalTopK &&
                 Objects.equals(column, that.column) &&
                 Objects.equals(queryVector, that.queryVector) &&
                 Objects.equals(metric, that.metric) &&
@@ -141,7 +177,7 @@ public class LanceVectorSearch
     @Override
     public int hashCode()
     {
-        return Objects.hash(column, queryVector, k, metric, nprobes, ef, refineFactor);
+        return Objects.hash(column, queryVector, k, metric, nprobes, ef, refineFactor, requiresGlobalTopK);
     }
 
     @Override
@@ -155,6 +191,7 @@ public class LanceVectorSearch
                 .add("nprobes", nprobes)
                 .add("ef", ef)
                 .add("refineFactor", refineFactor)
+                .add("requiresGlobalTopK", requiresGlobalTopK)
                 .toString();
     }
 }
