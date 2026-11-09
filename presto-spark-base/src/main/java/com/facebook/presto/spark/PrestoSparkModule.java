@@ -48,6 +48,7 @@ import com.facebook.presto.event.QueryMonitorConfig;
 import com.facebook.presto.event.SplitMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.ExplainAnalyzeContext;
+import com.facebook.presto.execution.QueryCompletionValidator;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManager;
@@ -580,6 +581,7 @@ public class PrestoSparkModule
         binder.bind(PrestoSparkRddFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkNativeTaskExecutorFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkTaskExecutorFactory.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, QueryCompletionValidator.class);
         binder.bind(PrestoSparkQueryExecutionFactory.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkService.class).in(Scopes.SINGLETON);
         binder.bind(PrestoSparkBroadcastTableCacheManager.class).in(Scopes.SINGLETON);

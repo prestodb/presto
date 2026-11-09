@@ -21,6 +21,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.FragmentStatsProvider;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.event.QueryMonitor;
+import com.facebook.presto.execution.QueryCompletionValidator;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryStateTimer;
 import com.facebook.presto.execution.TaskInfo;
@@ -178,7 +179,8 @@ public class PrestoSparkAdaptiveQueryExecution
             PlanNodeIdAllocator idAllocator,
             FragmentStatsProvider fragmentStatsProvider,
             Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector,
-            PlanCheckerProviderManager planCheckerProviderManager)
+            PlanCheckerProviderManager planCheckerProviderManager,
+            Set<QueryCompletionValidator> completionValidators)
     {
         super(
                 sparkContext,
@@ -217,7 +219,8 @@ public class PrestoSparkAdaptiveQueryExecution
                 metadata,
                 partitioningProviderManager,
                 historyBasedPlanStatisticsTracker,
-                bootstrapMetricsCollector);
+                bootstrapMetricsCollector,
+                completionValidators);
 
         this.fragmentStatsProvider = requireNonNull(fragmentStatsProvider, "fragmentStatsProvider is null");
         this.adaptivePlanOptimizers = requireNonNull(adaptivePlanOptimizers, "adaptivePlanOptimizers is null").getAdaptiveOptimizers();

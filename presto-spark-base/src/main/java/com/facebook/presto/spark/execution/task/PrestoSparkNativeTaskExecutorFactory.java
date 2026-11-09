@@ -76,6 +76,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.storage.TempStorageManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -171,7 +172,8 @@ public class PrestoSparkNativeTaskExecutorFactory
     private final boolean nativeTempStorageDeferred;
     private NativeExecutionProcess nativeExecutionProcess;
 
-    private static class CpuTracker
+    @VisibleForTesting
+    static class CpuTracker
     {
         private OperatingSystemMXBean operatingSystemMXBean;
         private OptionalLong startCpuTime;
@@ -381,13 +383,19 @@ public class PrestoSparkNativeTaskExecutorFactory
         }
     }
 
-    private static void completeTask(boolean success, CollectionAccumulator<SerializedTaskInfo> taskInfoCollector, NativeExecutionTask task, Codec<TaskInfo> taskInfoCodec, CpuTracker cpuTracker)
+    private static void completeTask(
+            boolean success,
+            CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
+            NativeExecutionTask task,
+            Codec<TaskInfo> taskInfoCodec,
+            CpuTracker cpuTracker,
+            Optional<TaskInfo> capturedTaskInfo)
     {
         try {
             OptionalLong processCpuTime = cpuTracker.get();
 
             // collect statistics (if available)
-            Optional<TaskInfo> taskInfoOptional = tryGetTaskInfo(task);
+            Optional<TaskInfo> taskInfoOptional = capturedTaskInfo.isPresent() ? capturedTaskInfo : tryGetTaskInfo(task);
             if (!taskInfoOptional.isPresent()) {
                 log.error("Missing taskInfo. Statistics might be inaccurate");
                 return;
@@ -576,13 +584,15 @@ public class PrestoSparkNativeTaskExecutorFactory
                 .findFirst();
     }
 
-    private static class PrestoSparkNativeTaskOutputIterator<T extends PrestoSparkTaskOutput>
+    @VisibleForTesting
+    static class PrestoSparkNativeTaskOutputIterator<T extends PrestoSparkTaskOutput>
             extends AbstractIterator<Tuple2<MutablePartitionId, T>>
             implements IPrestoSparkTaskExecutor<T>
     {
         private final int partitionId;
         private final NativeExecutionTask nativeExecutionTask;
         private Optional<SerializedPage> next = Optional.empty();
+        private boolean taskCompleted;
         private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollectionAccumulator;
         private final Codec<TaskInfo> taskInfoCodec;
         private final Class<T> outputType;
@@ -662,6 +672,10 @@ public class PrestoSparkNativeTaskExecutorFactory
          */
         private Optional<SerializedPage> computeNext()
         {
+            if (taskCompleted) {
+                return Optional.empty();
+            }
+            Optional<TaskInfo> capturedTaskInfo = Optional.empty();
             try {
                 Object taskFinishedOrHasResult = nativeExecutionTask.getTaskFinishedOrHasResult();
                 // Blocking wait if task is still running or hasn't produced any output page
@@ -685,13 +699,13 @@ public class PrestoSparkNativeTaskExecutorFactory
                     }
                 }
 
-                Optional<TaskInfo> taskInfo = nativeExecutionTask.getTaskInfo();
+                capturedTaskInfo = nativeExecutionTask.getTaskInfo();
 
-                processTaskInfoForErrorsOrCompletion(taskInfo.get());
+                processTaskInfoForErrorsOrCompletion(capturedTaskInfo.get());
             }
             catch (RuntimeException ex) {
                 // For a failed task, if taskInfo is present we still want to log the metrics
-                completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker);
+                completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker, capturedTaskInfo);
                 throw executionExceptionFactory.toPrestoSparkExecutionException(processFailure(
                         ex,
                         nativeExecutionProcess,
@@ -704,7 +718,7 @@ public class PrestoSparkNativeTaskExecutorFactory
                 // ever sent, and the worker keeps the task and everything it pins.
                 RuntimeException failure = new RuntimeException(e);
                 try {
-                    completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker);
+                    completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker, capturedTaskInfo);
                 }
                 catch (RuntimeException completionFailure) {
                     // Keep the interrupt as the reported cause. A failure to complete is
@@ -718,7 +732,8 @@ public class PrestoSparkNativeTaskExecutorFactory
             }
 
             // Reaching here marks the end of task processing
-            completeTask(true, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker);
+            completeTask(true, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker, capturedTaskInfo);
+            taskCompleted = true;
             return Optional.empty();
         }
 
