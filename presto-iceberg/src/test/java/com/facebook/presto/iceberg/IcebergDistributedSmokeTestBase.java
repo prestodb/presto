@@ -2364,7 +2364,7 @@ public abstract class IcebergDistributedSmokeTestBase
             assertUpdate(txnSession, setNotNull(tableName, "c3"));
             assertUpdate(format("INSERT INTO %s VALUES (2, 2, NULL)", tableName), 1);
             assertQueryFails(txnSession, "COMMIT", "Failed to commit changes to the Iceberg table " +
-                    "tpch.test_set_not_null_null_after_read.* because it was concurrently modified");
+                    ".*test_set_not_null_null_after_read.* because it was concurrently modified");
 
             txnSession = startTransaction();
             assertQuery(txnSession, format("SELECT count(*) FROM %s", tableName), "VALUES 2");
@@ -2372,7 +2372,7 @@ public abstract class IcebergDistributedSmokeTestBase
             if (catalogType == HIVE) {
                 assertUpdate(txnSession, setNotNull(tableName, "c2"));
                 assertQueryFails(txnSession, "COMMIT", "Failed to commit changes to the Iceberg table " +
-                        "tpch.test_set_not_null_null_after_read.* because it was concurrently modified");
+                        ".*test_set_not_null_null_after_read.* because it was concurrently modified");
             }
             else {
                 assertQueryFails(txnSession, setNotNull(tableName, "c2"), nullValuesError("c2", "main"));
