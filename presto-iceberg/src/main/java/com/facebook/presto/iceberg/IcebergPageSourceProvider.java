@@ -111,6 +111,7 @@ import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
+import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
 import org.roaringbitmap.longlong.LongBitmapDataProvider;
@@ -170,12 +171,12 @@ import static com.facebook.presto.memory.context.AggregatedMemoryContext.newSimp
 import static com.facebook.presto.orc.OrcEncoding.ORC;
 import static com.facebook.presto.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static com.facebook.presto.orc.OrcReader.MODIFICATION_TIME_NOT_SET;
+import static com.facebook.presto.parquet.ParquetTypeUtils.columnPathFromSubfield;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getColumnIO;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getDescriptors;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.getSubfieldType;
 import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
-import static com.facebook.presto.parquet.ParquetTypeUtils.nestedColumnPath;
 import static com.facebook.presto.parquet.cache.MetadataReader.findFirstNonHiddenColumnId;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicate;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatches;
@@ -262,7 +263,8 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> regularColumns,
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats,
-            ParquetMetadataSource parquetMetadataSource)
+            ParquetMetadataSource parquetMetadataSource,
+            Schema tableSchema)
     {
         AggregatedMemoryContext systemMemoryContext = newSimpleAggregatedMemoryContext();
 
@@ -305,7 +307,7 @@ public class IcebergPageSourceProvider
                     .collect(toImmutableMap(field -> field.getId().intValue(), Function.identity()));
 
             Optional<MessageType> messageType = regularColumns.stream()
-                    .map(column -> getColumnType(parquetIdToField, fileSchema, column))
+                    .map(column -> getColumnType(parquetIdToField, fileSchema, tableSchema, column))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .map(type -> new MessageType(fileSchema.getName(), type))
@@ -375,11 +377,8 @@ public class IcebergPageSourceProvider
 
                 if (column.getColumnType() == IcebergColumnHandle.ColumnType.SYNTHESIZED &&
                         !column.isUpdateRowIdColumn() && !column.isMergeTargetTableRowIdColumn()) {
-                    Subfield pushedDownSubfield = getPushedDownSubfield(column);
-                    List<String> nestedColumnPath = nestedColumnPath(pushedDownSubfield).stream()
-                            .map(AvroSchemaUtil::makeCompatibleName)
-                            .collect(Collectors.toList());
-                    Optional<ColumnIO> columnIO = findNestedColumnIO(lookupColumnByName(messageColumnIO, AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName())), nestedColumnPath);
+                    Optional<ColumnIO> columnIO = getSubfieldLookupPath(parquetIdToField, fileSchema, tableSchema, getPushedDownSubfield(column))
+                            .flatMap(lookupPath -> findNestedColumnIO(lookupColumnByName(messageColumnIO, lookupPath.get(0)), lookupPath.subList(1, lookupPath.size())));
                     if (columnIO.isPresent()) {
                         internalFields.add(constructField(prestoType, columnIO.get()));
                     }
@@ -390,20 +389,18 @@ public class IcebergPageSourceProvider
                     }
                 }
                 else {
-                    Optional<org.apache.parquet.schema.Type> parquetField = getColumnType(parquetIdToField, fileSchema, column);
+                    Optional<org.apache.parquet.schema.Type> parquetField = getColumnType(parquetIdToField, fileSchema, tableSchema, column);
                     if (!parquetField.isPresent()) {
                         internalFields.add(Optional.empty());
                         getInitialDefaultValue(column)
                                 .ifPresent(value -> defaultValues.put(column.getId(), value));
                     }
                     else {
-                        // Use a Parquet-compatible version of the column type so that constructField()
-                        // can resolve ROW sub-field names against the hex-encoded Parquet column names
-                        // (e.g. "field-two" in the Presto type must match "field_x2dtwo" in the file).
-                        // We do NOT derive the type from the Parquet schema here because doing so
-                        // would produce the old file schema for schema-evolved tables and cause a
-                        // "field N has unexpected position count" error when new fields were added.
-                        Type parquetCompatibleType = encodeFieldNamesForParquet(column.getType());
+                        // Rename the ROW sub-fields of the column type to the names used in the file so that
+                        // constructField() can resolve them. We do NOT derive the type from the Parquet schema
+                        // here because doing so would produce the old file schema for schema-evolved tables and
+                        // cause a "field N has unexpected position count" error when new fields were added.
+                        Type parquetCompatibleType = toParquetFieldNames(column.getType(), column.getColumnIdentity(), parquetField.get());
                         // parquetField was resolved by Iceberg field ID, so its name is the exact physical name in the
                         // file. Do not sanitize it: writers such as Delta UniForm use raw names like "col-1".
                         ColumnIO fieldColumnIO = messageColumnIO.getChild(parquetField.get().getName());
@@ -454,14 +451,12 @@ public class IcebergPageSourceProvider
     public static Optional<org.apache.parquet.schema.Type> getColumnType(
             Map<Integer, org.apache.parquet.schema.Type> parquetIdToField,
             MessageType messageType,
+            Schema tableSchema,
             IcebergColumnHandle column)
     {
         if (isPushedDownSubfield(column)) {
-            Subfield pushedDownSubfield = getPushedDownSubfield(column);
-            List<String> encodedPath = nestedColumnPath(pushedDownSubfield).stream()
-                    .map(AvroSchemaUtil::makeCompatibleName)
-                    .collect(Collectors.toList());
-            return getSubfieldType(messageType, AvroSchemaUtil.makeCompatibleName(pushedDownSubfield.getRootName()), encodedPath);
+            return getSubfieldLookupPath(parquetIdToField, messageType, tableSchema, getPushedDownSubfield(column))
+                    .flatMap(lookupPath -> getSubfieldType(messageType, lookupPath.get(0), lookupPath.subList(1, lookupPath.size())));
         }
 
         if (parquetIdToField.isEmpty()) {
@@ -469,6 +464,79 @@ public class IcebergPageSourceProvider
             return Optional.ofNullable(getParquetTypeByName(column.getName(), messageType));
         }
         return Optional.ofNullable(parquetIdToField.get(column.getId()));
+    }
+
+    /**
+     * Returns the names to look up in the Parquet file for a pushed-down subfield, root first.
+     * The subfield carries Iceberg (logical) names, so each step is resolved to its Iceberg field ID
+     * through the table schema and then to the physical name of the field with that ID in the file.
+     * Returns empty when the file does not contain the subfield.
+     */
+    private static Optional<List<String>> getSubfieldLookupPath(
+            Map<Integer, org.apache.parquet.schema.Type> parquetIdToField,
+            MessageType fileSchema,
+            Schema tableSchema,
+            Subfield subfield)
+    {
+        List<String> logicalPath = columnPathFromSubfield(subfield);
+        if (parquetIdToField.isEmpty()) {
+            // Migrated table: the file has no field IDs, so match by name
+            return Optional.of(logicalPath.stream()
+                    .map(AvroSchemaUtil::makeCompatibleName)
+                    .collect(toImmutableList()));
+        }
+
+        ImmutableList.Builder<String> physicalPath = ImmutableList.builder();
+        Types.StructType icebergStruct = tableSchema.asStruct();
+        GroupType parquetGroup = fileSchema;
+        for (int i = 0; i < logicalPath.size(); i++) {
+            NestedField icebergField = icebergStruct.field(logicalPath.get(i));
+            verify(icebergField != null, "Subfield %s not found in table schema %s", subfield, tableSchema);
+            org.apache.parquet.schema.Type parquetField = getParquetTypeById(parquetGroup, icebergField.fieldId());
+            if (parquetField == null) {
+                return Optional.empty();
+            }
+            physicalPath.add(parquetField.getName());
+            if (i < logicalPath.size() - 1) {
+                if (!icebergField.type().isStructType() || parquetField.isPrimitive()) {
+                    return Optional.empty();
+                }
+                icebergStruct = icebergField.type().asStructType();
+                parquetGroup = parquetField.asGroupType();
+            }
+        }
+        return Optional.of(physicalPath.build());
+    }
+
+    private static org.apache.parquet.schema.Type getParquetTypeById(GroupType group, int fieldId)
+    {
+        if (group == null) {
+            return null;
+        }
+        for (org.apache.parquet.schema.Type field : group.getFields()) {
+            if (field.getId() != null && field.getId().intValue() == fieldId) {
+                return field;
+            }
+        }
+        return null;
+    }
+
+    // Depth-first search, used for list elements and map entries that sit below ID-less wrapper groups
+    private static org.apache.parquet.schema.Type findParquetTypeById(org.apache.parquet.schema.Type type, int fieldId)
+    {
+        if (type == null || type.isPrimitive()) {
+            return null;
+        }
+        for (org.apache.parquet.schema.Type field : type.asGroupType().getFields()) {
+            if (field.getId() != null && field.getId().intValue() == fieldId) {
+                return field;
+            }
+            org.apache.parquet.schema.Type match = findParquetTypeById(field, fieldId);
+            if (match != null) {
+                return match;
+            }
+        }
+        return null;
     }
 
     private static TupleDomain<ColumnDescriptor> getParquetTupleDomain(Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<IcebergColumnHandle> effectivePredicate)
@@ -920,7 +988,8 @@ public class IcebergPageSourceProvider
                         split.getFileFormat(),
                         columnList,
                         icebergLayout.getValidPredicate(),
-                        splitContext.isCacheable());
+                        splitContext.isCacheable(),
+                        tableSchema);
 
         IcebergPartitionInsertingPageSource partitionInsertingPageSource = new IcebergPartitionInsertingPageSource(
                 delegateColumns,
@@ -1073,7 +1142,7 @@ public class IcebergPageSourceProvider
                     }
                 }
 
-                try (ConnectorPageSource pageSource = openDeletes(session, delete, deleteColumns, deleteDomain)) {
+                try (ConnectorPageSource pageSource = openDeletes(session, schema, delete, deleteColumns, deleteDomain)) {
                     readPositionDeletes(pageSource, targetPath, deletedRows);
                 }
                 catch (IOException e) {
@@ -1091,7 +1160,7 @@ public class IcebergPageSourceProvider
                         .map(id -> IcebergColumnHandle.create(schema.findField(id), typeManager, IcebergColumnHandle.ColumnType.REGULAR))
                         .collect(toImmutableList());
 
-                try (ConnectorPageSource pageSource = openDeletes(session, delete, columns, TupleDomain.all())) {
+                try (ConnectorPageSource pageSource = openDeletes(session, schema, delete, columns, TupleDomain.all())) {
                     filters.add(readEqualityDeletes(pageSource, columns, storeDeleteFilePath ? delete.path() : null));
                 }
                 catch (IOException e) {
@@ -1112,6 +1181,7 @@ public class IcebergPageSourceProvider
 
     private ConnectorPageSource openDeletes(
             ConnectorSession session,
+            Schema schema,
             DeleteFile delete,
             List<IcebergColumnHandle> columns,
             TupleDomain<IcebergColumnHandle> tupleDomain)
@@ -1125,7 +1195,8 @@ public class IcebergPageSourceProvider
                 delete.format(),
                 columns,
                 tupleDomain,
-                false)
+                false,
+                schema)
                 .getDelegate();
     }
 
@@ -1138,7 +1209,8 @@ public class IcebergPageSourceProvider
             FileFormat fileFormat,
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate,
-            boolean isCacheable)
+            boolean isCacheable,
+            Schema tableSchema)
     {
         validateGeospatialRead(dataColumns, fileFormat);
         switch (fileFormat) {
@@ -1153,7 +1225,8 @@ public class IcebergPageSourceProvider
                         dataColumns,
                         predicate,
                         fileFormatDataSourceStats,
-                        parquetMetadataSource);
+                        parquetMetadataSource,
+                        tableSchema);
             case ORC:
                 OrcReaderOptions readerOptions = OrcReaderOptions.builder()
                         .withMaxMergeDistance(getOrcMaxMergeDistance(session))
@@ -1191,21 +1264,29 @@ public class IcebergPageSourceProvider
     }
 
     /**
-     * Returns a copy of {@code type} where every ROW field name has been encoded with
-     * {@link AvroSchemaUtil#makeCompatibleName} so that
-     * {@link org.apache.parquet.io.ColumnIOConverter#constructField} can resolve
-     * sub-field children by name against a Parquet {@code GroupColumnIO} whose columns
-     * use the same hex-encoded names (e.g. {@code "field-two"} → {@code "field_x2dtwo"}).
-     * Non-container types (not ROW, not ARRAY, not MAP) and names that contain no special characters are returned unchanged.
-     * The method is recursive so deeply-nested ROW types are also handled.
+     * Returns a copy of {@code type} where every ROW field is renamed to the physical name of the
+     * Parquet field with the same Iceberg field ID, so that
+     * {@link org.apache.parquet.io.ColumnIOConverter#constructField} can resolve sub-field children
+     * by name against the file's {@code GroupColumnIO} (e.g. Delta UniForm writes {@code "col-5"}
+     * for the Iceberg field {@code "city"}). Fields with no ID match in the file (such as fields
+     * added after the file was written, or files without field IDs) fall back to
+     * {@link AvroSchemaUtil#makeCompatibleName} (e.g. {@code "field-two"} → {@code "field_x2dtwo"}).
+     * Non-container types (not ROW, not ARRAY, not MAP) are returned unchanged.
      */
-    private static Type encodeFieldNamesForParquet(Type type)
+    private static Type toParquetFieldNames(Type type, ColumnIdentity identity, org.apache.parquet.schema.Type parquetType)
     {
         if (type instanceof RowType) {
             RowType rowType = (RowType) type;
             List<RowType.Field> encodedFields = rowType.getFields().stream()
                     .map(field -> {
-                        Type encodedFieldType = encodeFieldNamesForParquet(field.getType());
+                        ColumnIdentity fieldIdentity = field.getName().flatMap(name -> findChildIdentity(identity, name)).orElse(null);
+                        org.apache.parquet.schema.Type parquetField = fieldIdentity == null || parquetType == null || parquetType.isPrimitive()
+                                ? null
+                                : getParquetTypeById(parquetType.asGroupType(), fieldIdentity.getId());
+                        Type encodedFieldType = toParquetFieldNames(field.getType(), fieldIdentity, parquetField);
+                        if (parquetField != null) {
+                            return RowType.field(parquetField.getName(), encodedFieldType, field.isDelimited());
+                        }
                         return field.getName().isPresent()
                                 ? RowType.field(AvroSchemaUtil.makeCompatibleName(field.getName().get()), encodedFieldType, field.isDelimited())
                                 : RowType.field(encodedFieldType);
@@ -1215,19 +1296,46 @@ public class IcebergPageSourceProvider
         }
         if (type instanceof ArrayType) {
             Type elementType = ((ArrayType) type).getElementType();
-            return new ArrayType(encodeFieldNamesForParquet(elementType));
+            ColumnIdentity elementIdentity = getChildIdentity(identity, 0);
+            return new ArrayType(toParquetFieldNames(elementType, elementIdentity, findChildParquetType(parquetType, elementIdentity)));
         }
         if (type instanceof MapType) {
             MapType mapType = (MapType) type;
-            Type keyType = mapType.getKeyType();
-            Type valueType = mapType.getValueType();
+            ColumnIdentity keyIdentity = getChildIdentity(identity, 0);
+            ColumnIdentity valueIdentity = getChildIdentity(identity, 1);
             return new MapType(
-                    encodeFieldNamesForParquet(keyType),
-                    encodeFieldNamesForParquet(valueType),
+                    toParquetFieldNames(mapType.getKeyType(), keyIdentity, findChildParquetType(parquetType, keyIdentity)),
+                    toParquetFieldNames(mapType.getValueType(), valueIdentity, findChildParquetType(parquetType, valueIdentity)),
                     mapType.getKeyBlockEquals(),
                     mapType.getKeyBlockHashCode());
         }
         return type;
+    }
+
+    private static Optional<ColumnIdentity> findChildIdentity(ColumnIdentity identity, String name)
+    {
+        if (identity == null) {
+            return Optional.empty();
+        }
+        return identity.getChildren().stream()
+                .filter(child -> child.getName().equals(name))
+                .findFirst();
+    }
+
+    private static ColumnIdentity getChildIdentity(ColumnIdentity identity, int index)
+    {
+        if (identity == null || identity.getChildren().size() <= index) {
+            return null;
+        }
+        return identity.getChildren().get(index);
+    }
+
+    private static org.apache.parquet.schema.Type findChildParquetType(org.apache.parquet.schema.Type parquetType, ColumnIdentity childIdentity)
+    {
+        if (childIdentity == null) {
+            return null;
+        }
+        return findParquetTypeById(parquetType, childIdentity.getId());
     }
 
     private static Optional<Object> getInitialDefaultValue(IcebergColumnHandle column)

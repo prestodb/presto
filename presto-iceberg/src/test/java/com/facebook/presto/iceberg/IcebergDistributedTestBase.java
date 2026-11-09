@@ -170,6 +170,7 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirec
 import static com.facebook.presto.iceberg.IcebergSessionProperties.COMPRESSION_CODEC;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_MAX_DELETE_COLUMNS;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -5396,29 +5397,41 @@ public abstract class IcebergDistributedTestBase
             throws IOException
     {
         // Parquet files may use physical column names that differ from the Iceberg schema names
-        // (e.g. Delta UniForm with column mapping writes "col-N"). Columns must be matched by field ID
-        // and the physical name must be used as-is for the lookup, including characters such as '-'.
+        // (e.g. Delta UniForm with column mapping writes "col-N"). Columns and nested struct fields
+        // must be matched by field ID and the physical name must be used as-is for the lookup,
+        // including characters such as '-'.
         String tableName = "test_physical_names_by_field_id";
         File dataFile = new File(getDistributedQueryRunner().getCoordinator().getDataDirectory().toFile(), tableName + "_" + randomUUID() + ".parquet");
         try {
-            assertUpdate(format("CREATE TABLE %s (device_id INT, model VARCHAR, region VARCHAR) WITH (\"write.format.default\" = 'PARQUET')", tableName));
+            assertUpdate(format("CREATE TABLE %s (device_id INT, model VARCHAR, region VARCHAR, address ROW(city VARCHAR, zip VARCHAR)) WITH (\"write.format.default\" = 'PARQUET')", tableName));
             Table icebergTable = loadTable(tableName);
+            Schema schema = icebergTable.schema();
 
             MessageType parquetSchema = org.apache.parquet.schema.Types.buildMessage()
-                    .optional(INT32).id(1).named("col-1")
-                    .optional(BINARY).as(stringType()).id(2).named("col-2")
-                    .optional(BINARY).as(stringType()).id(3).named("col-3")
+                    .optional(INT32).id(schema.findField("device_id").fieldId()).named("col-1")
+                    .optional(BINARY).as(stringType()).id(schema.findField("model").fieldId()).named("col-2")
+                    .optional(BINARY).as(stringType()).id(schema.findField("region").fieldId()).named("col-3")
+                    .optionalGroup().id(schema.findField("address").fieldId())
+                        .optional(BINARY).as(stringType()).id(schema.findField("address.city").fieldId()).named("col-5")
+                        .optional(BINARY).as(stringType()).id(schema.findField("address.zip").fieldId()).named("col-6")
+                        .named("col-4")
                     .named("spark_schema");
 
             Configuration conf = new Configuration();
             GroupWriteSupport.setSchema(parquetSchema, conf);
-            Object[][] rows = {{1, "AP-535", "US-East"}, {2, "AP-635", "US-West"}, {3, "AP-735", "EU-Central"}};
+            Object[][] rows = {
+                    {1, "AP-535", "US-East", "Boston", "02101"},
+                    {2, "AP-635", "US-West", "Seattle", "98101"},
+                    {3, "AP-735", "EU-Central", "Berlin", "10115"}};
             try (ParquetWriter<Group> writer = ExampleParquetWriter.builder(new Path(dataFile.toURI())).withConf(conf).build()) {
                 for (Object[] row : rows) {
                     SimpleGroup group = new SimpleGroup(parquetSchema);
                     group.add("col-1", (int) row[0]);
                     group.add("col-2", (String) row[1]);
                     group.add("col-3", (String) row[2]);
+                    Group address = group.addGroup("col-4");
+                    address.add("col-5", (String) row[3]);
+                    address.add("col-6", (String) row[4]);
                     writer.write(group);
                 }
             }
@@ -5432,10 +5445,24 @@ public abstract class IcebergDistributedTestBase
                             .build())
                     .commit();
 
-            assertQuery("SELECT * FROM " + tableName,
+            assertQuery("SELECT device_id, model, region FROM " + tableName,
                     "VALUES (1, 'AP-535', 'US-East'), (2, 'AP-635', 'US-West'), (3, 'AP-735', 'EU-Central')");
             assertQuery("SELECT model, region FROM " + tableName + " WHERE device_id = 2", "VALUES ('AP-635', 'US-West')");
             assertQuery("SELECT count(*) FROM " + tableName + " WHERE device_id IS NULL OR model IS NULL OR region IS NULL", "VALUES 0");
+            assertQuery("SELECT json_format(CAST(address AS JSON)) FROM " + tableName + " WHERE device_id = 2",
+                    "VALUES '{\"city\":\"Seattle\",\"zip\":\"98101\"}'");
+
+            // With dereference pushdown enabled, "address.city" is read as a SYNTHESIZED subfield column whose
+            // root and nested steps must also be resolved by field ID. With it disabled, the whole struct is read.
+            for (boolean dereferencePushdownEnabled : new boolean[] {true, false}) {
+                Session session = Session.builder(getSession())
+                        .setCatalogSessionProperty(ICEBERG_CATALOG, PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, String.valueOf(dereferencePushdownEnabled))
+                        .build();
+                assertQuery(session, "SELECT device_id, address.city, address.zip FROM " + tableName,
+                        "VALUES (1, 'Boston', '02101'), (2, 'Seattle', '98101'), (3, 'Berlin', '10115')");
+                assertQuery(session, "SELECT address.zip FROM " + tableName + " WHERE address.city = 'Berlin'", "VALUES '10115'");
+                assertQuery(session, "SELECT count(*) FROM " + tableName + " WHERE address.city IS NULL OR address.zip IS NULL", "VALUES 0");
+            }
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
