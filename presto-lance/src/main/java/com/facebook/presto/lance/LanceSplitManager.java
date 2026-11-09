@@ -51,6 +51,8 @@ public class LanceSplitManager
         LanceTableLayoutHandle layoutHandle = (LanceTableLayoutHandle) layout;
         LanceTableHandle tableHandle = layoutHandle.getTable();
 
+        String datasetPath = tableHandle.getTablePath();
+
         List<Fragment> fragments = namespaceHolder.getFragments(
                 tableHandle.getTablePath(),
                 tableHandle.getDatasetVersion());
@@ -60,7 +62,7 @@ public class LanceSplitManager
         // a nearest scan restricted to fragment IDs into a plain scan and drops _distance.
         if (tableHandle.hasVectorSearch()) {
             List<Integer> allFragmentIds = fragments.stream().map(Fragment::getId).collect(toImmutableList());
-            return new FixedSplitSource(ImmutableList.of(new LanceSplit(allFragmentIds)));
+            return new FixedSplitSource(ImmutableList.of(new LanceSplit(datasetPath, allFragmentIds)));
         }
 
         // With a pushed-down LIMIT, coalesce just enough leading fragments to cover it into a single
@@ -73,11 +75,12 @@ public class LanceSplitManager
                     .map(fragment -> fragment.metadata().getNumRows())
                     .collect(toImmutableList());
             List<Integer> coalesced = coalesceFragmentsForLimit(ids, rowCounts, limit);
-            return new FixedSplitSource(ImmutableList.of(new LanceSplit(coalesced)));
+            return new FixedSplitSource(ImmutableList.of(new LanceSplit(datasetPath, coalesced)));
         }
 
         List<ConnectorSplit> splits = fragments.stream()
                 .map(fragment -> (ConnectorSplit) new LanceSplit(
+                        datasetPath,
                         ImmutableList.of(fragment.getId())))
                 .collect(toImmutableList());
 

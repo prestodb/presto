@@ -18,8 +18,10 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -38,15 +40,27 @@ public class LanceTableHandle
     private final OptionalLong limit;
     private final List<LanceColumnHandle> updatedColumns;
     private final Optional<LanceVectorSearch> vectorSearch;
+    /**
+     * Object store options forwarded to the Lance dataset open call on the worker.
+     * Resolved on the coordinator, which is the only node able to reach the
+     * namespace or read a locally provisioned credential. May contain credential
+     * material, so it is deliberately excluded from {@link #toString()}.
+     */
+    private final Map<String, String> storageOptions;
 
     public LanceTableHandle(String schemaName, String tableName, String tablePath, List<String> tableId)
     {
-        this(schemaName, tableName, tablePath, tableId, Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
+        this(schemaName, tableName, tablePath, tableId, Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty(), ImmutableMap.of());
     }
 
     public LanceTableHandle(String schemaName, String tableName, String tablePath, List<String> tableId, Optional<Long> datasetVersion)
     {
-        this(schemaName, tableName, tablePath, tableId, datasetVersion, OptionalLong.empty(), ImmutableList.of(), Optional.empty());
+        this(schemaName, tableName, tablePath, tableId, datasetVersion, OptionalLong.empty(), ImmutableList.of(), Optional.empty(), ImmutableMap.of());
+    }
+
+    public LanceTableHandle(String schemaName, String tableName, String tablePath, List<String> tableId, Optional<Long> datasetVersion, Map<String, String> storageOptions)
+    {
+        this(schemaName, tableName, tablePath, tableId, datasetVersion, OptionalLong.empty(), ImmutableList.of(), Optional.empty(), storageOptions);
     }
 
     @JsonCreator
@@ -58,7 +72,8 @@ public class LanceTableHandle
             @JsonProperty("datasetVersion") Optional<Long> datasetVersion,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("updatedColumns") List<LanceColumnHandle> updatedColumns,
-            @JsonProperty("vectorSearch") Optional<LanceVectorSearch> vectorSearch)
+            @JsonProperty("vectorSearch") Optional<LanceVectorSearch> vectorSearch,
+            @JsonProperty("storageOptions") Map<String, String> storageOptions)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -68,6 +83,7 @@ public class LanceTableHandle
         this.limit = requireNonNull(limit, "limit is null");
         this.updatedColumns = ImmutableList.copyOf(requireNonNull(updatedColumns, "updatedColumns is null"));
         this.vectorSearch = requireNonNull(vectorSearch, "vectorSearch is null");
+        this.storageOptions = ImmutableMap.copyOf(requireNonNull(storageOptions, "storageOptions is null"));
     }
 
     @JsonProperty
@@ -118,6 +134,12 @@ public class LanceTableHandle
         return vectorSearch;
     }
 
+    @JsonProperty
+    public Map<String, String> getStorageOptions()
+    {
+        return storageOptions;
+    }
+
     public boolean hasLimit()
     {
         return limit.isPresent();
@@ -130,17 +152,17 @@ public class LanceTableHandle
 
     public LanceTableHandle withLimit(long limit)
     {
-        return new LanceTableHandle(schemaName, tableName, tablePath, tableId, datasetVersion, OptionalLong.of(limit), updatedColumns, vectorSearch);
+        return new LanceTableHandle(schemaName, tableName, tablePath, tableId, datasetVersion, OptionalLong.of(limit), updatedColumns, vectorSearch, storageOptions);
     }
 
     public LanceTableHandle withUpdatedColumns(List<LanceColumnHandle> updatedColumns)
     {
-        return new LanceTableHandle(schemaName, tableName, tablePath, tableId, datasetVersion, limit, updatedColumns, vectorSearch);
+        return new LanceTableHandle(schemaName, tableName, tablePath, tableId, datasetVersion, limit, updatedColumns, vectorSearch, storageOptions);
     }
 
     public LanceTableHandle withVectorSearch(LanceVectorSearch vectorSearch)
     {
-        return new LanceTableHandle(schemaName, tableName, tablePath, tableId, datasetVersion, limit, updatedColumns, Optional.of(vectorSearch));
+        return new LanceTableHandle(schemaName, tableName, tablePath, tableId, datasetVersion, limit, updatedColumns, Optional.of(vectorSearch), storageOptions);
     }
 
     @Override

@@ -15,6 +15,8 @@ package com.facebook.presto.lance;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
@@ -50,6 +52,11 @@ import org.lance.operation.Update;
 import javax.inject.Inject;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -89,6 +96,11 @@ public class LanceNamespaceHolder
     private final boolean singleLevelNs;
     private final Optional<List<String>> parentPrefix;
     private final Map<String, String> namespaceStorageOptions;
+    /**
+     * Memoized so a missing or unreadable key file is read (and warned about) once
+     * per process rather than on every table handle resolution.
+     */
+    private final Supplier<Optional<Map<String, String>>> gcsJsonKeyStorageOptions;
     private final ReadOptions readOptions;
     private final Cache<DatasetCacheKey, Dataset> datasetCache;
 
@@ -128,6 +140,8 @@ public class LanceNamespaceHolder
             }
         }
         this.namespaceStorageOptions = ImmutableMap.copyOf(storageOpts);
+        Optional<String> keyFilePath = Optional.ofNullable(config.getGcsJsonKeyFilePath());
+        this.gcsJsonKeyStorageOptions = Suppliers.memoize(() -> readGcsJsonKeyFile(keyFilePath));
 
         // Validate that 'root' is set for directory namespace
         if ("dir".equals(impl) && !properties.containsKey("root")) {
@@ -408,7 +422,39 @@ public class LanceNamespaceHolder
             return namespaceStorageOptions;
         }
 
-        return ImmutableMap.of();
+        return gcsJsonKeyStorageOptions.get().orElse(ImmutableMap.of());
+    }
+
+    /**
+     * Last-resort storage options built from a locally provisioned service-account key.
+     * <p>
+     * The key material is emitted rather than its path. Only the coordinator has the
+     * file on disk, and workers resolve storage options from the table handle, so a
+     * path would not resolve on the node that actually opens the dataset.
+     */
+    private static Optional<Map<String, String>> readGcsJsonKeyFile(Optional<String> gcsJsonKeyFilePath)
+    {
+        if (!gcsJsonKeyFilePath.isPresent()) {
+            return Optional.empty();
+        }
+        Path path = Paths.get(gcsJsonKeyFilePath.get());
+        if (!Files.isReadable(path)) {
+            log.warn("Lance GCS JSON key file %s is missing or unreadable; continuing with no storage options", path);
+            return Optional.empty();
+        }
+        try {
+            // Never log the contents of this file: it is a private key.
+            String key = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+            if (key.trim().isEmpty()) {
+                log.warn("Lance GCS JSON key file %s is empty; continuing with no storage options", path);
+                return Optional.empty();
+            }
+            return Optional.of(ImmutableMap.of("google_service_account_key", key));
+        }
+        catch (IOException e) {
+            log.warn(e, "Failed to read Lance GCS JSON key file %s", path);
+            return Optional.empty();
+        }
     }
 
     /**

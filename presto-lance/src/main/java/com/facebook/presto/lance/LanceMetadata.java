@@ -99,7 +99,10 @@ public class LanceMetadata
         }
         List<String> tableId = namespaceHolder.getTableId(tableName.getSchemaName(), tableName.getTableName());
         long datasetVersion = namespaceHolder.getLatestVersion(tablePath);
-        return new LanceTableHandle(tableName.getSchemaName(), tableName.getTableName(), tablePath, tableId, Optional.of(datasetVersion));
+        // Resolved here rather than on the worker: the coordinator is the only node
+        // that talks to the namespace or can read a locally provisioned key file.
+        Map<String, String> storageOptions = namespaceHolder.getStorageOptionsForTable(tableId);
+        return new LanceTableHandle(tableName.getSchemaName(), tableName.getTableName(), tablePath, tableId, Optional.of(datasetVersion), storageOptions);
     }
 
     @Override

@@ -25,10 +25,11 @@ public class TestLanceSplit
     @Test
     public void testJsonRoundTrip()
     {
-        LanceSplit split = new LanceSplit(ImmutableList.of(0, 1, 2));
+        LanceSplit split = new LanceSplit("file:///data/my_table.lance", ImmutableList.of(0, 1, 2));
         JsonCodec<LanceSplit> codec = jsonCodec(LanceSplit.class);
         String json = codec.toJson(split);
         LanceSplit copy = codec.fromJson(json);
+        assertEquals(copy.getDatasetPath(), "file:///data/my_table.lance");
         assertEquals(copy.getFragments(), ImmutableList.of(0, 1, 2));
     }
 }

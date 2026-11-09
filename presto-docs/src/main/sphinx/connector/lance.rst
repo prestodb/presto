@@ -48,6 +48,8 @@ Property Name                         Description                               
 ``lance.metadata-cache-size``         Size of Lance metadata cache per worker.                       ``128MB``
 ``lance.dataset-cache-max-entries``   Maximum number of cached Lance datasets per worker.            ``100``
 ``lance.dataset-cache-ttl``           TTL for cached Lance datasets.                                ``60m``
+``lance.gcs.json-key-file-path``      Google Cloud Storage service account key file, read on the    (none)
+                                      coordinator. See `Storage Credentials`_.
 ===================================== ============================================================= ===============
 
 ``lance.impl``
@@ -180,6 +182,34 @@ how object store credentials are configured:
     lance.storage.aws_access_key_id=...
     lance.storage.aws_secret_access_key=...
     lance.storage.region=us-east-1
+
+Storage Credentials
+^^^^^^^^^^^^^^^^^^^
+
+Storage options for a table are resolved on the coordinator when the query is
+planned, and sent to workers with the table handle. Workers never read
+credentials from their local disk. The connector uses the first of these
+sources that provides options:
+
+1. Storage options returned by the Lance namespace for the table.
+2. ``lance.storage.*`` catalog properties.
+3. The service account key in ``lance.gcs.json-key-file-path``, passed to Lance
+   as ``google_service_account_key``.
+
+``lance.gcs.json-key-file-path``      Google Cloud Storage service account key file, read on the    (none)
+JSON key file that only needs to exist on the coordinator:
+
+.. code-block:: none
+
+    connector.name=lance
+    lance.root=gs://my-bucket/lance
+    lance.gcs.json-key-file-path=/etc/presto/lance-gcs-key.json
+
+.. warning::
+
+    Storage options, including any credential material, are sent to workers
+    as part of the query plan. Secure the communication between the
+    coordinator and workers accordingly.
 
 Breaking Changes
 ----------------
@@ -452,6 +482,22 @@ Property Name                                     Description                   
 ``vector_search_refine_factor``                    Re-rank ``k * refine_factor`` candidates with exact distances.   ``0``
                                                    ``0`` uses the Lance default.
 ================================================= ================================================================ =========
+
+Native Execution
+----------------
+
+Presto C++ workers can read Lance tables, including vector search queries,
+through the Velox Lance connector. Both Velox and Presto C++ must be built with
+Lance support, which requires `lance-c <https://github.com/lance-format/lance-c>`_:
+
+* Build Velox with ``-DVELOX_ENABLE_LANCE_CONNECTOR=ON``. Running Velox's
+  ``scripts/setup-*.sh`` with ``BUILD_LANCE=true`` installs lance-c.
+* Build Presto C++ with ``-DPRESTO_ENABLE_LANCE=ON``.
+
+The catalog is configured on the coordinator as described above. Workers
+receive the dataset location, the dataset version the coordinator planned
+against, and the storage options with each query. ``DELETE`` and ``UPDATE``
+are not supported on Presto C++ workers.
 
 Limitations
 -----------
