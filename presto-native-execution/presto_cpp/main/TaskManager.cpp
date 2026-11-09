@@ -14,12 +14,17 @@
 
 #include "presto_cpp/main/TaskManager.h"
 
+#include <atomic>
 #include <chrono>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
+#include <folly/ScopeGuard.h>
 #include <folly/container/F14Set.h>
+#include <folly/executors/thread_factory/NamedThreadFactory.h>
 #include <folly/stop_watch.h>
 #include <velox/core/PlanNode.h>
 #include "presto_cpp/main/common/Configs.h"
@@ -30,6 +35,7 @@
 #include "presto_cpp/main/types/PrestoToVeloxSplit.h"
 #include "velox/common/base/StatsReporter.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/testutil/TestValue.h"
 #include "velox/common/time/Timer.h"
 
 using namespace facebook::velox;
@@ -42,17 +48,113 @@ namespace facebook::presto {
 // Unlimited concurrent lifespans is translated to this limit.
 constexpr uint32_t kMaxConcurrentLifespans{16};
 
+// Threads that run the cancels of abandoned tasks, so that one cancel that
+// blocks does not hold up the cancels of other tasks.
+constexpr size_t kAbandonedTaskCancelThreads{4};
+
 namespace {
+
+// Schedules the cancel of the abandoned 'prestoTask' on 'cancelExecutor', and
+// counts it in 'numCancels' until it is destroyed, whether it ran or not.
+// Task::terminate() closes operators and runs task listeners on the calling
+// thread, and can block there. The cancel can also wait behind others, so it
+// checks again that the task is still abandoned. A cancel skipped by that check
+// leaves the task to a later clean up. After a failure, a later clean up
+// cancels the task inline if it is still running, which in practice follows
+// only a failure to schedule: Task::terminate() leaves the running state before
+// anything in it can throw.
+void scheduleAbandonedTaskCancel(
+    const std::shared_ptr<PrestoTask>& prestoTask,
+    std::string_view taskId,
+    int32_t abandonedMs,
+    folly::Executor& cancelExecutor,
+    const std::shared_ptr<std::atomic_int32_t>& numCancels) {
+  ++*numCancels;
+  auto cancel = [prestoTask,
+                 task = prestoTask->task,
+                 taskId = std::string(taskId),
+                 abandonedMs,
+                 numCancelsGuard =
+                     folly::makeGuard([numCancels]() { --*numCancels; })]() {
+    try {
+      velox::common::testutil::TestValue::adjust(
+          "facebook::presto::TaskManager::cancelAbandonedTask", task.get());
+      // A heartbeat that arrives after this check does not stop the cancel, as
+      // with the inline cancel: terminate() can block, so it must not run under
+      // the PrestoTask's mutex, which heartbeats and the coordinator's requests
+      // take.
+      if (!task->isRunning() ||
+          prestoTask->timeSinceLastCoordinatorHeartbeatMs() < abandonedMs) {
+        // @lint-ignore CLANGTIDY facebook-mcp-logging-check
+        LOG(INFO) << "Not cancelling task '" << taskId
+                  << "': it is no longer running or no longer abandoned.";
+        prestoTask->abandonedCancelScheduled = false;
+        return;
+      }
+      const folly::stop_watch<std::chrono::milliseconds> watch;
+      task->requestCancel();
+      RECORD_METRIC_VALUE(kCounterNumCancelledAbandonedTasks, 1);
+      // @lint-ignore CLANGTIDY facebook-mcp-logging-check
+      LOG(INFO) << "Cancelled abandoned task '" << taskId << "' in "
+                << watch.elapsed().count() << " ms.";
+    } catch (const std::exception& e) {
+      // @lint-ignore CLANGTIDY facebook-mcp-logging-check
+      LOG(ERROR) << "Failed to cancel abandoned task '" << taskId
+                 << "': " << e.what();
+      prestoTask->abandonedCancelFailed = true;
+    }
+  };
+  try {
+    velox::common::testutil::TestValue::adjust(
+        "facebook::presto::TaskManager::scheduleAbandonedTaskCancel",
+        prestoTask->task.get());
+    cancelExecutor.add(std::move(cancel));
+  } catch (const std::exception& e) {
+    // @lint-ignore CLANGTIDY facebook-mcp-logging-check
+    LOG(ERROR) << "Failed to schedule the cancel of abandoned task '" << taskId
+               << "': " << e.what();
+    prestoTask->abandonedCancelFailed = true;
+  }
+}
+
+// Destroying an executor joins its threads. A busy one is moved here instead
+// and left to the process exit, reachable so that leak checkers ignore it.
+void leaveToProcessExit(
+    std::unique_ptr<folly::CPUThreadPoolExecutor> executor) {
+  static auto* executors = new folly::Synchronized<
+      std::vector<std::unique_ptr<folly::CPUThreadPoolExecutor>>>();
+  executors->wlock()->push_back(std::move(executor));
+}
 
 // We request cancellation for tasks which haven't been accessed by coordinator
 // for a considerable time.
-void cancelAbandonedTasksInternal(const TaskMap& taskMap, int32_t abandonedMs) {
+// Cancels on the calling thread if 'cancelExecutor' is null; otherwise
+// schedules each task's cancel on it, once while the task stays abandoned, and
+// counts the scheduled cancels in 'numCancels'. A task still running after its
+// cancel failed there is cancelled on the calling thread, as without
+// 'cancelExecutor', so that a cancel that cannot be scheduled does not keep
+// shutdown() waiting; an exception from that cancel reaches the caller.
+void cancelAbandonedTasksInternal(
+    const TaskMap& taskMap,
+    int32_t abandonedMs,
+    folly::Executor* cancelExecutor,
+    const std::shared_ptr<std::atomic_int32_t>& numCancels) {
   for (const auto& [id, prestoTask] : taskMap) {
     if (prestoTask->task != nullptr) {
       if (prestoTask->task->isRunning()) {
-        if (prestoTask->timeSinceLastCoordinatorHeartbeatMs() >= abandonedMs) {
+        const bool cancelInline =
+            cancelExecutor == nullptr || prestoTask->abandonedCancelFailed;
+        if (prestoTask->timeSinceLastCoordinatorHeartbeatMs() >= abandonedMs &&
+            (cancelInline ||
+             !prestoTask->abandonedCancelScheduled.exchange(true))) {
           LOG(INFO) << "Cancelling abandoned task '" << id << "'.";
-          prestoTask->task->requestCancel();
+          if (cancelInline) {
+            prestoTask->task->requestCancel();
+            RECORD_METRIC_VALUE(kCounterNumCancelledAbandonedTasks, 1);
+          } else {
+            scheduleAbandonedTaskCancel(
+                prestoTask, id, abandonedMs, *cancelExecutor, numCancels);
+          }
         }
       }
     }
@@ -371,11 +473,31 @@ TaskManager::TaskManager(
           SystemConfig::instance()->taskSyncTerminateEnabled()),
       taskSyncTerminateTimeoutMs_(
           SystemConfig::instance()->taskSyncTerminateTimeoutMs()),
+      taskAsyncAbandonedCancelEnabled_(
+          SystemConfig::instance()->taskAsyncAbandonedCancelEnabled()),
       bufferManager_(velox::exec::DefaultOutputBufferManager::getInstanceRef()),
       httpSrvCpuExecutor_(httpSrvCpuExecutor),
       lastNotOverloadedTimeInSecs_(
-          velox::SteadyTime::now<std::chrono::seconds>()) {
+          velox::SteadyTime::now<std::chrono::seconds>()),
+      abandonedTaskCancelExecutor_(
+          std::make_unique<folly::CPUThreadPoolExecutor>(
+              kAbandonedTaskCancelThreads,
+              std::make_shared<folly::NamedThreadFactory>("TaskCancel"))),
+      numAbandonedTaskCancels_(std::make_shared<std::atomic_int32_t>(0)) {
   VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
+}
+
+TaskManager::~TaskManager() {
+  // A cancel can block in Task::terminate(), and the server destroys the
+  // TaskManager at shutdown. The executor's own counts can miss a cancel that
+  // a thread has taken off the queue and not started yet.
+  const auto numCancels = numAbandonedTaskCancels_->load();
+  if (numCancels > 0) {
+    // @lint-ignore CLANGTIDY facebook-mcp-logging-check
+    LOG(WARNING) << "Leaving " << numCancels
+                 << " abandoned task cancels to the process exit.";
+    leaveToProcessExit(std::move(abandonedTaskCancelExecutor_));
+  }
 }
 
 void TaskManager::setBaseUri(const std::string& baseUri) {
@@ -405,6 +527,11 @@ bool TaskManager::emptyBaseSpillDirectory() const {
 void TaskManager::setOldTaskCleanUpMs(int32_t oldTaskCleanUpMs) {
   VELOX_CHECK_GE(oldTaskCleanUpMs, 0);
   oldTaskCleanUpMs_ = oldTaskCleanUpMs;
+}
+
+void TaskManager::setTaskAsyncAbandonedCancelEnabled(
+    bool taskAsyncAbandonedCancelEnabled) {
+  taskAsyncAbandonedCancelEnabled_ = taskAsyncAbandonedCancelEnabled;
 }
 
 void TaskManager::setTaskSyncTerminateEnabled(bool taskSyncTerminateEnabled) {
@@ -1069,7 +1196,12 @@ size_t TaskManager::cleanOldTasks() {
       }
     }
 
-    cancelAbandonedTasksInternal(taskMap, oldTaskCleanUpMs_);
+    cancelAbandonedTasksInternal(
+        taskMap,
+        oldTaskCleanUpMs_,
+        taskAsyncAbandonedCancelEnabled_ ? abandonedTaskCancelExecutor_.get()
+                                         : nullptr,
+        numAbandonedTaskCancels_);
   }
 
   const auto elapsedMs = watch.elapsed().count();
@@ -1111,7 +1243,12 @@ void TaskManager::cancelAbandonedTasks() {
   // We copy task map locally to avoid locking task map for a potentially long
   // time. We also lock for 'read'.
   const TaskMap taskMap = *(taskMap_.rlock());
-  cancelAbandonedTasksInternal(taskMap, oldTaskCleanUpMs_);
+  cancelAbandonedTasksInternal(
+      taskMap,
+      oldTaskCleanUpMs_,
+      taskAsyncAbandonedCancelEnabled_ ? abandonedTaskCancelExecutor_.get()
+                                       : nullptr,
+      numAbandonedTaskCancels_);
 }
 
 folly::Future<std::unique_ptr<protocol::TaskInfo>> TaskManager::getTaskInfo(

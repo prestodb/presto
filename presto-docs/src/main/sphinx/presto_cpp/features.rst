@@ -380,6 +380,19 @@ Old task is defined as a PrestoTask which has not received heartbeat for at leas
 ``old-task-cleanup-ms``, or is not running and has an end time more than
 ``old-task-cleanup-ms`` ago.
 
+``task.async-abandoned-cancel-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type** ``bool``
+* **Default value:** ``false``
+
+If ``true``, the periodic old task cleanup cancels an abandoned task, a running
+task that has not heard from the coordinator for ``old-task-cleanup-ms``, on a
+dedicated thread instead of on its own thread, once per task. A cancel that
+blocks, for example in an operator's close, then no longer stops later cleanups
+or the replies to the coordinator. Only applicable when
+``enable-old-task-cleanup`` is ``true``.
+
 Worker metrics collection
 -------------------------
 

@@ -15,6 +15,7 @@
 #include <folly/ScopeGuard.h>
 #include <folly/executors/ThreadedExecutor.h>
 #include <folly/stop_watch.h>
+#include <folly/system/ThreadName.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <chrono>
@@ -1825,6 +1826,525 @@ DEBUG_ONLY_TEST_P(TaskManagerTest, syncTerminateTimesOutForBlockedDriver) {
     EXPECT_NE(std::move(deleteFuture).get(), nullptr);
   }
   EXPECT_EQ(taskManager_->tasks().count(taskId), 1);
+}
+
+// A Task::terminate() that blocks, for example in an exchange source's close,
+// holds the abandoned-task cancel thread, not the thread that runs
+// cleanOldTasks().
+DEBUG_ONLY_TEST_P(
+    TaskManagerTest,
+    cleanOldTasksReturnsWhileAbandonedTaskTerminateBlocks) {
+  taskManager_->setTaskAsyncAbandonedCancelEnabled(true);
+
+  const protocol::TaskId taskId = "abandoned-blocked.0.0.0.0";
+  // Held by shared_ptr and captured by value: the blocked terminate runs on the
+  // abandoned-task cancel thread.
+  struct BlockState {
+    std::atomic<bool> entered{false};
+    folly::EventCount releaseWait;
+    std::atomic<bool> released{false};
+    std::thread::id terminateThreadId;
+    std::string terminateThreadName;
+  };
+  auto block = std::make_shared<BlockState>();
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::terminate",
+      std::function<void(exec::Task*)>([block, taskId](exec::Task* task) {
+        if (task->taskId() != taskId) {
+          return;
+        }
+        block->terminateThreadId = std::this_thread::get_id();
+        block->terminateThreadName = folly::getCurrentThreadName().value_or("");
+        block->entered = true;
+        block->releaseWait.await([&]() { return block->released.load(); });
+      }));
+
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto filePaths = makeFilePaths(tableDir, 1);
+  const auto vectors = makeVectors(filePaths.size(), 100);
+  writeToFile(filePaths[0], vectors[0]);
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .tableScan(rowType_)
+          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+          .planFragment();
+  // Without 'no more splits' the task keeps running.
+  long splitSequenceId{0};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource("0", filePaths, false, splitSequenceId));
+  createOrUpdateTask(taskId, updateRequest, planFragment);
+  // 'tasks()' returns the map by value, so no reference of ours keeps the task
+  // from being cleaned up below.
+  std::weak_ptr<exec::Task> weakTask = taskManager_->tasks().at(taskId)->task;
+  ASSERT_TRUE(weakTask.lock()->isRunning());
+
+  taskManager_->setOldTaskCleanUpMs(0);
+  folly::ThreadedExecutor cleanupExecutor;
+  std::thread::id cleanupThreadId;
+  auto firstCleanup = folly::via(&cleanupExecutor, [&]() {
+    cleanupThreadId = std::this_thread::get_id();
+    return taskManager_->cleanOldTasks();
+  });
+  for (int i = 0; i < 30'000 && !block->entered.load(); ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  const bool terminateEntered = block->entered.load();
+  firstCleanup.wait(std::chrono::seconds(30));
+  const bool firstCleanupReturned = firstCleanup.isReady();
+  auto secondCleanup = folly::via(
+      &cleanupExecutor, [&]() { return taskManager_->cleanOldTasks(); });
+  secondCleanup.wait(std::chrono::seconds(30));
+  const bool secondCleanupReturned = secondCleanup.isReady();
+  const auto stateWhileBlocked = weakTask.lock()->state();
+
+  block->released = true;
+  block->releaseWait.notifyAll();
+
+  EXPECT_TRUE(terminateEntered);
+  EXPECT_TRUE(firstCleanupReturned);
+  EXPECT_TRUE(secondCleanupReturned);
+  EXPECT_NE(block->terminateThreadId, cleanupThreadId);
+  EXPECT_THAT(block->terminateThreadName, testing::StartsWith("TaskCancel"));
+  EXPECT_EQ(stateWhileBlocked, TaskState::kCanceled);
+  // Once the cancel returns, the task is cleaned up as before.
+  waitForAllOldTasksToBeCleaned(taskManager_.get(), 10'000'000);
+  EXPECT_EQ(taskManager_->tasks().count(taskId), 0);
+}
+
+// An abandoned task is cancelled while every HTTP server CPU thread is busy,
+// as they can be with cancels that block when they run there.
+TEST_P(TaskManagerTest, abandonedTaskCancelRunsWhileHttpExecutorIsBusy) {
+  taskManager_->setTaskAsyncAbandonedCancelEnabled(true);
+
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto filePaths = makeFilePaths(tableDir, 1);
+  const auto vectors = makeVectors(filePaths.size(), 100);
+  writeToFile(filePaths[0], vectors[0]);
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .tableScan(rowType_)
+          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+          .planFragment();
+  // Without 'no more splits' the task keeps running.
+  long splitSequenceId{0};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource("0", filePaths, false, splitSequenceId));
+  const protocol::TaskId taskId = "abandoned-busy-http.0.0.0.0";
+  createOrUpdateTask(taskId, updateRequest, planFragment);
+  std::weak_ptr<exec::Task> weakTask = taskManager_->tasks().at(taskId)->task;
+  ASSERT_TRUE(weakTask.lock()->isRunning());
+
+  // Occupy every HTTP server CPU thread.
+  struct BusyState {
+    std::atomic<size_t> numBusy{0};
+    std::atomic<bool> released{false};
+    folly::EventCount releaseWait;
+  };
+  auto busy = std::make_shared<BusyState>();
+  const auto release = [busy]() {
+    busy->released = true;
+    busy->releaseWait.notifyAll();
+  };
+  const auto releaseGuard = folly::makeGuard(release);
+  const auto numThreads = httpSrvCpuExecutor_->numThreads();
+  for (size_t i = 0; i < numThreads; ++i) {
+    httpSrvCpuExecutor_->add([busy]() {
+      ++busy->numBusy;
+      busy->releaseWait.await([&]() { return busy->released.load(); });
+    });
+  }
+  for (int i = 0; i < 30'000 && busy->numBusy.load() < numThreads; ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  ASSERT_EQ(busy->numBusy.load(), numThreads);
+
+  taskManager_->setOldTaskCleanUpMs(0);
+  taskManager_->cleanOldTasks();
+  const bool cancelledWhileBusy = waitForTaskStateChange(
+      weakTask.lock().get(), TaskState::kCanceled, 3'000'000);
+
+  release();
+  EXPECT_TRUE(cancelledWhileBusy);
+  waitForAllOldTasksToBeCleaned(taskManager_.get(), 10'000'000);
+  EXPECT_EQ(taskManager_->tasks().count(taskId), 0);
+}
+
+// One abandoned-task cancel that blocks in Task::terminate() leaves the other
+// cancel threads to the cancels of other abandoned tasks.
+DEBUG_ONLY_TEST_P(
+    TaskManagerTest,
+    blockedAbandonedTaskCancelDoesNotHoldUpOthers) {
+  taskManager_->setTaskAsyncAbandonedCancelEnabled(true);
+
+  const protocol::TaskId blockedTaskId = "abandoned-blocks-first.0.0.0.0";
+  const protocol::TaskId otherTaskId = "abandoned-later.0.0.0.0";
+  // Held by shared_ptr and captured by value: the blocked terminate runs on a
+  // cancel thread.
+  struct BlockState {
+    std::atomic<bool> entered{false};
+    folly::EventCount releaseWait;
+    std::atomic<bool> released{false};
+  };
+  auto block = std::make_shared<BlockState>();
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::terminate",
+      std::function<void(exec::Task*)>(
+          [block, blockedTaskId](exec::Task* task) {
+            if (task->taskId() != blockedTaskId) {
+              return;
+            }
+            block->entered = true;
+            block->releaseWait.await([&]() { return block->released.load(); });
+          }));
+  const auto release = [block]() {
+    block->released = true;
+    block->releaseWait.notifyAll();
+  };
+  const auto releaseGuard = folly::makeGuard(release);
+
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto filePaths = makeFilePaths(tableDir, 1);
+  const auto vectors = makeVectors(filePaths.size(), 100);
+  writeToFile(filePaths[0], vectors[0]);
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .tableScan(rowType_)
+          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+          .planFragment();
+  // Without 'no more splits' a task keeps running.
+  const auto createRunningTask = [&](const protocol::TaskId& taskId) {
+    long splitSequenceId{0};
+    protocol::TaskUpdateRequest updateRequest;
+    updateRequest.sources.push_back(
+        makeSource("0", filePaths, false, splitSequenceId));
+    createOrUpdateTask(taskId, updateRequest, planFragment);
+    return std::weak_ptr<exec::Task>(taskManager_->tasks().at(taskId)->task);
+  };
+
+  taskManager_->setOldTaskCleanUpMs(0);
+  createRunningTask(blockedTaskId);
+  taskManager_->cleanOldTasks();
+  for (int i = 0; i < 30'000 && !block->entered.load(); ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  ASSERT_TRUE(block->entered.load());
+
+  auto otherTask = createRunningTask(otherTaskId);
+  ASSERT_TRUE(otherTask.lock()->isRunning());
+  taskManager_->cleanOldTasks();
+  const bool otherCancelled = waitForTaskStateChange(
+      otherTask.lock().get(), TaskState::kCanceled, 3'000'000);
+
+  release();
+  EXPECT_TRUE(otherCancelled);
+  waitForAllOldTasksToBeCleaned(taskManager_.get(), 10'000'000);
+  EXPECT_EQ(taskManager_->tasks().count(blockedTaskId), 0);
+  EXPECT_EQ(taskManager_->tasks().count(otherTaskId), 0);
+}
+
+// The server destroys the TaskManager at shutdown. A cancel that blocks in
+// Task::terminate() does not block that.
+DEBUG_ONLY_TEST_P(
+    TaskManagerTest,
+    destroyingTaskManagerDoesNotWaitForBlockedCancel) {
+  auto taskManager = std::make_unique<TaskManager>(
+      driverExecutor_.get(), httpSrvCpuExecutor_.get(), nullptr);
+  taskManager->setTaskAsyncAbandonedCancelEnabled(true);
+  taskManager->setOldTaskCleanUpMs(0);
+
+  const protocol::TaskId taskId = "abandoned-blocks-shutdown.0.0.0.0";
+  // Held by shared_ptr and captured by value: the blocked terminate runs on a
+  // cancel thread and can outlive the TaskManager.
+  struct BlockState {
+    std::atomic<bool> entered{false};
+    folly::EventCount releaseWait;
+    std::atomic<bool> released{false};
+  };
+  auto block = std::make_shared<BlockState>();
+  SCOPED_TESTVALUE_SET(
+      "facebook::velox::exec::Task::terminate",
+      std::function<void(exec::Task*)>([block, taskId](exec::Task* task) {
+        if (task->taskId() != taskId) {
+          return;
+        }
+        block->entered = true;
+        block->releaseWait.await([&]() { return block->released.load(); });
+      }));
+  const auto release = [block]() {
+    block->released = true;
+    block->releaseWait.notifyAll();
+  };
+  const auto releaseGuard = folly::makeGuard(release);
+
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto filePaths = makeFilePaths(tableDir, 1);
+  const auto vectors = makeVectors(filePaths.size(), 100);
+  writeToFile(filePaths[0], vectors[0]);
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .tableScan(rowType_)
+          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+          .planFragment();
+  // Without 'no more splits' the task keeps running.
+  long splitSequenceId{0};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource("0", filePaths, false, splitSequenceId));
+  auto queryCtx = taskManager->getQueryContextManager()->findOrCreateQueryCtx(
+      taskId, updateRequest);
+  taskManager->createOrUpdateTask(
+      taskId, updateRequest, planFragment, true, std::move(queryCtx), 0);
+
+  taskManager->cleanOldTasks();
+  for (int i = 0; i < 30'000 && !block->entered.load(); ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  ASSERT_TRUE(block->entered.load());
+
+  std::atomic<bool> destroyed{false};
+  std::thread destroyer([&]() {
+    taskManager.reset();
+    destroyed = true;
+  });
+  for (int i = 0; i < 10'000 && !destroyed.load(); ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  const bool destroyedWhileBlocked = destroyed.load();
+  release();
+  destroyer.join();
+  EXPECT_TRUE(destroyedWhileBlocked);
+}
+
+// A queued cancel checks again that its task is still abandoned, as the
+// coordinator can come back while the cancel waits. A cancel it skips leaves
+// the task to a later abandonment.
+DEBUG_ONLY_TEST_P(
+    TaskManagerTest,
+    abandonedTaskCancelSkipsATaskTheCoordinatorCameBackTo) {
+  taskManager_->setTaskAsyncAbandonedCancelEnabled(true);
+
+  // Holds the first cancel before its check.
+  struct HoldState {
+    std::atomic<bool> held{false};
+    folly::EventCount releaseWait;
+    std::atomic<bool> released{false};
+  };
+  auto hold = std::make_shared<HoldState>();
+  SCOPED_TESTVALUE_SET(
+      "facebook::presto::TaskManager::cancelAbandonedTask",
+      std::function<void(exec::Task*)>([hold](exec::Task* /*task*/) {
+        if (hold->held.exchange(true)) {
+          return;
+        }
+        hold->releaseWait.await([&]() { return hold->released.load(); });
+      }));
+  const auto release = [hold]() {
+    hold->released = true;
+    hold->releaseWait.notifyAll();
+  };
+  const auto releaseGuard = folly::makeGuard(release);
+
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto filePaths = makeFilePaths(tableDir, 1);
+  const auto vectors = makeVectors(filePaths.size(), 100);
+  writeToFile(filePaths[0], vectors[0]);
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .tableScan(rowType_)
+          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+          .planFragment();
+  // Without 'no more splits' the task keeps running.
+  long splitSequenceId{0};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource("0", filePaths, false, splitSequenceId));
+  const protocol::TaskId taskId = "abandoned-then-back.0.0.0.0";
+  createOrUpdateTask(taskId, updateRequest, planFragment);
+  // Reset before the clean up below, which removes no task still referenced.
+  auto prestoTask = taskManager_->tasks().at(taskId);
+  std::weak_ptr<exec::Task> weakTask = prestoTask->task;
+
+  constexpr int32_t kAbandonedMs{1'000};
+  taskManager_->setOldTaskCleanUpMs(kAbandonedMs);
+  std::this_thread::sleep_for(std::chrono::milliseconds(kAbandonedMs + 100));
+  taskManager_->cleanOldTasks();
+  for (int i = 0; i < 30'000 && !hold->held.load(); ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  ASSERT_TRUE(hold->held.load());
+
+  prestoTask->updateCoordinatorHeartbeat();
+  release();
+  for (int i = 0; i < 30'000 && prestoTask->abandonedCancelScheduled.load();
+       ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  const bool rescheduleable = !prestoTask->abandonedCancelScheduled.load();
+  const bool runningAfterSkip = weakTask.lock()->isRunning();
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(kAbandonedMs + 100));
+  taskManager_->cleanOldTasks();
+  const bool cancelledLater = waitForTaskStateChange(
+      weakTask.lock().get(), TaskState::kCanceled, 3'000'000);
+
+  EXPECT_TRUE(rescheduleable);
+  EXPECT_TRUE(runningAfterSkip);
+  EXPECT_TRUE(cancelledLater);
+  prestoTask.reset();
+  taskManager_->setOldTaskCleanUpMs(0);
+  waitForAllOldTasksToBeCleaned(taskManager_.get(), 10'000'000);
+  EXPECT_EQ(taskManager_->tasks().count(taskId), 0);
+}
+
+// A cancel that fails on a cancel thread while its task still runs, or that
+// cannot be scheduled, is not retried there: the next clean up cancels the task
+// on its own thread.
+DEBUG_ONLY_TEST_P(TaskManagerTest, failedAbandonedTaskCancelIsRetriedInline) {
+  taskManager_->setTaskAsyncAbandonedCancelEnabled(true);
+
+  const protocol::TaskId cancelFailsTaskId = "abandoned-cancel-fails.0.0.0.0";
+  const protocol::TaskId scheduleFailsTaskId =
+      "abandoned-schedule-fails.0.0.0.0";
+  // Held by shared_ptr and captured by value: the cancel runs on a cancel
+  // thread.
+  struct FailState {
+    std::atomic<bool> failing{true};
+    std::atomic<int> numCancelFailures{0};
+    std::atomic<int> numScheduleFailures{0};
+  };
+  auto fail = std::make_shared<FailState>();
+  SCOPED_TESTVALUE_SET(
+      "facebook::presto::TaskManager::cancelAbandonedTask",
+      std::function<void(exec::Task*)>(
+          [fail, cancelFailsTaskId](exec::Task* task) {
+            if (task->taskId() == cancelFailsTaskId && fail->failing.load()) {
+              ++fail->numCancelFailures;
+              VELOX_FAIL("Injected cancel failure");
+            }
+          }));
+  SCOPED_TESTVALUE_SET(
+      "facebook::presto::TaskManager::scheduleAbandonedTaskCancel",
+      std::function<void(exec::Task*)>(
+          [fail, scheduleFailsTaskId](exec::Task* task) {
+            if (task->taskId() == scheduleFailsTaskId && fail->failing.load()) {
+              ++fail->numScheduleFailures;
+              VELOX_FAIL("Injected schedule failure");
+            }
+          }));
+
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto filePaths = makeFilePaths(tableDir, 1);
+  const auto vectors = makeVectors(filePaths.size(), 100);
+  writeToFile(filePaths[0], vectors[0]);
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .tableScan(rowType_)
+          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+          .planFragment();
+  // Without 'no more splits' a task keeps running.
+  const auto createRunningTask = [&](const protocol::TaskId& taskId) {
+    long splitSequenceId{0};
+    protocol::TaskUpdateRequest updateRequest;
+    updateRequest.sources.push_back(
+        makeSource("0", filePaths, false, splitSequenceId));
+    createOrUpdateTask(taskId, updateRequest, planFragment);
+    return taskManager_->tasks().at(taskId);
+  };
+  // Reset before the clean up below, which removes no task still referenced.
+  auto cancelFailsTask = createRunningTask(cancelFailsTaskId);
+  auto scheduleFailsTask = createRunningTask(scheduleFailsTaskId);
+
+  taskManager_->setOldTaskCleanUpMs(0);
+  taskManager_->cleanOldTasks();
+  for (int i = 0; i < 30'000 &&
+       !(cancelFailsTask->abandonedCancelFailed.load() &&
+         scheduleFailsTask->abandonedCancelFailed.load());
+       ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  const bool failuresRecorded = cancelFailsTask->abandonedCancelFailed.load() &&
+      scheduleFailsTask->abandonedCancelFailed.load();
+  const bool runningAfterFailures = cancelFailsTask->task->isRunning() &&
+      scheduleFailsTask->task->isRunning();
+
+  taskManager_->cleanOldTasks();
+  const auto cancelFailsState = cancelFailsTask->task->state();
+  const auto scheduleFailsState = scheduleFailsTask->task->state();
+  // Lets the clean up below finish if a task was not cancelled.
+  fail->failing = false;
+
+  EXPECT_TRUE(failuresRecorded);
+  EXPECT_TRUE(runningAfterFailures);
+  EXPECT_EQ(cancelFailsState, TaskState::kCanceled);
+  EXPECT_EQ(scheduleFailsState, TaskState::kCanceled);
+  EXPECT_EQ(fail->numCancelFailures.load(), 1);
+  EXPECT_EQ(fail->numScheduleFailures.load(), 1);
+  cancelFailsTask.reset();
+  scheduleFailsTask.reset();
+  waitForAllOldTasksToBeCleaned(taskManager_.get(), 10'000'000);
+  EXPECT_EQ(taskManager_->tasks().count(cancelFailsTaskId), 0);
+  EXPECT_EQ(taskManager_->tasks().count(scheduleFailsTaskId), 0);
+}
+
+// A cancel that cannot be scheduled on the cancel threads does not keep
+// shutdown() waiting for its task.
+DEBUG_ONLY_TEST_P(
+    TaskManagerTest,
+    shutdownEndsWhenAbandonedTaskCancelCannotBeScheduled) {
+  taskManager_->setTaskAsyncAbandonedCancelEnabled(true);
+
+  const protocol::TaskId taskId = "abandoned-cancel-fails-shutdown.0.0.0.0";
+  // Held by shared_ptr and captured by value: shutdown() schedules on its
+  // own thread.
+  struct FailState {
+    std::atomic<bool> failing{true};
+  };
+  auto fail = std::make_shared<FailState>();
+  SCOPED_TESTVALUE_SET(
+      "facebook::presto::TaskManager::scheduleAbandonedTaskCancel",
+      std::function<void(exec::Task*)>([fail, taskId](exec::Task* task) {
+        if (task->taskId() == taskId && fail->failing.load()) {
+          VELOX_FAIL("Injected schedule failure");
+        }
+      }));
+
+  const auto tableDir = exec::test::TempDirectoryPath::create();
+  const auto filePaths = makeFilePaths(tableDir, 1);
+  const auto vectors = makeVectors(filePaths.size(), 100);
+  writeToFile(filePaths[0], vectors[0]);
+  const auto planFragment =
+      exec::test::PlanBuilder()
+          .tableScan(rowType_)
+          .partitionedOutput({}, 1, {"c0", "c1"}, GetParam())
+          .planFragment();
+  // Without 'no more splits' the task keeps running.
+  long splitSequenceId{0};
+  protocol::TaskUpdateRequest updateRequest;
+  updateRequest.sources.push_back(
+      makeSource("0", filePaths, false, splitSequenceId));
+  createOrUpdateTask(taskId, updateRequest, planFragment);
+  std::weak_ptr<exec::Task> weakTask = taskManager_->tasks().at(taskId)->task;
+  ASSERT_TRUE(weakTask.lock()->isRunning());
+
+  taskManager_->setOldTaskCleanUpMs(0);
+  std::atomic<bool> shutdownReturned{false};
+  std::thread shutdownThread([&]() {
+    taskManager_->shutdown();
+    shutdownReturned = true;
+  });
+  for (int i = 0; i < 10'000 && !shutdownReturned.load(); ++i) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  const bool returnedWhileFailing = shutdownReturned.load();
+  fail->failing = false;
+  shutdownThread.join();
+
+  EXPECT_TRUE(returnedWhileFailing);
+  EXPECT_EQ(weakTask.lock()->state(), TaskState::kCanceled);
+  waitForAllOldTasksToBeCleaned(taskManager_.get(), 10'000'000);
+  EXPECT_EQ(taskManager_->tasks().count(taskId), 0);
 }
 
 TEST_P(TaskManagerTest, getResultsFromAbortedTask) {

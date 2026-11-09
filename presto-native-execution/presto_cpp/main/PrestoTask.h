@@ -125,6 +125,15 @@ struct PrestoTask {
   /// Coordinator. Used to determine if the Task has been abandoned.
   std::optional<std::chrono::steady_clock::time_point> lastCoordinatorHeartbeat;
 
+  /// Set when the cancel of this abandoned task is handed to an executor, so
+  /// that it is scheduled once.
+  std::atomic_bool abandonedCancelScheduled{false};
+
+  /// Set when the cancel handed to an executor failed, or could not be
+  /// scheduled on it. Later clean ups and shutdown() then cancel the task on
+  /// their own thread if it is still running.
+  std::atomic_bool abandonedCancelFailed{false};
+
   /// Time point (in ms) when the time we updated Task stats.
   uint64_t lastTaskStatsUpdateMs{0};
 

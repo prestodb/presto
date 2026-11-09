@@ -14,6 +14,8 @@
 #pragma once
 
 #include <folly/Synchronized.h>
+#include <folly/executors/CPUThreadPoolExecutor.h>
+#include <atomic>
 #include <deque>
 #include <memory>
 #include "presto_cpp/main/PrestoTask.h"
@@ -34,7 +36,10 @@ class TaskManager {
       folly::Executor* httpSrvExecutor,
       folly::Executor* spillerExecutor);
 
-  virtual ~TaskManager() = default;
+  /// Leaves the abandoned task cancel threads to the process exit while a
+  /// cancel still runs or waits on them, as destroying them would wait for it.
+  /// Nothing may call cleanOldTasks() or shutdown() during destruction.
+  virtual ~TaskManager();
 
   /// Invoked by Presto server shutdown to wait for all the tasks to complete
   /// and cleanup the completed tasks.
@@ -53,6 +58,10 @@ class TaskManager {
   /// Sets the time (ms) that a task is considered to be old for cleanup since
   /// its completion.
   void setOldTaskCleanUpMs(int32_t oldTaskCleanUpMs);
+
+  /// Enables cancelling abandoned tasks on a dedicated thread instead of the
+  /// thread that calls cleanOldTasks().
+  void setTaskAsyncAbandonedCancelEnabled(bool taskAsyncAbandonedCancelEnabled);
 
   /// Enables waiting for task Drivers to stop after abort.
   void setTaskSyncTerminateEnabled(bool taskSyncTerminateEnabled);
@@ -262,6 +271,8 @@ class TaskManager {
   int32_t oldTaskCleanUpMs_;
   bool taskSyncTerminateEnabled_;
   uint64_t taskSyncTerminateTimeoutMs_;
+  // If true, abandoned tasks are cancelled on 'abandonedTaskCancelExecutor_'.
+  bool taskAsyncAbandonedCancelEnabled_;
   std::shared_ptr<velox::exec::DefaultOutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
   folly::Synchronized<TaskQueue> taskQueue_;
@@ -269,6 +280,13 @@ class TaskManager {
   std::atomic_bool serverOverloaded_{false};
   std::atomic_uint64_t lastNotOverloadedTimeInSecs_;
   std::atomic_uint32_t numQueuedDrivers_{0};
+  // A cancel can block in Task::terminate(), so it runs neither on the cleanup
+  // thread nor on 'httpSrvCpuExecutor_', which answers the coordinator. Its
+  // threads start on demand.
+  std::unique_ptr<folly::CPUThreadPoolExecutor> abandonedTaskCancelExecutor_;
+  // Cancels scheduled on 'abandonedTaskCancelExecutor_' and not destroyed yet,
+  // run or not. Shared with them, as they can outlive the TaskManager.
+  std::shared_ptr<std::atomic_int32_t> numAbandonedTaskCancels_;
 };
 
 } // namespace facebook::presto

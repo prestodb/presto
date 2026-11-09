@@ -792,6 +792,11 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kTaskSyncTerminateTimeoutMs{
       "task.sync-terminate-timeout-ms"};
 
+  /// If true, the periodic old task clean up cancels abandoned tasks on a
+  /// dedicated thread, so a cancel that blocks does not stop the clean up.
+  static constexpr std::string_view kTaskAsyncAbandonedCancelEnabled{
+      "task.async-abandoned-cancel-enabled"};
+
   /// Enable periodic old task clean up. Typically enabled for presto (default)
   /// and disabled for presto-on-spark.
   static constexpr std::string_view kEnableOldTaskCleanUp{
@@ -1349,6 +1354,8 @@ class SystemConfig : public ConfigBase {
   bool taskSyncTerminateEnabled() const;
 
   uint64_t taskSyncTerminateTimeoutMs() const;
+
+  bool taskAsyncAbandonedCancelEnabled() const;
 
   bool enableOldTaskCleanUp() const;
 

@@ -114,6 +114,10 @@ constexpr std::string_view kCounterNumTasksWithStuckOperator{
     "presto_cpp.num_tasks_with_stuck_operator"};
 constexpr std::string_view kCounterNumCancelledTasksByStuckDriver{
     "presto_cpp.num_cancelled_tasks_by_stuck_driver"};
+/// Number of running tasks cancelled because the coordinator abandoned them.
+/// With 'task.async-abandoned-cancel-enabled', counted once a cancel returns.
+constexpr std::string_view kCounterNumCancelledAbandonedTasks{
+    "presto_cpp.num_cancelled_abandoned_tasks"};
 constexpr std::string_view kCounterNumTasksDeadlock{
     "presto_cpp.num_tasks_deadlock"};
 constexpr std::string_view kCounterNumTaskManagerLockTimeOut{

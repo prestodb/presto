@@ -283,6 +283,7 @@ SystemConfig::SystemConfig() {
           NUM_PROP(kOldTaskCleanUpMs, 60'000),
           BOOL_PROP(kTaskSyncTerminateEnabled, false),
           NUM_PROP(kTaskSyncTerminateTimeoutMs, 3'000),
+          BOOL_PROP(kTaskAsyncAbandonedCancelEnabled, false),
           BOOL_PROP(kEnableOldTaskCleanUp, true),
           BOOL_PROP(kInternalCommunicationJwtEnabled, false),
           STR_PROP(kInternalCommunicationSharedSecret, ""),
@@ -1166,6 +1167,10 @@ bool SystemConfig::taskSyncTerminateEnabled() const {
 
 uint64_t SystemConfig::taskSyncTerminateTimeoutMs() const {
   return optionalProperty<uint64_t>(kTaskSyncTerminateTimeoutMs).value();
+}
+
+bool SystemConfig::taskAsyncAbandonedCancelEnabled() const {
+  return optionalProperty<bool>(kTaskAsyncAbandonedCancelEnabled).value();
 }
 
 bool SystemConfig::enableOldTaskCleanUp() const {
