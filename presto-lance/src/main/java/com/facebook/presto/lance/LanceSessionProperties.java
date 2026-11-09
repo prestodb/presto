@@ -20,12 +20,18 @@ import com.google.common.collect.ImmutableList;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.facebook.presto.spi.session.PropertyMetadata.integerProperty;
 
 public final class LanceSessionProperties
 {
     public static final String FILTER_PUSHDOWN_ENABLED = "filter_pushdown_enabled";
+    public static final String VECTOR_SEARCH_PUSHDOWN_ENABLED = "vector_search_pushdown_enabled";
+    public static final String VECTOR_SEARCH_NPROBES = "vector_search_nprobes";
+    public static final String VECTOR_SEARCH_EF = "vector_search_ef";
+    public static final String VECTOR_SEARCH_REFINE_FACTOR = "vector_search_refine_factor";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -38,6 +44,26 @@ public final class LanceSessionProperties
                         "Enable SQL predicate pushdown to the Lance scanner",
                         true,
                         false))
+                .add(booleanProperty(
+                        VECTOR_SEARCH_PUSHDOWN_ENABLED,
+                        "Rewrite ORDER BY <distance-fn> ... LIMIT into a Lance ANN index search",
+                        true,
+                        false))
+                .add(integerProperty(
+                        VECTOR_SEARCH_NPROBES,
+                        "Number of IVF partitions to probe per ANN search (0 = Lance default)",
+                        0,
+                        false))
+                .add(integerProperty(
+                        VECTOR_SEARCH_EF,
+                        "HNSW ef search parameter for ANN search (0 = Lance default)",
+                        0,
+                        false))
+                .add(integerProperty(
+                        VECTOR_SEARCH_REFINE_FACTOR,
+                        "Refine factor for ANN search re-ranking (0 = Lance default)",
+                        0,
+                        false))
                 .build();
     }
 
@@ -49,5 +75,31 @@ public final class LanceSessionProperties
     public static boolean isFilterPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(FILTER_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isVectorSearchPushdownEnabled(ConnectorSession session)
+    {
+        return session.getProperty(VECTOR_SEARCH_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    /** A positive value, or empty when the property is 0 (use Lance's default). */
+    public static Optional<Integer> getVectorSearchNprobes(ConnectorSession session)
+    {
+        return positiveOrEmpty(session.getProperty(VECTOR_SEARCH_NPROBES, Integer.class));
+    }
+
+    public static Optional<Integer> getVectorSearchEf(ConnectorSession session)
+    {
+        return positiveOrEmpty(session.getProperty(VECTOR_SEARCH_EF, Integer.class));
+    }
+
+    public static Optional<Integer> getVectorSearchRefineFactor(ConnectorSession session)
+    {
+        return positiveOrEmpty(session.getProperty(VECTOR_SEARCH_REFINE_FACTOR, Integer.class));
+    }
+
+    private static Optional<Integer> positiveOrEmpty(Integer value)
+    {
+        return (value != null && value > 0) ? Optional.of(value) : Optional.empty();
     }
 }

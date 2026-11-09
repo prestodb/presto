@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.lance;
 
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -27,7 +28,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class LanceTableHandle
-        implements ConnectorTableHandle
+        implements ConnectorTableHandle, ConnectorDeleteTableHandle
 {
     private final String schemaName;
     private final String tableName;
@@ -35,15 +36,17 @@ public class LanceTableHandle
     private final List<String> tableId;
     private final Optional<Long> datasetVersion;
     private final OptionalLong limit;
+    private final List<LanceColumnHandle> updatedColumns;
+    private final Optional<LanceVectorSearch> vectorSearch;
 
     public LanceTableHandle(String schemaName, String tableName, String tablePath, List<String> tableId)
     {
-        this(schemaName, tableName, tablePath, tableId, Optional.empty(), OptionalLong.empty());
+        this(schemaName, tableName, tablePath, tableId, Optional.empty(), OptionalLong.empty(), ImmutableList.of(), Optional.empty());
     }
 
     public LanceTableHandle(String schemaName, String tableName, String tablePath, List<String> tableId, Optional<Long> datasetVersion)
     {
-        this(schemaName, tableName, tablePath, tableId, datasetVersion, OptionalLong.empty());
+        this(schemaName, tableName, tablePath, tableId, datasetVersion, OptionalLong.empty(), ImmutableList.of(), Optional.empty());
     }
 
     @JsonCreator
@@ -53,7 +56,9 @@ public class LanceTableHandle
             @JsonProperty("tablePath") String tablePath,
             @JsonProperty("tableId") List<String> tableId,
             @JsonProperty("datasetVersion") Optional<Long> datasetVersion,
-            @JsonProperty("limit") OptionalLong limit)
+            @JsonProperty("limit") OptionalLong limit,
+            @JsonProperty("updatedColumns") List<LanceColumnHandle> updatedColumns,
+            @JsonProperty("vectorSearch") Optional<LanceVectorSearch> vectorSearch)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -61,6 +66,8 @@ public class LanceTableHandle
         this.tableId = ImmutableList.copyOf(requireNonNull(tableId, "tableId is null"));
         this.datasetVersion = requireNonNull(datasetVersion, "datasetVersion is null");
         this.limit = requireNonNull(limit, "limit is null");
+        this.updatedColumns = ImmutableList.copyOf(requireNonNull(updatedColumns, "updatedColumns is null"));
+        this.vectorSearch = requireNonNull(vectorSearch, "vectorSearch is null");
     }
 
     @JsonProperty
@@ -99,20 +106,47 @@ public class LanceTableHandle
         return limit;
     }
 
+    @JsonProperty
+    public List<LanceColumnHandle> getUpdatedColumns()
+    {
+        return updatedColumns;
+    }
+
+    @JsonProperty
+    public Optional<LanceVectorSearch> getVectorSearch()
+    {
+        return vectorSearch;
+    }
+
     public boolean hasLimit()
     {
         return limit.isPresent();
     }
 
+    public boolean hasVectorSearch()
+    {
+        return vectorSearch.isPresent();
+    }
+
     public LanceTableHandle withLimit(long limit)
     {
-        return new LanceTableHandle(schemaName, tableName, tablePath, tableId, datasetVersion, OptionalLong.of(limit));
+        return new LanceTableHandle(schemaName, tableName, tablePath, tableId, datasetVersion, OptionalLong.of(limit), updatedColumns, vectorSearch);
+    }
+
+    public LanceTableHandle withUpdatedColumns(List<LanceColumnHandle> updatedColumns)
+    {
+        return new LanceTableHandle(schemaName, tableName, tablePath, tableId, datasetVersion, limit, updatedColumns, vectorSearch);
+    }
+
+    public LanceTableHandle withVectorSearch(LanceVectorSearch vectorSearch)
+    {
+        return new LanceTableHandle(schemaName, tableName, tablePath, tableId, datasetVersion, limit, updatedColumns, Optional.of(vectorSearch));
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaName, tableName, tablePath, tableId, datasetVersion, limit);
+        return Objects.hash(schemaName, tableName, tablePath, tableId, datasetVersion, limit, vectorSearch);
     }
 
     @Override
@@ -130,7 +164,8 @@ public class LanceTableHandle
                 Objects.equals(this.tablePath, other.tablePath) &&
                 Objects.equals(this.tableId, other.tableId) &&
                 Objects.equals(this.datasetVersion, other.datasetVersion) &&
-                Objects.equals(this.limit, other.limit);
+                Objects.equals(this.limit, other.limit) &&
+                Objects.equals(this.vectorSearch, other.vectorSearch);
     }
 
     @Override
@@ -142,6 +177,7 @@ public class LanceTableHandle
                 .add("tablePath", tablePath)
                 .add("datasetVersion", datasetVersion)
                 .add("limit", limit)
+                .add("vectorSearch", vectorSearch)
                 .toString();
     }
 }

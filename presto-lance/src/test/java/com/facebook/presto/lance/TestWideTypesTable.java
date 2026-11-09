@@ -98,7 +98,7 @@ public class TestWideTypesTable
         long datasetVersion = namespaceHolder.getLatestVersion(tablePath);
         tableHandle = new LanceTableHandle("default", "wide_types_table", tablePath, tableId, Optional.of(datasetVersion));
         fragments = namespaceHolder.getFragments(tablePath, Optional.of(datasetVersion));
-        LanceMetadata metadata = new LanceMetadata(namespaceHolder, jsonCodec(LanceCommitTaskData.class));
+        LanceMetadata metadata = new LanceMetadata(namespaceHolder, jsonCodec(LanceCommitTaskData.class), jsonCodec(LanceMergeCommitData.class));
         columnHandles = metadata.getColumnHandles(null, tableHandle);
     }
 
