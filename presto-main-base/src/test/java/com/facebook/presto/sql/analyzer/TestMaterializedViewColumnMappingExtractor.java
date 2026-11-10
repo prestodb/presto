@@ -13,10 +13,16 @@
  */
 package com.facebook.presto.sql.analyzer;
 
+import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.spi.MaterializedViewDefinition.TableColumn;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.QualifiedName;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -27,10 +33,17 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.BuiltInTypeAndFunctionNamespaceManager.JAVA_BUILTIN_NAMESPACE;
+import static com.facebook.presto.spi.function.FunctionImplementationType.JAVA;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
+import static org.testng.Assert.fail;
 
 public class TestMaterializedViewColumnMappingExtractor
         extends AbstractAnalyzerTest
@@ -167,5 +180,193 @@ public class TestMaterializedViewColumnMappingExtractor
         // constant is in neither, so mapped + derived < output columns (the no-lineage case).
         assertEquals(extractor.getMaterializedViewColumnMappings().keySet(), ImmutableSet.of("ka", "kb"));
         assertEquals(extractor.getMaterializedViewDerivedColumnMappings().keySet(), ImmutableSet.of("x"));
+    }
+
+    @Test
+    public void testPartitionTransformCarriesMetadata()
+    {
+        MaterializedViewColumnMappingExtractor extractor =
+                extract("CREATE MATERIALIZED VIEW mv AS SELECT TEST_PARTITION_BUCKET(b, 'many') AS bucket, SUM(a) AS total FROM t6 GROUP BY 1");
+
+        List<TableColumn> sources = extractor.getMaterializedViewDerivedColumnMappings().get("bucket");
+        assertEquals(sources.size(), 1);
+        assertEquals(sources.get(0).getColumnName(), "b");
+        assertEquals(
+                sources.get(0).getColumnMappingInfo(),
+                ImmutableMap.of("transform", "test_partition_bucket", "mode", "many"));
+    }
+
+    @Test
+    public void testOrdinaryDerivedColumnCarriesNoTransformMetadata()
+    {
+        MaterializedViewColumnMappingExtractor extractor =
+                extract("CREATE MATERIALIZED VIEW mv AS SELECT b, SUM(a) AS total FROM t6 GROUP BY b");
+
+        List<TableColumn> columns = extractor.getMaterializedViewDerivedColumnMappings().get("total");
+        assertEquals(columns.size(), 1);
+        assertTrue(columns.get(0).getColumnMappingInfo().isEmpty());
+    }
+
+    @Test
+    public void testMixedCaseAliasPreservesTransformMetadata()
+    {
+        MaterializedViewColumnMappingExtractor extractor =
+                extract("CREATE MATERIALIZED VIEW mv AS SELECT TEST_PARTITION_BUCKET(b, 'many') AS BucketValue FROM t6 GROUP BY 1");
+
+        Map<String, List<TableColumn>> mappings = extractor.getMaterializedViewDerivedColumnMappings();
+        assertEquals(mappings.keySet(), ImmutableSet.of("BucketValue"));
+        assertEquals(
+                mappings.get("BucketValue").get(0).getColumnMappingInfo(),
+                ImmutableMap.of("transform", "test_partition_bucket", "mode", "many"));
+    }
+
+    @Test
+    public void testUnaliasedPartitionTransformIsRejectedBeforeMappingExtraction()
+    {
+        SemanticException exception = expectThrows(
+                SemanticException.class,
+                () -> extract("CREATE MATERIALIZED VIEW mv AS SELECT TEST_PARTITION_BUCKET(b, 'many') FROM t6 GROUP BY 1"));
+
+        assertEquals(exception.getCode(), COLUMN_NAME_NOT_SPECIFIED);
+    }
+
+    @Test
+    public void testPartitionTransformWithMultipleSourceColumnsIsRejectedBeforeProviderAnalysis()
+    {
+        try {
+            extract("CREATE MATERIALIZED VIEW mv AS SELECT TEST_PARTITION_BUCKET(b, b) AS bucket FROM t6 GROUP BY 1")
+                    .getMaterializedViewDerivedColumnMappings();
+            fail("expected a transform with multiple source columns to be rejected");
+        }
+        catch (SemanticException e) {
+            assertTrue(e.getMessage().contains("exactly one direct source column"), e.getMessage());
+        }
+    }
+
+    @Test
+    public void testPartitionTransformOverMultipleSourceColumnsIsRejected()
+    {
+        try {
+            extract("CREATE MATERIALIZED VIEW mv AS SELECT TEST_PARTITION_BUCKET(CONCAT(b, CAST(a AS VARCHAR)), 'many') AS bucket FROM t6 GROUP BY 1")
+                    .getMaterializedViewDerivedColumnMappings();
+            fail("expected a transform over multiple source columns to be rejected");
+        }
+        catch (SemanticException e) {
+            assertTrue(e.getMessage().contains("requires one direct source column"), e.getMessage());
+        }
+    }
+
+    @Test
+    public void testPartitionTransformOverSingleSourceColumnIsAccepted()
+    {
+        Map<String, List<TableColumn>> mappings =
+                extract("CREATE MATERIALIZED VIEW mv AS SELECT TEST_PARTITION_BUCKET(t6.b, 'many') AS bucket FROM t6 GROUP BY 1")
+                        .getMaterializedViewDerivedColumnMappings();
+        assertEquals(mappings.get("bucket").size(), 1);
+        assertEquals(
+                mappings.get("bucket").get(0).getColumnMappingInfo(),
+                ImmutableMap.of("transform", "test_partition_bucket", "mode", "many"));
+    }
+
+    @Test
+    public void testPartitionTransformOverConstantIsRejected()
+    {
+        try {
+            extract("CREATE MATERIALIZED VIEW mv AS SELECT TEST_PARTITION_BUCKET('source', 'many') AS bucket, SUM(a) AS total FROM t6 GROUP BY 1")
+                    .getMaterializedViewDerivedColumnMappings();
+            fail("expected a transform over no source column to be rejected");
+        }
+        catch (SemanticException e) {
+            assertTrue(e.getMessage().contains("exactly one direct source column"), e.getMessage());
+        }
+    }
+
+    @Test
+    public void testPartitionTransformOverWrappedSourceColumnIsRejected()
+    {
+        try {
+            extract("CREATE MATERIALIZED VIEW mv AS SELECT TEST_PARTITION_BUCKET(CONCAT(b, b), 'many') AS bucket FROM t6 GROUP BY 1")
+                    .getMaterializedViewDerivedColumnMappings();
+            fail("expected a transform over a wrapped source column to be rejected");
+        }
+        catch (SemanticException e) {
+            assertTrue(e.getMessage().contains("requires one direct source column"), e.getMessage());
+        }
+    }
+
+    @Test
+    public void testWrappedPartitionTransformIsRejected()
+    {
+        try {
+            extract("CREATE MATERIALIZED VIEW mv AS SELECT CAST(TEST_PARTITION_BUCKET(b, 'many') AS VARCHAR) AS bucket FROM t6 GROUP BY 1")
+                    .getMaterializedViewDerivedColumnMappings();
+            fail("expected a wrapped partition transform to be rejected");
+        }
+        catch (SemanticException e) {
+            assertTrue(e.getMessage().contains("must be selected directly"), e.getMessage());
+        }
+    }
+
+    @Test
+    public void testPartitionTransformWithUnsupportedConfigurationIsRejected()
+    {
+        try {
+            extract("CREATE MATERIALIZED VIEW mv AS SELECT TEST_PARTITION_BUCKET(b, 'unsupported') AS bucket FROM t6 GROUP BY 1")
+                    .getMaterializedViewDerivedColumnMappings();
+            fail("expected unsupported transform configuration to be rejected");
+        }
+        catch (SemanticException e) {
+            assertTrue(e.getMessage().contains("Unsupported test partition transform mode"), e.getMessage());
+        }
+    }
+
+    @Test
+    public void testPartitionTransformProviderRuntimeFailurePreservesCause()
+    {
+        SemanticException exception = expectThrows(
+                SemanticException.class,
+                () -> extract("CREATE MATERIALIZED VIEW mv AS SELECT TEST_PARTITION_BUCKET(b, 'runtime') AS bucket FROM t6 GROUP BY 1")
+                        .getMaterializedViewDerivedColumnMappings());
+
+        assertTrue(exception.getMessage().contains("test provider runtime failure"), exception.getMessage());
+        assertTrue(exception.getCause() instanceof IllegalStateException, String.valueOf(exception.getCause()));
+    }
+
+    @Test
+    public void testInvalidPartitionTransformProviderIsRejectedAsSemanticError()
+    {
+        MaterializedViewColumnMappingExtractor extractor =
+                extract("CREATE MATERIALIZED VIEW mv AS SELECT TEST_PARTITION_BUCKET(b, 'many') AS bucket FROM t6 GROUP BY 1");
+        FunctionCall functionCall = new FunctionCall(QualifiedName.of(TestingMaterializedViewPartitionTransformProvider.FUNCTION_NAME), ImmutableList.of());
+        FunctionMetadata nondeterministicFunction = new FunctionMetadata(
+                QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, TestingMaterializedViewPartitionTransformProvider.FUNCTION_NAME),
+                ImmutableList.of(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
+                VARCHAR.getTypeSignature(),
+                SCALAR,
+                JAVA,
+                false,
+                false);
+
+        SemanticException exception = expectThrows(
+                SemanticException.class,
+                () -> extractor.getPartitionTransformProvider(functionCall, nondeterministicFunction));
+        assertTrue(exception.getMessage().contains("must be deterministic"), exception.getMessage());
+        assertTrue(exception.getCause() instanceof IllegalArgumentException, String.valueOf(exception.getCause()));
+    }
+
+    @Test
+    public void testPartitionTransformInSetOperationIsRejected()
+    {
+        try {
+            extract("CREATE MATERIALIZED VIEW mv AS " +
+                    "SELECT TEST_PARTITION_BUCKET(b, 'many') AS bucket FROM t6 " +
+                    "UNION ALL " +
+                    "SELECT TEST_PARTITION_BUCKET(CAST(b AS VARCHAR), 'many') AS bucket FROM t1")
+                    .getMaterializedViewDerivedColumnMappings();
+            fail("expected a partition transform in a set operation to be rejected");
+        }
+        catch (SemanticException e) {
+            assertTrue(e.getMessage().contains("Partition transforms are not supported in set-operation materialized views"), e.getMessage());
+        }
     }
 }

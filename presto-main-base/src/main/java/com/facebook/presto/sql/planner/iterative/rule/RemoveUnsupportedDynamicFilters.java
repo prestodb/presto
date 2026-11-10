@@ -85,7 +85,8 @@ public class RemoveUnsupportedDynamicFilters
             TypeProvider types,
             VariableAllocator variableAllocator,
             PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector)
+            WarningCollector warningCollector,
+            boolean forceEnableOptimizer)
     {
         Rewriter rewriter = new RemoveUnsupportedDynamicFilters.Rewriter(session);
         PlanWithConsumedDynamicFilters result = plan.accept(rewriter, ImmutableSet.of());

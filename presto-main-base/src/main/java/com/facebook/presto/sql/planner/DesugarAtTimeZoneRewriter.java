@@ -80,7 +80,10 @@ public class DesugarAtTimeZoneRewriter
                 value = new Cast(value, TIMESTAMP_WITH_TIME_ZONE.getDisplayName());
             }
 
-            return new FunctionCall(QualifiedName.of("at_timezone"), ImmutableList.of(value, treeRewriter.rewrite(node.getTimeZone(), context)));
+            // The recorded result type selects the function.
+            Type resultType = expressionTypes.get(NodeRef.of(node));
+            String functionName = resultType.equals(TIMESTAMP) ? "at_timezone_convert" : "at_timezone";
+            return new FunctionCall(QualifiedName.of(functionName), ImmutableList.of(value, treeRewriter.rewrite(node.getTimeZone(), context)));
         }
     }
 }

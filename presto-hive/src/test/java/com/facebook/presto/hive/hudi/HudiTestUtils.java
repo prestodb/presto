@@ -63,8 +63,12 @@ public class HudiTestUtils
         // prepare testing data
         Path testingDataDirectory = queryRunner.getCoordinator().getDataDirectory().resolve(DATA_DIR);
         HudiTestingDataGenerator generator = new HudiTestingDataGenerator(metastore, defaultSchema, testingDataDirectory);
-        generator.generateData();
+        generator.generateData("hudi-testing-data.zip");
         generator.generateMetadata();
+
+        // prepare Hudi 1.x testing data, generated using Hudi 1.1.0 with Spark 3.5
+        generator.generateData("hudi-testing-data-1x.zip");
+        generator.generate1xMetadata();
 
         queryRunner.installPlugin(connectorPluginFactory.apply(Optional.of(metastore)));
         queryRunner.createCatalog(catalogName, connectorName, connectorConfig);

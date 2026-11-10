@@ -22,6 +22,19 @@ For information on configuration properties, see :doc:`properties`.
 General Properties
 ------------------
 
+``legacy_timestamp_with_timezone``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+When ``true``, ``TIMESTAMP WITH TIME ZONE`` values render in each value's embedded
+time zone. When ``false``, functions, casts, field extraction, and calendar
+operations render the UTC instant in the session time zone, so values that compare
+equal produce equal results. For a ``TIMESTAMP WITH TIME ZONE`` input,
+``AT TIME ZONE`` returns a zoned timestamp when this property is ``true`` and a
+``TIMESTAMP`` containing the requested-zone wall clock when it is ``false``.
+
 ``join_distribution_type``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -241,6 +254,37 @@ Batch size for RPC function dispatch in ``BATCH`` streaming mode. ``0`` collects
 rows and dispatches once at the end; values greater than ``0`` flush every N rows
 during input processing.
 
+``rpc_function_parallelism``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Restrictions:** must be greater than or equal to ``0``
+* **Default value:** ``0``
+
+Controls RPC task repartitioning. ``0`` delegates to the RPC execution policy,
+which may only increase a known narrower natural distribution. ``1`` adds no
+RPC-specific repartition exchange. Values greater than ``1`` request an N-way
+remote round-robin exchange and disable policy recommendations. Executed
+concurrency remains subject to scheduler and cluster limits.
+
+``rpc_batch_max_auto_task_count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Restrictions:** must be greater than ``0``
+* **Default value:** ``1``
+
+When ``rpc_function_parallelism`` is ``0``, supplies the maximum automatic task-count
+recommendation for ``BATCH`` RPC execution to a deployment-specific RPC execution
+policy. The default policy ignores this value. ``1`` disables policy-driven
+repartitioning. A deployment policy may choose a lower value based on the estimated
+number of dispatch jobs and planner task limits. The planner only increases a known
+lower task count; wider or unknown natural distribution is preserved. Explicit
+positive ``rpc_function_parallelism`` values disable this recommendation. Increasing
+this value may spread RPC admission across more worker processes, whose backend
+limiters are independent. Roll it out gradually while monitoring backend overload,
+rate-limit responses, and timeouts.
+
 Spilling Properties
 -------------------
 
@@ -428,7 +472,7 @@ to make the query plan easier to read.
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.optimize-hash-generation\`\``.
 
 ``rewrite_approx_distinct_if_to_mask``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``false``
@@ -711,6 +755,39 @@ right side. This avoids data shuffle since both sides are already co-partitioned
 the join key.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.rewrite-bucketed-semi-join-to-join\`\``.
+
+``runtime_stats_tracing_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When enabled, records a coordinator-side query trace in runtime statistics.
+Trace events include start and end timestamps, duration, parent span, failure status,
+and thread names for query lifecycle, planning, scheduling, and task communication.
+Epoch timestamps are expressed in nanoseconds but use a millisecond-resolution wall-clock
+anchor; relative offsets and durations use a monotonic clock.
+This property is intended for diagnostics and can increase query information size.
+The number of retained events is controlled by
+:ref:`admin/properties-session:\`\`runtime_stats_tracing_max_events\`\``.
+
+Set to ``true`` to enable tracing for a query:
+
+``SET SESSION runtime_stats_tracing_enabled=true;``
+
+``runtime_stats_tracing_max_events``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Minimum value:** ``1``
+* **Default value:** ``2000``
+
+The maximum number of trace events retained for a query, including the query
+root event. After the limit is reached, additional trace events are omitted
+while aggregate runtime statistics continue to be recorded.
+
+The corresponding configuration property is
+:ref:`admin/properties:\`\`query.runtime-stats-tracing.max-events\`\``.
 
 ``simplify_aggregations_over_constant``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

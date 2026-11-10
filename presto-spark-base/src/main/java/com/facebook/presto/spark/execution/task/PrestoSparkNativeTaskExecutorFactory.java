@@ -18,7 +18,9 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
+import com.facebook.presto.common.Page;
 import com.facebook.presto.common.RuntimeUnit;
+import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.type.VarcharType;
 import com.facebook.presto.execution.ExecutionFailureInfo;
@@ -36,6 +38,7 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spark.PrestoSparkConfig;
 import com.facebook.presto.spark.PrestoSparkTaskDescriptor;
+import com.facebook.presto.spark.PrestoSparkTempStorageManager;
 import com.facebook.presto.spark.accesscontrol.PrestoSparkAuthenticatorProvider;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutor;
 import com.facebook.presto.spark.classloader_interface.IPrestoSparkTaskExecutorFactory;
@@ -73,6 +76,7 @@ import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.storage.TempStorageManager;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -112,6 +116,7 @@ import static com.facebook.presto.sql.planner.SchedulingOrderVisitor.scheduleOrd
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -147,6 +152,10 @@ public class PrestoSparkNativeTaskExecutorFactory
     // value that is ignored by the shuffle-reader
     private static final TaskId DUMMY_TASK_ID = TaskId.valueOf("remotesourcetaskid.0.0.0.0");
 
+    // Stats page layout: filepath, maxserializedsize, numrows, descriptor.
+    private static final int BROADCAST_FILE_PATH_CHANNEL = 0;
+    private static final int BROADCAST_DESCRIPTOR_CHANNEL = 3;
+
     private final SessionPropertyManager sessionPropertyManager;
     private final JsonCodec<PrestoSparkTaskDescriptor> taskDescriptorJsonCodec;
     private final JsonCodec<BroadcastFileInfo> broadcastFileInfoJsonCodec;
@@ -160,9 +169,11 @@ public class PrestoSparkNativeTaskExecutorFactory
     private final PagesSerde pagesSerde;
     private final TempStorageManager tempStorageManager;
     private final String nativeTempStorage;
+    private final boolean nativeTempStorageDeferred;
     private NativeExecutionProcess nativeExecutionProcess;
 
-    private static class CpuTracker
+    @VisibleForTesting
+    static class CpuTracker
     {
         private OperatingSystemMXBean operatingSystemMXBean;
         private OptionalLong startCpuTime;
@@ -222,6 +233,15 @@ public class PrestoSparkNativeTaskExecutorFactory
         this.pagesSerde = PrestoSparkUtils.createPagesSerde(requireNonNull(blockEncodingManager, "blockEncodingManager is null"));
         this.tempStorageManager = requireNonNull(tempStorageManager, "tempStorageManager is null");
         this.nativeTempStorage = requireNonNull(featureConfig, "featureConfig is null").getSpillerTempStorage();
+        this.nativeTempStorageDeferred = tempStorageManager instanceof PrestoSparkTempStorageManager
+                && ((PrestoSparkTempStorageManager) tempStorageManager).isTempStorageDeferred(nativeTempStorage);
+        // The default decoder only reads the local temp storage format; fail at startup rather than per task
+        checkArgument(
+                !nativeTempStorageDeferred || nativeExecutionTaskFactory.getClass() != NativeExecutionTaskFactory.class,
+                "Temp storage %s is created on first use on this executor (spark.defer-native-executor-temp-storage), " +
+                        "but NativeExecutionTaskFactory.deserializeNativeTempStorageHandle() only decodes the local temp " +
+                        "storage format. Override it, or set experimental.spiller.spiller-temp-storage to local.",
+                nativeTempStorage);
     }
 
     @Override
@@ -266,9 +286,7 @@ public class PrestoSparkNativeTaskExecutorFactory
         PrestoSparkTaskDescriptor taskDescriptor = taskDescriptorJsonCodec.fromJson(
                 serializedTaskDescriptor.getBytes());
         Optional<TempStorageHandle> nativeTempStorageHandle = Optional.of(
-                tempStorageManager.getTempStorage(
-                                this.nativeTempStorage)
-                        .deserialize(taskDescriptor.getSerializedNativeTempStorageHandle()));
+                deserializeNativeTempStorageHandle(taskDescriptor.getSerializedNativeTempStorageHandle()));
         ImmutableMap.Builder<String, TokenAuthenticator> extraAuthenticators = ImmutableMap.builder();
         authenticatorProviders.forEach(provider -> extraAuthenticators.putAll(provider.getTokenAuthenticators()));
 
@@ -365,13 +383,19 @@ public class PrestoSparkNativeTaskExecutorFactory
         }
     }
 
-    private static void completeTask(boolean success, CollectionAccumulator<SerializedTaskInfo> taskInfoCollector, NativeExecutionTask task, Codec<TaskInfo> taskInfoCodec, CpuTracker cpuTracker)
+    private static void completeTask(
+            boolean success,
+            CollectionAccumulator<SerializedTaskInfo> taskInfoCollector,
+            NativeExecutionTask task,
+            Codec<TaskInfo> taskInfoCodec,
+            CpuTracker cpuTracker,
+            Optional<TaskInfo> capturedTaskInfo)
     {
         try {
             OptionalLong processCpuTime = cpuTracker.get();
 
             // collect statistics (if available)
-            Optional<TaskInfo> taskInfoOptional = tryGetTaskInfo(task);
+            Optional<TaskInfo> taskInfoOptional = capturedTaskInfo.isPresent() ? capturedTaskInfo : tryGetTaskInfo(task);
             if (!taskInfoOptional.isPresent()) {
                 log.error("Missing taskInfo. Statistics might be inaccurate");
                 return;
@@ -422,6 +446,16 @@ public class PrestoSparkNativeTaskExecutorFactory
         }
 
         log.info("processTaskInfoForErrors: task completed successfully = %s", taskInfo);
+    }
+
+    private TempStorageHandle deserializeNativeTempStorageHandle(byte[] serializedNativeTempStorageHandle)
+    {
+        if (nativeTempStorageDeferred) {
+            // Decode without getTempStorage(), which would create the deferred temp storage on this executor
+            // (see PrestoSparkTempStorageManager)
+            return nativeExecutionTaskFactory.deserializeNativeTempStorageHandle(serializedNativeTempStorageHandle);
+        }
+        return tempStorageManager.getTempStorage(nativeTempStorage).deserialize(serializedNativeTempStorageHandle);
     }
 
     private void createAndStartNativeExecutionProcess(Session session,
@@ -500,11 +534,11 @@ public class PrestoSparkNativeTaskExecutorFactory
                                     .map(PrestoSparkSerializedPage.class::cast)
                                     .map(prestoSparkSerializedPage -> PrestoSparkUtils.toSerializedPage(prestoSparkSerializedPage))
                                     .map(serializedPage -> pagesSerde.deserialize(serializedPage))
-                                    // Extract filePath.
+                                    // Extract filePath and the file system handle for it.
                                     .flatMap(page -> IntStream.range(0, page.getPositionCount())
-                                            .mapToObj(position -> VarcharType.VARCHAR.getObjectValue(null, page.getBlock(0), position)))
-                                    .map(String.class::cast)
-                                    .map(filePath -> new BroadcastFileInfo(filePath))
+                                            .mapToObj(position -> new BroadcastFileInfo(
+                                                    (String) VarcharType.VARCHAR.getObjectValue(null, page.getBlock(BROADCAST_FILE_PATH_CHANNEL), position),
+                                                    readBroadcastDescriptor(page, position))))
                                     .map(broadcastFileInfo -> new ScheduledSplit(
                                             nextSplitId.getAndIncrement(),
                                             remoteSource.getId(),
@@ -528,6 +562,21 @@ public class PrestoSparkNativeTaskExecutorFactory
         return taskSources;
     }
 
+    // An older native worker emits no descriptor channel, and one whose file system
+    // produces no handle emits an empty string. Both mean: open by path.
+    static String readBroadcastDescriptor(Page page, int position)
+    {
+        if (page.getChannelCount() <= BROADCAST_DESCRIPTOR_CHANNEL) {
+            return null;
+        }
+        Block block = page.getBlock(BROADCAST_DESCRIPTOR_CHANNEL);
+        if (block.isNull(position)) {
+            return null;
+        }
+        String descriptor = (String) VarcharType.VARCHAR.getObjectValue(null, block, position);
+        return isNullOrEmpty(descriptor) ? null : descriptor;
+    }
+
     private Optional<TableWriterNode> findTableWriteNode(PlanNode node)
     {
         return searchFrom(node)
@@ -535,13 +584,15 @@ public class PrestoSparkNativeTaskExecutorFactory
                 .findFirst();
     }
 
-    private static class PrestoSparkNativeTaskOutputIterator<T extends PrestoSparkTaskOutput>
+    @VisibleForTesting
+    static class PrestoSparkNativeTaskOutputIterator<T extends PrestoSparkTaskOutput>
             extends AbstractIterator<Tuple2<MutablePartitionId, T>>
             implements IPrestoSparkTaskExecutor<T>
     {
         private final int partitionId;
         private final NativeExecutionTask nativeExecutionTask;
         private Optional<SerializedPage> next = Optional.empty();
+        private boolean taskCompleted;
         private final CollectionAccumulator<SerializedTaskInfo> taskInfoCollectionAccumulator;
         private final Codec<TaskInfo> taskInfoCodec;
         private final Class<T> outputType;
@@ -621,6 +672,10 @@ public class PrestoSparkNativeTaskExecutorFactory
          */
         private Optional<SerializedPage> computeNext()
         {
+            if (taskCompleted) {
+                return Optional.empty();
+            }
+            Optional<TaskInfo> capturedTaskInfo = Optional.empty();
             try {
                 Object taskFinishedOrHasResult = nativeExecutionTask.getTaskFinishedOrHasResult();
                 // Blocking wait if task is still running or hasn't produced any output page
@@ -644,13 +699,13 @@ public class PrestoSparkNativeTaskExecutorFactory
                     }
                 }
 
-                Optional<TaskInfo> taskInfo = nativeExecutionTask.getTaskInfo();
+                capturedTaskInfo = nativeExecutionTask.getTaskInfo();
 
-                processTaskInfoForErrorsOrCompletion(taskInfo.get());
+                processTaskInfoForErrorsOrCompletion(capturedTaskInfo.get());
             }
             catch (RuntimeException ex) {
                 // For a failed task, if taskInfo is present we still want to log the metrics
-                completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker);
+                completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker, capturedTaskInfo);
                 throw executionExceptionFactory.toPrestoSparkExecutionException(processFailure(
                         ex,
                         nativeExecutionProcess,
@@ -658,12 +713,27 @@ public class PrestoSparkNativeTaskExecutorFactory
                         terminateWithCoreTimeout));
             }
             catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
+                // Spark kills a task by interrupting its thread, so this is the path a cancelled stage or a losing
+                // speculative attempt takes out of the wait above. Without completing the task here no DELETE is
+                // ever sent, and the worker keeps the task and everything it pins.
+                RuntimeException failure = new RuntimeException(e);
+                try {
+                    completeTask(false, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker, capturedTaskInfo);
+                }
+                catch (RuntimeException completionFailure) {
+                    // Keep the interrupt as the reported cause. A failure to complete is
+                    // secondary and would otherwise replace it, hiding why the task stopped.
+                    failure.addSuppressed(completionFailure);
+                }
+                finally {
+                    Thread.currentThread().interrupt();
+                }
+                throw failure;
             }
 
             // Reaching here marks the end of task processing
-            completeTask(true, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker);
+            completeTask(true, taskInfoCollectionAccumulator, nativeExecutionTask, taskInfoCodec, cpuTracker, capturedTaskInfo);
+            taskCompleted = true;
             return Optional.empty();
         }
 

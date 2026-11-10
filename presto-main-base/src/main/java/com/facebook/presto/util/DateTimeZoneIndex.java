@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.util;
 
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.DateTimeEncoding;
 import com.facebook.presto.common.type.TimeZoneKey;
 import org.joda.time.DateTime;
@@ -62,6 +63,16 @@ public final class DateTimeZoneIndex
     public static ISOChronology unpackChronology(long timestampWithTimeZone)
     {
         return getChronology(unpackZoneKey(timestampWithTimeZone));
+    }
+
+    // Chronology a TIMESTAMP WITH TIME ZONE is read in: the value's own zone under
+    // legacy_timestamp_with_timezone, the session zone otherwise.
+    public static ISOChronology renderingChronology(SqlFunctionProperties properties, long timestampWithTimeZone)
+    {
+        if (properties.isLegacyTimestampWithTimezone()) {
+            return unpackChronology(timestampWithTimeZone);
+        }
+        return getChronology(properties.getTimeZoneKey());
     }
 
     public static DateTimeZone getDateTimeZone(TimeZoneKey zoneKey)

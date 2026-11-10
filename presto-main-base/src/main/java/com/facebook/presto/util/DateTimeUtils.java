@@ -15,6 +15,7 @@ package com.facebook.presto.util;
 
 import com.facebook.presto.client.IntervalDayTime;
 import com.facebook.presto.client.IntervalYearMonth;
+import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.TimeZoneKey;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.tree.IntervalLiteral.IntervalField;
@@ -52,6 +53,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMEN
 import static com.facebook.presto.util.DateTimeZoneIndex.getChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.getDateTimeZone;
 import static com.facebook.presto.util.DateTimeZoneIndex.packDateTimeWithZone;
+import static com.facebook.presto.util.DateTimeZoneIndex.renderingChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackChronology;
 import static com.facebook.presto.util.DateTimeZoneIndex.unpackDateTimeZone;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -251,6 +253,14 @@ public final class DateTimeUtils
     public static String printTimestampWithTimeZone(long timestampWithTimeZone)
     {
         ISOChronology chronology = unpackChronology(timestampWithTimeZone);
+        long millis = unpackMillisUtc(timestampWithTimeZone);
+        return TIMESTAMP_WITH_TIME_ZONE_FORMATTER.withChronology(chronology).print(millis);
+    }
+
+    // Renders in the chronology the session calls for, so a cast matches the field functions.
+    public static String printTimestampWithTimeZone(SqlFunctionProperties properties, long timestampWithTimeZone)
+    {
+        ISOChronology chronology = renderingChronology(properties, timestampWithTimeZone);
         long millis = unpackMillisUtc(timestampWithTimeZone);
         return TIMESTAMP_WITH_TIME_ZONE_FORMATTER.withChronology(chronology).print(millis);
     }

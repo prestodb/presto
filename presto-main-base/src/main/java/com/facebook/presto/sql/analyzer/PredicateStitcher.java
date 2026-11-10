@@ -36,6 +36,7 @@ import com.facebook.presto.sql.tree.Unnest;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 import java.util.Map;
@@ -102,6 +103,7 @@ public class PredicateStitcher
                     node.getWhere(),
                     node.getGroupBy(),
                     node.getHaving(),
+                    node.getWindows(),
                     node.getOrderBy(),
                     node.getOffset(),
                     node.getLimit());
@@ -199,6 +201,7 @@ public class PredicateStitcher
                 Optional.of(predicates.get(schemaTableName)),
                 Optional.empty(),
                 Optional.empty(),
+                ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());

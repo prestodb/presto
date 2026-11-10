@@ -61,7 +61,7 @@ import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
-import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.LogicalTypeAnnotation.VariantLogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.joda.time.DateTimeZone;
@@ -118,6 +118,8 @@ import static com.facebook.presto.parquet.ParquetTypeUtils.lookupColumnByName;
 import static com.facebook.presto.parquet.ParquetTypeUtils.nestedColumnPath;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.buildPredicate;
 import static com.facebook.presto.parquet.predicate.PredicateUtils.predicateMatches;
+import static com.facebook.presto.parquet.spark.Variant.METADATA_FIELD_NAME;
+import static com.facebook.presto.parquet.spark.Variant.VALUE_FIELD_NAME;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -126,6 +128,8 @@ import static org.apache.parquet.crypto.DecryptionPropertiesFactory.loadFactory;
 import static org.apache.parquet.crypto.HiddenColumnChunkMetaData.isHiddenColumn;
 import static org.apache.parquet.io.ColumnIOConverter.constructField;
 import static org.apache.parquet.io.ColumnIOConverter.findNestedColumnIO;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 
 public class ParquetPageSourceFactory
         implements HiveBatchPageSourceFactory
@@ -398,6 +402,21 @@ public class ParquetPageSourceFactory
         return Optional.of(type);
     }
 
+    private static boolean isNonAnnotatedVariant(GroupType groupType)
+    {
+        // for now there is only unshredded variant support
+        return groupType.getFieldCount() == 2 &&
+                groupType.containsField(METADATA_FIELD_NAME) &&
+                groupType.containsField(VALUE_FIELD_NAME) &&
+                isRequiredBinary(groupType.getType(VALUE_FIELD_NAME)) &&
+                isRequiredBinary(groupType.getType(METADATA_FIELD_NAME));
+    }
+
+    private static boolean isRequiredBinary(org.apache.parquet.schema.Type type)
+    {
+        return type.isPrimitive() && BINARY.equals(type.asPrimitiveType().getPrimitiveTypeName()) && type.isRepetition(REQUIRED);
+    }
+
     public static boolean checkSchemaMatch(org.apache.parquet.schema.Type parquetType, Type type)
     {
         String prestoType = type.getTypeSignature().getBase();
@@ -455,7 +474,8 @@ public class ParquetPageSourceFactory
                     return checkSchemaMatch(bagGroupType, type.getTypeParameters().get(0)) ||
                             (bagGroupType.getFields().size() == 1 && checkSchemaMatch(bagGroupType.getFields().get(0), type.getTypeParameters().get(0)));
                 case JSON:
-                    return parquetType.asGroupType().getLogicalTypeAnnotation() instanceof LogicalTypeAnnotation.VariantLogicalTypeAnnotation;
+                    boolean isVariantAnnotated = groupType.getLogicalTypeAnnotation() instanceof VariantLogicalTypeAnnotation;
+                    return isVariantAnnotated || isNonAnnotatedVariant(groupType);
                 default:
                     return false;
             }

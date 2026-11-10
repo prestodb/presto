@@ -70,6 +70,9 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         ALTER (COLUMN)? column=identifier SET DEFAULT expression       #setColumnDefault
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
+        ALTER (COLUMN)? column=identifier
+        (FIRST | AFTER after=identifier)                               #setColumnPosition
+    | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         SET PROPERTIES properties                                      #setTableProperties
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         CREATE (OR REPLACE)? BRANCH (IF NOT EXISTS)? name=string
@@ -85,7 +88,7 @@ statement
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
         DROP TAG (IF EXISTS)? name=string                              #dropTag
     | ALTER TABLE (IF EXISTS)? tableName=qualifiedName
-        ALTER COLUMN columnName=identifier SET DATA TYPE type          #setColumnType
+        ALTER COLUMN columnName=qualifiedName SET DATA TYPE type       #setColumnType
     | ANALYZE qualifiedName (WITH properties)?                         #analyze
     | CREATE TYPE qualifiedName AS (
         '(' sqlParameterDeclaration (',' sqlParameterDeclaration)* ')'
@@ -197,7 +200,7 @@ tableElement
     ;
 
 columnDefinition
-    : identifier type (NOT NULL)? (COMMENT string)? (DEFAULT expression)? (WITH properties)?
+    : qualifiedName type (NOT NULL)? (COMMENT string)? (DEFAULT expression)? ((GENERATED ALWAYS)? AS expression (PERSISTENT | VIRTUAL)?)? (WITH properties)?
     ;
 
 likeClause
@@ -299,6 +302,7 @@ querySpecification
       (WHERE where=booleanExpression)?
       (GROUP BY groupBy)?
       (HAVING having=booleanExpression)?
+      (WINDOW windowDefinition (',' windowDefinition)*)?
     ;
 
 groupBy
@@ -315,6 +319,17 @@ groupingElement
 groupingSet
     : '(' (expression (',' expression)*)? ')'
     | expression
+    ;
+
+windowDefinition
+    : name=identifier AS '(' windowSpecification ')'
+    ;
+
+windowSpecification
+    : (existingWindowName=identifier)?
+      (PARTITION BY partition+=expression (',' partition+=expression)*)?
+      (ORDER BY sortItem (',' sortItem)*)?
+      windowFrame?
     ;
 
 namedQuery
@@ -448,6 +463,9 @@ primaryExpression
     | name=LOCALTIME ('(' precision=INTEGER_VALUE ')')?                                   #specialDateTimeFunction
     | name=LOCALTIMESTAMP ('(' precision=INTEGER_VALUE ')')?                              #specialDateTimeFunction
     | name=CURRENT_USER                                                                   #currentUser
+    // trim(source) and trim(source, chars) are matched by #functionCall above since TRIM is nonReserved
+    | TRIM '(' trimsSpecification? trimChar=valueExpression? FROM
+        trimSource=valueExpression ')'                                                    #trim
     | SUBSTRING '(' valueExpression FROM valueExpression (FOR valueExpression)? ')'       #substring
     | NORMALIZE '(' valueExpression (',' normalForm)? ')'                                 #normalize
     | EXTRACT '(' identifier FROM valueExpression ')'                                     #extract
@@ -575,11 +593,7 @@ mergeCase
     ;
 
 over
-    : OVER '('
-        (PARTITION BY partition+=expression (',' partition+=expression)*)?
-        (ORDER BY sortItem (',' sortItem)*)?
-        windowFrame?
-      ')'
+    : OVER (windowName=identifier | '(' windowSpecification ')')
     ;
 
 windowFrame
@@ -710,31 +724,37 @@ constraintEnforced
     : ENFORCED | NOT ENFORCED
     ;
 
+trimsSpecification
+    : LEADING
+    | TRAILING
+    | BOTH
+    ;
+
 nonReserved
     // IMPORTANT: this rule must only contain tokens. Nested rules are not supported. See SqlParser.exitNonReserved
-    : ADD | ADMIN | AFTER | ALL | ANALYZE | ANY | ARRAY | ASC | AT
-    | BEFORE | BERNOULLI | BRANCH
+    : ADD | ADMIN | AFTER | ALL | ALWAYS | ANALYZE | ANY | ARRAY | ASC | AT
+    | BEFORE | BERNOULLI | BOTH | BRANCH
     | CALL | CALLED | CASCADE | CATALOGS | COLUMN | COLUMNS | COMMENT | COMMIT | COMMITTED | COPARTITION | CURRENT | CURRENT_ROLE
     | DATA | DATE | DAY | DEFAULT | DEFINER | DESC | DESCRIPTOR | DETERMINISTIC | DISABLED | DISTRIBUTED | DAYS
     | EMPTY | ENABLED | ENFORCED | EXCLUDING | EXECUTE | EXPLAIN | EXTERNAL
     | FETCH | FILTER | FIRST | FOLLOWING | FORMAT | FUNCTION | FUNCTIONS
-    | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
+    | GENERATED | GRANT | GRANTED | GRANTS | GRAPHVIZ | GROUPS
     | HOUR
     | IF | IGNORE | INCLUDING | INDEX | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
     | KEEP | KEY
-    | LANGUAGE | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
+    | LANGUAGE | LAST | LATERAL | LEADING | LEVEL | LIMIT | LOGICAL
     | MAP | MATCHED | MATERIALIZED | MERGE | MINUTE | MONTH
     | NAME | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OF | OFFSET | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
-    | PARTITION | PARTITIONS | POSITION | PRECEDING | PRIMARY | PRIVILEGES | PROPERTIES | PRUNE
+    | PARTITION | PARTITIONS | PERSISTENT | POSITION | PRECEDING | PRIMARY | PRIVILEGES | PROPERTIES | PRUNE
     | RANGE | READ | REFRESH | RELY | RENAME | REPEATABLE | REPLACE | RESET | RESPECT | RESTRICT | RETAIN | RETENTION | RETURN | RETURNS | REVOKE | ROLE | ROLES | ROLLBACK | ROW | ROWS
     | SCHEMA | SCHEMAS | SECOND | SECURITY | SERIALIZABLE | SESSION | SET | SETS | SNAPSHOT | SNAPSHOTS | SQL
     | SHOW | SOME | START | STATS | SUBSTRING | SYSTEM | SYSTEM_TIME | SYSTEM_VERSION
-    | TABLES | TABLESAMPLE | TAG | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRANSACTION | TRUNCATE | TRY_CAST | TYPE
+    | TABLES | TABLESAMPLE | TAG | TEMPORARY | TEXT | TIME | TIMESTAMP | TO | TRAILING | TRANSACTION | TRIM | TRUNCATE | TRY_CAST | TYPE
     | UNBOUNDED | UNCOMMITTED | UNIQUE | UPDATE | UPDATING | USE | USER
-    | VALIDATE | VECTOR | VERBOSE | VERSION | VIEW
-    | WORK | WRITE
+    | VALIDATE | VECTOR | VERBOSE | VERSION | VIEW | VIRTUAL
+    | WINDOW | WORK | WRITE
     | YEAR
     | ZONE
     ;
@@ -744,6 +764,7 @@ ADMIN: 'ADMIN';
 AFTER: 'AFTER';
 ALL: 'ALL';
 ALTER: 'ALTER';
+ALWAYS: 'ALWAYS';
 ANALYZE: 'ANALYZE';
 AND: 'AND';
 ANY: 'ANY';
@@ -754,6 +775,7 @@ AT: 'AT';
 BEFORE: 'BEFORE';
 BERNOULLI: 'BERNOULLI';
 BETWEEN: 'BETWEEN';
+BOTH: 'BOTH';
 BRANCH: 'BRANCH';
 BY: 'BY';
 CALL: 'CALL';
@@ -818,6 +840,7 @@ FROM: 'FROM';
 FULL: 'FULL';
 FUNCTION: 'FUNCTION';
 FUNCTIONS: 'FUNCTIONS';
+GENERATED: 'GENERATED';
 GRANT: 'GRANT';
 GRANTED: 'GRANTED';
 GRANTS: 'GRANTS';
@@ -849,6 +872,7 @@ KEY: 'KEY';
 LANGUAGE: 'LANGUAGE';
 LAST: 'LAST';
 LATERAL: 'LATERAL';
+LEADING: 'LEADING';
 LEFT: 'LEFT';
 LEVEL: 'LEVEL';
 LIKE: 'LIKE';
@@ -888,6 +912,7 @@ OUTPUT: 'OUTPUT';
 OVER: 'OVER';
 PARTITION: 'PARTITION';
 PARTITIONS: 'PARTITIONS';
+PERSISTENT: 'PERSISTENT';
 POSITION: 'POSITION';
 PRECEDING: 'PRECEDING';
 PREPARE: 'PREPARE';
@@ -948,7 +973,9 @@ THEN: 'THEN';
 TIME: 'TIME';
 TIMESTAMP: 'TIMESTAMP';
 TO: 'TO';
+TRAILING: 'TRAILING';
 TRANSACTION: 'TRANSACTION';
+TRIM: 'TRIM';
 TRUE: 'TRUE';
 TRUNCATE: 'TRUNCATE';
 TRY_CAST: 'TRY_CAST';
@@ -970,8 +997,10 @@ VECTOR: 'VECTOR';
 VERBOSE: 'VERBOSE';
 VERSION: 'VERSION';
 VIEW: 'VIEW';
+VIRTUAL: 'VIRTUAL';
 WHEN: 'WHEN';
 WHERE: 'WHERE';
+WINDOW: 'WINDOW';
 WITH: 'WITH';
 WORK: 'WORK';
 WRITE: 'WRITE';

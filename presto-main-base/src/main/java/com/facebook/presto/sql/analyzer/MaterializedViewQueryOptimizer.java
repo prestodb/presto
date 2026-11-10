@@ -82,6 +82,7 @@ import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.Table;
 import com.facebook.presto.sql.tree.TableSubquery;
+import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.With;
@@ -201,6 +202,7 @@ public class MaterializedViewQueryOptimizer
                 node.getWhere(),
                 node.getGroupBy(),
                 node.getHaving(),
+                node.getWindows(),
                 node.getOrderBy(),
                 node.getOffset(),
                 node.getLimit());
@@ -416,7 +418,10 @@ public class MaterializedViewQueryOptimizer
     {
         MaterializedViewDefinition materializedViewDefinition = metadataResolver.getMaterializedView(materializedViewName).orElseThrow(() ->
                 new IllegalStateException("Materialized view definition not present in metadata as expected."));
-        Table materializedViewTable = new Table(QualifiedName.of(materializedViewDefinition.getTable()));
+        Table materializedViewTable = new Table(QualifiedName.of(
+                materializedViewName.getCatalogName(),
+                materializedViewDefinition.getSchema(),
+                materializedViewDefinition.getTable()));
         Query materializedViewQuery = (Query) sqlParser.createStatement(materializedViewDefinition.getOriginalSql(), createParsingOptions(session));
 
         return new QuerySpecificationRewriter(materializedViewTable, materializedViewQuery, materializedViewName).rewrite(originalQuerySpecification);
@@ -501,6 +506,13 @@ public class MaterializedViewQueryOptimizer
         @Override
         protected Node visitQuerySpecification(QuerySpecification node, Void context)
         {
+            // A WINDOW clause is carried over unchanged, so its expressions and frame bounds would keep
+            // referring to base table columns. Decline rather than rewrite it only in part. Window
+            // functions are declined separately, in MaterializedViewExpressionRewriter.
+            if (!node.getWindows().isEmpty()) {
+                throw new IllegalStateException("Query with WINDOW clause is not rewritable by materialized view");
+            }
+
             if (!node.getFrom().isPresent()) {
                 throw new IllegalArgumentException("visitQuerySpecification should not be invoked for an empty FROM clause");
             }
@@ -589,6 +601,7 @@ public class MaterializedViewQueryOptimizer
                     node.getWhere().map(where -> (Expression) process(where, context)),
                     node.getGroupBy().map(groupBy -> (GroupBy) process(groupBy, context)),
                     node.getHaving().map(having -> (Expression) process(having, context)),
+                    node.getWindows(),
                     node.getOrderBy().map(orderBy -> (OrderBy) process(orderBy, context)),
                     node.getOffset(),
                     node.getLimit());
@@ -774,6 +787,16 @@ public class MaterializedViewQueryOptimizer
                     node.getType(),
                     node.isSafe(),
                     node.isTypeOnly());
+        }
+
+        @Override
+        protected Node visitTrim(Trim node, Void context)
+        {
+            return new Trim(
+                    node.getLocation(),
+                    node.getSpecification(),
+                    (Expression) process(node.getTrimSource(), context),
+                    node.getTrimCharacter().map(trimCharacter -> (Expression) process(trimCharacter, context)));
         }
 
         @Override

@@ -21,10 +21,12 @@ add_test(
 target_link_libraries(
   presto_function_metadata_test
   presto_function_metadata
+  presto_scalar_function_registration
   presto_common
   presto_protocol
   presto_type_test_utils
   velox
+  velox_async_rpc_function_registry
   GTest::gtest
   GTest::gtest_main
 )

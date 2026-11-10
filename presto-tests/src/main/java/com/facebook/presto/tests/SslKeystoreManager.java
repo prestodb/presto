@@ -136,7 +136,7 @@ public class SslKeystoreManager
         long now = System.currentTimeMillis();
         Date startDate = new Date(now);
 
-        X500Name issuer = new X500Name("CN=" + dn + ", OU=, O=, L=, ST=, C=");
+        X500Name issuer = new X500Name("CN=" + dn);
         BigInteger serialNumber = new BigInteger(64, new SecureRandom());
         Date endDate = new Date(now + validityDays * 24L * 60L * 60L * 1000L);
 

@@ -45,6 +45,7 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
 import org.apache.hadoop.mapred.InputFormat;
+import org.apache.hudi.hadoop.realtime.HoodieParquetRealtimeInputFormat;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -73,6 +74,7 @@ import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveSessionProperties.getQuickStatsBackgroundBuildTimeout;
 import static com.facebook.presto.hive.HiveSessionProperties.getQuickStatsInlineBuildTimeout;
 import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsEnabled;
+import static com.facebook.presto.hive.HiveSessionProperties.isQuickStatsEstimateNdvStat;
 import static com.facebook.presto.hive.HiveSessionProperties.isSkipEmptyFilesEnabled;
 import static com.facebook.presto.hive.HiveSessionProperties.isUseListDirectoryCache;
 import static com.facebook.presto.hive.HiveUtil.buildDirectoryContextProperties;
@@ -82,6 +84,7 @@ import static com.facebook.presto.hive.HiveUtil.readSymlinkPaths;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.IGNORED;
 import static com.facebook.presto.hive.NestedDirectoryPolicy.RECURSE;
 import static com.facebook.presto.hive.metastore.PartitionStatistics.empty;
+import static com.facebook.presto.hive.statistics.PartitionQuickStats.withoutDistinctValuesCount;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
@@ -221,6 +224,15 @@ public class QuickStatsProvider
     public PartitionStatistics getQuickStats(ConnectorSession session, SchemaTableName table,
             MetastoreContext metastoreContext, String partitionId)
     {
+        // Entries are always built and cached with the NDV estimate, so one entry serves sessions
+        // with either value of the flag.
+        PartitionStatistics statistics = resolveQuickStats(session, table, metastoreContext, partitionId);
+        return isQuickStatsEstimateNdvStat(session) ? statistics : withoutDistinctValuesCount(statistics);
+    }
+
+    private PartitionStatistics resolveQuickStats(ConnectorSession session, SchemaTableName table,
+            MetastoreContext metastoreContext, String partitionId)
+    {
         if (!isQuickStatsEnabled(session)) {
             return empty();
         }
@@ -296,8 +308,8 @@ public class QuickStatsProvider
         }
         else {
             // The quick stats inline fetch was pre-empted by another thread
-            // We get the up-to-date value by calling getQuickStats again
-            return getQuickStats(session, table, metastoreContext, partitionId);
+            // We get the up-to-date value by calling resolveQuickStats again
+            return resolveQuickStats(session, table, metastoreContext, partitionId);
         }
     }
 
@@ -390,17 +402,22 @@ public class QuickStatsProvider
             }
         }
 
-        PartitionQuickStats partitionQuickStats = PartitionQuickStats.EMPTY;
+        PartitionQuickStats partitionQuickStats = PartitionQuickStats.UNKNOWN_STATS;
         Stopwatch buildStopwatch = Stopwatch.createStarted();
         // Build quick stats one by one from statsBuilderStrategies. Do this until we get a non-empty PartitionQuickStats
         for (QuickStatsBuilder strategy : statsBuilderStrategies) {
             partitionQuickStats = strategy.buildQuickStats(session, metastore, table, metastoreContext, partitionId, fileList);
 
-            if (partitionQuickStats != PartitionQuickStats.EMPTY) {
+            if (partitionQuickStats != PartitionQuickStats.UNKNOWN_STATS) {
                 // Strategy successfully resolved stats, don't explore other strategies
                 // TODO : We can order the strategies based on table metadata, e.g Iceberg tables could use the IcebergQuickStatsBuilder first
                 break;
             }
+        }
+
+        // The listing skips hidden files, which include the log files of a Hudi merge-on-read table
+        if (partitionQuickStats == PartitionQuickStats.ZERO_INPUT_ROWS && inputFormat instanceof HoodieParquetRealtimeInputFormat) {
+            partitionQuickStats = PartitionQuickStats.UNKNOWN_STATS;
         }
 
         long buildMillis = buildStopwatch.elapsed(MILLISECONDS);

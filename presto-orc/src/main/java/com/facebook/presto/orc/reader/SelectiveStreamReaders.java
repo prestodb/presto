@@ -109,7 +109,8 @@ public final class SelectiveStreamReaders
                         getOptionalOnlyFilter(type, filters),
                         outputType.isPresent(),
                         systemMemoryContext.newOrcLocalMemoryContext(SelectiveStreamReaders.class.getSimpleName()),
-                        enableMicroPrecision);
+                        enableMicroPrecision,
+                        options.isReadNullForOutOfBoundsTimestamp());
             }
             case LIST:
                 verifyStreamType(streamDescriptor, outputType, ArrayType.class::isInstance);

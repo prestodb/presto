@@ -53,6 +53,9 @@ import static java.time.temporal.ChronoUnit.MICROS;
  */
 public final class Variant
 {
+    public static final String METADATA_FIELD_NAME = "metadata";
+    public static final String VALUE_FIELD_NAME = "value";
+
     private static final DateTimeFormatter TIMESTAMP_NTZ_FORMATTER = new DateTimeFormatterBuilder()
             .append(ISO_LOCAL_DATE)
             .appendLiteral(' ')

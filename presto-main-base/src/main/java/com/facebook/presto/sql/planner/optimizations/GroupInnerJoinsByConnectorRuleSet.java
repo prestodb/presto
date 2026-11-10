@@ -283,11 +283,6 @@ public class GroupInnerJoinsByConnectorRuleSet
             return isEnabledForTesting || isInnerJoinPushdownEnabled(session);
         }
 
-        public void setEnabledForTesting(boolean isSet)
-        {
-            isEnabledForTesting = isSet;
-        }
-
         private static List<RowExpression> getExpressionsWithinVariableScope(Set<RowExpression> rowExpressions, Set<VariableReferenceExpression> variableScope)
         {
             return rowExpressions.stream()
@@ -358,7 +353,7 @@ public class GroupInnerJoinsByConnectorRuleSet
                         TypeProvider.viewOf(variableAllocator.getVariables()),
                         variableAllocator,
                         idAllocator,
-                        context.getWarningCollector()).getPlanNode();
+                        context.getWarningCollector(), false).getPlanNode();
             }
             return node;
         }

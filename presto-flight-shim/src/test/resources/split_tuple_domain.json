@@ -1,11 +1,13 @@
 {
-  "connectorId" : "postgresql",
+  "@type" : "${connectorName}",
+  "connectorId" : "${connectorId}",
   "schemaName" : "tpch",
   "tableName" : "lineitem",
   "tupleDomain" : {
   "columnDomains" : [ {
     "column" : {
-      "connectorId" : "postgresql",
+      "@type" : "${connectorName}",
+      "connectorId" : "${connectorId}",
       "columnName" : "orderkey",
       "jdbcTypeHandle" : {
         "jdbcType" : -5,

@@ -79,13 +79,23 @@ public class RefreshMaterializedViewPredicateAnalyzer
 
         private final MaterializedViewDefinition viewDefinition;
         private final Scope viewScope;
+        private final boolean extractPredicates;
 
         private Visitor(
                 MaterializedViewDefinition viewDefinition,
                 Scope viewScope)
         {
+            this(viewDefinition, viewScope, true);
+        }
+
+        private Visitor(
+                MaterializedViewDefinition viewDefinition,
+                Scope viewScope,
+                boolean extractPredicates)
+        {
             this.viewDefinition = requireNonNull(viewDefinition, "viewDefinition is null");
             this.viewScope = requireNonNull(viewScope, "viewScope is null");
+            this.extractPredicates = extractPredicates;
         }
 
         public Map<SchemaTableName, Expression> getTablePredicates()
@@ -121,7 +131,8 @@ public class RefreshMaterializedViewPredicateAnalyzer
         @Override
         protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
-            if (LogicalBinaryExpression.Operator.OR.equals(node.getOperator())) {
+            if (LogicalBinaryExpression.Operator.OR.equals(node.getOperator()) && extractPredicates) {
+                new Visitor(viewDefinition, viewScope, false).process(node);
                 SchemaTableName viewName = new SchemaTableName(viewDefinition.getSchema(), viewDefinition.getTable());
                 tablePredicatesBuilder.put(viewName, node);
                 return null;
@@ -166,6 +177,10 @@ public class RefreshMaterializedViewPredicateAnalyzer
 
             if (!viewDefinition.getValidRefreshColumns().orElse(emptyList()).contains(column)) {
                 throw new SemanticException(NOT_SUPPORTED, value, "Refresh materialized view by column %s is not supported.", value.toString());
+            }
+
+            if (!extractPredicates) {
+                return null;
             }
 
             Map<SchemaTableName, String> baseTableColumns = viewDefinition.getColumnMappingsAsMap().get(column);
@@ -235,6 +250,10 @@ public class RefreshMaterializedViewPredicateAnalyzer
 
             if (!viewDefinition.getValidRefreshColumns().orElse(emptyList()).contains(column)) {
                 throw new SemanticException(NOT_SUPPORTED, node.getLeft(), "Refresh materialized view by column %s is not supported.", node.getLeft().toString());
+            }
+
+            if (!extractPredicates) {
+                return null;
             }
 
             Map<SchemaTableName, String> baseTableColumns = viewDefinition.getColumnMappingsAsMap().get(column);

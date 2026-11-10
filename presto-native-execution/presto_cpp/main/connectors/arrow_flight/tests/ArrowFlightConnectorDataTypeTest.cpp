@@ -22,12 +22,32 @@
 #include "presto_cpp/main/connectors/arrow_flight/tests/utils/Utils.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace arrow;
 using namespace facebook::velox;
 using namespace facebook::velox::exec::test;
 
 namespace facebook::presto::test {
+
+namespace {
+
+ArrowArrayPtr makeNullableTimestampArray(
+    const std::vector<std::optional<int64_t>>& values,
+    arrow::TimeUnit::type timeUnit,
+    const std::string& timezone = "") {
+  arrow::TimestampBuilder builder(
+      arrow::timestamp(timeUnit, timezone), arrow::default_memory_pool());
+  for (const auto& value : values) {
+    if (value.has_value()) {
+      AFC_RAISE_NOT_OK(builder.Append(*value));
+    } else {
+      AFC_RAISE_NOT_OK(builder.AppendNull());
+    }
+  }
+  AFC_RETURN_OR_RAISE(builder.Finish());
+}
+} // namespace
 
 class ArrowFlightConnectorDataTypeTest : public ArrowFlightConnectorTestBase {};
 
@@ -259,6 +279,63 @@ TEST_F(ArrowFlightConnectorDataTypeTest, timestampType) {
       .splits(makeSplits({"sample-data"}))
       .assertResults(makeRowVector(
           {timestampSecCol, timestampMilliCol, timestampMicroCol}));
+}
+
+// The Flight shim sends TIMESTAMP WITH TIME ZONE as an Arrow UTC timestamp,
+// which Velox imports as TIMESTAMP. The connector must repack it into the
+// requested type: millis UTC with the UTC zone key.
+TEST_F(ArrowFlightConnectorDataTypeTest, timestampWithTimeZoneType) {
+  // 2024-01-15 08:30:00.123 UTC, the epoch, and a pre-epoch value with millis.
+  const std::vector<std::optional<int64_t>> millis = {
+      1705307400123, 0, -86400001, std::nullopt};
+
+  // The same instants in micros, with sub-millisecond digits that the
+  // millisecond TIMESTAMP WITH TIME ZONE drops by flooring.
+  std::vector<std::optional<int64_t>> micros;
+  for (const auto& value : millis) {
+    micros.push_back(
+        value.has_value() ? std::optional((*value * 1000) + 456)
+                          : std::nullopt);
+  }
+
+  updateTable(
+      "sample-data",
+      makeArrowTable(
+          {"id", "tstz_milli_col", "tstz_milli_utc_col", "tstz_micro_col"},
+          {makeNumericArray<arrow::Int64Type>({1, 2, 3, 4}),
+           makeNullableTimestampArray(millis, arrow::TimeUnit::MILLI),
+           makeNullableTimestampArray(millis, arrow::TimeUnit::MILLI, "UTC"),
+           makeNullableTimestampArray(micros, arrow::TimeUnit::MICRO)}));
+
+  std::vector<std::optional<int64_t>> packed;
+  for (const auto& value : millis) {
+    packed.push_back(
+        value.has_value() ? std::optional(pack(*value, 0)) : std::nullopt);
+  }
+  auto expectedTstz =
+      makeNullableFlatVector<int64_t>(packed, TIMESTAMP_WITH_TIME_ZONE());
+
+  // Request the columns in a different order from the table so the repacking
+  // must follow the output type's column order, not the table's.
+  auto plan = ArrowFlightPlanBuilder()
+                  .flightTableScan(
+                      velox::ROW(
+                          {"tstz_micro_col",
+                           "id",
+                           "tstz_milli_utc_col",
+                           "tstz_milli_col"},
+                          {TIMESTAMP_WITH_TIME_ZONE(),
+                           velox::BIGINT(),
+                           TIMESTAMP_WITH_TIME_ZONE(),
+                           TIMESTAMP_WITH_TIME_ZONE()}))
+                  .planNode();
+  AssertQueryBuilder(plan)
+      .splits(makeSplits({"sample-data"}))
+      .assertResults(makeRowVector(
+          {expectedTstz,
+           makeFlatVector<int64_t>({1, 2, 3, 4}),
+           expectedTstz,
+           expectedTstz}));
 }
 
 TEST_F(ArrowFlightConnectorDataTypeTest, dateDayType) {
@@ -517,6 +594,65 @@ TEST_F(ArrowFlightConnectorDataTypeTest, allTypes) {
       .splits(makeSplits({"gen-data"}))
       .assertResults(makeRowVector(
           {dateVec, timestampSecVec, stringVec, realVec, intVec, boolVec}));
+}
+
+TEST_F(ArrowFlightConnectorDataTypeTest, duplicateColumnName) {
+  std::vector<int64_t> idData = {0, 1, 2, 3};
+  std::vector<int32_t> duplicate1Data = {
+      -2147483648, 0, 2147483647, std::numeric_limits<int32_t>::max()};
+  std::vector<int32_t> duplicate2Data = {111, 222, 333, 444};
+
+  updateTable(
+      "sample-data",
+      makeArrowTable(
+          {"id", "duplicate_col", "duplicate_col"},
+          {makeNumericArray<arrow::Int64Type>(idData),
+           makeNumericArray<arrow::Int32Type>(duplicate1Data),
+           makeNumericArray<arrow::Int32Type>(duplicate2Data)}));
+
+  auto idVec = makeFlatVector<int64_t>(idData);
+  auto duplicate1Vec = makeFlatVector<int32_t>(duplicate1Data);
+  auto duplicate2Vec = makeFlatVector<int32_t>(duplicate2Data);
+
+  core::PlanNodePtr plan;
+  plan = ArrowFlightPlanBuilder()
+             .flightTableScan(
+                 velox::ROW(
+                     {"id", "duplicate_col", "duplicate_col"},
+                     {velox::BIGINT(), velox::INTEGER(), velox::INTEGER()}))
+             .planNode();
+
+  AssertQueryBuilder(plan)
+      .splits(makeSplits({"sample-data"}))
+      .assertResults(makeRowVector({idVec, duplicate1Vec, duplicate2Vec}));
+}
+
+TEST_F(ArrowFlightConnectorDataTypeTest, prunedColumns) {
+  std::vector<int64_t> idData = {0, 1, 2, 3};
+  std::vector<int32_t> intData = {1, 2, 3, 4};
+  std::vector<int32_t> prunedData = {5, 6, 7, 8};
+
+  updateTable(
+      "sample-data",
+      makeArrowTable(
+          {"id", "data_col", "pruned_col"},
+          {makeNumericArray<arrow::Int64Type>(idData),
+           makeNumericArray<arrow::Int32Type>(intData),
+           makeNumericArray<arrow::Int32Type>(prunedData)}));
+
+  auto idVec = makeFlatVector<int64_t>(idData);
+  auto dataVec = makeFlatVector<int32_t>(intData);
+
+  core::PlanNodePtr plan;
+  plan = ArrowFlightPlanBuilder()
+             .flightTableScan(
+                 velox::ROW(
+                     {"id", "data_col"}, {velox::BIGINT(), velox::INTEGER()}))
+             .planNode();
+
+  AssertQueryBuilder(plan)
+      .splits(makeSplits({"sample-data"}))
+      .assertResults(makeRowVector({idVec, dataVec}));
 }
 
 } // namespace facebook::presto::test

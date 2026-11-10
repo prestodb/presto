@@ -22,6 +22,7 @@ import com.google.inject.Inject;
 
 import java.util.List;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
@@ -69,6 +70,8 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_MAX_OUTPUT_BATCH_ROWS = "max_output_batch_rows";
     public static final String NATIVE_MAX_PARTIAL_AGGREGATION_MEMORY = "native_max_partial_aggregation_memory";
     public static final String NATIVE_MAX_EXTENDED_PARTIAL_AGGREGATION_MEMORY = "native_max_extended_partial_aggregation_memory";
+    public static final String NATIVE_ABANDON_PARTIAL_AGGREGATION_MIN_ROWS = "native_abandon_partial_aggregation_min_rows";
+    public static final String NATIVE_ABANDON_PARTIAL_AGGREGATION_MIN_PCT = "native_abandon_partial_aggregation_min_pct";
     public static final String NATIVE_MAX_SPILL_BYTES = "native_max_spill_bytes";
     public static final String NATIVE_MAX_PAGE_PARTITIONING_BUFFER_SIZE = "native_max_page_partitioning_buffer_size";
     public static final String NATIVE_PARTITIONED_OUTPUT_EAGER_FLUSH = "native_partitioned_output_eager_flush";
@@ -107,6 +110,9 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_RPC_RATELIMITER_MIN_LIMIT = "native_rpc_ratelimiter_min_limit";
     public static final String NATIVE_RPC_RATELIMITER_DECREASE_FACTOR = "native_rpc_ratelimiter_decrease_factor";
     public static final String NATIVE_RPC_RATELIMITER_MAX_LIMIT = "native_rpc_ratelimiter_max_limit";
+    public static final String NATIVE_RPC_RATELIMITER_HARD_LIMIT = "native_rpc_ratelimiter_hard_limit";
+    public static final String NATIVE_RPC_CONGESTION_BATCH_START_WINDOW = "native_rpc_congestion_batch_start_window";
+    public static final String NATIVE_RPC_CONGESTION_ASYNC_GROWTH_MAX_WINDOW = "native_rpc_congestion_async_growth_max_window";
     public static final String NATIVE_RPC_CONGESTION_MAX_WINDOW = "native_rpc_congestion_max_window";
 
     private final List<PropertyMetadata<?>> sessionProperties;
@@ -335,6 +341,18 @@ public class NativeWorkerSessionPropertyProvider
                         "The max partial aggregation memory when data reduction is optimal.",
                         1L << 26,
                         !nativeExecution),
+                integerProperty(
+                        NATIVE_ABANDON_PARTIAL_AGGREGATION_MIN_ROWS,
+                        "Native Execution only. Number of input rows to receive before starting to check " +
+                                "whether to abandon partial aggregation.",
+                        100000,
+                        !nativeExecution),
+                integerProperty(
+                        NATIVE_ABANDON_PARTIAL_AGGREGATION_MIN_PCT,
+                        "Native Execution only. Abandons partial aggregation if number of groups equals or " +
+                                "exceeds this percentage of the number of input rows.",
+                        80,
+                        !nativeExecution),
                 longProperty(
                         NATIVE_MAX_SPILL_BYTES,
                         "The max allowed spill bytes",
@@ -547,26 +565,57 @@ public class NativeWorkerSessionPropertyProvider
                         !nativeExecution),
                 longProperty(
                         NATIVE_RPC_RATELIMITER_MIN_LIMIT,
-                        "Native Execution only. Floor for the adaptive RPC rate limiter's per-tier " +
-                                "max-pending cap. Default 50 (a floor of 1 can stall under sustained throttling). " +
-                                "Only used when the adaptive limiter is enabled.",
+                        "Native Execution only. Integral override for the adaptive RPC congestion-window floor. " +
+                                "Positive values preserve the legacy in-flight floor; zero delegates to the " +
+                                "backend limiter policy. Only used when the adaptive limiter is enabled.",
                         50L,
                         !nativeExecution),
                 doubleProperty(
                         NATIVE_RPC_RATELIMITER_DECREASE_FACTOR,
                         "Native Execution only. Multiplicative-decrease factor applied to the adaptive " +
-                                "RPC rate limiter's per-tier max-pending cap on each overload drain. " +
+                                "RPC rate limiter's per-tier window. Canonical typed overload completions " +
+                                "from the same admitted epoch are coalesced; function-specific aggregate " +
+                                "overload verdicts apply at driver consumption. " +
                                 "Only used when the adaptive limiter is enabled.",
                         0.5,
                         !nativeExecution),
                 longProperty(
                         NATIVE_RPC_RATELIMITER_MAX_LIMIT,
-                        "Native Execution only. Ceiling for the per-tier RPC rate-limiter max-pending " +
-                                "cap. Default 200 (validated for LLM-inference backends); 0 falls back to " +
-                                "the built-in 20. Admission-controlled dispatch makes this cap bind; the " +
-                                "adaptive limiter shrinks from here under overload.",
+                        "Native Execution only. Legacy per-tier RPC rate-limiter ceiling. " +
+                                "Default 200; zero defers to the function or built-in legacy limit. " +
+                                "Superseded by native_rpc_ratelimiter_hard_limit when that property is non-negative.",
                         200L,
                         !nativeExecution),
+                longProperty(
+                        NATIVE_RPC_RATELIMITER_HARD_LIMIT,
+                        "Native Execution only. Versioned per-tier RPC hard ceiling. " +
+                                "Minus one preserves legacy max-limit semantics for mixed-version rollout. " +
+                                "Zero adds no session ceiling; a positive value combines with the function ceiling.",
+                        -1L,
+                        !nativeExecution),
+                new PropertyMetadata<>(
+                        NATIVE_RPC_CONGESTION_BATCH_START_WINDOW,
+                        "Native Execution only. Initial per-driver BATCH RPC congestion window. " +
+                                "Zero preserves the default of 2; positive values are clamped to the window bounds. " +
+                                "Must be non-negative.",
+                        BIGINT,
+                        Long.class,
+                        0L,
+                        !nativeExecution,
+                        value -> validateNonNegativeLong(value, NATIVE_RPC_CONGESTION_BATCH_START_WINDOW),
+                        object -> object),
+                new PropertyMetadata<>(
+                        NATIVE_RPC_CONGESTION_ASYNC_GROWTH_MAX_WINDOW,
+                        "Native Execution only. Cap for per-driver BATCH window growth on clean " +
+                                "completions that carry no usable latency sample. Zero disables the growth; " +
+                                "positive values let the window discover capacity additively up to the cap. " +
+                                "Must be non-negative.",
+                        BIGINT,
+                        Long.class,
+                        0L,
+                        !nativeExecution,
+                        value -> validateNonNegativeLong(value, NATIVE_RPC_CONGESTION_ASYNC_GROWTH_MAX_WINDOW),
+                        object -> object),
                 longProperty(
                         NATIVE_RPC_CONGESTION_MAX_WINDOW,
                         "Native Execution only. Ceiling for the per-driver RPC congestion window " +
@@ -588,6 +637,21 @@ public class NativeWorkerSessionPropertyProvider
                     format("%s must be between %s and %s: %s", property, lowerBoundIncluded, upperBoundIncluded, intValue));
         }
         return intValue;
+    }
+
+    private static Long validateNonNegativeLong(Object value, String property)
+    {
+        if (value == null) {
+            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be non-null", property));
+        }
+
+        long longValue = ((Number) value).longValue();
+        if (longValue < 0) {
+            throw new PrestoException(
+                    INVALID_SESSION_PROPERTY,
+                    format("%s must be non-negative: %s", property, longValue));
+        }
+        return longValue;
     }
 
     @Override

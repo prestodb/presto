@@ -196,7 +196,7 @@ public class TestRollbackToTimestampProcedure
 
         assertQueryFails(
                 format("CALL custom.rollback_to_timestamp('n', 't', %s)", timestamp),
-                "Procedure not registered: custom.rollback_to_timestamp");
+                "Procedure not registered: iceberg.custom.rollback_to_timestamp");
 
         assertQueryFails(
                 "CALL system.rollback_to_timestamp('n', 't')",

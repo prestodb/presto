@@ -81,7 +81,12 @@ public class AlterColumnNotNullTask
             throw new SemanticException(NOT_SUPPORTED, statement, "Catalog %s does not support ALTER COLUMN with NOT NULL", connectorId.getCatalogName());
         }
 
-        accessControl.checkCanAddConstraints(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
+        if (statement.isDropConstraint()) {
+            accessControl.checkCanDropConstraint(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
+        }
+        else {
+            accessControl.checkCanAddConstraints(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
+        }
 
         TableHandle tableHandle = tableHandleOptional.get();
         String column = metadata.normalizeIdentifier(session, tableName.getCatalogName(), statement.getColumn().getValue());

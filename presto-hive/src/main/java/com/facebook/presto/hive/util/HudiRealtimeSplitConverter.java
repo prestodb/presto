@@ -15,19 +15,19 @@ package com.facebook.presto.hive.util;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hudi.common.model.HoodieLogFile;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.hadoop.realtime.HoodieRealtimeFileSplit;
+import org.apache.hudi.storage.StoragePath;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.facebook.presto.hive.HiveUtil.CUSTOM_FILE_SPLIT_CLASS_KEY;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -51,7 +51,7 @@ public class HudiRealtimeSplitConverter
             Map<String, String> customSplitInfo = ImmutableMap.<String, String>builder()
                     .put(CUSTOM_FILE_SPLIT_CLASS_KEY, HoodieRealtimeFileSplit.class.getName())
                     .put(HUDI_DELTA_FILEPATHS_KEY, String.join(",", hudiSplit.getDeltaLogPaths()))
-                    .put(HUDI_BASEPATH_KEY, hudiSplit.getBasePath())
+                    .put(HUDI_BASEPATH_KEY, hudiSplit.getBasePath().toString())
                     .put(HUDI_MAX_COMMIT_TIME_KEY, hudiSplit.getMaxCommitTime())
                     .build();
             return Optional.of(customSplitInfo);
@@ -67,7 +67,9 @@ public class HudiRealtimeSplitConverter
         if (HoodieRealtimeFileSplit.class.getName().equals(customSplitClass)) {
             requireNonNull(customSplitInfo.get(HUDI_DELTA_FILEPATHS_KEY), "HUDI_DELTA_FILEPATHS_KEY is missing");
             List<String> deltaLogPaths = SPLITTER.splitToList(customSplitInfo.get(HUDI_DELTA_FILEPATHS_KEY));
-            List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream().map(p -> new HoodieLogFile(new Path(p))).collect(Collectors.toList());
+            List<HoodieLogFile> deltaLogFiles = deltaLogPaths.stream()
+                    .map(p -> new HoodieLogFile(new StoragePath(p)))
+                    .collect(toImmutableList());
             return Optional.of(new HoodieRealtimeFileSplit(
                     split,
                     requireNonNull(customSplitInfo.get(HUDI_BASEPATH_KEY), "HUDI_BASEPATH_KEY is missing"),

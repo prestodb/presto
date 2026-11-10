@@ -52,8 +52,10 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP_WITH_TIMEZONE;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestamp;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
@@ -1098,6 +1100,158 @@ public abstract class TestDateTimeFunctionsBase
         assertFunctionString("timestamp '0000-01-02 01:02:03 Asia/Shanghai'", TIMESTAMP_WITH_TIME_ZONE, "0000-01-02 01:02:03.000 Asia/Shanghai");
         assertFunctionString("timestamp '1234-05-06 23:23:23.233 America/Los_Angeles'", TIMESTAMP_WITH_TIME_ZONE, "1234-05-06 23:23:23.233 America/Los_Angeles");
         assertFunctionString("timestamp '2333-02-23 23:59:59.999 Asia/Tokyo'", TIMESTAMP_WITH_TIME_ZONE, "2333-02-23 23:59:59.999 Asia/Tokyo");
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneRenderingFollowsSessionZone()
+    {
+        // 08:00 UTC. New York is -05:00 at this instant, so the session zone and the value's zone disagree.
+        String value = "TIMESTAMP '1970-01-01 04:00:00 -04:00'";
+        String sameInstantInNewYork = "TIMESTAMP '1970-01-01 03:00:00 America/New_York'";
+        TimeZoneKey newYork = getTimeZoneKey("America/New_York");
+
+        try (FunctionAssertions legacy = new FunctionAssertions(renderingSession(newYork, true))) {
+            legacy.assertFunction("date_format(" + value + ", '%H:%i')", VARCHAR, "04:00");
+            legacy.assertFunction("format_datetime(" + value + ", 'HH:mm')", VARCHAR, "04:00");
+            legacy.assertFunction("to_iso8601(" + value + ") = to_iso8601(" + sameInstantInNewYork + ")", BOOLEAN, false);
+        }
+
+        try (FunctionAssertions sessionZone = new FunctionAssertions(renderingSession(newYork, false))) {
+            sessionZone.assertFunction("date_format(" + value + ", '%H:%i')", VARCHAR, "03:00");
+            sessionZone.assertFunction("format_datetime(" + value + ", 'HH:mm')", VARCHAR, "03:00");
+            sessionZone.assertFunction("to_iso8601(" + value + ") = to_iso8601(" + sameInstantInNewYork + ")", BOOLEAN, true);
+        }
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneFieldsFollowSessionZone()
+    {
+        // 1969-12-31 20:30 UTC, which is 1970-01-01 in the value's zone and 1969-12-31 in New York.
+        String value = "TIMESTAMP '1970-01-01 02:00:00 +05:30'";
+        // Sunday in New York but Monday in the value's zone, across an ISO week-year boundary.
+        String weekBoundary = "TIMESTAMP '2010-01-04 00:30:00 +01:00'";
+        TimeZoneKey newYork = getTimeZoneKey("America/New_York");
+
+        try (FunctionAssertions legacy = new FunctionAssertions(renderingSession(newYork, true))) {
+            legacy.assertFunction("year(" + value + ")", BIGINT, 1970L);
+            legacy.assertFunction("month(" + value + ")", BIGINT, 1L);
+            legacy.assertFunction("day(" + value + ")", BIGINT, 1L);
+            legacy.assertFunction("hour(" + value + ")", BIGINT, 2L);
+            legacy.assertFunction("minute(" + value + ")", BIGINT, 0L);
+            legacy.assertFunction("day_of_week(" + value + ")", BIGINT, 4L);
+            legacy.assertFunction("quarter(" + value + ")", BIGINT, 1L);
+            legacy.assertFunction("day_of_year(" + value + ")", BIGINT, 1L);
+            legacy.assertFunction("last_day_of_month(" + value + ")", DateType.DATE, toDate(LocalDate.of(1970, 1, 31)));
+            legacy.assertFunction("week(" + weekBoundary + ")", BIGINT, 1L);
+            legacy.assertFunction("year_of_week(" + weekBoundary + ")", BIGINT, 2010L);
+        }
+
+        try (FunctionAssertions sessionZone = new FunctionAssertions(renderingSession(newYork, false))) {
+            sessionZone.assertFunction("year(" + value + ")", BIGINT, 1969L);
+            sessionZone.assertFunction("month(" + value + ")", BIGINT, 12L);
+            sessionZone.assertFunction("day(" + value + ")", BIGINT, 31L);
+            sessionZone.assertFunction("hour(" + value + ")", BIGINT, 15L);
+            sessionZone.assertFunction("minute(" + value + ")", BIGINT, 30L);
+            sessionZone.assertFunction("day_of_week(" + value + ")", BIGINT, 3L);
+            sessionZone.assertFunction("quarter(" + value + ")", BIGINT, 4L);
+            sessionZone.assertFunction("day_of_year(" + value + ")", BIGINT, 365L);
+            sessionZone.assertFunction("last_day_of_month(" + value + ")", DateType.DATE, toDate(LocalDate.of(1969, 12, 31)));
+            sessionZone.assertFunction("week(" + weekBoundary + ")", BIGINT, 53L);
+            sessionZone.assertFunction("year_of_week(" + weekBoundary + ")", BIGINT, 2009L);
+        }
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneArithmeticUsesSessionZone()
+    {
+        TimeZoneKey newYork = getTimeZoneKey("America/New_York");
+        // The operands carry different zones; non-legacy date_diff reads both instants in the session zone.
+        String dateDiffAcrossDst = "date_diff('day', TIMESTAMP '2020-03-08 05:00:00 UTC', TIMESTAMP '2020-03-09 09:30:00 +05:30')";
+
+        try (FunctionAssertions legacy = new FunctionAssertions(renderingSession(newYork, true))) {
+            legacy.assertFunction(dateDiffAcrossDst, BIGINT, 0L);
+        }
+
+        try (FunctionAssertions sessionZone = new FunctionAssertions(renderingSession(newYork, false))) {
+            sessionZone.assertFunction(
+                    "date_trunc('day', TIMESTAMP '2020-07-01 12:00:00 UTC')",
+                    TIMESTAMP_WITH_TIME_ZONE,
+                    new SqlTimestampWithTimeZone(new DateTime(2020, 7, 1, 0, 0, getDateTimeZone(newYork)).getMillis(), UTC_KEY));
+            sessionZone.assertFunction(
+                    "date_add('day', 1, TIMESTAMP '2020-03-07 12:00:00 UTC')",
+                    TIMESTAMP_WITH_TIME_ZONE,
+                    new SqlTimestampWithTimeZone(new DateTime(2020, 3, 8, 7, 0, getDateTimeZone(newYork)).getMillis(), UTC_KEY));
+            sessionZone.assertFunction(dateDiffAcrossDst, BIGINT, 1L);
+        }
+    }
+
+    @Test
+    public void testTimeZoneOffsetIgnoresSessionZone()
+    {
+        // timezone_hour and timezone_minute report the offset the value carries, so the session zone never applies.
+        TimeZoneKey newYork = getTimeZoneKey("America/New_York");
+        for (boolean legacyTimestampWithTimezone : new boolean[] {true, false}) {
+            try (FunctionAssertions assertions = new FunctionAssertions(renderingSession(newYork, legacyTimestampWithTimezone))) {
+                assertions.assertFunction("timezone_hour(TIMESTAMP '1970-01-01 04:00:00 -04:00')", BIGINT, -4L);
+                assertions.assertFunction("timezone_minute(TIMESTAMP '1970-01-01 11:00:00 +05:30')", BIGINT, 30L);
+            }
+        }
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneCastsFollowSessionZone()
+    {
+        // 08:00 UTC. New York is -05:00 at this instant, so the session zone and the value's zone disagree.
+        String value = "TIMESTAMP '1970-01-01 04:00:00 -04:00'";
+        String sameInstantInValueZone = "TIMESTAMP '1970-01-01 02:00:00 +05:30'";
+        String sameInstantInSessionZone = "TIMESTAMP '1969-12-31 15:30:00 America/New_York'";
+        TimeZoneKey newYork = getTimeZoneKey("America/New_York");
+
+        try (FunctionAssertions legacy = new FunctionAssertions(renderingSession(newYork, true))) {
+            legacy.assertFunction("cast(" + value + " as varchar)", VARCHAR, "1970-01-01 04:00:00.000 -04:00");
+            legacy.assertFunction("cast(" + sameInstantInValueZone + " as date) = cast(" + sameInstantInSessionZone + " as date)", BOOLEAN, false);
+            legacy.assertFunction("cast(" + sameInstantInValueZone + " as time) = cast(" + sameInstantInSessionZone + " as time)", BOOLEAN, false);
+            legacy.assertFunction("cast(" + sameInstantInValueZone + " as timestamp) = cast(" + sameInstantInSessionZone + " as timestamp)", BOOLEAN, isLegacyTimestamp(session));
+            legacy.assertFunction("cast(" + sameInstantInValueZone + " as time with time zone) = TIME '02:00:00 +05:30'", BOOLEAN, true);
+        }
+
+        try (FunctionAssertions sessionZone = new FunctionAssertions(renderingSession(newYork, false))) {
+            sessionZone.assertFunction("cast(" + value + " as varchar)", VARCHAR, "1970-01-01 03:00:00.000 America/New_York");
+            sessionZone.assertFunction("cast(" + sameInstantInValueZone + " as date) = cast(" + sameInstantInSessionZone + " as date)", BOOLEAN, true);
+            sessionZone.assertFunction("cast(" + sameInstantInValueZone + " as time) = cast(" + sameInstantInSessionZone + " as time)", BOOLEAN, true);
+            sessionZone.assertFunction("cast(" + sameInstantInValueZone + " as timestamp) = cast(" + sameInstantInSessionZone + " as timestamp)", BOOLEAN, true);
+            sessionZone.assertFunction("cast(" + sameInstantInValueZone + " as time with time zone) = TIME '02:00:00 +05:30'", BOOLEAN, true);
+        }
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneYearMonthIntervalsFollowSessionZone()
+    {
+        String sameInstantInUtc = "TIMESTAMP '2020-02-29 12:00:00 UTC'";
+        String sameInstantInNewYork = "TIMESTAMP '2020-02-29 07:00:00 America/New_York'";
+        String laterInstantInUtc = "TIMESTAMP '2020-03-29 12:00:00 UTC'";
+        String laterInstantInNewYork = "TIMESTAMP '2020-03-29 08:00:00 America/New_York'";
+        TimeZoneKey newYork = getTimeZoneKey("America/New_York");
+
+        try (FunctionAssertions legacy = new FunctionAssertions(renderingSession(newYork, true))) {
+            legacy.assertFunction("(" + sameInstantInUtc + " + INTERVAL '1' MONTH) = (" + sameInstantInNewYork + " + INTERVAL '1' MONTH)", BOOLEAN, false);
+            legacy.assertFunction("(INTERVAL '1' MONTH + " + sameInstantInUtc + ") = (INTERVAL '1' MONTH + " + sameInstantInNewYork + ")", BOOLEAN, false);
+            legacy.assertFunction("(" + laterInstantInUtc + " - INTERVAL '1' MONTH) = (" + laterInstantInNewYork + " - INTERVAL '1' MONTH)", BOOLEAN, false);
+        }
+
+        try (FunctionAssertions sessionZone = new FunctionAssertions(renderingSession(newYork, false))) {
+            sessionZone.assertFunction("(" + sameInstantInUtc + " + INTERVAL '1' MONTH) = (" + sameInstantInNewYork + " + INTERVAL '1' MONTH)", BOOLEAN, true);
+            sessionZone.assertFunction("(INTERVAL '1' MONTH + " + sameInstantInUtc + ") = (INTERVAL '1' MONTH + " + sameInstantInNewYork + ")", BOOLEAN, true);
+            sessionZone.assertFunction("(" + laterInstantInUtc + " - INTERVAL '1' MONTH) = (" + laterInstantInNewYork + " - INTERVAL '1' MONTH)", BOOLEAN, true);
+        }
+    }
+
+    private Session renderingSession(TimeZoneKey timeZoneKey, boolean legacyTimestampWithTimezone)
+    {
+        return Session.builder(this.session)
+                .setTimeZoneKey(timeZoneKey)
+                .setSystemProperty(LEGACY_TIMESTAMP_WITH_TIMEZONE, String.valueOf(legacyTimestampWithTimezone))
+                .build();
     }
 
     @Test

@@ -24,6 +24,7 @@ import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.execution.QueryCompletionValidator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryState;
@@ -127,9 +128,11 @@ import java.util.stream.IntStream;
 import static com.facebook.airlift.units.DataSize.Unit.BYTE;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxBroadcastMemory;
 import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
+import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
+import static com.facebook.presto.execution.scheduler.QueryCompletionValidation.recordSkippedValidation;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
 import static com.facebook.presto.spark.PrestoSparkSessionProperties.getMaxTaskInfosInQueryCompletedEvent;
@@ -148,16 +151,18 @@ import static com.facebook.presto.spark.util.PrestoSparkFailureUtils.toPrestoSpa
 import static com.facebook.presto.spark.util.PrestoSparkUtils.classTag;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.computeNextTimeout;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.deserializeZstdCompressed;
+import static com.facebook.presto.spark.util.PrestoSparkUtils.getPartitionCountFromBucketToPartition;
 import static com.facebook.presto.spark.util.PrestoSparkUtils.toSerializedPage;
 import static com.facebook.presto.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_PAGE_SINK_COMMIT;
 import static com.facebook.presto.spi.storage.StorageCapabilities.REMOTELY_ACCESSIBLE;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isRootFragment;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.getSystemPartitionCount;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedRoundRobin;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -175,6 +180,12 @@ public abstract class AbstractPrestoSparkQueryExecution
 {
     private static final Logger log = Logger.get(AbstractPrestoSparkQueryExecution.class);
 
+    public static final String EXECUTOR_TASK_INFOS_DROPPED_METRIC = "executorTaskInfosDropped";
+
+    private final List<QueryCompletionValidator> completionValidators;
+    private Optional<StageInfo> completionStageInfo = Optional.empty();
+    private boolean completionStageInfoCollectionAttempted;
+    private boolean completionStatisticsAvailable = true;
     protected final Session session;
     protected final QueryMonitor queryMonitor;
     protected final CollectionAccumulator<SerializedTaskInfo> taskInfoCollector;
@@ -217,6 +228,8 @@ public abstract class AbstractPrestoSparkQueryExecution
     @GuardedBy("this")
     private final Map<PlanFragmentId, RddAndMore> fragmentIdToRdd = new HashMap<>();
     private final Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector;
+    // Never sent to an executor, so it does not need to be registered with the SparkContext.
+    private final CollectionAccumulator<SerializedTaskInfo> driverTaskInfoCollector = new CollectionAccumulator<>();
 
     public AbstractPrestoSparkQueryExecution(
             JavaSparkContext sparkContext,
@@ -255,10 +268,13 @@ public abstract class AbstractPrestoSparkQueryExecution
             Metadata metadata,
             PartitioningProviderManager partitioningProviderManager,
             HistoryBasedPlanStatisticsTracker historyBasedPlanStatisticsTracker,
-            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
+            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector,
+            Set<QueryCompletionValidator> completionValidators)
     {
         this.sparkContext = requireNonNull(sparkContext, "sparkContext is null");
         this.session = requireNonNull(session, "session is null");
+        this.completionValidators = requireNonNull(completionValidators, "completionValidators is null").stream()
+                .filter(validator -> validator.isEnabled(session)).collect(toImmutableList());
         this.queryMonitor = requireNonNull(queryMonitor, "queryMonitor is null");
         this.taskInfoCollector = requireNonNull(taskInfoCollector, "taskInfoCollector is null");
         this.shuffleStatsCollector = requireNonNull(shuffleStatsCollector, "shuffleStatsCollector is null");
@@ -324,15 +340,11 @@ public abstract class AbstractPrestoSparkQueryExecution
             return new PrestoSparkPartitioner(1);
         }
         if (partitioning.equals(FIXED_HASH_DISTRIBUTION)
-                || partitioning.equals(FIXED_ARBITRARY_DISTRIBUTION)
+                || isFixedRoundRobin(partitioning)
                 || partitioning.getConnectorId().isPresent()) {
             int[] bucketToPartition = partitioningScheme.getBucketToPartition().orElseThrow(
                     () -> new IllegalArgumentException("bucketToPartition is expected to be assigned at this point"));
-            checkArgument(bucketToPartition.length > 0, "bucketToPartition is expected to be non empty");
-            int numberOfPartitions = IntStream.of(bucketToPartition)
-                    .max()
-                    .getAsInt() + 1;
-            return new PrestoSparkPartitioner(numberOfPartitions);
+            return new PrestoSparkPartitioner(getPartitionCountFromBucketToPartition(bucketToPartition));
         }
         throw new IllegalArgumentException("Unexpected partitioning: " + partitioning);
     }
@@ -344,6 +356,9 @@ public abstract class AbstractPrestoSparkQueryExecution
         try {
             tuneMaxExecutorsCount();
             rddResults = doExecute();
+            if (!completionValidators.isEmpty()) {
+                validateCompletion();
+            }
             queryStateTimer.beginFinishing();
             PrestoSparkTransactionUtils.commit(session, transactionManager);
             queryStateTimer.endQuery();
@@ -529,7 +544,7 @@ public abstract class AbstractPrestoSparkQueryExecution
                 serializedTaskDescriptor,
                 emptyScalaIterator(),
                 new PrestoSparkJavaExecutionTaskInputs(ImmutableMap.of(), ImmutableMap.of(), inputs.build()),
-                taskInfoCollector,
+                driverTaskInfoCollector,
                 shuffleStatsCollector,
                 PrestoSparkSerializedPage.class);
         return collectScalaIterator(prestoSparkTaskExecutor);
@@ -596,7 +611,7 @@ public abstract class AbstractPrestoSparkQueryExecution
      * Updates the taskInfoMap to ensure it stores the most relevant {@link TaskInfo} for each
      * logical task, identified by task ID (excluding attempt number).
      * <p>
-     * This method ensures that, for each logical task, the map retains the latest successful
+     * This method ensures that, for each logical task, the map retains the first observed successful
      * attempt if available, or otherwise the most recent attempt based on attempt number. Warnings
      * are logged in cases of unexpected duplicate or multiple successful attempts.
      *
@@ -604,7 +619,8 @@ public abstract class AbstractPrestoSparkQueryExecution
      * {@link TaskInfo}
      * @param taskInfo the {@link TaskInfo} to consider for updating the map
      */
-    private void updateTaskInfoMap(HashMap<String, TaskInfo> taskInfoMap, TaskInfo taskInfo)
+    @VisibleForTesting
+    static void updateTaskInfoMap(Map<String, TaskInfo> taskInfoMap, TaskInfo taskInfo)
     {
         TaskId newTaskId = taskInfo.getTaskId();
         String taskIdWithoutAttemptId = new StringBuilder()
@@ -643,71 +659,135 @@ public abstract class AbstractPrestoSparkQueryExecution
 
     protected void queryCompletedEvent(Optional<ExecutionFailureInfo> failureInfo, OptionalLong updateCount)
     {
-        List<SerializedTaskInfo> serializedTaskInfos = taskInfoCollector.value();
-        int maxTaskInfos = getMaxTaskInfosInQueryCompletedEvent(session);
-        HashMap<String, TaskInfo> taskInfoMap = new HashMap<>();
-        long totalSerializedTaskInfoSizeInBytes = 0;
-        // When the task info count exceeds the configured maximum, drop ALL task infos instead of deserializing
-        // and retaining them. Each TaskInfo carries the full pipeline/operator/runtime-stats tree, so on queries
-        // with very large task counts retaining them would blow up driver memory. This is deliberately
-        // all-or-nothing: an empty stats set makes it obvious that statistics could not be collected, whereas a
-        // partial set would be silently misleading.
-        boolean taskInfoLimitExceeded = serializedTaskInfos.size() > maxTaskInfos;
-        for (SerializedTaskInfo serializedTaskInfo : serializedTaskInfos) {
-            // Always clear the compressed buffer to free driver memory, even when over the limit.
-            byte[] bytes = serializedTaskInfo.getBytesAndClear();
-            totalSerializedTaskInfoSizeInBytes += bytes.length;
-            if (taskInfoLimitExceeded) {
+        try {
+            Optional<StageInfo> stageInfoOptional = getCompletionStageInfo();
+            QueryState queryState = failureInfo.isPresent() ? FAILED : FINISHED;
+
+            QueryInfo queryInfo = PrestoSparkQueryExecutionFactory.createQueryInfo(
+                    session,
+                    query,
+                    queryState,
+                    Optional.of(planAndMore),
+                    sparkQueueName,
+                    failureInfo,
+                    queryStateTimer,
+                    stageInfoOptional,
+                    warningCollector);
+
+            queryMonitor.queryCompletedEvent(queryInfo);
+            historyBasedPlanStatisticsTracker.updateStatistics(queryInfo);
+            if (queryStatusInfoOutputLocation.isPresent()) {
+                PrestoSparkQueryStatusInfo prestoSparkQueryStatusInfo = PrestoSparkQueryExecutionFactory.createPrestoSparkQueryInfo(
+                        queryInfo,
+                        Optional.of(planAndMore),
+                        warningCollector,
+                        updateCount);
+                metadataStorage.write(
+                        queryStatusInfoOutputLocation.get(),
+                        queryStatusInfoJsonCodec.toJsonBytes(prestoSparkQueryStatusInfo));
+            }
+            processBootstrapStats();
+        }
+        finally {
+            completionStageInfo = Optional.empty();
+        }
+    }
+
+    private void validateCompletion()
+    {
+        try {
+            getCompletionStageInfo();
+        }
+        catch (RuntimeException failure) {
+            recordSkippedValidation(session, "final task statistics could not be collected");
+            log.warn(failure, "Could not collect query completion statistics for %s", session.getQueryId());
+            return;
+        }
+        if (!completionStatisticsAvailable || !completionStageInfo.isPresent()) {
+            recordSkippedValidation(session, "complete final statistics or query plan are unavailable");
+            return;
+        }
+        for (StageInfo stage : completionStageInfo.get().getAllStages()) {
+            if (!stage.getPlan().isPresent() || !stage.getLatestAttemptExecutionInfo().isFinal()) {
+                recordSkippedValidation(session, "final statistics or plan are missing or inconsistent for stage " + stage.getStageId());
                 continue;
             }
-            TaskInfo taskInfo = deserializeZstdCompressed(taskInfoCodec, bytes);
-            updateTaskInfoMap(taskInfoMap, taskInfo);
+            completionValidators.forEach(validator -> validator.validate(session, stage.getPlan().get(), stage.getLatestAttemptExecutionInfo()));
         }
-        taskInfoCollector.reset();
+    }
+
+    private Optional<StageInfo> getCompletionStageInfo()
+    {
+        if (!completionStageInfoCollectionAttempted) {
+            completionStageInfoCollectionAttempted = true;
+            completionStageInfo = collectStageInfo();
+        }
+        return completionStageInfo;
+    }
+
+    private Optional<StageInfo> collectStageInfo()
+    {
+        List<SerializedTaskInfo> serializedTaskInfos = taskInfoCollector.value();
+        List<SerializedTaskInfo> driverSerializedTaskInfos = driverTaskInfoCollector.value();
+        int maxTaskInfos = getMaxTaskInfosInQueryCompletedEvent(session);
+        HashMap<String, TaskInfo> taskInfoMap = new HashMap<>();
+        // When the executor task info count exceeds the configured maximum, drop ALL executor task infos instead of
+        // deserializing and retaining them. Each TaskInfo carries the full pipeline/operator/runtime-stats tree, so on
+        // queries with very large task counts retaining them would blow up driver memory. This is deliberately
+        // all-or-nothing: empty stats for the executor stages make it obvious that their statistics could not be
+        // collected, whereas a partial set would be silently misleading.
+        // Exceeding the cap also skips completion validation; driver task infos are still retained.
+        boolean taskInfoLimitExceeded = serializedTaskInfos.size() > maxTaskInfos;
+        completionStatisticsAvailable = !taskInfoLimitExceeded;
+        long totalSerializedTaskInfoSizeInBytes;
+        try {
+            totalSerializedTaskInfoSizeInBytes = addTaskInfos(taskInfoMap, serializedTaskInfos, !taskInfoLimitExceeded);
+            // The driver task is exempt from the limit: for a write its TableFinishInfo carries output metadata.
+            totalSerializedTaskInfoSizeInBytes += addTaskInfos(taskInfoMap, driverSerializedTaskInfos, true);
+        }
+        finally {
+            // Collection can fail after consuming compressed buffers. The failure
+            // event must not try to decode those cleared buffers a second time.
+            taskInfoCollector.reset();
+            driverTaskInfoCollector.reset();
+        }
 
         if (taskInfoLimitExceeded) {
-            log.warn("Query %s task info count (%s) exceeded the max task info count (%s) for the query completed event; DROPPING ALL task infos - stage statistics will be empty",
+            log.warn("Query %s task info count (%s) exceeded the max task info count (%s) for the query completed event; DROPPING ALL executor task infos and keeping %s driver task infos",
                     session.getQueryId(),
                     serializedTaskInfos.size(),
-                    maxTaskInfos);
+                    maxTaskInfos,
+                    driverSerializedTaskInfos.size());
+            session.getRuntimeStats().addMetricValue(EXECUTOR_TASK_INFOS_DROPPED_METRIC, NONE, serializedTaskInfos.size());
         }
 
         log.info("Total serialized task info count %s size: %s. Total deduped task info count %s",
-                serializedTaskInfos.size(),
+                serializedTaskInfos.size() + driverSerializedTaskInfos.size(),
                 DataSize.succinctBytes(totalSerializedTaskInfoSizeInBytes),
                 taskInfoMap.size());
 
-        Optional<StageInfo> stageInfoOptional = getFinalFragmentedPlan().map(finalFragmentedPlan ->
+        return getFinalFragmentedPlan().map(finalFragmentedPlan ->
                 PrestoSparkQueryExecutionFactory.createStageInfo(
                         session.getQueryId(),
                         finalFragmentedPlan,
                         taskInfoMap.values().stream().collect(Collectors.toList())));
-        QueryState queryState = failureInfo.isPresent() ? FAILED : FINISHED;
+    }
 
-        QueryInfo queryInfo = PrestoSparkQueryExecutionFactory.createQueryInfo(
-                session,
-                query,
-                queryState,
-                Optional.of(planAndMore),
-                sparkQueueName,
-                failureInfo,
-                queryStateTimer,
-                stageInfoOptional,
-                warningCollector);
-
-        queryMonitor.queryCompletedEvent(queryInfo);
-        historyBasedPlanStatisticsTracker.updateStatistics(queryInfo);
-        if (queryStatusInfoOutputLocation.isPresent()) {
-            PrestoSparkQueryStatusInfo prestoSparkQueryStatusInfo = PrestoSparkQueryExecutionFactory.createPrestoSparkQueryInfo(
-                    queryInfo,
-                    Optional.of(planAndMore),
-                    warningCollector,
-                    updateCount);
-            metadataStorage.write(
-                    queryStatusInfoOutputLocation.get(),
-                    queryStatusInfoJsonCodec.toJsonBytes(prestoSparkQueryStatusInfo));
+    /**
+     * Clears the compressed buffers of the task infos to free driver memory, decodes them into the map if
+     * {@code decode} is set, and returns their total compressed size.
+     */
+    private long addTaskInfos(HashMap<String, TaskInfo> taskInfoMap, List<SerializedTaskInfo> serializedTaskInfos, boolean decode)
+    {
+        long totalSizeInBytes = 0;
+        for (SerializedTaskInfo serializedTaskInfo : serializedTaskInfos) {
+            byte[] bytes = serializedTaskInfo.getBytesAndClear();
+            totalSizeInBytes += bytes.length;
+            if (decode) {
+                updateTaskInfoMap(taskInfoMap, deserializeZstdCompressed(taskInfoCodec, bytes));
+            }
         }
-        processBootstrapStats();
+        return totalSizeInBytes;
     }
 
     protected final void setFinalFragmentedPlan(SubPlan subPlan)
@@ -783,20 +863,27 @@ public abstract class AbstractPrestoSparkQueryExecution
 
     protected Optional<int[]> getBucketToPartition(Session session, PartitioningHandle partitioningHandle, int hashPartitionCount)
     {
-        if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
-            return Optional.of(IntStream.range(0, hashPartitionCount).toArray());
-        }
-        //  FIXED_ARBITRARY_DISTRIBUTION is used for UNION ALL
-        //  UNION ALL inputs could be source inputs or shuffle inputs
-        if (partitioningHandle.equals(FIXED_ARBITRARY_DISTRIBUTION)) {
-            // given modular hash function, partition count could be arbitrary size
-            // simply reuse hash_partition_count for convenience
-            // it can also be set by a separate session property if needed
-            return Optional.of(IntStream.range(0, hashPartitionCount).toArray());
+        Optional<int[]> systemBucketToPartition = getSystemBucketToPartition(partitioningHandle, hashPartitionCount);
+        if (systemBucketToPartition.isPresent()) {
+            return systemBucketToPartition;
         }
         if (partitioningHandle.getConnectorId().isPresent()) {
             int connectorPartitionCount = getPartitionCount(session, partitioningHandle);
             return Optional.of(IntStream.range(0, connectorPartitionCount).toArray());
+        }
+        return Optional.empty();
+    }
+
+    @VisibleForTesting
+    static Optional<int[]> getSystemBucketToPartition(PartitioningHandle partitioningHandle, int hashPartitionCount)
+    {
+        if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
+            return Optional.of(IntStream.range(0, hashPartitionCount).toArray());
+        }
+        // Count-less round-robin handles are used by UNION ALL.
+        if (isFixedRoundRobin(partitioningHandle)) {
+            int partitionCount = getSystemPartitionCount(partitioningHandle).orElse(hashPartitionCount);
+            return Optional.of(IntStream.range(0, partitionCount).toArray());
         }
         return Optional.empty();
     }

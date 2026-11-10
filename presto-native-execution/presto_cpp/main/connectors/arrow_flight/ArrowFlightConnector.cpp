@@ -19,6 +19,9 @@
 #include <utility>
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/connectors/arrow_flight/Macros.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "velox/vector/DecodedVector.h"
+#include "velox/vector/FlatVector.h"
 #include "velox/vector/arrow/Bridge.h"
 
 using namespace facebook::velox::connector;
@@ -42,6 +45,36 @@ std::shared_ptr<arrow::flight::Location> getDefaultLocation(
                 defaultHost.value(), defaultPort.value()));
 
   return std::make_shared<arrow::flight::Location>(std::move(defaultLocation));
+}
+
+// Presto's TimeZoneKey.UTC_KEY.
+constexpr velox::TimeZoneKey kUtcZoneKey = 0;
+
+// Arrow has no equivalent of Presto's TIMESTAMP WITH TIME ZONE, which Velox
+// stores as a BIGINT packing millis UTC with a zone key. The Flight shim sends
+// these columns as UTC Arrow timestamps, which Velox imports as TIMESTAMP, so
+// repack them to match the requested output type.
+velox::VectorPtr toTimestampWithTimeZone(
+    const velox::VectorPtr& input,
+    velox::memory::MemoryPool* pool) {
+  VELOX_CHECK(
+      input->type()->isTimestamp(),
+      "Expected TIMESTAMP to convert to TIMESTAMP WITH TIME ZONE, got {}",
+      input->type()->toString());
+
+  const auto size = input->size();
+  velox::DecodedVector decoded(*input);
+  auto vec = velox::BaseVector::create<velox::FlatVector<int64_t>>(
+      velox::TIMESTAMP_WITH_TIME_ZONE(), size, pool);
+  for (velox::vector_size_t i = 0; i < size; ++i) {
+    if (decoded.isNullAt(i)) {
+      vec->setNull(i, true);
+    } else {
+      vec->set(
+          i, velox::pack(decoded.valueAt<velox::Timestamp>(i), kUtcZoneKey));
+    }
+  }
+  return vec;
 }
 } // namespace
 
@@ -178,9 +211,15 @@ void ArrowFlightDataSource::addSplit(std::shared_ptr<ConnectorSplit> split) {
       connectorQueryCtx_->sessionProperties(),
       callOptsAddHeaders);
 
-  AFC_ASSIGN_OR_RAISE(
+  AFC_ASSIGN_OR_HANDLE(
       currentReader_,
-      currentClient_->DoGet(callOptsAddHeaders, flightEndpoint.ticket));
+      currentClient_->DoGet(callOptsAddHeaders, flightEndpoint.ticket),
+      handleArrowError);
+
+  AFC_ASSIGN_OR_HANDLE(
+      auto schema, currentReader_->GetSchema(), handleArrowError);
+
+  setOutputColumnIndices(schema);
 }
 
 std::optional<velox::RowVectorPtr> ArrowFlightDataSource::next(
@@ -188,7 +227,7 @@ std::optional<velox::RowVectorPtr> ArrowFlightDataSource::next(
     velox::ContinueFuture& /* unused */) {
   VELOX_CHECK_NOT_NULL(currentReader_, "Missing split, call addSplit() first");
 
-  AFC_ASSIGN_OR_RAISE(auto chunk, currentReader_->Next());
+  AFC_ASSIGN_OR_HANDLE(auto chunk, currentReader_->Next(), handleArrowError);
 
   // Null values in the chunk indicates that the Flight stream is complete.
   if (!chunk.data) {
@@ -229,20 +268,59 @@ void ArrowFlightDataSource::cancel() {
   }
 }
 
+void ArrowFlightDataSource::setOutputColumnIndices(
+    const std::shared_ptr<arrow::Schema>& schema) {
+  columnIndices_.clear();
+  columnIndices_.reserve(columnMapping_.size());
+  bool projectColumnsByName = true;
+
+  // Check if Flight schema matches output columns, else project by name.
+  if (schema->num_fields() == columnMapping_.size()) {
+    auto fieldNames = schema->field_names();
+    projectColumnsByName = false;
+    for (int i = 0; i < fieldNames.size(); i++) {
+      if (fieldNames[i] != columnMapping_[i]) {
+        projectColumnsByName = true;
+        break;
+      }
+    }
+  }
+
+  if (projectColumnsByName) {
+    // Extract and convert desired columns in the correct order.
+    for (const auto& name : columnMapping_) {
+      auto idx = schema->GetFieldIndex(name);
+      VELOX_CHECK(idx >= 0, "column with name '{}' not found", name);
+      columnIndices_.emplace_back(idx);
+    }
+  } else {
+    // All output columns are aligned, project by column ordinal.
+    for (int i = 0; i < columnMapping_.size(); i++) {
+      columnIndices_.emplace_back(i);
+    }
+  }
+}
+
 velox::RowVectorPtr ArrowFlightDataSource::projectOutputColumns(
     const std::shared_ptr<arrow::RecordBatch>& input) {
   velox::memory::MemoryPool* pool = connectorQueryCtx_->memoryPool();
   std::vector<velox::VectorPtr> children;
-  children.reserve(columnMapping_.size());
+  children.reserve(columnIndices_.size());
 
-  // Extract and convert desired columns in the correct order.
-  for (const auto& name : columnMapping_) {
-    auto column = input->GetColumnByName(name);
-    VELOX_CHECK_NOT_NULL(column, "column with name '{}' not found", name);
+  // i is the output column's position; columnIndices_[i] is the matching
+  // column's position in the record batch, which can differ when columns are
+  // projected by name.
+  for (velox::column_index_t i = 0; i < columnIndices_.size(); ++i) {
+    auto column = input->column(columnIndices_[i]);
     ArrowArray array;
     ArrowSchema schema;
     AFC_RAISE_NOT_OK(arrow::ExportArray(*column, &array, &schema));
-    children.push_back(velox::importFromArrowAsOwner(schema, array, pool));
+    auto child = velox::importFromArrowAsOwner(schema, array, pool);
+
+    if (velox::isTimestampWithTimeZoneType(outputType_->childAt(i))) {
+      child = toTimestampWithTimeZone(child, pool);
+    }
+    children.push_back(std::move(child));
   }
 
   return std::make_shared<velox::RowVector>(

@@ -17,6 +17,9 @@ import com.facebook.airlift.testing.TestingTicker;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.client.FailureInfo;
+import com.facebook.presto.common.QueryTracer;
+import com.facebook.presto.common.RuntimeMetricEvent;
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.common.transaction.TransactionId;
 import com.facebook.presto.common.type.Type;
@@ -53,6 +56,9 @@ import java.util.function.Consumer;
 
 import static com.facebook.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.RUNTIME_STATS_TRACING_ENABLED;
+import static com.facebook.presto.SystemSessionProperties.RUNTIME_STATS_TRACING_MAX_EVENTS;
+import static com.facebook.presto.common.RuntimeMetricName.QUERY_TRACE_TIME_NANOS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.execution.QueryState.DISPATCHING;
 import static com.facebook.presto.execution.QueryState.FAILED;
@@ -128,6 +134,65 @@ public class TestQueryStateMachine
         assertTrue(stateMachine.transitionToFinishing());
         tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
         assertState(stateMachine, FINISHED);
+    }
+
+    @Test
+    public void testQueryTraceEndsBeforeTerminalQueryInfo()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+        runtimeStats.enableTracing();
+        Session session = Session.builder(TEST_SESSION)
+                .setRuntimeStats(runtimeStats)
+                .build();
+        QueryStateMachine stateMachine = createQueryStateMachineWithTicker(Ticker.systemTicker(), createTestTransactionManager(), session);
+
+        assertNull(runtimeStats.getMetric(QUERY_TRACE_TIME_NANOS));
+        assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
+
+        RuntimeMetricEvent queryEvent = runtimeStats.getMetric(QUERY_TRACE_TIME_NANOS).getEvents().get(0);
+        assertEquals(queryEvent.getParentSpanId(), 0);
+        assertTrue(queryEvent.getDurationNanos() >= 0);
+        assertTrue(queryEvent.isFailed());
+        assertNotNull(stateMachine.getQueryInfo(Optional.empty()).getQueryStats().getRuntimeStats().getMetric(QUERY_TRACE_TIME_NANOS));
+    }
+
+    @Test
+    public void testQueryTraceEnabledBySessionProperty()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+        TransactionManager transactionManager = createTestTransactionManager();
+        Session session = Session.builder(TEST_SESSION)
+                .setTransactionId(transactionManager.beginTransaction(true))
+                .setRuntimeStats(runtimeStats)
+                .setSystemProperty(RUNTIME_STATS_TRACING_ENABLED, "true")
+                .setSystemProperty(RUNTIME_STATS_TRACING_MAX_EVENTS, "1")
+                .build();
+
+        QueryStateMachine stateMachine = createQueryStateMachineWithTicker(Ticker.systemTicker(), transactionManager, session);
+        QueryTracer queryTracer = runtimeStats.getQueryTracer();
+        assertNotNull(queryTracer);
+        queryTracer.startTraceSpan("testTraceEvent").close();
+        assertTrue(stateMachine.transitionToFailed(FAILED_CAUSE));
+        assertTrue(runtimeStats.getMetric("testTraceEvent").getEvents().isEmpty());
+        assertNotNull(runtimeStats.getMetric(QUERY_TRACE_TIME_NANOS));
+    }
+
+    @Test
+    public void testLateCancellationWithTracingPreservesFailureCause()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+        runtimeStats.enableTracing();
+        Session session = Session.builder(TEST_SESSION)
+                .setRuntimeStats(runtimeStats)
+                .build();
+        QueryStateMachine stateMachine = createQueryStateMachineWithTicker(Ticker.systemTicker(), createTestTransactionManager(), session);
+
+        assertTrue(stateMachine.transitionToFinishing());
+        tryGetFutureValue(stateMachine.getStateChange(FINISHING), 2, SECONDS);
+        assertState(stateMachine, FINISHED);
+
+        assertFalse(stateMachine.transitionToCanceled());
+        assertEquals(stateMachine.getBasicQueryInfo(Optional.empty()).getFailureInfo().getMessage(), "Query was canceled");
     }
 
     @Test
@@ -626,12 +691,17 @@ public class TestQueryStateMachine
 
     private QueryStateMachine createQueryStateMachineWithTicker(Ticker ticker, TransactionManager transactionManager)
     {
+        return createQueryStateMachineWithTicker(ticker, transactionManager, TEST_SESSION);
+    }
+
+    private QueryStateMachine createQueryStateMachineWithTicker(Ticker ticker, TransactionManager transactionManager, Session session)
+    {
         Metadata metadata = MetadataManager.createTestMetadataManager();
         AccessControl accessControl = new AccessControlManager(transactionManager);
         QueryStateMachine stateMachine = QueryStateMachine.beginWithTicker(
                 QUERY,
                 Optional.empty(),
-                TEST_SESSION,
+                session,
                 LOCATION,
                 new ResourceGroupId("test"),
                 QUERY_TYPE,

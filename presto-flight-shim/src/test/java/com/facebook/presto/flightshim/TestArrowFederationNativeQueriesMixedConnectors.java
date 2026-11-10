@@ -13,21 +13,32 @@
  */
 package com.facebook.presto.flightshim;
 
+import com.facebook.airlift.json.JsonCodec;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.mongodb.MongoPlugin;
 import com.facebook.presto.mongodb.MongoQueryRunner;
 import com.facebook.presto.plugin.mysql.MySqlPlugin;
 import com.facebook.presto.plugin.postgresql.PostgreSqlPlugin;
 import com.facebook.presto.redis.util.EmbeddedRedis;
+import com.facebook.presto.split.PageSourceManager;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
 import com.facebook.presto.tests.DistributedQueryRunner;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Binder;
 import com.google.inject.Injector;
+import com.google.inject.Module;
+import com.google.inject.Scopes;
 import io.airlift.tpch.TpchTable;
 import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -35,7 +46,12 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import javax.inject.Inject;
+
+import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createJavaQueryRunner;
 import static com.facebook.presto.flightshim.NativeArrowFederationConnectorUtils.createJdbcConnectorProperties;
@@ -51,6 +67,8 @@ import static com.facebook.presto.redis.RedisQueryRunner.createTpchTableDescript
 import static com.facebook.presto.redis.util.EmbeddedRedis.createEmbeddedRedis;
 import static com.facebook.presto.redis.util.RedisTestUtils.createEmptyTableDescriptions;
 import static com.facebook.presto.sidecar.NativeSidecarPluginQueryRunnerUtils.setupNativeSidecarPlugin;
+import static com.google.inject.util.Modules.override;
+import static java.util.Objects.requireNonNull;
 
 public class TestArrowFederationNativeQueriesMixedConnectors
         extends AbstractTestQueryFramework
@@ -103,7 +121,7 @@ public class TestArrowFederationNativeQueriesMixedConnectors
     public void init()
             throws Exception
     {
-        Injector injector = FlightShimServer.initialize(getFlightServerShimConfig(PLUGIN_BUNDLES));
+        Injector injector = FlightShimServer.initialize(override(new FlightShimModule()).with(new TestingMixedConnectorsModule()), getFlightServerShimConfig(PLUGIN_BUNDLES));
         server = FlightShimServer.start(injector, FlightServer.builder(), getCatalogPropertiesMap());
         allocator = injector.getInstance(BufferAllocator.class);
         producer = injector.getInstance(FlightShimProducer.class);
@@ -382,5 +400,80 @@ public class TestArrowFederationNativeQueriesMixedConnectors
         ImmutableMap.Builder<String, String> propertyBuilder = ImmutableMap.builder();
         propertyBuilder.put("connector.name", connectorName).putAll(connectorProperties);
         return propertyBuilder.build();
+    }
+
+    // Override Producer to correct serialized type info
+    private static class TestingMixedConnectorsProducer
+            extends FlightShimProducer
+    {
+        private final JsonCodec<FlightShimRequest> requestCodec;
+
+        @Inject
+        public TestingMixedConnectorsProducer(BufferAllocator allocator, FlightShimPluginManager pluginManager, FlightShimConfig config, @ForFlightShimServer ExecutorService shimExecutor, PageSourceManager pageSourceManager, JsonCodec<FlightShimRequest> requestCodec, JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec)
+        {
+            super(allocator, pluginManager, config, shimExecutor, pageSourceManager, requestCodec, executionFailureInfoCodec);
+            this.requestCodec = requireNonNull(requestCodec, "requestCodec is null");
+        }
+
+        @Override
+        public void getStream(CallContext context, Ticket ticket, ServerStreamListener listener)
+        {
+            // Because the testing Presto server can serialize type information incorrectly, we must
+            // correct "type" fields in the request handle bytes, see https://github.com/prestodb/presto/issues/28643
+            FlightShimRequest request = requestCodec.fromJson(ticket.getBytes());
+            FlightShimRequest correctedRequest = new FlightShimRequest(
+                    request.getConnectorId(),
+                    request.getFields(),
+                    correctJsonTypeInfo(request.getConnectorId(), request.getSplitBytes()),
+                    request.getColumnHandlesBytes().stream().map(columnHandleBytes -> correctJsonTypeInfo(request.getConnectorId(), columnHandleBytes)).collect(Collectors.toList()),
+                    correctJsonTypeInfo(request.getConnectorId(), request.getTableHandleBytes()),
+                    request.getTableLayoutHandleBytes().map(tableHandleBytes -> correctJsonTypeInfo(request.getConnectorId(), tableHandleBytes)),
+                    correctJsonTypeInfo(request.getConnectorId(), request.getTransactionHandleBytes()));
+            super.getStream(context, new Ticket(requestCodec.toBytes(correctedRequest)), listener);
+        }
+
+        private byte[] correctJsonTypeInfo(String connectorName, byte[] jsonBytes)
+        {
+            ObjectMapper objectMapper = new ObjectMapper();
+            try {
+                JsonNode tree = objectMapper.readTree(jsonBytes);
+                if (tree.isObject()) {
+                    ObjectNode objectNode = (ObjectNode) tree;
+                    if (objectNode.has("@type")) {
+                        objectNode.put("@type", connectorName);
+                        for (JsonNode columnDomain : objectNode.path("tupleDomain").path("columnDomains")) {
+                            JsonNode column = columnDomain.path("column");
+                            if (column.isObject() && column.has("@type")) {
+                                ((ObjectNode) column).put("@type", connectorName);
+                            }
+                        }
+                        if (objectNode.has("table")) {
+                            ObjectNode tableNode = (ObjectNode) objectNode.get("table");
+                            if (tableNode.has("@type")) {
+                                tableNode.put("@type", connectorName);
+                            }
+                        }
+                    }
+                }
+                else if (tree.isArray()) {
+                    ArrayNode arrayNode = (ArrayNode) tree;
+                    arrayNode.set(0, connectorName);
+                }
+                return objectMapper.writeValueAsBytes(tree);
+            }
+            catch (IOException e) {
+                throw new IllegalArgumentException("Unable to correct JSON type info on Flight request", e);
+            }
+        }
+    }
+
+    private static class TestingMixedConnectorsModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            binder.bind(FlightShimProducer.class).to(TestingMixedConnectorsProducer.class).in(Scopes.SINGLETON);
+        }
     }
 }

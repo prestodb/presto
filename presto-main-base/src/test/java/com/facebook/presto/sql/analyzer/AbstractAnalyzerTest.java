@@ -65,7 +65,9 @@ import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.AggregationFunctionMetadata;
 import com.facebook.presto.spi.function.FunctionImplementationType;
+import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.function.Parameter;
 import com.facebook.presto.spi.function.RoutineCharacteristics;
 import com.facebook.presto.spi.function.SqlInvokedFunction;
@@ -114,8 +116,11 @@ import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_O
 import static com.facebook.presto.SystemSessionProperties.CHECK_ACCESS_CONTROL_WITH_SUBFIELDS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.FunctionExtractor.extractFunctions;
 import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.operator.scalar.ApplyFunction.APPLY_FUNCTION;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
@@ -170,6 +175,21 @@ public class AbstractAnalyzerTest
             "RETURN x * x",
             notVersioned());
 
+    protected static final SqlInvokedFunction SQL_AGGREGATE_SUM = new SqlInvokedFunction(
+            QualifiedObjectName.valueOf("unittest", "memory", "sum"),
+            ImmutableList.of(new Parameter("x", parseTypeSignature(StandardTypes.BIGINT))),
+            parseTypeSignature(StandardTypes.BIGINT),
+            "custom aggregate named sum",
+            RoutineCharacteristics.builder()
+                    .setLanguage(SQL)
+                    .setDeterminism(DETERMINISTIC)
+                    .setNullCallClause(RETURNS_NULL_ON_NULL_INPUT)
+                    .build(),
+            "",
+            notVersioned(),
+            FunctionKind.AGGREGATE,
+            Optional.of(new AggregationFunctionMetadata(parseTypeSignature(StandardTypes.BIGINT), false)));
+
     protected TransactionManager transactionManager;
     protected AccessControl accessControl;
     protected Metadata metadata;
@@ -183,6 +203,9 @@ public class AbstractAnalyzerTest
         metadata = createTestMetadataManager(transactionManager, new FeaturesConfig(), new FunctionsConfig(), new TestProcedureRegistry());
 
         metadata.getFunctionAndTypeManager().registerBuiltInFunctions(ImmutableList.of(APPLY_FUNCTION));
+        metadata.getFunctionAndTypeManager().registerBuiltInFunctions(extractFunctions(TestingMaterializedViewPartitionFunctions.class));
+        metadata.getFunctionAndTypeManager().registerMaterializedViewPartitionTransformProviders(
+                ImmutableList.of(new TestingMaterializedViewPartitionTransformProvider()));
 
         metadata.getFunctionAndTypeManager().addFunctionNamespace(
                 "unittest",
@@ -194,6 +217,7 @@ public class AbstractAnalyzerTest
                         new SqlInvokedFunctionNamespaceManagerConfig().setSupportedFunctionLanguages("sql")));
 
         metadata.getFunctionAndTypeManager().createFunction(SQL_FUNCTION_SQUARE, true);
+        metadata.getFunctionAndTypeManager().createFunction(SQL_AGGREGATE_SUM, true);
 
         metadata.getFunctionAndTypeManager().getTableFunctionRegistry().addTableFunctions(TPCH_CONNECTOR_ID,
                 ImmutableList.of(
@@ -469,6 +493,71 @@ public class AbstractAnalyzerTest
                 new SchemaTableName("s1", "v_char_varchar_stale"),
                 ImmutableList.of(ColumnMetadata.builder().setName("b").setType(CharType.createCharType(3)).build()));
         inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataCharVarcharStale, viewDataCharVarcharStale, false));
+
+        String viewDataTimestampZoneForward = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select CAST(null AS TIMESTAMP) a",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("a", TIMESTAMP_WITH_TIME_ZONE)),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataTimestampZoneForward = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_timestamp_zone_forward"),
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(TIMESTAMP_WITH_TIME_ZONE).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataTimestampZoneForward, viewDataTimestampZoneForward, false));
+
+        String viewDataTimestampZoneReverse = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select CAST(null AS TIMESTAMP WITH TIME ZONE) a",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("a", TIMESTAMP)),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataTimestampZoneReverse = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_timestamp_zone_reverse"),
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(TIMESTAMP).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataTimestampZoneReverse, viewDataTimestampZoneReverse, false));
+
+        String viewDataTimestampZoneNested = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select CAST(null AS ARRAY(TIMESTAMP)) a",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("a", new ArrayType(TIMESTAMP_WITH_TIME_ZONE))),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataTimestampZoneNested = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_timestamp_zone_nested"),
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(new ArrayType(TIMESTAMP_WITH_TIME_ZONE)).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataTimestampZoneNested, viewDataTimestampZoneNested, false));
+
+        String viewDataTimestampZoneMatch = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select CAST(null AS TIMESTAMP WITH TIME ZONE) a",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("a", TIMESTAMP_WITH_TIME_ZONE)),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataTimestampZoneMatch = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_timestamp_zone_match"),
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(TIMESTAMP_WITH_TIME_ZONE).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataTimestampZoneMatch, viewDataTimestampZoneMatch, false));
+
+        String viewDataAtTimeZoneNonLegacy = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select TIMESTAMP '2020-06-15 12:00:00 UTC' AT TIME ZONE 'America/Los_Angeles' a",
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewDefinition.ViewColumn("a", TIMESTAMP)),
+                        Optional.of("user"),
+                        false));
+        ConnectorTableMetadata viewMetadataAtTimeZoneNonLegacy = new ConnectorTableMetadata(
+                new SchemaTableName("s1", "v_at_timezone_nonlegacy"),
+                ImmutableList.of(ColumnMetadata.builder().setName("a").setType(TIMESTAMP).build()));
+        inSetupTransaction(session -> metadata.createView(session, TPCH_CATALOG, viewMetadataAtTimeZoneNonLegacy, viewDataAtTimeZoneNonLegacy, false));
 
         // view referencing table in different schema from itself and session
         String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(

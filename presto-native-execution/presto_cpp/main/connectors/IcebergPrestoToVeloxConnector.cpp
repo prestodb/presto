@@ -20,10 +20,12 @@
 #include <unordered_set>
 
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
+#include "velox/connectors/hive/iceberg/IcebergChangelogSplitInfo.h"
 #include "velox/connectors/hive/iceberg/IcebergDataSink.h"
 #include "velox/connectors/hive/iceberg/IcebergFieldMetadata.h"
 #include "velox/connectors/hive/iceberg/IcebergMetadataColumns.h"
 #include "velox/connectors/hive/iceberg/IcebergSplit.h"
+#include "velox/connectors/hive/iceberg/IcebergTableHandle.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
 namespace facebook::presto {
@@ -39,6 +41,52 @@ const std::unordered_set<std::string> kRowLineageColumnNames = {
         kLastUpdatedSequenceNumberColumnName,
 };
 
+std::unordered_map<std::string, int32_t> parseTopLevelFieldIds(
+    const std::shared_ptr<protocol::String>& tableSchemaJson) {
+  if (tableSchemaJson == nullptr || tableSchemaJson->empty()) {
+    return {};
+  }
+
+  try {
+    const auto schema = folly::parseJson(*tableSchemaJson);
+    const auto* fields = schema.get_ptr("fields");
+    if (fields == nullptr || !fields->isArray()) {
+      return {};
+    }
+
+    std::unordered_map<std::string, int32_t> fieldIds;
+    fieldIds.reserve(fields->size());
+    for (const auto& field : *fields) {
+      const auto* id = field.get_ptr("id");
+      const auto* name = field.get_ptr("name");
+      if (id == nullptr || !id->isInt() || name == nullptr ||
+          !name->isString()) {
+        return {};
+      }
+      // Velox carries data-column field IDs as a flat vector<int32_t>
+      // (HiveTableHandle::dataColumnFieldIds_), which cannot express the
+      // children of a struct/list/map. Supplying IDs switches the Parquet
+      // reader into kParquetFieldId mapping for the WHOLE file, so a partial
+      // (top-level-only) mapping aborts in getParquetColumnInfo once it
+      // recurses into a nested node: that node has neither name-selected
+      // children nor requested field IDs. Disable ID mapping for the whole
+      // table rather than hand the reader a mapping it cannot follow.
+      // Iceberg serializes a scalar type as a JSON string and any nested type
+      // as an object, so a non-string type is the nesting signal.
+      const auto* type = field.get_ptr("type");
+      if (type == nullptr || !type->isString()) {
+        return {};
+      }
+      fieldIds.emplace(name->asString(), static_cast<int32_t>(id->asInt()));
+    }
+    return fieldIds;
+  } catch (const folly::json::parse_error&) {
+    return {};
+  } catch (const folly::TypeError&) {
+    return {};
+  }
+}
+
 velox::connector::hive::iceberg::FileContent toVeloxFileContent(
     const presto::protocol::iceberg::FileContent content) {
   if (content == protocol::iceberg::FileContent::DATA) {
@@ -51,6 +99,22 @@ velox::connector::hive::iceberg::FileContent toVeloxFileContent(
     return velox::connector::hive::iceberg::FileContent::kDeletionVector;
   }
   VELOX_UNSUPPORTED("Unsupported file content: {}", fmt::underlying(content));
+}
+
+velox::connector::hive::iceberg::ChangelogOperation toVeloxChangelogOperation(
+    const presto::protocol::iceberg::ChangelogOperation operation) {
+  switch (operation) {
+    case protocol::iceberg::ChangelogOperation::INSERT:
+      return velox::connector::hive::iceberg::ChangelogOperation::kInsert;
+    case protocol::iceberg::ChangelogOperation::DELETE:
+      return velox::connector::hive::iceberg::ChangelogOperation::kDelete;
+    case protocol::iceberg::ChangelogOperation::UPDATE_BEFORE:
+      return velox::connector::hive::iceberg::ChangelogOperation::kUpdateBefore;
+    case protocol::iceberg::ChangelogOperation::UPDATE_AFTER:
+      return velox::connector::hive::iceberg::ChangelogOperation::kUpdateAfter;
+  }
+  VELOX_UNSUPPORTED(
+      "Unsupported changelog operation: {}", fmt::underlying(operation));
 }
 
 velox::dwio::common::FileFormat toVeloxFileFormat(
@@ -116,10 +180,20 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     const std::string& tableName,
     const protocol::List<protocol::Column>& dataColumns,
     const protocol::TableHandle& tableHandle,
-    const std::vector<velox::connector::hive::HiveColumnHandlePtr>&
+    const std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>&
         columnHandles,
+    // Row lineage columns the scan filters on or projects; a superset of the
+    // lineage entries in columnHandles.
+    const std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>&
+        lineageColumnHandles,
+    const std::unordered_map<std::string, int32_t>& fieldIdsByName,
     const VeloxExprConverter& exprConverter,
-    const TypeParser& typeParser) {
+    const TypeParser& typeParser,
+    bool isChangelogQuery,
+    const std::unordered_map<
+        std::string,
+        velox::connector::hive::iceberg::IcebergColumnHandlePtr>&
+        dataColumnHandles) {
   velox::common::SubfieldFilters subfieldFilters;
   auto domains = domainPredicate.domains;
   for (const auto& domain : *domains) {
@@ -140,6 +214,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
   }
 
   velox::RowTypePtr finalDataColumns;
+  std::vector<int32_t> dataColumnFieldIds;
   if (!dataColumns.empty()) {
     std::vector<std::string> names;
     std::vector<velox::TypePtr> types;
@@ -164,26 +239,50 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toIcebergTableHandle(
     // exist physically in the written files (e.g. after MERGE/UPDATE). Add any
     // requested lineage columns to finalDataColumns so the reader can match
     // them with the Parquet schema.
-    for (const auto& handle : columnHandles) {
-      if (kRowLineageColumnNames.count(handle->name()) &&
-          std::find(names.begin(), names.end(), handle->name()) ==
-              names.end()) {
+    for (const auto& handle : lineageColumnHandles) {
+      if (std::find(names.begin(), names.end(), handle->name()) ==
+          names.end()) {
         names.emplace_back(handle->name());
         types.push_back(handle->dataType());
       }
     }
 
+    dataColumnFieldIds.reserve(names.size());
+    for (const auto& name : names) {
+      const auto fieldIdIt = fieldIdsByName.find(name);
+      if (fieldIdIt != fieldIdsByName.end()) {
+        dataColumnFieldIds.push_back(fieldIdIt->second);
+        continue;
+      }
+
+      const auto handleIt = std::find_if(
+          lineageColumnHandles.begin(),
+          lineageColumnHandles.end(),
+          [&name](const auto& handle) { return handle->name() == name; });
+      if (handleIt == lineageColumnHandles.end()) {
+        dataColumnFieldIds.clear();
+        break;
+      }
+      dataColumnFieldIds.push_back((*handleIt)->field().fieldId);
+    }
+
     finalDataColumns = ROW(std::move(names), std::move(types));
   }
 
-  return std::make_unique<velox::connector::hive::HiveTableHandle>(
+  return std::make_unique<velox::connector::hive::iceberg::IcebergTableHandle>(
       tableHandle.connectorId,
       tableName,
       std::move(subfieldFilters),
       remainingFilter,
       finalDataColumns,
-      std::unordered_map<std::string, std::string>{},
-      columnHandles);
+      /*indexColumns=*/std::vector<std::string>{},
+      /*tableParameters=*/std::unordered_map<std::string, std::string>{},
+      columnHandles,
+      /*sampleRate=*/1.0,
+      /*dbName=*/"",
+      std::move(dataColumnFieldIds),
+      isChangelogQuery,
+      dataColumnHandles);
 }
 
 velox::connector::hive::iceberg::IcebergPartitionSpec::Field
@@ -245,11 +344,12 @@ velox::parquet::ParquetFieldId toParquetField(
 }
 
 // Extracts the Iceberg partition spec ID from the JSON-encoded spec carried on
-// each split (IcebergSplit.partitionSpecAsJson on the Java side). The JSON
-// always has a top-level "specId" integer per Iceberg's PartitionSpecParser.
-// Returns std::nullopt only when parsing fails so callers can decide whether
-// to omit the resulting info column (synthesis paths that depend on a real
-// spec_id should treat absence as a hard error).
+// each split (IcebergSplit.partitionSpecAsJson on the Java side). The producer
+// is Iceberg's PartitionSpecParser.toJson, which emits the hyphenated
+// "spec-id" key (matching "source-id" / "field-id" on each field) -- not a
+// camelCase "specId". Returns std::nullopt only when parsing fails so callers
+// can decide whether to omit the resulting info column (synthesis paths that
+// depend on a real spec_id should treat absence as a hard error).
 std::optional<int32_t> tryParsePartitionSpecId(
     const std::string& partitionSpecAsJson) {
   if (partitionSpecAsJson.empty()) {
@@ -260,7 +360,7 @@ std::optional<int32_t> tryParsePartitionSpecId(
     if (!parsed.isObject()) {
       return std::nullopt;
     }
-    const auto* specIdField = parsed.get_ptr("specId");
+    const auto* specIdField = parsed.get_ptr("spec-id");
     if (specIdField == nullptr || !specIdField->isInt()) {
       return std::nullopt;
     }
@@ -269,6 +369,101 @@ std::optional<int32_t> tryParsePartitionSpecId(
     return std::nullopt;
   } catch (const folly::TypeError&) {
     return std::nullopt;
+  }
+}
+
+// Maps the Iceberg source-column field ID of every explicitly identity
+// partition field to that field's partition value for this split.
+//
+// 'partitionSpecAsJson' is Iceberg's PartitionSpecParser.toJson() output:
+//   {"spec-id": 0,
+//    "fields": [{"name": "ts_day", "transform": "day",
+//                "source-id": 3, "field-id": 1000}]}
+//
+// "field-id" is optional; V1 specs omit it.
+//
+// Only an identity partition value equals the source column's value, so only
+// identity fields may be substituted for a read of the source column. A
+// transformed field ("bucket[16]", "truncate[4]", "year"/"month"/"day"/"hour")
+// stores the transform result, not the source value. "void" is the dangerous
+// case that name matching cannot catch: it always stores null and, unlike the
+// other transforms, keeps the source column's name by default, so a
+// name-keyed lookup would happily substitute a null for live source data.
+//
+// The Java producer (IcebergUtil.getPartitionKeys) keys every partition field
+// by 'PartitionField.fieldId()' and additionally duplicates identity fields
+// under 'PartitionField.sourceId()'. Prefer the source-ID entry, and fall back
+// to the partition-field-ID entry only after the spec has proven the transform
+// is identity.
+//
+// Returns an empty map when the spec is absent or malformed so callers read
+// source columns from the data file instead of inferring identity by name.
+std::unordered_map<int32_t, std::optional<std::string>>
+parseIdentityPartitionKeys(
+    const std::string& partitionSpecAsJson,
+    const protocol::Map<protocol::Integer, protocol::hive::HivePartitionKey>&
+        partitionKeys) {
+  if (partitionSpecAsJson.empty() || partitionKeys.empty()) {
+    return {};
+  }
+
+  try {
+    const auto spec = folly::parseJson(partitionSpecAsJson);
+    if (!spec.isObject()) {
+      return {};
+    }
+    const auto* fields = spec.get_ptr("fields");
+    if (fields == nullptr || !fields->isArray()) {
+      return {};
+    }
+
+    std::unordered_map<int32_t, std::optional<std::string>> identityKeys;
+    for (const auto& field : *fields) {
+      if (!field.isObject()) {
+        return {};
+      }
+      const auto* transform = field.get_ptr("transform");
+      const auto* sourceId = field.get_ptr("source-id");
+      const auto* name = field.get_ptr("name");
+      // Reject the whole spec rather than silently skipping a field: a
+      // partially understood spec cannot prove which fields are identity.
+      if (transform == nullptr || !transform->isString() ||
+          sourceId == nullptr || !sourceId->isInt() || name == nullptr ||
+          !name->isString()) {
+        return {};
+      }
+      // Iceberg's own parser treats "field-id" as optional -- V1 specs omit it
+      // and the partition field IDs are assigned from PARTITION_DATA_ID_START
+      // on read. Only "source-id" is needed to classify and look up an
+      // identity field, so absence must not disqualify the spec. Present but
+      // non-integer is still a reason to distrust it.
+      const auto* fieldId = field.get_ptr("field-id");
+      if (fieldId != nullptr && !fieldId->isInt()) {
+        return {};
+      }
+      if (transform->asString() != "identity") {
+        continue;
+      }
+
+      const auto sourceFieldId = static_cast<int32_t>(sourceId->asInt());
+      auto valueIt = partitionKeys.find(sourceFieldId);
+      if (valueIt == partitionKeys.end() && fieldId != nullptr) {
+        valueIt = partitionKeys.find(static_cast<int32_t>(fieldId->asInt()));
+      }
+      if (valueIt == partitionKeys.end()) {
+        continue;
+      }
+      identityKeys.emplace(
+          sourceFieldId,
+          valueIt->second.value == nullptr
+              ? std::nullopt
+              : std::optional<std::string>{*valueIt->second.value});
+    }
+    return identityKeys;
+  } catch (const folly::json::parse_error&) {
+    return {};
+  } catch (const folly::TypeError&) {
+    return {};
   }
 }
 
@@ -436,6 +631,17 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
           kPartitionDataInfoColumn,
       icebergSplit->partitionDataJson ? *icebergSplit->partitionDataJson : "");
 
+  // Convert changelog split info if present
+  std::optional<velox::connector::hive::iceberg::ChangelogSplitInfo>
+      changelogInfo = std::nullopt;
+  if (icebergSplit->changelogSplitInfo) {
+    const auto& protocolChangelogInfo = *icebergSplit->changelogSplitInfo;
+    changelogInfo = velox::connector::hive::iceberg::ChangelogSplitInfo{
+        toVeloxChangelogOperation(protocolChangelogInfo.operation),
+        protocolChangelogInfo.ordinal,
+        protocolChangelogInfo.snapshotId};
+  }
+
   return std::make_unique<velox::connector::hive::iceberg::HiveIcebergSplit>(
       catalogId,
       icebergSplit->path,
@@ -448,7 +654,13 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
       nullptr,
       splitContext->cacheable,
       deletes,
-      infoColumns);
+      infoColumns,
+      std::nullopt,
+      icebergSplit->dataSequenceNumber,
+      parseIdentityPartitionKeys(
+          icebergSplit->partitionSpecAsJson, icebergSplit->partitionKeys),
+      std::nullopt,
+      changelogInfo);
 }
 
 std::unique_ptr<velox::connector::ColumnHandle>
@@ -469,6 +681,11 @@ IcebergPrestoToVeloxConnector::toVeloxColumnHandle(
     defaultValue = *icebergColumn->defaultValue;
   }
 
+  std::optional<std::string> writeDefaultValue;
+  if (icebergColumn->writeDefaultValue) {
+    writeDefaultValue = *icebergColumn->writeDefaultValue;
+  }
+
   return std::make_unique<velox::connector::hive::iceberg::IcebergColumnHandle>(
       icebergColumn->columnIdentity.name,
       toHiveColumnType(icebergColumn->columnType),
@@ -476,12 +693,31 @@ IcebergPrestoToVeloxConnector::toVeloxColumnHandle(
       toParquetField(icebergColumn->columnIdentity),
       toRequiredSubfields(icebergColumn->requiredSubfields),
       defaultValue,
-      toIcebergFieldMetadata(icebergColumn->columnIdentity));
+      toIcebergFieldMetadata(icebergColumn->columnIdentity),
+      /*postProcessor=*/std::function<void(velox::VectorPtr&)>{},
+      /*writeDefaultValue=*/writeDefaultValue);
 }
 
 std::unique_ptr<velox::connector::ConnectorTableHandle>
 IcebergPrestoToVeloxConnector::toVeloxTableHandle(
     const protocol::TableHandle& tableHandle,
+    const VeloxExprConverter& exprConverter,
+    const TypeParser& typeParser) const {
+  return toVeloxTableHandle(
+      tableHandle,
+      protocol::Map<
+          protocol::VariableReferenceExpression,
+          std::shared_ptr<protocol::ColumnHandle>>{},
+      exprConverter,
+      typeParser);
+}
+
+std::unique_ptr<velox::connector::ConnectorTableHandle>
+IcebergPrestoToVeloxConnector::toVeloxTableHandle(
+    const protocol::TableHandle& tableHandle,
+    const protocol::Map<
+        protocol::VariableReferenceExpression,
+        std::shared_ptr<protocol::ColumnHandle>>& assignments,
     const VeloxExprConverter& exprConverter,
     const TypeParser& typeParser) const {
   VELOX_CHECK_NOT_NULL(
@@ -494,24 +730,55 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
       "Unexpected layout type {}",
       tableHandle.connectorTableLayout->_type);
 
+  const auto toIcebergColumnHandle =
+      [&](const protocol::iceberg::IcebergColumnHandle& column) {
+        auto handle = std::dynamic_pointer_cast<
+            const velox::connector::hive::iceberg::IcebergColumnHandle>(
+            std::shared_ptr(toVeloxColumnHandle(&column, typeParser)));
+        VELOX_CHECK_NOT_NULL(
+            handle,
+            "Expected IcebergColumnHandle for column: {}",
+            column.columnIdentity.name);
+        return handle;
+      };
+
   std::unordered_set<std::string> columnNames;
-  std::vector<velox::connector::hive::HiveColumnHandlePtr> columnHandles;
+  std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
+      columnHandles;
   for (const auto& entry : icebergLayout->partitionColumns) {
     if (columnNames.emplace(entry.columnIdentity.name).second) {
-      columnHandles.emplace_back(
-          std::dynamic_pointer_cast<
-              const velox::connector::hive::HiveColumnHandle>(
-              std::shared_ptr(toVeloxColumnHandle(&entry, typeParser))));
+      columnHandles.emplace_back(toIcebergColumnHandle(entry));
     }
   }
 
   // Add synthesized columns to the TableScanNode columnHandles as well.
   for (const auto& entry : icebergLayout->predicateColumns) {
     if (columnNames.emplace(entry.second.columnIdentity.name).second) {
-      columnHandles.emplace_back(
-          std::dynamic_pointer_cast<
-              const velox::connector::hive::HiveColumnHandle>(
-              std::shared_ptr(toVeloxColumnHandle(&entry.second, typeParser))));
+      columnHandles.emplace_back(toIcebergColumnHandle(entry.second));
+    }
+  }
+
+  // Row lineage columns the scan filters on or projects, so the reader finds
+  // their field IDs in finalDataColumns and returns stored values. Projected
+  // ones are not filter columns and stay out of columnHandles.
+  std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
+      lineageColumnHandles;
+  for (const auto& handle : columnHandles) {
+    if (kRowLineageColumnNames.count(handle->name())) {
+      lineageColumnHandles.push_back(handle);
+    }
+  }
+  for (const auto& [variable, column] : assignments) {
+    VELOX_CHECK_NOT_NULL(
+        column, "Missing column handle for variable {}", variable.name);
+    auto icebergColumn =
+        dynamic_cast<const protocol::iceberg::IcebergColumnHandle*>(
+            column.get());
+    VELOX_CHECK_NOT_NULL(
+        icebergColumn, "Unexpected column handle type {}", column->_type);
+    if (kRowLineageColumnNames.count(icebergColumn->columnIdentity.name) &&
+        columnNames.emplace(icebergColumn->columnIdentity.name).second) {
+      lineageColumnHandles.emplace_back(toIcebergColumnHandle(*icebergColumn));
     }
   }
 
@@ -531,6 +798,29 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
             icebergTableHandle->schemaName,
             icebergTableHandle->icebergTableName.tableName);
 
+  const bool isChangelogQuery =
+      icebergTableHandle->icebergTableName.tableType ==
+      protocol::iceberg::IcebergTableType::CHANGELOG;
+
+  // For changelog queries, the base table's column handles carry the field
+  // IDs and default values needed to read the underlying data files.
+  std::unordered_map<
+      std::string,
+      velox::connector::hive::iceberg::IcebergColumnHandlePtr>
+      dataColumnHandles;
+  if (isChangelogQuery) {
+    for (const auto& [name, handle] : icebergLayout->dataColumnHandles) {
+      auto icebergColumnHandle = std::dynamic_pointer_cast<
+          const velox::connector::hive::iceberg::IcebergColumnHandle>(
+          std::shared_ptr(toVeloxColumnHandle(&handle, typeParser)));
+      VELOX_CHECK_NOT_NULL(
+          icebergColumnHandle,
+          "Expected IcebergColumnHandle for changelog data column: {}",
+          name);
+      dataColumnHandles.emplace(name, std::move(icebergColumnHandle));
+    }
+  }
+
   return toIcebergTableHandle(
       icebergLayout->domainPredicate,
       icebergLayout->remainingPredicate,
@@ -538,8 +828,12 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
       icebergLayout->dataColumns,
       tableHandle,
       columnHandles,
+      lineageColumnHandles,
+      parseTopLevelFieldIds(icebergTableHandle->tableSchemaJson),
       exprConverter,
-      typeParser);
+      typeParser,
+      isChangelogQuery,
+      dataColumnHandles);
 }
 
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
@@ -634,7 +928,20 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       toVeloxIcebergPartitionSpec(
           icebergInsertTableHandle->partitionSpec, typeParser),
       std::optional(
-          toFileCompressionKind(icebergInsertTableHandle->compressionCodec)));
+          toFileCompressionKind(icebergInsertTableHandle->compressionCodec)),
+      /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
+      /*writeKind=*/
+      velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+          kData,
+      /*existingDeletionVectors=*/
+      std::unordered_map<
+          std::string,
+          velox::connector::hive::iceberg::IcebergInsertTableHandle::
+              ExistingDeletionVector>{},
+      /*fileNameGenerator=*/
+      std::make_shared<
+          const velox::connector::hive::iceberg::IcebergFileNameGenerator>(),
+      /*insertedColumns=*/icebergInsertTableHandle->insertedColumns);
 }
 
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>

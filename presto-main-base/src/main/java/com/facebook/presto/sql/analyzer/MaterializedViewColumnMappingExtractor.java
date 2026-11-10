@@ -16,11 +16,24 @@ package com.facebook.presto.sql.analyzer;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.function.FunctionMetadata;
+import com.facebook.presto.spi.materializedview.MaterializedViewPartitionTransform;
+import com.facebook.presto.spi.materializedview.MaterializedViewPartitionTransformArgument;
+import com.facebook.presto.spi.materializedview.MaterializedViewPartitionTransformProvider;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.CreateMaterializedView;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.Literal;
 import com.facebook.presto.sql.tree.Query;
+import com.facebook.presto.sql.tree.QuerySpecification;
+import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetOperation;
+import com.facebook.presto.sql.tree.SingleColumn;
 import com.facebook.presto.sql.tree.Table;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -37,7 +50,9 @@ import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectNam
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
 import static com.facebook.presto.spi.MaterializedViewDefinition.TableColumn;
 import static com.facebook.presto.sql.MaterializedViewUtils.transitiveClosure;
+import static com.facebook.presto.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.planner.LiteralInterpreter.evaluate;
 import static com.facebook.presto.sql.tree.Join.Type.INNER;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -141,21 +156,214 @@ public class MaterializedViewColumnMappingExtractor
     {
         Query viewQuery = ((CreateMaterializedView) analysis.getStatement()).getQuery();
         Set<String> mappedColumns = getMaterializedViewColumnMappings().keySet();
+        Map<String, Expression> outputExpressions = getOutputExpressions();
 
         Map<String, List<TableColumn>> derivedColumnMappings = new HashMap<>();
         for (Field field : analysis.getOutputDescriptor(viewQuery).getVisibleFields()) {
             if (!field.getName().isPresent() || mappedColumns.contains(field.getName().get())) {
                 continue;
             }
+            String viewColumn = field.getName().get();
+            Expression outputExpression = outputExpressions.get(viewColumn);
+            if (outputExpression != null) {
+                validatePartitionTransformIsDirect(outputExpression, viewColumn);
+            }
+            Optional<AnalyzedPartitionTransform> partitionTransform = tryExtractPartitionTransform(outputExpression);
             List<TableColumn> baseColumns = analysis.getDirectLineageEntries(field).stream()
                     .map(entry -> new TableColumn(toSchemaTableName(entry.getTableName()), entry.getColumnName(), false))
                     .distinct()
                     .collect(toImmutableList());
+            if (partitionTransform.isPresent()) {
+                if (baseColumns.size() != 1) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            outputExpression,
+                            "Partition transform producing column %s reads %s source columns. It must read exactly one direct source column.",
+                            viewColumn,
+                            baseColumns.size());
+                }
+                FunctionCall functionCall = (FunctionCall) outputExpression;
+                int sourceArgumentIndex = partitionTransform.get().sourceArgumentIndex;
+                if (!analysis.isColumnReference(functionCall.getArguments().get(sourceArgumentIndex))) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            functionCall.getArguments().get(sourceArgumentIndex),
+                            "Partition transform producing column %s must use a direct source column.",
+                            viewColumn);
+                }
+                TableColumn sourceColumn = baseColumns.get(0);
+                baseColumns = ImmutableList.of(new TableColumn(
+                        sourceColumn.getTableName(),
+                        sourceColumn.getColumnName(),
+                        false,
+                        partitionTransform.get().encodedProperties));
+            }
             if (!baseColumns.isEmpty()) {
-                derivedColumnMappings.put(field.getName().get(), baseColumns);
+                derivedColumnMappings.put(viewColumn, baseColumns);
             }
         }
         return derivedColumnMappings;
+    }
+
+    /**
+     * Select-list expressions keyed by the output column name they produce. Materialized view
+     * analysis rejects unnamed computed columns before this extractor is created. {@code SELECT *}
+     * expands to named direct fields with no select-item of their own and is skipped, which is safe
+     * because a wildcard cannot introduce an aggregate or partition transform.
+     */
+    private Map<String, Expression> getOutputExpressions()
+    {
+        Query viewQuery = ((CreateMaterializedView) analysis.getStatement()).getQuery();
+        if (!(viewQuery.getQueryBody() instanceof QuerySpecification)) {
+            if (viewQuery.getQueryBody() instanceof SetOperation) {
+                List<FunctionCall> partitionTransforms = extractExpressions(ImmutableList.of(viewQuery), FunctionCall.class).stream()
+                        .filter(this::isRegisteredPartitionTransform)
+                        .collect(toImmutableList());
+                if (!partitionTransforms.isEmpty()) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            partitionTransforms.get(0),
+                            "Partition transforms are not supported in set-operation materialized views");
+                }
+            }
+            return ImmutableMap.of();
+        }
+
+        Map<String, Expression> outputExpressions = new HashMap<>();
+        for (SelectItem selectItem : ((QuerySpecification) viewQuery.getQueryBody()).getSelect().getSelectItems()) {
+            if (!(selectItem instanceof SingleColumn)) {
+                continue;
+            }
+            SingleColumn singleColumn = (SingleColumn) selectItem;
+            Optional<String> name = singleColumn.getAlias().map(Identifier::getValue);
+            if (!name.isPresent() && singleColumn.getExpression() instanceof Identifier) {
+                name = Optional.of(((Identifier) singleColumn.getExpression()).getValue());
+            }
+            name.ifPresent(columnName -> outputExpressions.put(columnName, singleColumn.getExpression()));
+        }
+        return outputExpressions;
+    }
+
+    private Optional<AnalyzedPartitionTransform> tryExtractPartitionTransform(Expression expression)
+    {
+        if (!(expression instanceof FunctionCall)) {
+            return Optional.empty();
+        }
+        FunctionCall functionCall = (FunctionCall) expression;
+        FunctionMetadata function = getFunctionMetadata(functionCall);
+        Optional<MaterializedViewPartitionTransformProvider> provider = getPartitionTransformProvider(functionCall, function);
+        if (!provider.isPresent()) {
+            return Optional.empty();
+        }
+
+        ImmutableList.Builder<MaterializedViewPartitionTransformArgument> arguments = ImmutableList.builder();
+        int sourceArgumentIndex = -1;
+        int sourceArgumentCount = 0;
+        for (int index = 0; index < functionCall.getArguments().size(); index++) {
+            Expression argument = functionCall.getArguments().get(index);
+            if (analysis.isColumnReference(argument)) {
+                if (sourceArgumentIndex < 0) {
+                    sourceArgumentIndex = index;
+                }
+                sourceArgumentCount++;
+                arguments.add(MaterializedViewPartitionTransformArgument.sourceColumn(analysis.getType(argument)));
+            }
+            else if (argument instanceof Literal) {
+                Object value = evaluate(metadata, session.toConnectorSession(), (Literal) argument);
+                arguments.add(MaterializedViewPartitionTransformArgument.constant(
+                        new ConstantExpression(Optional.empty(), value, analysis.getType(argument))));
+            }
+            else {
+                throw new SemanticException(
+                        NOT_SUPPORTED,
+                        argument,
+                        "Partition transform %s requires one direct source column and constant literal arguments",
+                        functionCall.getName());
+            }
+        }
+        if (sourceArgumentCount != 1) {
+            throw new SemanticException(
+                    NOT_SUPPORTED,
+                    functionCall,
+                    "Partition transform requires exactly one direct source column");
+        }
+        try {
+            List<MaterializedViewPartitionTransformArgument> transformArguments = arguments.build();
+            MaterializedViewPartitionTransform transform = requireNonNull(
+                    provider.get().analyze(function, transformArguments),
+                    "analyzed transform is null");
+            Map<String, String> encodedProperties = metadata.getFunctionAndTypeManager()
+                    .getMaterializedViewPartitionTransformRegistry()
+                    .encode(provider.get(), transform);
+            return Optional.of(new AnalyzedPartitionTransform(sourceArgumentIndex, encodedProperties));
+        }
+        catch (RuntimeException e) {
+            String message = e.getMessage() == null ? "Partition transform provider rejected the function call" : e.getMessage();
+            throw new SemanticException(
+                    NOT_SUPPORTED,
+                    e,
+                    functionCall.getLocation(),
+                    "%s",
+                    message);
+        }
+    }
+
+    private void validatePartitionTransformIsDirect(Expression expression, String viewColumn)
+    {
+        List<FunctionCall> partitionTransforms = extractExpressions(ImmutableList.of(expression), FunctionCall.class).stream()
+                .filter(this::isRegisteredPartitionTransform)
+                .collect(toImmutableList());
+        if (!partitionTransforms.isEmpty() && (!(expression instanceof FunctionCall) || partitionTransforms.size() != 1 || !partitionTransforms.get(0).equals(expression))) {
+            throw new SemanticException(
+                    NOT_SUPPORTED,
+                    expression,
+                    "Partition transform producing column %s must be selected directly, not wrapped in another expression.",
+                    viewColumn);
+        }
+    }
+
+    private boolean isRegisteredPartitionTransform(FunctionCall functionCall)
+    {
+        return getPartitionTransformProvider(functionCall, getFunctionMetadata(functionCall)).isPresent();
+    }
+
+    private FunctionMetadata getFunctionMetadata(FunctionCall functionCall)
+    {
+        return metadata.getFunctionAndTypeManager()
+                .getFunctionAndTypeResolver()
+                .getFunctionMetadata(analysis.getFunctionHandle(functionCall));
+    }
+
+    Optional<MaterializedViewPartitionTransformProvider> getPartitionTransformProvider(
+            FunctionCall functionCall,
+            FunctionMetadata function)
+    {
+        try {
+            return metadata.getFunctionAndTypeManager()
+                    .getMaterializedViewPartitionTransformRegistry()
+                    .getProvider(function);
+        }
+        catch (IllegalArgumentException e) {
+            String message = e.getMessage() == null ? "Invalid materialized view partition transform function" : e.getMessage();
+            throw new SemanticException(
+                    NOT_SUPPORTED,
+                    e,
+                    functionCall.getLocation(),
+                    "%s",
+                    message);
+        }
+    }
+
+    private static final class AnalyzedPartitionTransform
+    {
+        private final int sourceArgumentIndex;
+        private final Map<String, String> encodedProperties;
+
+        private AnalyzedPartitionTransform(int sourceArgumentIndex, Map<String, String> encodedProperties)
+        {
+            this.sourceArgumentIndex = sourceArgumentIndex;
+            this.encodedProperties = requireNonNull(encodedProperties, "encodedProperties is null");
+        }
     }
 
     @Override

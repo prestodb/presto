@@ -17,9 +17,11 @@
 #include <jwt-cpp/traits/nlohmann-json/traits.h> //@manual
 #endif // PRESTO_ENABLE_JWT
 #include <folly/io/async/EventBaseManager.h>
+#include <folly/stop_watch.h>
 #include <folly/synchronization/Latch.h>
 #include <proxygen/lib/http/codec/CodecProtocol.h>
 #include <velox/common/base/Exceptions.h>
+#include <chrono>
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/HttpClient.h"
@@ -268,9 +270,6 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
 
   void onEgressResumed() noexcept override {}
 
-  void onPushedTransaction(
-      proxygen::HTTPTransaction* /* pushedTxn */) noexcept override {}
-
   void connectError(const folly::AsyncSocketException& ex) {
     promise_.setException(ex);
     self_.reset();
@@ -500,7 +499,7 @@ folly::SemiFuture<proxygen::HTTPTransaction*> HttpClient::createTransaction(
       [self = shared_from_this(),
        this,
        handler,
-       startTimeMs = velox::getCurrentTimeMs()](
+       watch = folly::stop_watch<std::chrono::milliseconds>()](
           proxygen::HTTPSessionBase* session) -> proxygen::HTTPTransaction* {
     if (!session) {
       return nullptr;
@@ -525,8 +524,7 @@ folly::SemiFuture<proxygen::HTTPTransaction*> HttpClient::createTransaction(
         nullptr);
     sessionPool_->putSession(session);
     RECORD_HISTOGRAM_METRIC_VALUE(
-        kCounterHTTPClientTransactionCreateDelay,
-        velox::getCurrentTimeMs() - startTimeMs);
+        kCounterHTTPClientTransactionCreateDelay, watch.elapsed().count());
     return sessionPool_->getTransaction(handler);
   };
   if (idleSessionFuture.isReady()) {

@@ -41,8 +41,13 @@ public class FlightShimServer
 
     public static Injector initialize(Map<String, String> config, Module... extraModules)
     {
+        return initialize(new FlightShimModule(), config, extraModules);
+    }
+
+    public static Injector initialize(Module flightModule, Map<String, String> config, Module... extraModules)
+    {
         Bootstrap app = new Bootstrap(ImmutableList.<Module>builder()
-                .add(new FlightShimModule())
+                .add(flightModule)
                 .add(new JsonModule())
                 .add(extraModules)
                 .build());

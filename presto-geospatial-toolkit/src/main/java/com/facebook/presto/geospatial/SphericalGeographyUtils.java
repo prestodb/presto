@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.geospatial;
 
+import com.esri.core.geometry.Envelope;
+import com.esri.core.geometry.Geometry;
+import com.esri.core.geometry.GeometryCursor;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.facebook.presto.spi.PrestoException;
@@ -41,6 +44,8 @@ public class SphericalGeographyUtils
     private static final float MAX_LONGITUDE = 180;
     private static final Joiner OR_JOINER = Joiner.on(" or ");
     private static final Set<GeometryType> ALLOWED_SPHERICAL_DISTANCE_TYPES = EnumSet.of(POINT);
+    private static final Set<Geometry.Type> GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY = EnumSet.of(
+            Geometry.Type.Point, Geometry.Type.Polyline, Geometry.Type.Polygon, Geometry.Type.MultiPoint);
 
     private SphericalGeographyUtils() {}
 
@@ -55,6 +60,39 @@ public class SphericalGeographyUtils
     {
         if (Double.isNaN(longitude) || Double.isInfinite(longitude) || longitude < MIN_LONGITUDE || longitude > MAX_LONGITUDE) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Longitude must be between -180 and 180");
+        }
+    }
+
+    /**
+     * Validates that a geometry can be represented as a SphericalGeography: every coordinate
+     * must be a valid longitude/latitude, the geometry must be 2D, and each of its parts must
+     * be a point, line string or polygon.
+     *
+     * @param envelope the envelope of {@code geometry}
+     */
+    public static void validateSphericalGeography(Envelope envelope, OGCGeometry geometry)
+    {
+        // "every point in input is in range" <=> "the envelope of input is in range"
+        if (!envelope.isEmpty()) {
+            checkLatitude(envelope.getYMin());
+            checkLatitude(envelope.getYMax());
+            checkLongitude(envelope.getXMin());
+            checkLongitude(envelope.getXMax());
+        }
+        if (geometry.is3D()) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot convert 3D geometry to a spherical geography");
+        }
+
+        GeometryCursor cursor = geometry.getEsriGeometryCursor();
+        while (true) {
+            Geometry subGeometry = cursor.next();
+            if (subGeometry == null) {
+                break;
+            }
+
+            if (!GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY.contains(subGeometry.getType())) {
+                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot convert geometry of this type to spherical geography: " + subGeometry.getType());
+            }
         }
     }
 

@@ -32,6 +32,7 @@ public class SqlFunctionProperties
     private final boolean legacyRowFieldOrdinalAccessEnabled;
     private final TimeZoneKey timeZoneKey;
     private final boolean legacyTimestamp;
+    private final boolean legacyTimestampWithTimezone;
     private final boolean legacyMapSubscript;
     private final long sessionStartTime;
     private final Locale sessionLocale;
@@ -48,6 +49,7 @@ public class SqlFunctionProperties
             boolean legacyRowFieldOrdinalAccessEnabled,
             TimeZoneKey timeZoneKey,
             boolean legacyTimestamp,
+            boolean legacyTimestampWithTimezone,
             boolean legacyMapSubscript,
             long sessionStartTime,
             Locale sessionLocale,
@@ -63,6 +65,7 @@ public class SqlFunctionProperties
         this.legacyRowFieldOrdinalAccessEnabled = legacyRowFieldOrdinalAccessEnabled;
         this.timeZoneKey = requireNonNull(timeZoneKey, "timeZoneKey is null");
         this.legacyTimestamp = legacyTimestamp;
+        this.legacyTimestampWithTimezone = legacyTimestampWithTimezone;
         this.legacyMapSubscript = legacyMapSubscript;
         this.sessionStartTime = sessionStartTime;
         this.sessionLocale = requireNonNull(sessionLocale, "sessionLocale is null");
@@ -94,6 +97,11 @@ public class SqlFunctionProperties
     public boolean isLegacyTimestamp()
     {
         return legacyTimestamp;
+    }
+
+    public boolean isLegacyTimestampWithTimezone()
+    {
+        return legacyTimestampWithTimezone;
     }
 
     public boolean isLegacyMapSubscript()
@@ -153,6 +161,7 @@ public class SqlFunctionProperties
                 Objects.equals(legacyRowFieldOrdinalAccessEnabled, that.legacyRowFieldOrdinalAccessEnabled) &&
                 Objects.equals(timeZoneKey, that.timeZoneKey) &&
                 Objects.equals(legacyTimestamp, that.legacyTimestamp) &&
+                Objects.equals(legacyTimestampWithTimezone, that.legacyTimestampWithTimezone) &&
                 Objects.equals(legacyMapSubscript, that.legacyMapSubscript) &&
                 Objects.equals(sessionStartTime, that.sessionStartTime) &&
                 Objects.equals(sessionLocale, that.sessionLocale) &&
@@ -168,7 +177,7 @@ public class SqlFunctionProperties
     public int hashCode()
     {
         return Objects.hash(parseDecimalLiteralAsDouble, legacyRowFieldOrdinalAccessEnabled, timeZoneKey,
-                legacyTimestamp, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser,
+                legacyTimestamp, legacyTimestampWithTimezone, legacyMapSubscript, sessionStartTime, sessionLocale, sessionUser,
                 extraCredentials, legacyJsonCast, canonicalizedJsonExtract, tryCatchableErrorCodes, legacyStEquals);
     }
 
@@ -183,6 +192,8 @@ public class SqlFunctionProperties
         private boolean legacyRowFieldOrdinalAccessEnabled;
         private TimeZoneKey timeZoneKey;
         private boolean legacyTimestamp;
+        // Unset means legacy behavior, matching the legacy_timestamp_with_timezone session property default.
+        private boolean legacyTimestampWithTimezone = true;
         private boolean legacyMapSubscript;
         private long sessionStartTime;
         private Locale sessionLocale;
@@ -217,6 +228,12 @@ public class SqlFunctionProperties
         public Builder setLegacyTimestamp(boolean legacyTimestamp)
         {
             this.legacyTimestamp = legacyTimestamp;
+            return this;
+        }
+
+        public Builder setLegacyTimestampWithTimezone(boolean legacyTimestampWithTimezone)
+        {
+            this.legacyTimestampWithTimezone = legacyTimestampWithTimezone;
             return this;
         }
 
@@ -287,6 +304,7 @@ public class SqlFunctionProperties
                     legacyRowFieldOrdinalAccessEnabled,
                     timeZoneKey,
                     legacyTimestamp,
+                    legacyTimestampWithTimezone,
                     legacyMapSubscript,
                     sessionStartTime,
                     sessionLocale,

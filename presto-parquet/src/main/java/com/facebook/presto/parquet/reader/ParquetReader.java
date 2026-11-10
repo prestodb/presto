@@ -80,6 +80,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.StandardTypes.ARRAY;
@@ -549,22 +550,35 @@ public class ParquetReader
             throws IOException
     {
         ColumnChunk valueChunk = readColumnChunk(field.getValue());
-        int positionCount = valueChunk.getBlock().getPositionCount();
+        ColumnChunk metadataChunk = readColumnChunk(field.getMetadata());
 
-        BlockBuilder variantBlock = VARCHAR.createBlockBuilder(null, positionCount);
-        if (positionCount > 0) {
-            ColumnChunk metadataChunk = readColumnChunk(field.getMetadata());
-            ZoneId zoneId = ZoneOffset.UTC;
-            for (int i = 0; i < valueChunk.getBlock().getPositionCount(); i++) {
-                if (valueChunk.getBlock().isNull(i) || metadataChunk.getBlock().isNull(i)) {
+        // Determine which rows are null at the group (variant) level, mirroring
+        // the struct reader pattern: use the VariantField's own required/definitionLevel
+        // with the child's def/rep levels.
+        BooleanList variantIsNull = StructColumnReader.calculateStructOffsets(
+                field,
+                valueChunk.getDefinitionLevels(),
+                valueChunk.getRepetitionLevels());
+
+        int rowCount = variantIsNull.size();
+        BlockBuilder variantBlock = VARCHAR.createBlockBuilder(null, rowCount);
+        ZoneId zoneId = ZoneOffset.UTC;
+        int valuePos = 0;
+        for (int i = 0; i < rowCount; i++) {
+            if (variantIsNull.getBoolean(i)) {
+                variantBlock.appendNull();
+            }
+            else {
+                if (valueChunk.getBlock().isNull(valuePos) || metadataChunk.getBlock().isNull(valuePos)) {
                     variantBlock.appendNull();
                 }
                 else {
-                    Slice value = VARBINARY.getSlice(valueChunk.getBlock(), i);
-                    Slice metadata = VARBINARY.getSlice(metadataChunk.getBlock(), i);
-                    Variant variant = new Variant(value.byteArray(), metadata.byteArray());
+                    Slice value = VARBINARY.getSlice(valueChunk.getBlock(), valuePos);
+                    Slice metadata = VARBINARY.getSlice(metadataChunk.getBlock(), valuePos);
+                    Variant variant = new Variant(value.getBytes(), metadata.getBytes());
                     VARCHAR.writeSlice(variantBlock, utf8Slice(variant.toJson(zoneId)));
                 }
+                valuePos++;
             }
         }
         return new ColumnChunk(variantBlock.build(), valueChunk.getDefinitionLevels(), valueChunk.getRepetitionLevels());
@@ -634,6 +648,11 @@ public class ParquetReader
                 newBlock = rewriteIntegerArrayBlock((IntArrayBlock) columnChunk.getBlock(), outputType);
             }
         }
+        else if (DOUBLE.equals(outputType) && physicalDataType == PrimitiveTypeName.FLOAT) {
+            if (columnChunk.getBlock() instanceof IntArrayBlock) {
+                newBlock = rewriteFloatArrayBlockToDouble((IntArrayBlock) columnChunk.getBlock());
+            }
+        }
 
         if (newBlock != null) {
             return new ColumnChunk(newBlock, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
@@ -668,6 +687,22 @@ public class ParquetReader
             }
             else {
                 targetType.writeLong(newBlockBuilder, longArrayBlock.getLong(position));
+            }
+        }
+
+        return newBlockBuilder.build();
+    }
+
+    private static Block rewriteFloatArrayBlockToDouble(IntArrayBlock intArrayBlock)
+    {
+        int positionCount = intArrayBlock.getPositionCount();
+        BlockBuilder newBlockBuilder = DOUBLE.createBlockBuilder(null, positionCount);
+        for (int position = 0; position < positionCount; position++) {
+            if (intArrayBlock.isNull(position)) {
+                newBlockBuilder.appendNull();
+            }
+            else {
+                DOUBLE.writeDouble(newBlockBuilder, Float.intBitsToFloat(intArrayBlock.getInt(position)));
             }
         }
 

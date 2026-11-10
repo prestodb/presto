@@ -27,8 +27,8 @@ import static java.util.Objects.requireNonNull;
  * #builder} and is intentionally growable — new context fields can be added here (a new builder
  * setter) without changing the policy method signature or breaking existing implementations.
  *
- * Scope note: this models the <em>plan-time execution axis</em> (streaming mode, and in future
- * dispatch parallelism / batch size), which the optimizer fixes on the {@link RPCNode}. Runtime
+ * Scope note: this models the <em>plan-time execution axis</em> (streaming mode and dispatch batch
+ * size), which the optimizer fixes on the {@link RPCNode}. Runtime
  * concerns (error policy, deadlines, model-quality/cost) are carried separately via query config
  * read by the worker and are deliberately NOT part of this intent.
  */
@@ -38,17 +38,20 @@ public class RpcExecutionIntent
     private final PlanNodeStatsEstimate inputStats;
     private final Session session;
     private final String functionName;
+    private final int dispatchBatchSize;
 
     private RpcExecutionIntent(
             RPCNode.StreamingMode requestedMode,
             PlanNodeStatsEstimate inputStats,
             Session session,
-            String functionName)
+            String functionName,
+            int dispatchBatchSize)
     {
         this.requestedMode = requireNonNull(requestedMode, "requestedMode is null");
         this.inputStats = requireNonNull(inputStats, "inputStats is null");
         this.session = requireNonNull(session, "session is null");
         this.functionName = requireNonNull(functionName, "functionName is null");
+        this.dispatchBatchSize = dispatchBatchSize;
     }
 
     /**
@@ -82,6 +85,14 @@ public class RpcExecutionIntent
         return functionName;
     }
 
+    /**
+     * Requested rows per dispatch batch; zero means no row-count flush threshold.
+     */
+    public int getDispatchBatchSize()
+    {
+        return dispatchBatchSize;
+    }
+
     public static Builder builder()
     {
         return new Builder();
@@ -93,6 +104,7 @@ public class RpcExecutionIntent
         private PlanNodeStatsEstimate inputStats = PlanNodeStatsEstimate.unknown();
         private Session session;
         private String functionName;
+        private int dispatchBatchSize;
 
         public Builder setRequestedMode(RPCNode.StreamingMode requestedMode)
         {
@@ -118,9 +130,15 @@ public class RpcExecutionIntent
             return this;
         }
 
+        public Builder setDispatchBatchSize(int dispatchBatchSize)
+        {
+            this.dispatchBatchSize = dispatchBatchSize;
+            return this;
+        }
+
         public RpcExecutionIntent build()
         {
-            return new RpcExecutionIntent(requestedMode, inputStats, session, functionName);
+            return new RpcExecutionIntent(requestedMode, inputStats, session, functionName, dispatchBatchSize);
         }
     }
 }

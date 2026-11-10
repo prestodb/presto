@@ -22,6 +22,7 @@ import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.TimeZoneKey;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
@@ -65,6 +66,8 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -86,9 +89,14 @@ import static com.facebook.presto.common.predicate.TupleDomain.withColumnDomains
 import static com.facebook.presto.common.predicate.ValueSet.ofRanges;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
 import static com.facebook.presto.common.type.DecimalType.DEFAULT_PRECISION;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.TimeType.TIME;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.UuidType.UUID;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.expressions.LogicalRowExpressions.TRUE_CONSTANT;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.SYNTHESIZED;
@@ -140,8 +148,10 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.NaN;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -2908,6 +2918,69 @@ public class TestIcebergLogicalPlanner
         assertUpdate("DROP TABLE test_pushdown_nestedcolumn_parquet");
     }
 
+    @Test
+    public void testParquetDereferencePushDownWithTypesNotRepresentableInHive()
+    {
+        // An Iceberg row type can hold fields that have no Hive counterpart (TIMESTAMP WITH TIME ZONE, UUID) or that
+        // do not round-trip through one (TIME maps onto a Hive bigint), so the subfield type has to be resolved from
+        // the Presto type of the base column. See https://github.com/prestodb/presto/issues/28510
+        String tableName = "test_pushdown_nestedcolumn_non_hive_types";
+        assertUpdate(format("CREATE TABLE %s(" +
+                "id bigint, " +
+                "x row(a varchar, b timestamp with time zone, c time, d uuid)) " +
+                "with (\"write.format.default\" = 'PARQUET')", tableName));
+        try {
+            assertUpdate(format("INSERT INTO %s VALUES(1, ROW(" +
+                    "'abcd', " +
+                    "TIMESTAMP '1984-12-08 10:00:00.000 UTC', " +
+                    "TIME '10:12:34', " +
+                    "CAST('d2177dd0-eaa2-11de-a572-001b779c76e1' AS uuid)))", tableName), 1);
+
+            // Dereferencing a sibling field used to fail, because pushdown converted the whole row type to a Hive type
+            assertParquetDereferencePushDown(format("SELECT x.a FROM %s", tableName),
+                    tableName,
+                    nestedColumnMap("x.a"));
+
+            assertParquetDereferencePushDown(format("SELECT x.b, x.c, x.d FROM %s", tableName),
+                    tableName,
+                    nestedColumnMap("x.b", "x.c", "x.d"));
+
+            assertPushedDownSubfieldTypes(format("SELECT x.b, x.c, x.d FROM %s", tableName),
+                    tableName,
+                    ImmutableMap.of("x.b", TIMESTAMP_WITH_TIME_ZONE, "x.c", TIME, "x.d", UUID));
+
+            // Filters on the pushed down columns land on the synthesized column handle, carrying its Presto type
+            Subfield timestampWithTimeZoneColumn = nestedColumn("x.b");
+            String timestampWithTimeZoneColumnName = pushdownColumnNameForSubfield(timestampWithTimeZoneColumn);
+            assertParquetDereferencePushDown(format("SELECT 1 FROM %s WHERE x.b = TIMESTAMP '1984-12-08 10:00:00.000 UTC'", tableName),
+                    tableName,
+                    nestedColumnMap("x.b"),
+                    ImmutableSet.of(timestampWithTimeZoneColumnName),
+                    withColumnDomains(ImmutableMap.of(
+                            getSynthesizedIcebergColumnHandle(timestampWithTimeZoneColumnName, TIMESTAMP_WITH_TIME_ZONE, timestampWithTimeZoneColumn),
+                            singleValue(TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(LocalDateTime.of(1984, 12, 8, 10, 0, 0).toInstant(UTC).toEpochMilli(), UTC_KEY)))));
+
+            Subfield timeColumn = nestedColumn("x.c");
+            String timeColumnName = pushdownColumnNameForSubfield(timeColumn);
+            assertParquetDereferencePushDown(format("SELECT 1 FROM %s WHERE x.c = TIME '10:12:34'", tableName),
+                    tableName,
+                    nestedColumnMap("x.c"),
+                    ImmutableSet.of(timeColumnName),
+                    withColumnDomains(ImmutableMap.of(
+                            getSynthesizedIcebergColumnHandle(timeColumnName, TIME, timeColumn),
+                            singleValue(TIME, NANOSECONDS.toMillis(LocalTime.of(10, 12, 34).toNanoOfDay())))));
+
+            // The pushed down columns read back the values that were written
+            assertQuery(withParquetDereferencePushDownEnabled(),
+                    format("SELECT CAST(x.a AS varchar), CAST(x.b AS varchar), CAST(x.c AS varchar), CAST(x.d AS varchar) " +
+                            "FROM %s WHERE x.a = 'abcd'", tableName),
+                    "VALUES ('abcd', '1984-12-08 10:00:00.000 UTC', '10:12:34.000', 'd2177dd0-eaa2-11de-a572-001b779c76e1')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
     // TODO: the following @Ignore test cases could work after optimizer implementing left function unwrap()
     // See https://github.com/prestodb/presto/issues/22244
     @Ignore
@@ -3214,6 +3287,42 @@ public class TestIcebergLogicalPlanner
     private void assertParquetDereferencePushDown(Session session, @Language("SQL") String query, String tableName, Map<String, Subfield> expectedDeferencePushDowns)
     {
         assertPlan(session, query, anyTree(tableScanParquetDeferencePushDowns(tableName, expectedDeferencePushDowns)));
+    }
+
+    /**
+     * Asserts the Presto type carried by each dereference column pushed into the scan of <i>tableName</i>,
+     * keyed by the subfield path (for example "x.b") it was created for.
+     */
+    private void assertPushedDownSubfieldTypes(@Language("SQL") String query, String tableName, Map<String, Type> expectedSubfieldTypes)
+    {
+        Map<String, Type> expected = expectedSubfieldTypes.entrySet().stream()
+                .collect(toImmutableMap(entry -> pushdownColumnNameForSubfield(nestedColumn(entry.getKey())), Map.Entry::getValue));
+
+        assertPlan(withParquetDereferencePushDownEnabled(), query, anyTree(
+                PlanMatchPattern.tableScan(tableName).with(new Matcher()
+                {
+                    @Override
+                    public boolean shapeMatches(PlanNode node)
+                    {
+                        return node instanceof TableScanNode;
+                    }
+
+                    @Override
+                    public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+                    {
+                        Map<String, Type> actual = ((TableScanNode) node).getAssignments().values().stream()
+                                .map(IcebergColumnHandle.class::cast)
+                                .filter(IcebergColumnHandle::isPushedDownSubfield)
+                                .collect(toImmutableMap(IcebergColumnHandle::getName, IcebergColumnHandle::getType));
+                        return expected.equals(actual) ? match() : NO_MATCH;
+                    }
+
+                    @Override
+                    public String toString()
+                    {
+                        return toStringHelper(this).add("pushedDownSubfieldTypes", expected).toString();
+                    }
+                })));
     }
 
     private RowExpression constant(long value)

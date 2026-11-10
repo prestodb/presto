@@ -17,6 +17,7 @@ import com.facebook.airlift.concurrent.SetThreadName;
 import com.facebook.airlift.units.Duration;
 import com.facebook.presto.Session;
 import com.facebook.presto.common.InvalidFunctionArgumentException;
+import com.facebook.presto.common.QueryTracer;
 import com.facebook.presto.common.analyzer.PreparedQuery;
 import com.facebook.presto.common.resourceGroups.QueryType;
 import com.facebook.presto.cost.CostCalculator;
@@ -150,6 +151,7 @@ public class SqlQueryExecution
     private final AtomicBoolean planFutureLocked = new AtomicBoolean();
     private final AccessControl accessControl;
     private final String query;
+    private final Set<QueryCompletionValidator> queryCompletionValidators;
 
     private SqlQueryExecution(
             QueryAnalyzer queryAnalyzer,
@@ -178,7 +180,8 @@ public class SqlQueryExecution
             PartialResultQueryManager partialResultQueryManager,
             PlanCanonicalInfoProvider planCanonicalInfoProvider,
             AccessControl accessControl,
-            String query)
+            String query,
+            Set<QueryCompletionValidator> queryCompletionValidators)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.queryAnalyzer = requireNonNull(queryAnalyzer, "queryAnalyzer is null");
@@ -204,6 +207,7 @@ public class SqlQueryExecution
             this.planCanonicalInfoProvider = requireNonNull(planCanonicalInfoProvider, "planCanonicalInfoProvider is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.query = requireNonNull(query, "query is null");
+            this.queryCompletionValidators = ImmutableSet.copyOf(requireNonNull(queryCompletionValidators, "queryCompletionValidators is null"));
             this.analyzerContext = getAnalyzerContext(queryAnalyzer, metadata.getMetadataResolver(stateMachine.getSession()), idAllocator, new VariableAllocator(), stateMachine.getSession(), query);
 
             // analyze query
@@ -267,8 +271,17 @@ public class SqlQueryExecution
             }
 
             // Optionally build and validate plan immediately, before execution begins
-            planFuture = isEagerPlanValidationEnabled(getSession()) ?
-                    CompletableFuture.supplyAsync(this::runCreateLogicalPlanAsync, eagerPlanValidationExecutor) : null;
+            if (isEagerPlanValidationEnabled(getSession())) {
+                QueryTracer queryTracer = getSession().getRuntimeStats().getQueryTracer();
+                planFuture = CompletableFuture.supplyAsync(
+                        queryTracer == null ?
+                                this::runCreateLogicalPlanAsync :
+                                queryTracer.wrapSupplierWithTraceContext(this::runCreateLogicalPlanAsync),
+                        eagerPlanValidationExecutor);
+            }
+            else {
+                planFuture = null;
+            }
         }
     }
 
@@ -709,7 +722,8 @@ public class SqlQueryExecution
                 planChecker,
                 metadata,
                 sqlParser,
-                partialResultQueryManager);
+                partialResultQueryManager,
+                queryCompletionValidators);
 
         queryScheduler.set(scheduler);
 
@@ -940,6 +954,7 @@ public class SqlQueryExecution
         private final PlanChecker planChecker;
         private final PartialResultQueryManager partialResultQueryManager;
         private final HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager;
+        private final Set<QueryCompletionValidator> queryCompletionValidators;
 
         @Inject
         SqlQueryExecutionFactory(
@@ -962,7 +977,8 @@ public class SqlQueryExecution
                 CostCalculator costCalculator,
                 PlanChecker planChecker,
                 PartialResultQueryManager partialResultQueryManager,
-                HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager)
+                HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
+                Set<QueryCompletionValidator> queryCompletionValidators)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -986,6 +1002,7 @@ public class SqlQueryExecution
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
             this.partialResultQueryManager = requireNonNull(partialResultQueryManager, "partialResultQueryManager is null");
             this.historyBasedPlanStatisticsManager = requireNonNull(historyBasedPlanStatisticsManager, "historyBasedPlanStatisticsManager is null");
+            this.queryCompletionValidators = ImmutableSet.copyOf(requireNonNull(queryCompletionValidators, "queryCompletionValidators is null"));
         }
 
         @Override
@@ -1031,7 +1048,8 @@ public class SqlQueryExecution
                     partialResultQueryManager,
                     historyBasedPlanStatisticsManager.getPlanCanonicalInfoProvider(),
                     accessControl,
-                    query);
+                    query,
+                    queryCompletionValidators);
         }
     }
 }

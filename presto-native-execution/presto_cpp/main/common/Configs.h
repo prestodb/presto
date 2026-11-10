@@ -355,6 +355,10 @@ class SystemConfig : public ConfigBase {
   /// Indicates if the process is configured as a sidecar.
   static constexpr std::string_view kNativeSidecar{"native-sidecar"};
 
+  /// Selects whether TIMESTAMP WITH TIME ZONE retains its zone label.
+  static constexpr std::string_view kLegacyTimestampWithTimezone{
+      "legacy-timestamp-with-timezone"};
+
   /// If true, enable memory pushback when the server is under low memory
   /// condition. This only applies if 'system-mem-limit-gb' is set.
   static constexpr std::string_view kSystemMemPushbackEnabled{
@@ -783,6 +787,14 @@ class SystemConfig : public ConfigBase {
   /// Time (ms) since the task execution ended, when task is considered old for
   /// cleanup.
   static constexpr std::string_view kOldTaskCleanUpMs{"old-task-cleanup-ms"};
+
+  /// If true, wait for task Drivers to stop after aborting a dropped task.
+  static constexpr std::string_view kTaskSyncTerminateEnabled{
+      "task.sync-terminate-enabled"};
+
+  /// Maximum time to wait for task Drivers to stop after abort.
+  static constexpr std::string_view kTaskSyncTerminateTimeoutMs{
+      "task.sync-terminate-timeout-ms"};
 
   /// Enable periodic old task clean up. Typically enabled for presto (default)
   /// and disabled for presto-on-spark.
@@ -1338,6 +1350,10 @@ class SystemConfig : public ConfigBase {
 
   int32_t oldTaskCleanUpMs() const;
 
+  bool taskSyncTerminateEnabled() const;
+
+  uint64_t taskSyncTerminateTimeoutMs() const;
+
   bool enableOldTaskCleanUp() const;
 
   bool internalCommunicationJwtEnabled() const;
@@ -1361,6 +1377,8 @@ class SystemConfig : public ConfigBase {
   bool enableRuntimeMetricsCollection() const;
 
   bool prestoNativeSidecar() const;
+
+  bool legacyTimestampWithTimezone() const;
 
   std::string prestoDefaultNamespacePrefix() const;
 

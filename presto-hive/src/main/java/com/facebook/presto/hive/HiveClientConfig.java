@@ -207,6 +207,7 @@ public class HiveClientConfig
     private boolean parallelParsingOfPartitionValuesEnabled;
     private int maxParallelParsingConcurrency = 100;
     private boolean quickStatsEnabled;
+    private boolean quickStatsEstimateNdvStat;
     // Duration the initiator query of the quick stats fetch for a partition should wait for stats to be built, before failing and returning EMPTY PartitionStats
     private Duration quickStatsInlineBuildTimeout = new Duration(60, TimeUnit.SECONDS);
     // If an in-progress background build is already observed for a partition, this duration is what the current query will wait for the background build to finish
@@ -1614,6 +1615,19 @@ public class HiveClientConfig
     public boolean isQuickStatsEnabled()
     {
         return this.quickStatsEnabled;
+    }
+
+    @Config("hive.quick-stats.estimate-ndv-stat")
+    @ConfigDescription("Estimate a conservative distinct values count (NDV) from the min/max range of quick stats")
+    public HiveClientConfig setQuickStatsEstimateNdvStat(boolean quickStatsEstimateNdvStat)
+    {
+        this.quickStatsEstimateNdvStat = quickStatsEstimateNdvStat;
+        return this;
+    }
+
+    public boolean isQuickStatsEstimateNdvStat()
+    {
+        return this.quickStatsEstimateNdvStat;
     }
 
     @Config("hive.quick-stats.inline-build-timeout")

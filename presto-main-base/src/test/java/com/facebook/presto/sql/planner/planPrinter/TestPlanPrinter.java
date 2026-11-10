@@ -39,9 +39,11 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.StageExecutionDescriptor;
 import com.facebook.presto.spi.plan.TableScanNode;
+import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.PlanFragment;
 import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.testing.TestingHandle;
 import com.facebook.presto.testing.TestingMetadata;
 import com.facebook.presto.testing.TestingTransactionHandle;
@@ -120,6 +122,48 @@ public class TestPlanPrinter
     private void assertDomainFormat(Domain domain, String expected)
     {
         assertDomainFormat(COLUMN_VARIABLE, COLUMN_HANDLE, domain, expected);
+    }
+
+    @Test
+    public void testRpcDetails()
+    {
+        PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
+        VariableReferenceExpression input = new VariableReferenceExpression(Optional.empty(), "input", VARCHAR);
+        VariableReferenceExpression output = new VariableReferenceExpression(Optional.empty(), "output", VARCHAR);
+        ValuesNode values = new ValuesNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                ImmutableList.of(input),
+                ImmutableList.of(),
+                Optional.empty());
+        RPCNode rpc = new RPCNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                values,
+                "test_rpc_function",
+                ImmutableList.of(input),
+                ImmutableList.of(input.getName()),
+                output,
+                RPCNode.StreamingMode.BATCH,
+                128,
+                4);
+        PlanFragment fragment = new PlanFragment(
+                new PlanFragmentId(0),
+                rpc,
+                ImmutableSet.of(output),
+                SOURCE_DISTRIBUTION,
+                ImmutableList.of(),
+                new PartitioningScheme(
+                        Partitioning.create(SOURCE_DISTRIBUTION, ImmutableList.of()),
+                        ImmutableList.of(output)),
+                Optional.empty(),
+                StageExecutionDescriptor.ungroupedExecution(),
+                false,
+                Optional.of(StatsAndCosts.empty()),
+                Optional.empty());
+
+        String plan = PlanPrinter.textPlanFragment(fragment, FUNCTION_AND_TYPE_MANAGER, TEST_SESSION, false);
+        assertTrue(plan.contains("function: test_rpc_function, output: output, mode: BATCH, dispatch batch size: 128, recommended tasks: 4"));
     }
 
     @Test

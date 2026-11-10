@@ -399,8 +399,10 @@ Property Value                                     Description
 ``legacy`` (default value)                         Few authorization checks are enforced, thus allowing most
                                                    operations. The config properties ``hive.allow-drop-table``,
                                                    ``hive.allow-rename-table``, ``hive.allow-add-column``,
-                                                   ``hive.allow-drop-column`` and
-                                                   ``hive.allow-rename-column`` are used.
+                                                   ``hive.allow-drop-column``,
+                                                   ``hive.allow-rename-column``,
+                                                   ``hive.allow-add-constraint`` and
+                                                   ``hive.allow-drop-constraint`` are used.
 
 ``read-only``                                      Operations that read data or metadata, such as ``SELECT``,
                                                    are permitted, but none of the operations that write data or

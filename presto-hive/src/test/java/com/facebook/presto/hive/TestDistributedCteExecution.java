@@ -16,7 +16,7 @@ package com.facebook.presto.hive;
 import com.facebook.presto.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-@Test(singleThreaded = true)
+@Test
 public class TestDistributedCteExecution
         extends AbstractTestCteExecution
 {

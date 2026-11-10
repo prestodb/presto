@@ -13,14 +13,19 @@
  */
 package com.facebook.presto.flightshim;
 
+import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.Session;
+import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.spi.StandardErrorCode;
 import com.facebook.presto.testing.ExpectedQueryRunner;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.arrow.flight.ErrorFlightMetadata;
 import org.apache.arrow.flight.FlightClient;
+import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
@@ -28,16 +33,24 @@ import org.testng.annotations.Test;
 
 import java.util.concurrent.CancellationException;
 
+import static com.facebook.airlift.json.JsonCodec.jsonCodec;
 import static com.facebook.airlift.testing.Assertions.assertGreaterThan;
+import static com.facebook.presto.flightshim.FlightShimProducer.METADATA_KEY_ARROW_STATUS_BIN;
+import static com.facebook.presto.flightshim.FlightShimProducer.METADATA_KEY_ARROW_STATUS_CODE;
 import static com.facebook.presto.flightshim.TestFlightShimRequest.REQUEST_JSON_CODEC;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 @Test(singleThreaded = true)
 public class TestFlightShimTpchPlugin
         extends AbstractTestFlightShimPlugins
 {
+    public static final JsonCodec<ExecutionFailureInfo> EXECUTION_FAILURE_INFO_JSON_CODEC = jsonCodec(ExecutionFailureInfo.class);
     public static final int SPLITS_PER_NODE = 4;
 
     protected String getConnectorId()
@@ -157,6 +170,75 @@ public class TestFlightShimTpchPlugin
     public void testReadFromMultipleSplits()
     {
         assertSelectQueryFromColumns(ImmutableList.of(ORDERKEY_COLUMN, LINENUMBER_COLUMN, SHIPINSTRUCT_COLUMN));
+    }
+
+    @Test
+    public void testExecutionFailureInfo() throws Exception
+    {
+        try (BufferAllocator bufferAllocator = allocator.newChildAllocator("connector-test-client", 0, Long.MAX_VALUE);
+                FlightClient client = createFlightClient(bufferAllocator, server.getPort())) {
+            Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(createTpchTableRequest("invalid_table", 0, 1, ImmutableList.of(getOrderKeyColumn()))));
+
+            FlightRuntimeException e = expectThrows(FlightRuntimeException.class, () -> {
+                try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
+                    stream.next();
+                }
+            });
+
+            ErrorFlightMetadata metadata = e.status().metadata();
+            assertTrue(metadata.containsKey(METADATA_KEY_ARROW_STATUS_CODE));
+            assertEquals(Integer.parseInt(metadata.get(METADATA_KEY_ARROW_STATUS_CODE)), io.grpc.Status.Code.INTERNAL.value());
+            assertTrue(metadata.containsKey(METADATA_KEY_ARROW_STATUS_BIN));
+            byte[] failureInfoBytes = metadata.getByte(METADATA_KEY_ARROW_STATUS_BIN);
+            ExecutionFailureInfo failureInfo = EXECUTION_FAILURE_INFO_JSON_CODEC.fromJson(failureInfoBytes);
+            assertEquals(failureInfo.getMessage(), "Table invalid_table not found");
+            assertEquals(failureInfo.getType(), "java.lang.IllegalArgumentException");
+            assertEquals(failureInfo.getErrorCode(), StandardErrorCode.GENERIC_INTERNAL_ERROR.toErrorCode());
+        }
+    }
+
+    @Test
+    public void testRejectsHandleOfOtherConnector() throws Exception
+    {
+        FlightShimRequest request = createTpchTableRequest(0, 1, ImmutableList.of(getOrderKeyColumn()));
+        byte[] emptySplitBytes = format("{\"@type\" : \"$empty\", \"connectorId\" : \"%s\"}", getConnectorId()).getBytes(UTF_8);
+        ExecutionFailureInfo failureInfo = getStreamFailure(withSplitBytes(request, emptySplitBytes));
+        assertEquals(failureInfo.getMessage(), "Handle of type com.facebook.presto.split.EmptySplit does not belong to connector tpch");
+    }
+
+    @Test
+    public void testRejectsHandleWithoutType() throws Exception
+    {
+        FlightShimRequest request = createTpchTableRequest(0, 1, ImmutableList.of(getOrderKeyColumn()));
+        byte[] untypedSplitBytes = createTpchSplit(getConnectorName(), TPCH_TABLE, 0, 1).replace("\"@type\" : \"tpch\",", "").getBytes(UTF_8);
+        ExecutionFailureInfo failureInfo = getStreamFailure(withSplitBytes(request, untypedSplitBytes));
+        assertEquals(failureInfo.getMessage(), "Invalid JSON bytes for [simple type, class com.facebook.presto.spi.ConnectorSplit]");
+    }
+
+    private static FlightShimRequest withSplitBytes(FlightShimRequest request, byte[] splitBytes)
+    {
+        return new FlightShimRequest(
+                request.getConnectorId(),
+                request.getFields(),
+                splitBytes,
+                request.getColumnHandlesBytes(),
+                request.getTableHandleBytes(),
+                request.getTableLayoutHandleBytes(),
+                request.getTransactionHandleBytes());
+    }
+
+    private ExecutionFailureInfo getStreamFailure(FlightShimRequest request) throws Exception
+    {
+        try (BufferAllocator bufferAllocator = allocator.newChildAllocator("connector-test-client", 0, Long.MAX_VALUE);
+                FlightClient client = createFlightClient(bufferAllocator, server.getPort())) {
+            Ticket ticket = new Ticket(REQUEST_JSON_CODEC.toJsonBytes(request));
+            FlightRuntimeException e = expectThrows(FlightRuntimeException.class, () -> {
+                try (FlightStream stream = client.getStream(ticket, CALL_OPTIONS)) {
+                    stream.next();
+                }
+            });
+            return EXECUTION_FAILURE_INFO_JSON_CODEC.fromJson(e.status().metadata().getByte(METADATA_KEY_ARROW_STATUS_BIN));
+        }
     }
 
     private static class TestLocalQueryRunner

@@ -11,8 +11,58 @@
 # limitations under the License.
 cmake_minimum_required(VERSION 3.24)
 
+# Use rapids-cmake to configure CUDA architectures
+set(_cuda_lang "")
+if(PRESTO_ENABLE_CUDF)
+  # Declare rapids-cmake exactly as Velox's cudf.cmake does, including the
+  # checksum and the VELOX_rapids_cmake_URL/VELOX_rapids_cmake_SHA256 environment
+  # overrides. FetchContent keeps the first declaration of a name, so this one is
+  # the one cuDF ends up using.
+  file(
+    READ
+    "${CMAKE_SOURCE_DIR}/velox/CMake/resolve_dependency_modules/cudf.cmake"
+    _dep_cmake_content
+  )
+  string(REGEX MATCH "VELOX_rapids_cmake_COMMIT ([0-9a-fA-F]+)" _match "${_dep_cmake_content}")
+  set(VELOX_rapids_cmake_COMMIT "${CMAKE_MATCH_1}")
+  string(
+    REGEX MATCH
+    "VELOX_rapids_cmake_BUILD_SHA256_CHECKSUM[ \t\r\n]+([0-9a-fA-F]+)"
+    _match
+    "${_dep_cmake_content}"
+  )
+  set(VELOX_rapids_cmake_BUILD_SHA256_CHECKSUM "${CMAKE_MATCH_1}")
+  if(NOT VELOX_rapids_cmake_COMMIT OR NOT VELOX_rapids_cmake_BUILD_SHA256_CHECKSUM)
+    message(
+      FATAL_ERROR
+      "Could not read the rapids-cmake commit and checksum from Velox's cudf.cmake"
+    )
+  endif()
+  set(
+    VELOX_rapids_cmake_SOURCE_URL
+    "https://github.com/rapidsai/rapids-cmake/archive/${VELOX_rapids_cmake_COMMIT}.tar.gz"
+  )
+  include(${CMAKE_SOURCE_DIR}/velox/CMake/ResolveDependency.cmake)
+  velox_resolve_dependency_url(rapids_cmake)
+  message(STATUS "rapids-cmake: ${VELOX_rapids_cmake_SOURCE_URL}")
+
+  FetchContent_Declare(
+    rapids-cmake
+    URL ${VELOX_rapids_cmake_SOURCE_URL}
+    URL_HASH ${VELOX_rapids_cmake_BUILD_SHA256_CHECKSUM}
+    UPDATE_DISCONNECTED 1
+  )
+  FetchContent_MakeAvailable(rapids-cmake)
+  include(rapids-cuda)
+  rapids_cuda_init_architectures(PrestoCpp)
+  # Enable CUDA in project() itself: rapids_cuda_set_architectures, which runs
+  # from project(), returns early unless the CUDA compiler is already known.
+  set(_cuda_lang CUDA)
+  add_compile_definitions(PRESTO_ENABLE_CUDF)
+endif()
+
 # set the project name
-project(PrestoCpp)
+project(PrestoCpp LANGUAGES C CXX ${_cuda_lang})
 
 set(VELOX_ROOT ${CMAKE_BINARY_DIR}/velox)
 list(PREPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/velox/CMake")
@@ -34,6 +84,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SCRIPT_CXX_FLAGS}")
 set(DISABLED_WARNINGS "-Wno-nullability-completeness -Wno-deprecated-declarations")
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # GCC -O3 -Wstringop-overflow false positive in the velox dwio dictionary
+  # visitor: bounds checks added by velox 0166f69b changed inlining in
+  # DictionaryColumnVisitor::processRun, tripping the warning on std::copy in
+  # SelectiveIntegerDictionaryColumnReader.cpp. Keep the warning visible but
+  # do not fail the build on it. Scoped to GNU: Clang has no such warning
+  # group and would flag the unknown option under -Werror.
+  string(APPEND DISABLED_WARNINGS " -Wno-error=stringop-overflow")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "14.0.0")
     string(APPEND DISABLED_WARNINGS " -Wno-error=template-id-cdtor")
   endif()
@@ -105,12 +162,6 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
 endif()
 
 set(VELOX_ENABLE_CUDF ${PRESTO_ENABLE_CUDF} CACHE BOOL "Enable cuDF support")
-if(PRESTO_ENABLE_CUDF)
-  add_compile_definitions(PRESTO_ENABLE_CUDF)
-  enable_language(CUDA)
-  # Determine CUDA_ARCHITECTURES automatically.
-  cmake_policy(SET CMP0104 NEW)
-endif()
 
 set(
   VELOX_ENABLE_GEO
@@ -195,31 +246,23 @@ find_package(OpenSSL REQUIRED)
 
 find_package(Sodium REQUIRED)
 find_library(PROXYGEN proxygen)
-find_library(PROXYGEN_HTTP_SERVER proxygenhttpserver)
+find_library(PROXYGEN_HTTPSERVER proxygen_httpserver)
 find_library(FIZZ fizz)
 find_library(WANGLE wangle)
-find_library(MVFST_EXCEPTION mvfst_exception)
-find_library(MVFST_FOLLY_UTILS mvfst_folly_utils)
-find_library(MVFST_CODEC_TYPES mvfst_codec_types)
-find_library(MVFST_CONTIGUOUS_CURSOR mvfst_contiguous_cursor)
-
+find_library(MVFST mvfst)
 find_library(RE2 re2)
-
 find_package(fizz CONFIG)
 find_package(wangle CONFIG)
-find_package(FBThrift)
+find_package(FBThrift CONFIG REQUIRED)
 include_directories(SYSTEM ${FBTHRIFT_INCLUDE_DIR})
 
 set(
   PROXYGEN_LIBRARIES
-  ${PROXYGEN_HTTP_SERVER}
+  ${PROXYGEN_HTTPSERVER}
   ${PROXYGEN}
   ${WANGLE}
   ${FIZZ}
-  ${MVFST_EXCEPTION}
-  ${MVFST_FOLLY_UTILS}
-  ${MVFST_CODEC_TYPES}
-  ${MVFST_CONTIGUOUS_CURSOR}
+  ${MVFST}
 )
 find_path(PROXYGEN_DIR NAMES include/proxygen)
 set(PROXYGEN_INCLUDE_DIR "${PROXYGEN_DIR}/include/")
@@ -252,6 +295,7 @@ endif()
 
 find_package(DataSketches)
 add_compile_definitions(PRESTO_ENABLE_THETA_SKETCH)
+add_compile_definitions(PRESTO_ENABLE_KLL_SKETCH)
 
 if("${MAX_LINK_JOBS}")
   set_property(GLOBAL APPEND PROPERTY JOB_POOLS "presto_link_job_pool=${MAX_LINK_JOBS}")

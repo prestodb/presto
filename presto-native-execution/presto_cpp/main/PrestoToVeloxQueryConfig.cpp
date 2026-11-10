@@ -13,6 +13,25 @@
  */
 
 #include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
+
+#include <algorithm>
+#include <cctype>
+#include <functional>
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include <folly/Conv.h>
+#include <folly/CppAttributes.h>
+#include <folly/String.h>
+#include <presto_cpp/presto_protocol/core/presto_protocol_core.h>
+#include <velox/common/config/Config.h>
+#include <velox/core/QueryCtx.h>
+
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/LegacyHiveConfigKeys.h"
 #include "presto_cpp/main/properties/session/SessionProperties.h"
@@ -45,6 +64,15 @@ void updateVeloxConfigsWithSpecialCases(
   }
 }
 
+void setTimestampWithTimezoneMode(
+    std::unordered_map<std::string, std::string>& configs) {
+  const SystemConfig* FOLLY_NONNULL const systemConfig =
+      SystemConfig::instance();
+  configs.insert_or_assign(
+      velox::core::QueryConfig::kIgnoreTimeZoneLabel,
+      systemConfig->legacyTimestampWithTimezone() ? "false" : "true");
+}
+
 void updateFromSessionConfigs(
     const std::map<std::string, std::string>& systemProperties,
     std::unordered_map<std::string, std::string>& queryConfigs) {
@@ -67,6 +95,9 @@ void updateFromSessionConfigs(
           velox::common::stringToCompressionKind(compression);
       queryConfigs[velox::core::QueryConfig::kShuffleCompressionKind] =
           velox::common::compressionKindToString(compressionKind);
+    } else if (it.first == SessionProperties::kLegacyTimestampWithTimezone) {
+      queryConfigs[velox::core::QueryConfig::kIgnoreTimeZoneLabel] =
+          folly::to<bool>(it.second) ? "false" : "true";
     } else if (!sessionProperties->hasVeloxConfig(it.first)) {
       sessionProperties->updateSessionPropertyValue(it.first, it.second);
     } else {
@@ -251,6 +282,7 @@ std::unordered_map<std::string, std::string>
 toVeloxConfigsFromSessionProperties(
     const std::map<std::string, std::string>& sessionProperties) {
   std::unordered_map<std::string, std::string> configs;
+  setTimestampWithTimezoneMode(configs);
   updateFromSessionConfigs(sessionProperties, configs);
   return configs;
 }
@@ -261,6 +293,7 @@ std::unordered_map<std::string, std::string> toVeloxConfigs(
 
   // Firstly apply Presto system properties to Velox query config.
   updateFromSystemConfigs(configs);
+  setTimestampWithTimezoneMode(configs);
 
   // Secondly apply and possibly override with Presto session properties.
   updateFromSessionConfigs(session, configs);
@@ -270,22 +303,11 @@ std::unordered_map<std::string, std::string> toVeloxConfigs(
   return configs;
 }
 
-velox::core::QueryConfig toVeloxConfigs(
-    const protocol::SessionRepresentation& session,
-    const std::map<std::string, std::string>& extraCredentials) {
-  // Start with the session-based configuration
-  auto configs = toVeloxConfigs(session);
-
-  // If there are any extra credentials, add them all to the config
-  if (!extraCredentials.empty()) {
-    // Create new config map with all extra credentials added
-    configs.insert(extraCredentials.begin(), extraCredentials.end());
-  }
-  return velox::core::QueryConfig(configs);
-}
-
+namespace {
 std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>
-toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest) {
+toConnectorConfigs(
+    const protocol::TaskUpdateRequest& taskUpdateRequest,
+    velox::core::CredentialKeys& credentialKeys) {
   std::unordered_map<std::string, std::shared_ptr<velox::config::ConfigBase>>
       connectorConfigs;
   for (const auto& entry : taskUpdateRequest.session.catalogProperties) {
@@ -298,9 +320,14 @@ toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest) {
       connectorConfig.emplace(veloxConfig, sessionProperty.second);
     }
     util::migrateLegacyHiveParquetSessionKeys(connectorConfig);
-    connectorConfig.insert(
-        taskUpdateRequest.extraCredentials.begin(),
-        taskUpdateRequest.extraCredentials.end());
+    for (const auto& [key, credential] : taskUpdateRequest.extraCredentials) {
+      credentialKeys.write(
+          connectorConfig,
+          entry.first,
+          key,
+          credential,
+          velox::core::CredentialKeys::OnConflict::kKeep);
+    }
     connectorConfig.insert({"user", taskUpdateRequest.session.user});
     if (taskUpdateRequest.session.source) {
       connectorConfig.insert({"source", *taskUpdateRequest.session.source});
@@ -315,6 +342,31 @@ toConnectorConfigs(const protocol::TaskUpdateRequest& taskUpdateRequest) {
   }
 
   return connectorConfigs;
+}
+} // namespace
+
+TaskConfigs toTaskConfigs(
+    const protocol::TaskUpdateRequest& taskUpdateRequest) {
+  velox::core::CredentialKeys credentialKeys;
+  auto configs = toVeloxConfigs(taskUpdateRequest.session);
+  // Credential names are client-chosen, so one can name a typed key the config
+  // does not hold. The trace then redacts that key like any credential, and a
+  // replay cannot parse it; leaking the credential would be worse.
+  for (const auto& [key, credential] : taskUpdateRequest.extraCredentials) {
+    credentialKeys.write(
+        configs,
+        /*connectorId=*/"",
+        key,
+        credential,
+        velox::core::CredentialKeys::OnConflict::kKeep);
+  }
+
+  auto connectorConfigs = toConnectorConfigs(taskUpdateRequest, credentialKeys);
+
+  return {
+      .queryConfig = velox::core::QueryConfig(std::move(configs)),
+      .connectorConfigs = std::move(connectorConfigs),
+      .credentialKeys = std::move(credentialKeys)};
 }
 
 } // namespace facebook::presto

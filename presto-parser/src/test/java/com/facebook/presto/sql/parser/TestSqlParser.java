@@ -75,6 +75,7 @@ import com.facebook.presto.sql.tree.Explain;
 import com.facebook.presto.sql.tree.ExplainFormat;
 import com.facebook.presto.sql.tree.ExplainType;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FrameBound;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GenericLiteral;
 import com.facebook.presto.sql.tree.Grant;
@@ -136,6 +137,7 @@ import com.facebook.presto.sql.tree.Row;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetColumnDefault;
+import com.facebook.presto.sql.tree.SetColumnPosition;
 import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
@@ -170,6 +172,7 @@ import com.facebook.presto.sql.tree.TableVersionExpression;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
+import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.Union;
 import com.facebook.presto.sql.tree.Unnest;
@@ -177,7 +180,10 @@ import com.facebook.presto.sql.tree.Update;
 import com.facebook.presto.sql.tree.UpdateAssignment;
 import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
-import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowDefinition;
+import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowReference;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
@@ -609,6 +615,7 @@ public class TestSqlParser
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                ImmutableList.of(),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
@@ -862,6 +869,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -878,6 +886,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -899,6 +908,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -915,12 +925,163 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testTrim()
+    {
+        assertExpression("trim(BOTH FROM ' abc ')",
+                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.empty()));
+        assertExpression("trim(LEADING FROM ' abc ')",
+                new Trim(Trim.Specification.LEADING, new StringLiteral(" abc "), Optional.empty()));
+        assertExpression("trim(TRAILING FROM ' abc ')",
+                new Trim(Trim.Specification.TRAILING, new StringLiteral(" abc "), Optional.empty()));
+
+        assertExpression("trim(BOTH ' ' FROM ' abc ')",
+                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+        assertExpression("trim(LEADING ' ' FROM ' abc ')",
+                new Trim(Trim.Specification.LEADING, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+        assertExpression("trim(TRAILING ' ' FROM ' abc ')",
+                new Trim(Trim.Specification.TRAILING, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+
+        assertExpression("trim(' abc ')",
+                new FunctionCall(QualifiedName.of("trim"), ImmutableList.of(new StringLiteral(" abc "))));
+        assertExpression("trim(' ' FROM ' abc ')",
+                new Trim(Trim.Specification.BOTH, new StringLiteral(" abc "), Optional.of(new StringLiteral(" "))));
+        assertExpression("trim(' abc ', ' ')",
+                new FunctionCall(QualifiedName.of("trim"), ImmutableList.of(new StringLiteral(" abc "), new StringLiteral(" "))));
+        assertInvalidExpression("trim(FROM ' abc ')", "TRIM requires a specification \\(BOTH, LEADING or TRAILING\\) or trim characters before FROM");
+
+        // BOTH, LEADING and TRAILING used as column references inside trim
+        assertExpression("trim(leading)",
+                new FunctionCall(QualifiedName.of("trim"), ImmutableList.of(identifier("leading"))));
+        assertExpression("trim(both, trailing)",
+                new FunctionCall(QualifiedName.of("trim"), ImmutableList.of(identifier("both"), identifier("trailing"))));
+        assertExpression("trim(both FROM both)",
+                new Trim(Trim.Specification.BOTH, identifier("both"), Optional.empty()));
+        assertExpression("trim(leading trailing FROM both)",
+                new Trim(Trim.Specification.LEADING, identifier("both"), Optional.of(identifier("trailing"))));
+    }
+
+    @Test
+    public void testTrimAsIdentifier()
+    {
+        // trim used as a column name in SELECT output list
+        assertStatement("SELECT trim FROM t",
+                simpleQuery(selectList(identifier("trim")), table(QualifiedName.of("t"))));
+
+        // trim used as a column alias
+        assertStatement("SELECT 1 AS trim FROM t",
+                simpleQuery(
+                        selectList(new SingleColumn(new LongLiteral("1"), Optional.of(new Identifier("trim")))),
+                        table(QualifiedName.of("t"))));
+
+        // trim used as a dotted column reference (t.trim)
+        assertStatement("SELECT t.trim FROM t",
+                simpleQuery(selectList(nameReference("t", "trim")), table(QualifiedName.of("t"))));
+
+        // trim used as a table name
+        assertStatement("SELECT * FROM trim",
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("trim"))));
+
+        // trim used as a table alias
+        assertStatement("SELECT * FROM t AS trim",
+                simpleQuery(selectList(new AllColumns()), new AliasedRelation(table(QualifiedName.of("t")), new Identifier("trim"), null)));
+
+        // trim used in a three-part qualified name (catalog.schema.table)
+        assertStatement("SELECT * FROM trim.trim.trim",
+                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("trim", "trim", "trim"))));
+
+        // trim used as an unquoted identifier in WHERE
+        assertStatement("SELECT * FROM t WHERE trim = 1",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        table(QualifiedName.of("t")),
+                        new ComparisonExpression(EQUAL, identifier("trim"), new LongLiteral("1"))));
+
+        // trim used as an unquoted identifier in GROUP BY
+        assertStatement("SELECT * FROM t GROUP BY trim",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        table(QualifiedName.of("t")),
+                        Optional.empty(),
+                        Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(identifier("trim")))))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // trim used as an unquoted identifier in ORDER BY
+        assertStatement("SELECT * FROM t ORDER BY trim",
+                simpleQuery(
+                        selectList(new AllColumns()),
+                        table(QualifiedName.of("t")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new OrderBy(ImmutableList.of(new SortItem(identifier("trim"), ASCENDING, UNDEFINED)))),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // trim used as an unquoted identifier in PARTITION BY of a window function
+        assertStatement("SELECT count(*) OVER (PARTITION BY trim) FROM t",
+                simpleQuery(
+                        selectList(
+                                new FunctionCall(
+                                        QualifiedName.of("count"),
+                                        Optional.of(new WindowSpecification(
+                                                Optional.empty(),
+                                                ImmutableList.of(identifier("trim")),
+                                                Optional.empty(),
+                                                Optional.empty())),
+                                        false,
+                                        false,
+                                        ImmutableList.of())),
+                        table(QualifiedName.of("t"))));
+
+        // trim used as a CTE name
+        assertStatement("WITH trim AS (SELECT 1) SELECT * FROM trim",
+                new Query(
+                        Optional.of(new With(false, ImmutableList.of(
+                                new WithQuery(
+                                        identifier("trim"),
+                                        simpleQuery(selectList(new LongLiteral("1"))),
+                                        Optional.empty())))),
+                        simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("trim"))).getQueryBody(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // BOTH, LEADING and TRAILING used as column names
+        assertStatement("SELECT both, leading, trailing FROM t",
+                simpleQuery(selectList(identifier("both"), identifier("leading"), identifier("trailing")), table(QualifiedName.of("t"))));
+
+        // trim used as a column name in CREATE TABLE
+        assertStatement("CREATE TABLE t (trim bigint)",
+                new CreateTable(
+                        QualifiedName.of("t"),
+                        ImmutableList.of(new ColumnDefinition(QualifiedName.of("trim"), "bigint", true, emptyList(), Optional.empty())),
+                        false,
+                        ImmutableList.of(),
+                        Optional.empty()));
+    }
+
+    @Test
+    public void testTrimFunction()
+    {
+        assertExpression("trim('')",
+                new FunctionCall(QualifiedName.of("trim"), ImmutableList.of(new StringLiteral(""))));
+        assertExpression("trim('xyaxyxy', 'xy')",
+                new FunctionCall(QualifiedName.of("trim"), ImmutableList.of(new StringLiteral("xyaxyxy"), new StringLiteral("xy"))));
+        assertStatement("SELECT trim FROM t",
+                simpleQuery(selectList(identifier("trim")), table(QualifiedName.of("t"))));
     }
 
     @Test
@@ -939,6 +1100,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -959,6 +1121,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -976,6 +1139,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -996,6 +1160,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(
                                         new Identifier("a"),
                                         ASCENDING,
@@ -1030,6 +1195,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.of(new Offset("2")),
                                 Optional.empty()),
@@ -1046,6 +1212,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x"), ASCENDING, UNDEFINED)))),
                                 Optional.of(new Offset("2")),
                                 Optional.of("10")),
@@ -1062,6 +1229,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("x"), ASCENDING, UNDEFINED)))),
                                 Optional.empty(),
                                 Optional.of("10")),
@@ -1106,6 +1274,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of(new Identifier("a")))))),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -1124,6 +1293,7 @@ public class TestSqlParser
                                         new SimpleGroupBy(ImmutableList.of(new Identifier("a"))),
                                         new SimpleGroupBy(ImmutableList.of(new Identifier("b")))))),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -1140,6 +1310,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new GroupBy(false, ImmutableList.of(new SimpleGroupBy(ImmutableList.of())))),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -1156,6 +1327,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(ImmutableList.of(ImmutableList.of(new Identifier("a"))))))),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -1177,6 +1349,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.of(new GroupBy(false, ImmutableList.of(new GroupingSets(ImmutableList.of(ImmutableList.of(new Identifier("a")), ImmutableList.of(new Identifier("b"))))))),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -1199,6 +1372,7 @@ public class TestSqlParser
                                         new Cube(ImmutableList.of(new Identifier("c"))),
                                         new Rollup(ImmutableList.of(new Identifier("d")))))),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -1221,6 +1395,7 @@ public class TestSqlParser
                                         new Cube(ImmutableList.of(new Identifier("c"))),
                                         new Rollup(ImmutableList.of(new Identifier("d")))))),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -1322,15 +1497,15 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c IPADDRESS)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "IPADDRESS", true, emptyList(), Optional.empty())),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "IPADDRESS", true, emptyList(), Optional.empty())),
                         false,
                         ImmutableList.of(),
                         Optional.empty()));
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP)",
                 new CreateTable(QualifiedName.of("bar"),
-                        ImmutableList.of(new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty())),
+                        ImmutableList.of(new ColumnDefinition(QualifiedName.of("c"), "TIMESTAMP", true, emptyList(), Optional.empty())),
                         true,
                         ImmutableList.of(),
                         Optional.empty()));
@@ -1338,7 +1513,7 @@ public class TestSqlParser
         // with properties
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP WITH (nullable = true, compression = 'LZ4'))",
                 new CreateTable(QualifiedName.of("bar"),
-                        ImmutableList.of(new ColumnDefinition(identifier("c"), "TIMESTAMP", true, ImmutableList.of(
+                        ImmutableList.of(new ColumnDefinition(QualifiedName.of("c"), "TIMESTAMP", true, ImmutableList.of(
                                 new Property(new Identifier("nullable"), BooleanLiteral.TRUE_LITERAL),
                                 new Property(new Identifier("compression"), new StringLiteral("LZ4"))
                         ), Optional.empty())),
@@ -1358,7 +1533,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty())),
                         true,
@@ -1367,10 +1542,10 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table, d DATE)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.empty()),
-                                new ColumnDefinition(identifier("d"), "DATE", true, emptyList(), Optional.empty())),
+                                new ColumnDefinition(QualifiedName.of("d"), "DATE", true, emptyList(), Optional.empty())),
                         true,
                         ImmutableList.of(),
                         Optional.empty()));
@@ -1385,7 +1560,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES)",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
                         true,
@@ -1394,7 +1569,7 @@ public class TestSqlParser
         assertStatement("CREATE TABLE IF NOT EXISTS bar (c TIMESTAMP, LIKE like_table EXCLUDING PROPERTIES) COMMENT 'test'",
                 new CreateTable(QualifiedName.of("bar"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("c"), "TIMESTAMP", true, emptyList(), Optional.empty()),
                                 new LikeClause(QualifiedName.of("like_table"),
                                         Optional.of(LikeClause.PropertiesOption.EXCLUDING))),
                         true,
@@ -1414,10 +1589,10 @@ public class TestSqlParser
                 new CreateTable(
                         QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", false, emptyList(), Optional.of("column a")),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "IPADDRESS", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("d"), "DATE", false, emptyList(), Optional.empty())),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", false, emptyList(), Optional.of("column a")),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "IPADDRESS", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("d"), "DATE", false, emptyList(), Optional.empty())),
                         false,
                         ImmutableList.of(),
                         Optional.empty()));
@@ -2082,53 +2257,53 @@ public class TestSqlParser
     public void testAddColumn()
     {
         assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), false, false));
+                new ColumnDefinition(QualifiedName.of("c"), "bigint", true, emptyList(), Optional.empty()), false, false));
         assertStatement("ALTER TABLE foo.t ADD COLUMN d double NOT NULL", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty()), false, false));
+                new ColumnDefinition(QualifiedName.of("d"), "double", false, emptyList(), Optional.empty()), false, false));
 
         assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN d double NOT NULL",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty()), true, false));
+                        new ColumnDefinition(QualifiedName.of("d"), "double", false, emptyList(), Optional.empty()), true, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN IF NOT EXISTS d double NOT NULL",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty()), false, true));
+                        new ColumnDefinition(QualifiedName.of("d"), "double", false, emptyList(), Optional.empty()), false, true));
 
         assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN IF NOT EXISTS d double NOT NULL",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("d"), "double", false, emptyList(), Optional.empty()), true, true));
+                        new ColumnDefinition(QualifiedName.of("d"), "double", false, emptyList(), Optional.empty()), true, true));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN country varchar DEFAULT 'IN'",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("IN"))), false, false));
+                        new ColumnDefinition(QualifiedName.of("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("IN"))), false, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN status varchar NOT NULL DEFAULT 'ACTIVE'",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("status"), "varchar", false, emptyList(), Optional.empty(), Optional.of(new StringLiteral("ACTIVE"))), false, false));
+                        new ColumnDefinition(QualifiedName.of("status"), "varchar", false, emptyList(), Optional.empty(), Optional.of(new StringLiteral("ACTIVE"))), false, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN priority integer DEFAULT 5",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("priority"), "integer", true, emptyList(), Optional.empty(), Optional.of(new LongLiteral("5"))), false, false));
+                        new ColumnDefinition(QualifiedName.of("priority"), "integer", true, emptyList(), Optional.empty(), Optional.of(new LongLiteral("5"))), false, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN score double DEFAULT 0.0E0",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("score"), "double", true, emptyList(), Optional.empty(), Optional.of(new DoubleLiteral("0.0E0"))), false, false));
+                        new ColumnDefinition(QualifiedName.of("score"), "double", true, emptyList(), Optional.empty(), Optional.of(new DoubleLiteral("0.0E0"))), false, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN is_active boolean DEFAULT true",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("is_active"), "boolean", true, emptyList(), Optional.empty(), Optional.of(BooleanLiteral.TRUE_LITERAL)), false, false));
+                        new ColumnDefinition(QualifiedName.of("is_active"), "boolean", true, emptyList(), Optional.empty(), Optional.of(BooleanLiteral.TRUE_LITERAL)), false, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN is_deleted boolean DEFAULT false",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("is_deleted"), "boolean", true, emptyList(), Optional.empty(), Optional.of(BooleanLiteral.FALSE_LITERAL)), false, false));
+                        new ColumnDefinition(QualifiedName.of("is_deleted"), "boolean", true, emptyList(), Optional.empty(), Optional.of(BooleanLiteral.FALSE_LITERAL)), false, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN IF NOT EXISTS country varchar DEFAULT 'US'",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("US"))), false, true));
+                        new ColumnDefinition(QualifiedName.of("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("US"))), false, true));
 
         assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN country varchar DEFAULT 'UK'",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("UK"))), true, false));
+                        new ColumnDefinition(QualifiedName.of("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("UK"))), true, false));
     }
 
     @Test
@@ -2136,35 +2311,189 @@ public class TestSqlParser
     {
         // No clause at all leaves the position absent, so connectors keep the pre-existing append behavior
         assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), Optional.empty(), false, false));
+                new ColumnDefinition(QualifiedName.of("c"), "bigint", true, emptyList(), Optional.empty()), Optional.empty(), false, false));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint FIRST", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.First()), false, false));
+                new ColumnDefinition(QualifiedName.of("c"), "bigint", true, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.First()), false, false));
 
         assertInvalidStatement("ALTER TABLE foo.t ADD COLUMN c bigint LAST", ".*mismatched input 'LAST'.*");
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint AFTER b", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.After(identifier("b"))), false, false));
+                new ColumnDefinition(QualifiedName.of("c"), "bigint", true, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.After(identifier("b"))), false, false));
 
         // The clause composes with every other modifier of ADD COLUMN
         assertStatement("ALTER TABLE IF EXISTS foo.t ADD COLUMN IF NOT EXISTS c bigint NOT NULL AFTER b",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("c"), "bigint", false, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.After(identifier("b"))), true, true));
+                        new ColumnDefinition(QualifiedName.of("c"), "bigint", false, emptyList(), Optional.empty()), Optional.of(new ColumnPosition.After(identifier("b"))), true, true));
 
         assertStatement("ALTER TABLE foo.t ADD COLUMN country varchar DEFAULT 'IN' FIRST",
                 new AddColumn(QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("IN"))),
+                        new ColumnDefinition(QualifiedName.of("country"), "varchar", true, emptyList(), Optional.empty(), Optional.of(new StringLiteral("IN"))),
                         Optional.of(new ColumnPosition.First()), false, false));
 
         // AFTER remains usable as an identifier, both as the new column name and as the target
         assertStatement("ALTER TABLE foo.t ADD COLUMN after bigint AFTER after", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("after"), "bigint", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("after"), "bigint", true, emptyList(), Optional.empty()),
                 Optional.of(new ColumnPosition.After(identifier("after"))), false, false));
 
         // A delimited target keeps its case
         assertStatement("ALTER TABLE foo.t ADD COLUMN c bigint AFTER \"MixedCase\"", new AddColumn(QualifiedName.of("foo", "t"),
-                new ColumnDefinition(identifier("c"), "bigint", true, emptyList(), Optional.empty()),
+                new ColumnDefinition(QualifiedName.of("c"), "bigint", true, emptyList(), Optional.empty()),
                 Optional.of(new ColumnPosition.After(new Identifier("MixedCase", true))), false, false));
+    }
+
+    @Test
+    public void testSetColumnPosition()
+    {
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN c FIRST", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("c"),
+                new ColumnPosition.First(),
+                false));
+
+        // There is no LAST keyword, as there is none for ADD COLUMN; a column is moved to the end by naming
+        // the column that is currently last
+        assertInvalidStatement("ALTER TABLE foo.t ALTER COLUMN c LAST", ".*mismatched input 'LAST'.*");
+
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN c AFTER b", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("c"),
+                new ColumnPosition.After(identifier("b")),
+                false));
+
+        // The COLUMN keyword is optional, matching the other ALTER COLUMN statements
+        assertStatement("ALTER TABLE foo.t ALTER c AFTER b", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("c"),
+                new ColumnPosition.After(identifier("b")),
+                false));
+
+        assertStatement("ALTER TABLE IF EXISTS foo.t ALTER COLUMN c FIRST", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("c"),
+                new ColumnPosition.First(),
+                true));
+
+        // AFTER, FIRST and LAST remain usable as identifiers, both as the moved column and as the target
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN first AFTER last", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("first"),
+                new ColumnPosition.After(identifier("last")),
+                false));
+
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN after AFTER after", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("after"),
+                new ColumnPosition.After(identifier("after")),
+                false));
+
+        // Delimited names keep their case
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN \"MixedCase\" AFTER \"OtherCase\"", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                new Identifier("MixedCase", true),
+                new ColumnPosition.After(new Identifier("OtherCase", true)),
+                false));
+
+        // COLUMN is optional even when the column name is a non-reserved keyword like FIRST
+        assertStatement("ALTER TABLE foo.t ALTER first FIRST", new SetColumnPosition(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                identifier("first"),
+                new ColumnPosition.First(),
+                false));
+
+        // The position is required, since moving a column is the only thing the statement does
+        assertInvalidStatement("ALTER TABLE foo.t ALTER COLUMN c", "mismatched input '<EOF>'.*");
+    }
+
+    @Test
+    public void testAddNestedField()
+    {
+        // Single-level struct: ADD COLUMN parent.new_field type — parsed as AddColumn with a 2-part name
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR",
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("col", "new_field"), "VARCHAR", true, emptyList(), Optional.empty()),
+                        Optional.empty(),
+                        false,
+                        false));
+
+        // IF EXISTS on table
+        assertStatement(
+                "ALTER TABLE IF EXISTS foo.t ADD COLUMN col.new_field BIGINT",
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("col", "new_field"), "BIGINT", true, emptyList(), Optional.empty()),
+                        Optional.empty(),
+                        true,
+                        false));
+
+        // IF NOT EXISTS on field
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN IF NOT EXISTS col.new_field INTEGER",
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("col", "new_field"), "INTEGER", true, emptyList(), Optional.empty()),
+                        Optional.empty(),
+                        false,
+                        true));
+
+        // NOT NULL and COMMENT now parse successfully (grammar accepts them); task-level rejection is
+        // tested in IcebergDistributedSmokeTestBase via assertQueryFails with NOT_SUPPORTED.
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR NOT NULL",
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("col", "new_field"), "VARCHAR", false, emptyList(), Optional.empty()),
+                        Optional.empty(),
+                        false,
+                        false));
+
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.new_field VARCHAR COMMENT 'a comment'",
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("col", "new_field"), "VARCHAR", true, emptyList(), Optional.of("a comment")),
+                        Optional.empty(),
+                        false,
+                        false));
+
+        // Multi-level nesting: parent path has two parts
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN outer_col.inner_col.new_field DOUBLE",
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(QualifiedName.of("outer_col", "inner_col", "new_field"), "DOUBLE", true, emptyList(), Optional.empty()),
+                        Optional.empty(),
+                        false,
+                        false));
+
+        // Quoted field name: isDelimited must be preserved through the round-trip
+        assertStatement(
+                "ALTER TABLE foo.t ADD COLUMN col.\"new field\" VARCHAR",
+                new AddColumn(
+                        new NodeLocation(1, 1),
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(
+                                QualifiedName.of(ImmutableList.of(identifier("col"), quotedIdentifier("new field"))),
+                                "VARCHAR", true, emptyList(), Optional.empty()),
+                        Optional.empty(),
+                        false,
+                        false));
     }
 
     @Test
@@ -2173,26 +2502,40 @@ public class TestSqlParser
         assertStatement("ALTER TABLE foo.t ALTER COLUMN c SET DATA TYPE BIGINT", new SetColumnType(
                 new NodeLocation(1, 1),
                 QualifiedName.of("foo", "t"),
-                new Identifier("c"),
+                QualifiedName.of("c"),
                 "BIGINT",
                 false));
 
         assertStatement("ALTER TABLE IF EXISTS foo.t ALTER COLUMN b SET DATA TYPE DOUBLE", new SetColumnType(
                 new NodeLocation(1, 1),
                 QualifiedName.of("foo", "t"),
-                new Identifier("b"),
+                QualifiedName.of("b"),
                 "DOUBLE",
                 true));
+
+        assertStatement("ALTER TABLE foo.t ALTER COLUMN info.age SET DATA TYPE BIGINT", new SetColumnType(
+                new NodeLocation(1, 1),
+                QualifiedName.of("foo", "t"),
+                QualifiedName.of("info", "age"),
+                "BIGINT",
+                false));
     }
 
     @Test
     public void testDropColumn()
     {
-        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, false));
-        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), quotedIdentifier("c d"), false, false));
-        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, false));
-        assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, true));
-        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, true));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), false, false));
+        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), QualifiedName.of(ImmutableList.of(quotedIdentifier("c d"))), false, false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), true, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("c"), true, true));
+
+        // nested fields — column is a multi-part QualifiedName
+        assertStatement("ALTER TABLE foo.t DROP COLUMN info.age", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("info", "age"), false, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN outer_col.inner_col.age", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("outer_col", "inner_col", "age"), false, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS info.age", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("info", "age"), false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN info.age", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of("info", "age"), true, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN \"info\".age", new DropColumn(QualifiedName.of("foo", "t"), QualifiedName.of(ImmutableList.of(quotedIdentifier("info"), identifier("age"))), false, false));
     }
 
     @Test
@@ -2770,6 +3113,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -3026,6 +3370,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -3084,6 +3429,7 @@ public class TestSqlParser
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty(),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 Optional.empty(),
                                 Optional.empty()),
@@ -3287,7 +3633,7 @@ public class TestSqlParser
         assertExpression("lead(x, 1) ignore nulls over()",
                 new FunctionCall(
                         QualifiedName.of("lead"),
-                        Optional.of(new Window(ImmutableList.of(), Optional.empty(), Optional.empty())),
+                        Optional.of(new WindowSpecification(Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
                         false,
@@ -3296,12 +3642,97 @@ public class TestSqlParser
         assertExpression("lead(x, 1) respect nulls over()",
                 new FunctionCall(
                         QualifiedName.of("lead"),
-                        Optional.of(new Window(ImmutableList.of(), Optional.empty(), Optional.empty())),
+                        Optional.of(new WindowSpecification(Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty())),
                         Optional.empty(),
                         Optional.empty(),
                         false,
                         false,
                         ImmutableList.of(new Identifier("x"), new LongLiteral("1"))));
+    }
+
+    @Test
+    public void testWindowSpecification()
+    {
+        assertExpression("rank() OVER someWindow",
+                new FunctionCall(
+                        QualifiedName.of("rank"),
+                        Optional.of(new WindowReference(new Identifier("someWindow"))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        false,
+                        ImmutableList.of()));
+
+        assertExpression("rank() OVER (someWindow PARTITION BY x ORDER BY y ROWS CURRENT ROW)",
+                new FunctionCall(
+                        QualifiedName.of("rank"),
+                        Optional.of(new WindowSpecification(
+                                Optional.of(new Identifier("someWindow")),
+                                ImmutableList.of(new Identifier("x")),
+                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)))),
+                                Optional.of(new WindowFrame(WindowFrame.Type.ROWS, new FrameBound(FrameBound.Type.CURRENT_ROW), Optional.empty())))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        false,
+                        ImmutableList.of()));
+
+        assertExpression("rank() OVER (PARTITION BY x ORDER BY y ROWS CURRENT ROW)",
+                new FunctionCall(
+                        QualifiedName.of("rank"),
+                        Optional.of(new WindowSpecification(
+                                Optional.empty(),
+                                ImmutableList.of(new Identifier("x")),
+                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("y"), ASCENDING, UNDEFINED)))),
+                                Optional.of(new WindowFrame(WindowFrame.Type.ROWS, new FrameBound(FrameBound.Type.CURRENT_ROW), Optional.empty())))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        false,
+                        false,
+                        ImmutableList.of()));
+    }
+
+    @Test
+    public void testWindowClause()
+    {
+        // referencing a named window goes through assertStatement, so the format and reparse
+        // round trip that CREATE VIEW relies on is covered for WindowReference too
+        assertStatement("SELECT rank() OVER someWindow FROM t WINDOW someWindow AS (PARTITION BY a), otherWindow AS (someWindow ORDER BY b)",
+                simpleQuery(
+                        selectList(new FunctionCall(
+                                QualifiedName.of("rank"),
+                                Optional.of(new WindowReference(new Identifier("someWindow"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                false,
+                                false,
+                                ImmutableList.of())),
+                        table(QualifiedName.of("t")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableList.of(
+                                new WindowDefinition(
+                                        new Identifier("someWindow"),
+                                        new WindowSpecification(
+                                                Optional.empty(),
+                                                ImmutableList.of(new Identifier("a")),
+                                                Optional.empty(),
+                                                Optional.empty())),
+                                new WindowDefinition(
+                                        new Identifier("otherWindow"),
+                                        new WindowSpecification(
+                                                Optional.of(new Identifier("someWindow")),
+                                                ImmutableList.of(),
+                                                Optional.of(new OrderBy(ImmutableList.of(new SortItem(new Identifier("b"), ASCENDING, UNDEFINED)))),
+                                                Optional.empty()))),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()));
+
+        // WINDOW is not a reserved word
+        assertStatement("SELECT window FROM t",
+                simpleQuery(selectList(new Identifier("window")), table(QualifiedName.of("t"))));
     }
 
     @Test
@@ -3470,9 +3901,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, true, true, true)),
                         false,
                         ImmutableList.of(),
@@ -3481,9 +3912,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, PRIMARY KEY (c,b))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("c", "b"), PRIMARY_KEY, true, true, true)),
                         false,
                         ImmutableList.of(),
@@ -3492,9 +3923,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true)),
                         false,
                         ImmutableList.of(),
@@ -3503,9 +3934,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c,b))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("c", "b"), UNIQUE, true, true, true)),
                         false,
                         ImmutableList.of(),
@@ -3515,9 +3946,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) ENABLED RELY ENFORCED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true)),
                         false,
                         ImmutableList.of(),
@@ -3526,9 +3957,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) ENABLED NOT RELY ENFORCED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, false, true)),
                         false,
                         ImmutableList.of(),
@@ -3537,9 +3968,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) RELY ENFORCED DISABLED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, false, true, true)),
                         false,
                         ImmutableList.of(),
@@ -3548,9 +3979,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) DISABLED NOT RELY ENFORCED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, false, false, true)),
                         false,
                         ImmutableList.of(),
@@ -3559,9 +3990,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b) ENABLED RELY NOT ENFORCED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, false)),
                         false,
                         ImmutableList.of(),
@@ -3570,9 +4001,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b) ENABLED NOT RELY ENFORCED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, true, false, true)),
                         false,
                         ImmutableList.of(),
@@ -3581,9 +4012,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b) DISABLED RELY NOT ENFORCED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, false, true, false)),
                         false,
                         ImmutableList.of(),
@@ -3592,9 +4023,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT pk PRIMARY KEY (c,b) DISABLED NOT RELY NOT ENFORCED)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("c", "b"), PRIMARY_KEY, false, false, false)),
                         false,
                         ImmutableList.of(),
@@ -3603,9 +4034,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c,b), PRIMARY KEY (a))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("c", "b"), UNIQUE, true, true, true),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true)),
                         false,
@@ -3615,9 +4046,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b), CONSTRAINT pk PRIMARY KEY (a))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true),
                                 new ConstraintSpecification(Optional.of("pk"), ImmutableList.of("a"), PRIMARY_KEY, true, true, true)),
                         false,
@@ -3627,9 +4058,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c,b), PRIMARY KEY (a))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c", "b"), UNIQUE, true, true, true),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true)),
                         false,
@@ -3639,9 +4070,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, UNIQUE (c), PRIMARY KEY (a), CONSTRAINT uq UNIQUE (b))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("c"), UNIQUE, true, true, true),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b"), UNIQUE, true, true, true)),
@@ -3653,9 +4084,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c), PRIMARY KEY (a), CONSTRAINT uq UNIQUE (b))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c"), UNIQUE, true, true, true),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b"), UNIQUE, true, true, true)),
@@ -3666,9 +4097,9 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, CONSTRAINT uq UNIQUE (c), PRIMARY KEY (a), CONSTRAINT uq UNIQUE (b), CONSTRAINT pk PRIMARY KEY (b), CONSTRAINT pk PRIMARY KEY (c))",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("c"), UNIQUE, true, true, true),
                                 new ConstraintSpecification(Optional.empty(), ImmutableList.of("a"), PRIMARY_KEY, true, true, true),
                                 new ConstraintSpecification(Optional.of("uq"), ImmutableList.of("b"), UNIQUE, true, true, true),
@@ -3682,10 +4113,10 @@ public class TestSqlParser
         assertStatement("CREATE TABLE foo (a VARCHAR, b BIGINT COMMENT 'hello world', c DOUBLE, PRIMARY KEY)",
                 new CreateTable(QualifiedName.of("foo"),
                         ImmutableList.of(
-                                new ColumnDefinition(identifier("a"), "VARCHAR", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
-                                new ColumnDefinition(identifier("c"), "DOUBLE", true, emptyList(), Optional.empty()),
-                                new ColumnDefinition(identifier("PRIMARY"), "KEY", true, emptyList(), Optional.empty())),
+                                new ColumnDefinition(QualifiedName.of("a"), "VARCHAR", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("b"), "BIGINT", true, emptyList(), Optional.of("hello world")),
+                                new ColumnDefinition(QualifiedName.of("c"), "DOUBLE", true, emptyList(), Optional.empty()),
+                                new ColumnDefinition(QualifiedName.of("PRIMARY"), "KEY", true, emptyList(), Optional.empty())),
                         false,
                         ImmutableList.of(),
                         Optional.empty()));
@@ -3936,6 +4367,16 @@ public class TestSqlParser
 
         assertStatement("CREATE VIEW view1 AS SELECT * FROM table1 FOR TIMESTAMP AS OF TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles'",
                 new CreateView(QualifiedName.of("view1"), query, false, Optional.empty()));
+    }
+
+    @Test
+    public void testFormatNestedTableVersion()
+    {
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("WITH t AS (SELECT id FROM table1 FOR VERSION AS OF 12345) SELECT * FROM t"));
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("SELECT * FROM (SELECT * FROM table1 FOR VERSION BEFORE 12345)"));
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("SELECT * FROM (SELECT * FROM table1 FOR TIMESTAMP AS OF TIMESTAMP '2023-08-17 13:29:46.822 America/Los_Angeles') t"));
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("SELECT * FROM table1 WHERE id IN (SELECT id FROM table2 FOR VERSION AS OF 'branch-name')"));
+        assertFormattedSql(SQL_PARSER, SQL_PARSER.createStatement("INSERT INTO table2 SELECT * FROM (SELECT * FROM table1 FOR VERSION AS OF 12345)"));
     }
 
     @Test
@@ -4259,6 +4700,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        ImmutableList.of(),
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()),

@@ -60,12 +60,14 @@ target_link_libraries(
   presto_exception
   presto_expression_optimizer
   presto_function_metadata
+  presto_scalar_function_registration
   presto_connectors
   presto_http
   presto_operators
   presto_session_properties
   presto_velox_plan_conversion
   presto_hive_functions
+  presto_kll_sketch_functions
   presto_theta_sketch_functions
   velox
   ${RE2}

@@ -11,10 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <string>
+#include <folly/CppAttributes.h>
+#include <folly/ScopeGuard.h>
 
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <utility>
+
+#include <velox/common/config/Config.h>
 #include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/properties/session/SessionProperties.h"
@@ -597,7 +605,9 @@ TEST_F(PrestoToVeloxQueryConfigTest, connectorConfigConversion) {
   request.session.catalogProperties["hive"] = hiveProperties;
   request.session.catalogProperties["iceberg"] = icebergProperties;
 
-  auto connectorConfigs = toConnectorConfigs(request);
+  auto configs = toTaskConfigs(request);
+  auto& connectorConfigs = configs.connectorConfigs;
+  const auto& credentialKeys = configs.credentialKeys;
 
   // Verify connector configs are created
   EXPECT_EQ(2, connectorConfigs.size());
@@ -621,6 +631,14 @@ TEST_F(PrestoToVeloxQueryConfigTest, connectorConfigConversion) {
   EXPECT_EQ("PARQUET", icebergConfig->get<std::string>("iceberg.file_format"));
   EXPECT_EQ("HIVE", icebergConfig->get<std::string>("iceberg.catalog.type"));
   EXPECT_EQ("test_user", icebergConfig->get<std::string>("user"));
+
+  // Each catalog gets its own entry: a trace consults the connector the value
+  // was written into, and "user" is not a credential in either.
+  EXPECT_TRUE(credentialKeys.isConnectorCredential("hive", "test_credential"));
+  EXPECT_TRUE(
+      credentialKeys.isConnectorCredential("iceberg", "test_credential"));
+  EXPECT_FALSE(credentialKeys.isConnectorCredential("hive", "user"));
+  EXPECT_FALSE(credentialKeys.isConnectorCredential("iceberg", "user"));
 }
 
 TEST_F(PrestoToVeloxQueryConfigTest, specialHardCodedPrestoConfigurations) {
@@ -651,72 +669,180 @@ TEST_F(PrestoToVeloxQueryConfigTest, specialHardCodedPrestoConfigurations) {
   EXPECT_EQ(2000, veloxConfig9.driverCpuTimeSliceLimitMs());
 }
 
-TEST_F(PrestoToVeloxQueryConfigTest, sessionAndExtraCredentialsOverload) {
-  // --- Test 1: Basic session with empty extra credentials ---
-  {
-    auto session = createBasicSession();
+TEST_F(PrestoToVeloxQueryConfigTest, rpcRateLimiterHardLimitCompatibility) {
+  constexpr const char* kHardLimitConfig = "rpc.ratelimiter.hard_limit";
+  auto session = createBasicSession();
+  session.systemProperties.clear();
 
-    std::map<std::string, std::string> emptyCredentials;
-    auto veloxConfig = toVeloxConfigs(session, emptyCredentials);
+  auto legacyConfigs = toVeloxConfigs(session);
+  EXPECT_EQ(QueryConfig(legacyConfigs).rpcRateLimiterMaxLimit(), 200);
+  EXPECT_EQ(legacyConfigs.count(kHardLimitConfig), 0);
 
-    // No unexpected credentials should appear.
-    // Get raw configs to verify.
-    auto raw = veloxConfig.rawConfigsCopy();
-    EXPECT_EQ(0, raw.count("cat_token"));
-    EXPECT_EQ(0, raw.count("auth_header"));
-    EXPECT_EQ(0, raw.count("custom_credential"));
-  }
+  session.systemProperties[SessionProperties::kRpcRateLimiterMaxLimit] = "64";
+  auto legacyOverride = toVeloxConfigs(session);
+  EXPECT_EQ(legacyOverride.at(QueryConfig::kRpcRateLimiterMaxLimit), "64");
+  EXPECT_EQ(legacyOverride.count(kHardLimitConfig), 0);
 
-  // --- Test 2: Session with extra credentials (CAT, auth header, custom) ---
-  {
-    auto session = createBasicSession();
+  session.systemProperties[SessionProperties::kRpcRateLimiterHardLimit] = "0";
+  auto versionedConfigs = toVeloxConfigs(session);
+  EXPECT_EQ(versionedConfigs.at(QueryConfig::kRpcRateLimiterMaxLimit), "64");
+  EXPECT_EQ(versionedConfigs.at(kHardLimitConfig), "0");
 
-    std::map<std::string, std::string> extraCredentials{
-        {"cat_token", "test_cat_token_value"},
-        {"auth_header", "Bearer xyz123"},
-        {"custom_credential", "custom_value"},
-    };
+  session.systemProperties["native_rpc_future_property"] = "future-value";
+  auto futureCompatibleConfig = QueryConfig(toVeloxConfigs(session));
+  EXPECT_EQ(
+      futureCompatibleConfig.rawConfigsCopy().at("native_rpc_future_property"),
+      "future-value");
+}
 
-    auto veloxConfig = toVeloxConfigs(session, extraCredentials);
-    // Get raw configs to verify.
-    auto raw = veloxConfig.rawConfigsCopy();
+TEST_F(PrestoToVeloxQueryConfigTest, legacyTimestampWithTimezone) {
+  auto session = createBasicSession();
+  SystemConfig* FOLLY_NONNULL const systemConfig = SystemConfig::instance();
+  const std::unordered_map<std::string, std::string> originalConfigs =
+      systemConfig->values();
+  // NOLINTNEXTLINE(facebook-auto-specifier-overuse)
+  auto restoreConfigs = folly::makeGuard([originalConfigs] {
+    std::unordered_map<std::string, std::string> restoredConfigs =
+        originalConfigs;
+    SystemConfig* FOLLY_NONNULL const systemConfig = SystemConfig::instance();
+    systemConfig->initialize(
+        std::make_unique<facebook::velox::config::ConfigBase>(
+            std::move(restoredConfigs)));
+  });
 
-    // Extra credentials included in the raw config.
-    ASSERT_TRUE(raw.count("cat_token"));
-    ASSERT_TRUE(raw.count("auth_header"));
-    ASSERT_TRUE(raw.count("custom_credential"));
-    EXPECT_EQ("test_cat_token_value", raw.at("cat_token"));
-    EXPECT_EQ("Bearer xyz123", raw.at("auth_header"));
-    EXPECT_EQ("custom_value", raw.at("custom_credential"));
-  }
+  std::unordered_map<std::string, std::string> legacyConfigs = originalConfigs;
+  legacyConfigs.insert_or_assign(
+      std::string(SystemConfig::kLegacyTimestampWithTimezone), "true");
+  systemConfig->initialize(
+      std::make_unique<facebook::velox::config::ConfigBase>(
+          std::move(legacyConfigs)));
+  EXPECT_FALSE(QueryConfig(toVeloxConfigs(session)).ignoreTimeZoneLabel());
 
-  // --- Test 3: Merge behavior: session system properties + more credentials
-  // ---
-  {
-    auto session = createBasicSession();
-    // Verify that typed options reflect session settings.
-    session.systemProperties[core::QueryConfig::kSpillEnabled] = "true";
-    session.systemProperties[SessionProperties::kJoinSpillEnabled] = "false";
+  session.systemProperties[SessionProperties::kLegacyTimestampWithTimezone] =
+      "false";
+  EXPECT_TRUE(QueryConfig(toVeloxConfigs(session)).ignoreTimeZoneLabel());
 
-    std::map<std::string, std::string> moreCredentials{
-        {"isolation_domain_token", "ids_token_abc123"},
-        {"verification_key", "verify_key_xyz"},
-    };
+  session.systemProperties[SessionProperties::kLegacyTimestampWithTimezone] =
+      "true";
+  EXPECT_FALSE(QueryConfig(toVeloxConfigs(session)).ignoreTimeZoneLabel());
 
-    auto veloxConfig = toVeloxConfigs(session, moreCredentials);
+  std::unordered_map<std::string, std::string> ignoreLabelConfigs =
+      originalConfigs;
+  ignoreLabelConfigs.insert_or_assign(
+      std::string(SystemConfig::kLegacyTimestampWithTimezone), "false");
+  systemConfig->initialize(
+      std::make_unique<facebook::velox::config::ConfigBase>(
+          std::move(ignoreLabelConfigs)));
+  session.systemProperties.erase(
+      SessionProperties::kLegacyTimestampWithTimezone);
+  EXPECT_TRUE(QueryConfig(toVeloxConfigs(session)).ignoreTimeZoneLabel());
 
-    // Typed properties should be applied from the session.
-    EXPECT_TRUE(veloxConfig.spillEnabled());
-    EXPECT_FALSE(veloxConfig.joinSpillEnabled());
+  session.systemProperties.insert_or_assign(
+      SessionProperties::kLegacyTimestampWithTimezone, "true");
+  EXPECT_FALSE(QueryConfig(toVeloxConfigs(session)).ignoreTimeZoneLabel());
 
-    // Extra credentials should be present in the raw map.
-    // Get raw configs to verify.
-    auto raw = veloxConfig.rawConfigsCopy();
-    ASSERT_TRUE(raw.count("isolation_domain_token"));
-    ASSERT_TRUE(raw.count("verification_key"));
-    EXPECT_EQ("ids_token_abc123", raw.at("isolation_domain_token"));
-    EXPECT_EQ("verify_key_xyz", raw.at("verification_key"));
-  }
+  std::map<std::string, std::string> expressionSessionProperties{
+      {SessionProperties::kLegacyTimestampWithTimezone, "true"}};
+  std::unordered_map<std::string, std::string> expressionConfigs =
+      toVeloxConfigsFromSessionProperties(expressionSessionProperties);
+  EXPECT_FALSE(QueryConfig(expressionConfigs).ignoreTimeZoneLabel());
+
+  expressionSessionProperties.insert_or_assign(
+      SessionProperties::kLegacyTimestampWithTimezone, "false");
+  expressionConfigs =
+      toVeloxConfigsFromSessionProperties(expressionSessionProperties);
+  EXPECT_TRUE(QueryConfig(expressionConfigs).ignoreTimeZoneLabel());
+}
+
+TEST_F(PrestoToVeloxQueryConfigTest, credentialKeysNameOnlyCredentials) {
+  TaskUpdateRequest request;
+  request.session = createBasicSession();
+  request.session.systemProperties[core::QueryConfig::kSpillEnabled] = "true";
+  request.extraCredentials["cat_token"] = "test_cat_token_value";
+  request.extraCredentials["auth_header"] = "Bearer xyz123";
+
+  const auto configs = toTaskConfigs(request);
+
+  // The credential and the ordinary setting both land in the config; only
+  // 'credentialKeys' tells them apart.
+  const auto raw = configs.queryConfig.rawConfigsCopy();
+  EXPECT_THAT(raw, testing::Contains(testing::Key("cat_token")));
+  EXPECT_THAT(
+      raw, testing::Contains(testing::Key(core::QueryConfig::kSpillEnabled)));
+
+  EXPECT_TRUE(configs.credentialKeys.isQueryConfigCredential("cat_token"));
+  EXPECT_TRUE(configs.credentialKeys.isQueryConfigCredential("auth_header"));
+  EXPECT_FALSE(configs.credentialKeys.isQueryConfigCredential(
+      core::QueryConfig::kSpillEnabled));
+}
+
+TEST_F(PrestoToVeloxQueryConfigTest, collidingCredentialIsNotNamed) {
+  // Flattening inserts rather than overwrites, so a session property of the
+  // same name keeps its value and the credential never reaches that config.
+  // Naming the key anyway would have a trace redact an ordinary value, and
+  // replay reparses the config, so a redacted typed setting would fail to
+  // parse.
+  TaskUpdateRequest request;
+  request.session = createBasicSession();
+  request.session.systemProperties[core::QueryConfig::kSpillEnabled] = "true";
+  request.extraCredentials[core::QueryConfig::kSpillEnabled] =
+      "not-a-boolean-secret";
+  request.extraCredentials["cat_token"] = "test_cat_token_value";
+  request.session.catalogProperties.emplace(
+      "hive", std::map<std::string, std::string>{{"cat_token", "cVal1"}});
+
+  const auto configs = toTaskConfigs(request);
+  EXPECT_TRUE(configs.queryConfig.spillEnabled());
+  EXPECT_EQ(
+      configs.connectorConfigs.at("hive")->get<std::string>("cat_token"),
+      std::optional<std::string>("cVal1"));
+
+  EXPECT_TRUE(configs.credentialKeys.isQueryConfigCredential("cat_token"));
+  EXPECT_FALSE(configs.credentialKeys.isQueryConfigCredential(
+      core::QueryConfig::kSpillEnabled));
+  EXPECT_FALSE(
+      configs.credentialKeys.isConnectorCredential("hive", "cat_token"));
+}
+
+TEST_F(PrestoToVeloxQueryConfigTest, equalValueCollisionIsNotRecorded) {
+  // Pins the mechanism, not just the outcome: the session value and the
+  // credential are the same string, so an implementation that decided
+  // provenance by comparing the stored value against the credential would
+  // record this key and have a trace write `<redacted>` over a typed boolean.
+  // write() records a name only if it stored the credential there.
+  TaskUpdateRequest request;
+  request.session = createBasicSession();
+  request.session.systemProperties[core::QueryConfig::kSpillEnabled] = "true";
+  request.extraCredentials[core::QueryConfig::kSpillEnabled] = "true";
+
+  EXPECT_FALSE(toTaskConfigs(request).credentialKeys.isQueryConfigCredential(
+      core::QueryConfig::kSpillEnabled));
+}
+
+TEST_F(PrestoToVeloxQueryConfigTest, credentialCollidingOnlyInQueryConfig) {
+  // The two flattenings are independent. A credential blocked from the query
+  // config by a session property of the same name still reaches a catalog
+  // whose properties do not name it, so it is a secret there and has to be
+  // named there -- consulting the query config's answer would write it into
+  // the trace verbatim.
+  TaskUpdateRequest request;
+  request.session = createBasicSession();
+  request.session.systemProperties[core::QueryConfig::kSpillEnabled] = "true";
+  request.session.catalogProperties.emplace(
+      "hive", std::map<std::string, std::string>{{"cKey1", "cVal1"}});
+  request.extraCredentials[core::QueryConfig::kSpillEnabled] =
+      "not-a-boolean-secret";
+
+  const auto configs = toTaskConfigs(request);
+
+  EXPECT_FALSE(configs.credentialKeys.isQueryConfigCredential(
+      core::QueryConfig::kSpillEnabled));
+  EXPECT_TRUE(configs.credentialKeys.isConnectorCredential(
+      "hive", core::QueryConfig::kSpillEnabled));
+  EXPECT_EQ(
+      configs.connectorConfigs.at("hive")->get<std::string>(
+          core::QueryConfig::kSpillEnabled),
+      std::optional<std::string>("not-a-boolean-secret"));
 }
 
 TEST_F(PrestoToVeloxQueryConfigTest, sessionStartTimeConfiguration) {
@@ -859,6 +985,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
   EXPECT_TRUE(veloxConfigs.count(core::QueryConfig::kSessionStartTime) > 0);
   EXPECT_EQ(
       "1234567890", veloxConfigs.at(core::QueryConfig::kSessionStartTime));
+  EXPECT_EQ("false", veloxConfigs.at(core::QueryConfig::kIgnoreTimeZoneLabel));
 
   // Calculate expected exact count
   size_t expectedExactConfigs = 0;
@@ -870,6 +997,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
   expectedExactConfigs += 1; // kDriverCpuTimeSliceLimitMs
   expectedExactConfigs += 1; // kSessionStartTime
   expectedExactConfigs += 1; // kSessionTimezone (always added)
+  expectedExactConfigs += 1; // kIgnoreTimeZoneLabel (always added)
 
   // Use exact matching to catch any config additions/removals
   EXPECT_EQ(veloxConfigs.size(), expectedExactConfigs)

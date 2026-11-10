@@ -13,7 +13,10 @@
  */
 #pragma once
 
+#include <folly/stop_watch.h>
+#include <chrono>
 #include <memory>
+#include <optional>
 #include <unordered_set>
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
@@ -111,23 +114,36 @@ struct PrestoTask {
   bool taskStarted{false};
 
   /// Time point (in ms) when the last message (any) came for this task.
-  // TODO (spershin): Deprecate it, use only the 'lastCoordinatorHeartbeatMs'.
+  // TODO (spershin): Deprecate it, use only the 'lastCoordinatorHeartbeat'.
   uint64_t lastHeartbeatMs{0};
 
-  /// Time point (in ms) when the last message came for this task from the
+  /// Steady clock time of the last message (any) for this task. Set together
+  /// with 'lastHeartbeatMs'. Used to measure the time since the last heartbeat.
+  std::optional<std::chrono::steady_clock::time_point> lastHeartbeat;
+
+  /// Steady clock time of the last message for this task from the
   /// Coordinator. Used to determine if the Task has been abandoned.
-  uint64_t lastCoordinatorHeartbeatMs{0};
+  std::optional<std::chrono::steady_clock::time_point> lastCoordinatorHeartbeat;
 
   /// Time point (in ms) when the time we updated Task stats.
   uint64_t lastTaskStatsUpdateMs{0};
 
+  /// Measures the time since the last Task stats update. Started on the first
+  /// update.
+  std::optional<folly::stop_watch<std::chrono::microseconds>> statsUpdateWatch;
+
   uint64_t lastMemoryReservation{0};
   /// Time point (in ms) when the time we start task creating.
   uint64_t createTimeMs{0};
-  /// Time point (in ms) when the first time we receive task update.
-  uint64_t firstTimeReceiveTaskUpdateMs{0};
-  /// Time point (in ms) when the time we finish task creating.
-  uint64_t createFinishTimeMs{0};
+  /// Started together with 'createTimeMs'. Measures the time since this task
+  /// was created.
+  const folly::stop_watch<std::chrono::milliseconds> createWatch;
+  /// Started when we receive the first task update.
+  std::optional<folly::stop_watch<std::chrono::milliseconds>>
+      firstTaskUpdateWatch;
+  /// Time (in ms) between receiving the first task update and finishing task
+  /// creating.
+  uint64_t taskCreationTimeMs{0};
   uint64_t startTimeMs{0};
   uint64_t firstSplitStartTimeMs{0};
   uint64_t lastEndTimeMs{0};
@@ -214,7 +230,6 @@ struct PrestoTask {
 
   void updateTimeInfoLocked(
       const velox::exec::TaskStats& veloxTaskStats,
-      uint64_t currentTimeMs,
       std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
 
   void updateExecutionInfoLocked(
@@ -225,7 +240,7 @@ struct PrestoTask {
 
   void updateMemoryInfoLocked(
       const velox::exec::TaskStats& veloxTaskStats,
-      uint64_t currentTimeMs,
+      double sinceLastStatsUpdateMs,
       std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
 
   long processCpuTime_{0};

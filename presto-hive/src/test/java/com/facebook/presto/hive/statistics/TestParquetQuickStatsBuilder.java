@@ -15,6 +15,8 @@
 package com.facebook.presto.hive.statistics;
 
 import com.facebook.airlift.units.Duration;
+import com.facebook.presto.common.type.RowType;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.hive.FileFormatDataSourceStats;
 import com.facebook.presto.hive.HdfsConfigurationInitializer;
 import com.facebook.presto.hive.HdfsContext;
@@ -29,6 +31,7 @@ import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
 import com.facebook.presto.hive.metastore.MetastoreContext;
+import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
 import com.facebook.presto.hive.metastore.Storage;
 import com.facebook.presto.hive.metastore.Table;
@@ -53,23 +56,38 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.chrono.ChronoLocalDate;
 import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.READ_MASKED_VALUE_ENABLED;
 import static com.facebook.presto.hive.HivePartition.UNPARTITIONED_ID;
 import static com.facebook.presto.hive.HiveStorageFormat.PARQUET;
 import static com.facebook.presto.hive.HiveTestUtils.createTestHdfsEnvironment;
 import static com.facebook.presto.hive.metastore.PrestoTableType.MANAGED_TABLE;
 import static com.facebook.presto.hive.metastore.StorageFormat.fromHiveStorageFormat;
+import static com.facebook.presto.hive.parquet.ParquetTester.writeParquetFileFromPresto;
+import static com.facebook.presto.hive.statistics.PartitionQuickStats.convertToPartitionStatistics;
 import static com.facebook.presto.spi.session.PropertyMetadata.booleanProperty;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.lang.System.exit;
+import static java.nio.file.Files.createTempDirectory;
 import static java.time.LocalDate.parse;
+import static java.util.Collections.emptyIterator;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
+import static org.apache.parquet.hadoop.metadata.CompressionCodecName.GZIP;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertSame;
+import static org.testng.Assert.assertTrue;
 
 public class TestParquetQuickStatsBuilder
 {
@@ -112,10 +130,9 @@ public class TestParquetQuickStatsBuilder
         testParquetQuickStatsBuilder.benchmarkS3Reads(10, false, s3BucketUri, s3Directory);
     }
 
-    private static ColumnQuickStats<ChronoLocalDate> createDateStats(String columnName, long rowCount, long nullsCount, LocalDate minDate, LocalDate maxDate)
+    private static ColumnQuickStats<ChronoLocalDate> createDateStats(String columnName, long nullsCount, LocalDate minDate, LocalDate maxDate)
     {
         ColumnQuickStats<ChronoLocalDate> result = new ColumnQuickStats<>(columnName, ChronoLocalDate.class);
-        result.addToRowCount(rowCount);
         result.addToNullsCount(nullsCount);
         result.setMinValue(minDate);
         result.setMaxValue(maxDate);
@@ -123,10 +140,9 @@ public class TestParquetQuickStatsBuilder
         return result;
     }
 
-    private static ColumnQuickStats<Long> createLongStats(String columnName, long rowCount, long nullsCount, long min, long max)
+    private static ColumnQuickStats<Long> createLongStats(String columnName, long nullsCount, long min, long max)
     {
         ColumnQuickStats<Long> result = new ColumnQuickStats<>(columnName, Long.class);
-        result.addToRowCount(rowCount);
         result.addToNullsCount(nullsCount);
         result.setMinValue(min);
         result.setMaxValue(max);
@@ -134,10 +150,9 @@ public class TestParquetQuickStatsBuilder
         return result;
     }
 
-    private static ColumnQuickStats<Integer> createIntegerStats(String columnName, long rowCount, long nullsCount, int min, int max)
+    private static ColumnQuickStats<Integer> createIntegerStats(String columnName, long nullsCount, int min, int max)
     {
         ColumnQuickStats<Integer> result = new ColumnQuickStats<>(columnName, Integer.class);
-        result.addToRowCount(rowCount);
         result.addToNullsCount(nullsCount);
         result.setMinValue(min);
         result.setMaxValue(max);
@@ -145,19 +160,17 @@ public class TestParquetQuickStatsBuilder
         return result;
     }
 
-    private static ColumnQuickStats<Slice> createBinaryStats(String columnName, long rowCount, long nullsCount)
+    private static ColumnQuickStats<Slice> createBinaryStats(String columnName, long nullsCount)
     {
         ColumnQuickStats<Slice> result = new ColumnQuickStats<>(columnName, Slice.class);
-        result.addToRowCount(rowCount);
         result.addToNullsCount(nullsCount);
 
         return result;
     }
 
-    private static ColumnQuickStats<Double> createDoubleStats(String columnName, long rowCount, long nullsCount, double min, double max)
+    private static ColumnQuickStats<Double> createDoubleStats(String columnName, long nullsCount, double min, double max)
     {
         ColumnQuickStats<Double> result = new ColumnQuickStats<>(columnName, Double.class);
-        result.addToRowCount(rowCount);
         result.addToNullsCount(nullsCount);
         result.setMinValue(min);
         result.setMaxValue(max);
@@ -276,26 +289,38 @@ public class TestParquetQuickStatsBuilder
         PartitionQuickStats partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastore, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
                 metastoreContext, UNPARTITIONED_ID.getPartitionName(), hiveFileInfos.iterator());
 
-        assertEquals(8, partitionQuickStats.getFileCount());
+        assertEquals(partitionQuickStats.getFileCount(), 8);
+        assertEquals(partitionQuickStats.getRowCount(), 120527L);
         // We check a few of the columns
         Map<String, ? extends ColumnQuickStats<?>> columnQuickStatsMap = partitionQuickStats.getStats().stream().collect(toMap(ColumnQuickStats::getColumnName, v -> v));
-        assertEquals(columnQuickStatsMap.get("ss_promo_sk"), createLongStats("ss_promo_sk", 120527L, 5303L, 1L, 3L));
-        assertEquals(columnQuickStatsMap.get("ss_sold_date_sk"), createLongStats("ss_sold_date_sk", 120527L, 5335L, 2450816L, 2452642L));
-        assertEquals(columnQuickStatsMap.get("ss_quantity"), createIntegerStats("ss_quantity", 120527L, 5450L, 1, 100));
+        assertEquals(columnQuickStatsMap.get("ss_promo_sk"), createLongStats("ss_promo_sk", 5303L, 1L, 3L));
+        assertEquals(columnQuickStatsMap.get("ss_sold_date_sk"), createLongStats("ss_sold_date_sk", 5335L, 2450816L, 2452642L));
+        assertEquals(columnQuickStatsMap.get("ss_quantity"), createIntegerStats("ss_quantity", 5450L, 1, 100));
         // DECIMAL columns are stored as binary arrays in parquet
-        assertEquals(columnQuickStatsMap.get("ss_wholesale_cost"), createBinaryStats("ss_wholesale_cost", 120527L, 5369L));
+        assertEquals(columnQuickStatsMap.get("ss_wholesale_cost"), createBinaryStats("ss_wholesale_cost", 5369L));
 
+        // NDV is bounded by the [min, max] range where it is narrower than the non-null row count.
+        assertEquals(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("ss_sold_date_sk")), OptionalLong.of(1827L));
+        assertEquals(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("ss_promo_sk")), OptionalLong.of(3L));
+        assertEquals(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("ss_quantity")), OptionalLong.of(100L));
+        // No min/max is collected for DECIMAL, so it has no NDV.
+        assertFalse(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("ss_wholesale_cost")).isPresent());
         // Table : TPCH orders table; 100 rows
         hiveFileInfos = buildHiveFileInfos(resourceDir, "tpch_orders_100_rows", 1);
         partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastore, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
                 metastoreContext, UNPARTITIONED_ID.getPartitionName(), hiveFileInfos.iterator());
 
-        assertEquals(1, partitionQuickStats.getFileCount());
+        assertEquals(partitionQuickStats.getFileCount(), 1);
+        assertEquals(partitionQuickStats.getRowCount(), 100L);
         columnQuickStatsMap = partitionQuickStats.getStats().stream().collect(toMap(ColumnQuickStats::getColumnName, v -> v));
         // VARCHAR columns are stored as binary arrays in parquet
-        assertEquals(columnQuickStatsMap.get("comment"), createBinaryStats("comment", 100L, 0L));
-        assertEquals(columnQuickStatsMap.get("orderdate"), createDateStats("orderdate", 100L, 0L, parse("1992-01-29"), parse("1998-07-24")));
-        assertEquals(columnQuickStatsMap.get("totalprice"), createDoubleStats("totalprice", 100L, 0L, 1373.4, 352797.28));
+        assertEquals(columnQuickStatsMap.get("comment"), createBinaryStats("comment", 0L));
+        assertEquals(columnQuickStatsMap.get("orderdate"), createDateStats("orderdate", 0L, parse("1992-01-29"), parse("1998-07-24")));
+        assertEquals(columnQuickStatsMap.get("totalprice"), createDoubleStats("totalprice", 0L, 1373.4, 352797.28));
+
+        assertFalse(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("comment")).isPresent());
+        assertEquals(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("orderdate")), OptionalLong.of(100L));
+        assertEquals(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("totalprice")), OptionalLong.of(100L));
     }
 
     @Test
@@ -315,8 +340,64 @@ public class TestParquetQuickStatsBuilder
                 metastoreContext, UNPARTITIONED_ID.getPartitionName(), hiveFileInfos.iterator());
 
         assertEquals(partitionQuickStats.getStats().size(), 1, "Expected stats for only non-nested column : 'id'");
+        assertEquals(partitionQuickStats.getRowCount(), 3L);
         ColumnQuickStats<?> idColumnQuickStats = partitionQuickStats.getStats().get(0);
-        assertEquals(idColumnQuickStats, createLongStats("id", 3L, 0L, 1L, 3L));
+        assertEquals(idColumnQuickStats, createLongStats("id", 0L, 1L, 3L));
+    }
+
+    private static OptionalLong estimateNdv(PartitionQuickStats partition, ColumnQuickStats<?> column)
+    {
+        return column.getDistinctValuesCount(partition.getRowCount() - column.getNullsCount());
+    }
+
+    @Test
+    public void testNoFilesIsZeroInputRows()
+    {
+        assertSame(buildQuickStats(emptyIterator()), PartitionQuickStats.ZERO_INPUT_ROWS);
+    }
+
+    /**
+     * A file written with no rows holds no rows, whether or not it has an empty row group.
+     */
+    @Test
+    public void testFilesWithNoRowsAreZeroInputRows()
+            throws Exception
+    {
+        assertSame(buildQuickStatsForFile(BIGINT, ImmutableList.of(), 0), PartitionQuickStats.ZERO_INPUT_ROWS);
+    }
+
+    /**
+     * Nested columns are skipped, so an all-nested file has no column stats, but its row count is known.
+     */
+    @Test
+    public void testAllNestedColumnsReportRowCount()
+            throws Exception
+    {
+        Type rowType = RowType.from(ImmutableList.of(RowType.field("a", BIGINT)));
+        PartitionQuickStats stats = buildQuickStatsForFile(rowType, ImmutableList.of(ImmutableList.of(1L), ImmutableList.of(2L), ImmutableList.of(3L)), 3);
+
+        assertTrue(stats.getStats().isEmpty());
+        PartitionStatistics statistics = convertToPartitionStatistics(stats);
+        assertEquals(statistics.getBasicStatistics().getRowCount(), OptionalLong.of(3));
+        assertTrue(statistics.getColumnStatistics().isEmpty());
+    }
+
+    private PartitionQuickStats buildQuickStatsForFile(Type type, List<?> values, int rowCount)
+            throws Exception
+    {
+        java.nio.file.Path dir = createTempDirectory("quick-stats");
+        try {
+            writeParquetFileFromPresto(dir.resolve("data.parquet").toFile(), ImmutableList.of(type), ImmutableList.of("c"), new Iterable[] {values}, rowCount, GZIP, PARQUET_1_0);
+            return buildQuickStats(buildHiveFileInfos(dir.toUri().toString(), "", 1).iterator());
+        }
+        finally {
+            deleteRecursively(dir, ALLOW_INSECURE);
+        }
+    }
+
+    private PartitionQuickStats buildQuickStats(Iterator<HiveFileInfo> files)
+    {
+        return parquetQuickStatsBuilder.buildQuickStats(SESSION, metastore, new SchemaTableName(TEST_SCHEMA, TEST_TABLE), metastoreContext, UNPARTITIONED_ID.getPartitionName(), files);
     }
 
     public static class DelayingHdfsEnvironment

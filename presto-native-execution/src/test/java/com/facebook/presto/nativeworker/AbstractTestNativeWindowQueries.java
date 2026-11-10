@@ -177,6 +177,39 @@ public abstract class AbstractTestNativeWindowQueries
     }
 
     @Test
+    public void testWindowClause()
+    {
+        // A named window is resolved during analysis, so the worker receives the same plan as the
+        // inline form. Each query runs on the native worker and is compared against the inline
+        // equivalent on the Java engine, which is what makes this more than a parser test.
+        assertQuery(
+                "SELECT orderkey, rank() OVER w AS r FROM orders WINDOW w AS (PARTITION BY orderstatus ORDER BY orderkey)",
+                "SELECT orderkey, rank() OVER (PARTITION BY orderstatus ORDER BY orderkey) AS r FROM orders");
+
+        // One window shared by several window functions.
+        assertQuery(
+                "SELECT orderkey, rank() OVER w AS r, count(*) OVER w AS c, sum(custkey) OVER w AS s " +
+                        "FROM orders WINDOW w AS (PARTITION BY orderstatus ORDER BY orderkey)",
+                "SELECT orderkey, rank() OVER (PARTITION BY orderstatus ORDER BY orderkey) AS r, " +
+                        "count(*) OVER (PARTITION BY orderstatus ORDER BY orderkey) AS c, " +
+                        "sum(custkey) OVER (PARTITION BY orderstatus ORDER BY orderkey) AS s FROM orders");
+
+        // Window chaining: w2 inherits PARTITION BY from w1 and adds an ordering.
+        assertQuery(
+                "SELECT orderkey, sum(custkey) OVER w1 AS total, sum(custkey) OVER w2 AS running " +
+                        "FROM orders WINDOW w1 AS (PARTITION BY orderstatus), w2 AS (w1 ORDER BY orderkey)",
+                "SELECT orderkey, sum(custkey) OVER (PARTITION BY orderstatus) AS total, " +
+                        "sum(custkey) OVER (PARTITION BY orderstatus ORDER BY orderkey) AS running FROM orders");
+
+        // A frame added to a named window at the point of use.
+        assertQuery(
+                "SELECT orderkey, sum(custkey) OVER (w ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS trailing " +
+                        "FROM orders WINDOW w AS (PARTITION BY orderstatus ORDER BY orderkey)",
+                "SELECT orderkey, sum(custkey) OVER (PARTITION BY orderstatus ORDER BY orderkey " +
+                        "ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS trailing FROM orders");
+    }
+
+    @Test
     public void testRowNumberWithFilter()
     {
         assertQuery("SELECT sum(rn) FROM (SELECT row_number() over() rn, * from orders) WHERE rn = 10");

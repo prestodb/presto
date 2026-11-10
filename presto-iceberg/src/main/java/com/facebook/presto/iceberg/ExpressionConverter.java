@@ -36,6 +36,7 @@ import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.common.type.VarbinaryType;
 import com.facebook.presto.common.type.VarcharType;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import org.apache.iceberg.expressions.Expression;
 
@@ -43,6 +44,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.facebook.presto.common.predicate.Marker.Bound.ABOVE;
@@ -122,6 +124,8 @@ public final class ExpressionConverter
         }
 
         ValueSet domainValues = domain.getValues();
+        // Each range is built as a self-contained predicate before it is OR'd into the result.
+        // Applying a bound to the accumulator would also constrain isNull and the earlier ranges.
         Expression expression = null;
         if (domain.isNullAllowed()) {
             expression = isNull(columnName);
@@ -131,59 +135,83 @@ public final class ExpressionConverter
             List<Range> orderedRanges = ((SortedRangeSet) domainValues).getOrderedRanges();
             expression = firstNonNull(expression, alwaysFalse());
 
+            ImmutableList.Builder<Object> equalityValuesBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Expression> rangeExprsBuilder = ImmutableList.builder();
             for (Range range : orderedRanges) {
-                Marker low = range.getLow();
-                Marker high = range.getHigh();
-                Marker.Bound lowBound = low.getBound();
-                Marker.Bound highBound = high.getBound();
-
-                // case col <> 'val' is represented as (col < 'val' or col > 'val')
-                if (lowBound == EXACTLY && highBound == EXACTLY) {
-                    // case ==
-                    if (getIcebergLiteralValue(type, low).equals(getIcebergLiteralValue(type, high))) {
-                        expression = or(expression, equal(columnName, getIcebergLiteralValue(type, low)));
-                    }
-                    else { // case between
-                        Expression between = and(
-                                greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low)),
-                                lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
-                        expression = or(expression, between);
-                    }
+                if (range.isSingleValue()) {
+                    equalityValuesBuilder.add(getIcebergLiteralValue(type, range.getLow()));
                 }
                 else {
-                    if (lowBound == EXACTLY && low.getValueBlock().isPresent()) {
-                        // case >=
-                        expression = or(expression, greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low)));
-                    }
-                    else if (lowBound == ABOVE && low.getValueBlock().isPresent()) {
-                        // case >
-                        expression = or(expression, greaterThan(columnName, getIcebergLiteralValue(type, low)));
-                    }
-
-                    if (highBound == EXACTLY && high.getValueBlock().isPresent()) {
-                        // case <=
-                        if (low.getValueBlock().isPresent()) {
-                            expression = and(expression, lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
-                        }
-                        else {
-                            expression = or(expression, lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
-                        }
-                    }
-                    else if (highBound == BELOW && high.getValueBlock().isPresent()) {
-                        // case <
-                        if (low.getValueBlock().isPresent()) {
-                            expression = and(expression, lessThan(columnName, getIcebergLiteralValue(type, high)));
-                        }
-                        else {
-                            expression = or(expression, lessThan(columnName, getIcebergLiteralValue(type, high)));
-                        }
-                    }
+                    rangeToExpression(columnName, type, range).ifPresent(rangeExprsBuilder::add);
                 }
+            }
+
+            List<Object> equalityValues = equalityValuesBuilder.build();
+            if (!equalityValues.isEmpty()) {
+                // Build a balanced OR tree of equal() predicates (depth O(log N)).
+                // Iceberg's in() throws NullPointerException when the partition value is null
+                // (partition evolution leaves null partition entries for pre-evolution files).
+                // Individual equal() predicates use null-safe comparators and are safe.
+                ImmutableList.Builder<Expression> equalExprs = ImmutableList.builder();
+                for (Object v : equalityValues) {
+                    equalExprs.add(equal(columnName, v));
+                }
+                expression = or(expression, buildOrTree(equalExprs.build()));
+            }
+
+            List<Expression> rangeExprs = rangeExprsBuilder.build();
+            if (!rangeExprs.isEmpty()) {
+                expression = or(expression, buildOrTree(rangeExprs));
             }
             return expression;
         }
 
         throw new VerifyException("Did not expect a domain value set other than SortedRangeSet but got " + domainValues.getClass().getSimpleName());
+    }
+
+    // Build a balanced binary OR tree with depth O(log N) instead of a left-skewed chain of
+    // depth O(N), to avoid stack overflow in ExpressionVisitors.visit() for large collections.
+    private static Expression buildOrTree(List<Expression> exprs)
+    {
+        checkArgument(!exprs.isEmpty(), "exprs must not be empty");
+        if (exprs.size() == 1) {
+            return exprs.get(0);
+        }
+        int mid = exprs.size() / 2;
+        return or(buildOrTree(exprs.subList(0, mid)), buildOrTree(exprs.subList(mid, exprs.size())));
+    }
+
+    private static Optional<Expression> rangeToExpression(String columnName, Type type, Range range)
+    {
+        Marker low = range.getLow();
+        Marker high = range.getHigh();
+        Marker.Bound lowBound = low.getBound();
+        Marker.Bound highBound = high.getBound();
+
+        if (lowBound == EXACTLY && highBound == EXACTLY) {
+            return Optional.of(and(
+                    greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low)),
+                    lessThanOrEqual(columnName, getIcebergLiteralValue(type, high))));
+        }
+
+        Expression rangeExpr = null;
+        if (lowBound == EXACTLY && low.getValueBlock().isPresent()) {
+            rangeExpr = greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low));
+        }
+        else if (lowBound == ABOVE && low.getValueBlock().isPresent()) {
+            rangeExpr = greaterThan(columnName, getIcebergLiteralValue(type, low));
+        }
+
+        if (highBound == EXACTLY && high.getValueBlock().isPresent()) {
+            Expression upperPred = lessThanOrEqual(columnName, getIcebergLiteralValue(type, high));
+            rangeExpr = rangeExpr != null ? and(rangeExpr, upperPred) : upperPred;
+        }
+        else if (highBound == BELOW && high.getValueBlock().isPresent()) {
+            Expression upperPred = lessThan(columnName, getIcebergLiteralValue(type, high));
+            rangeExpr = rangeExpr != null ? and(rangeExpr, upperPred) : upperPred;
+        }
+
+        return Optional.ofNullable(rangeExpr);
     }
 
     private static Object getIcebergLiteralValue(Type type, Marker marker)

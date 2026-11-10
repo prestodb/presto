@@ -26,6 +26,7 @@ import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.constraints.PrimaryKeyConstraint;
 import com.facebook.presto.spi.constraints.TableConstraint;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.type.UnknownTypeException;
 import com.facebook.presto.sql.analyzer.SemanticException;
@@ -33,6 +34,7 @@ import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.ConstraintSpecification;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.LikeClause;
 import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Parameter;
@@ -123,25 +125,33 @@ public class CreateTableTask
         for (TableElement element : statement.getElements()) {
             if (element instanceof ColumnDefinition) {
                 ColumnDefinition column = (ColumnDefinition) element;
-                String columnName = column.getName().getValue();
+                if (column.getName().getParts().size() != 1) {
+                    String qualifiedColumnName = column.getName().getOriginalParts().stream()
+                            .map(Identifier::getValue)
+                            .collect(Collectors.joining("."));
+                    throw new SemanticException(NOT_SUPPORTED, column, "Column name '%s' must not be qualified", qualifiedColumnName);
+                }
+                String columnName = column.getName().getOriginalParts().get(0).getValue();
                 String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnName);
                 Type type;
                 try {
                     type = metadata.getType(parseTypeSignature(column.getType()));
                 }
                 catch (IllegalArgumentException | UnknownTypeException e) {
-                    throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
+                    throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), columnName);
                 }
                 if (type.equals(UNKNOWN)) {
-                    throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), column.getName());
+                    throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", column.getType(), columnName);
                 }
                 if (columns.containsKey(name)) {
-                    throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", column.getName());
+                    throw new SemanticException(DUPLICATE_COLUMN_NAME, column, "Column name '%s' specified more than once", columnName);
                 }
                 if (!column.isNullable() && !metadata.getConnectorCapabilities(session, connectorId).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
-                    throw new SemanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", connectorId.getCatalogName(), column.getName());
+                    throw new SemanticException(NOT_SUPPORTED, column, "Catalog '%s' does not support non-null column for column name '%s'", connectorId.getCatalogName(), columnName);
                 }
-
+                if (column.getDefaultExpression().isPresent() && column.getDerivedColumnSpec().isPresent()) {
+                    throw new SemanticException(NOT_SUPPORTED, column, "Both default expression and derived column expression cannot be set on the same column %s.", columnName);
+                }
                 Map<String, Expression> sqlProperties = mapFromProperties(column.getProperties());
                 Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
                         connectorId,
@@ -151,12 +161,14 @@ public class CreateTableTask
                         metadata,
                         parameterLookup);
 
+                Optional<DerivedColumnSpec> derivedColumnSpec = normalizeDerivedColumnSpec(column, name);
                 columns.put(name, ColumnMetadata.builder()
                         .setName(name)
                         .setType(type)
                         .setNullable(column.isNullable())
                         .setComment(column.getComment().orElse(null))
                         .setProperties(columnProperties)
+                        .setDerivedColumnSpec(derivedColumnSpec)
                         .build());
             }
             else if (element instanceof LikeClause) {
@@ -238,6 +250,16 @@ public class CreateTableTask
             }
         }
         return immediateFuture(null);
+    }
+
+    static Optional<DerivedColumnSpec> normalizeDerivedColumnSpec(ColumnDefinition column, String name)
+    {
+        // Normalize the values for column name and Type
+        return column.getDerivedColumnSpec().map(derivedColumnSpec -> DerivedColumnSpec
+                .buildFrom(derivedColumnSpec)
+                .setDerivedColumnName(name)
+                .setDerivedColumnReturnType(parseTypeSignature(derivedColumnSpec.getDerivedColumnReturnType()).toString())
+                .build());
     }
 
     private static Map<String, Object> combineProperties(Set<String> specifiedPropertyKeys, Map<String, Object> defaultProperties, Map<String, Object> inheritedProperties)

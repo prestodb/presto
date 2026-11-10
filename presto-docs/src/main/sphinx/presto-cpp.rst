@@ -9,11 +9,12 @@ Note: Presto C++ is in active development. See :doc:`Limitations </presto_cpp/li
 
     presto_cpp/installation
     presto_cpp/features
-    presto_cpp/sidecar
     presto_cpp/limitations
-    presto_cpp/plugin
     presto_cpp/properties
     presto_cpp/properties-session
+    presto_cpp/functions
+    presto_cpp/plugin
+    presto_cpp/sidecar
     presto_cpp/metrics
     presto_cpp/federation
 

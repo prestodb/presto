@@ -36,6 +36,13 @@ public class HiveHdfsConfiguration
         protected Configuration initialValue()
         {
             Configuration configuration = new Configuration(false);
+            // Configuration captures Thread.currentThread().getContextClassLoader() in an instance
+            // initializer, so every thread would otherwise bake in its own ClassLoader here. Query
+            // planning threads carry the system ClassLoader, which cannot see plugin classes such as
+            // PrestoS3FileSystem (registered as "fs.s3.impl"), making Configuration.getClassByName()
+            // fail with ClassNotFoundException. Pin the plugin ClassLoader so class resolution does
+            // not depend on which thread happened to populate this ThreadLocal.
+            configuration.setClassLoader(HiveHdfsConfiguration.class.getClassLoader());
             copy(INITIAL_CONFIGURATION, configuration);
             initializer.updateConfiguration(configuration);
             return configuration;

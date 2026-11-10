@@ -109,20 +109,25 @@ class QueryContextManager {
   QueryContextCache queryContextCache_;
 
  private:
+  // Overrides must build the QueryCtx with QueryCtx::Builder, pass
+  // 'credentialKeys' to its credentialKeys(), and add any credential to the
+  // configs through 'credentialKeys.write()', or traces may leak it.
   virtual std::shared_ptr<velox::core::QueryCtx> createAndCacheQueryCtxLocked(
       const protocol::QueryId& queryId,
       velox::core::QueryConfig&& queryConfig,
       std::unordered_map<
           std::string,
           std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigs,
-      std::shared_ptr<velox::memory::MemoryPool>&& pool);
+      std::shared_ptr<velox::memory::MemoryPool>&& pool,
+      velox::core::CredentialKeys&& credentialKeys);
 
   std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtxLocked(
       const protocol::TaskId& taskId,
       velox::core::QueryConfig&& queryConfig,
       std::unordered_map<
           std::string,
-          std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigStrings);
+          std::shared_ptr<velox::config::ConfigBase>>&& connectorConfigStrings,
+      velox::core::CredentialKeys&& credentialKeys);
 
   mutable std::mutex queryContextCacheMutex_;
 };

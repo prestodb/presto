@@ -108,14 +108,6 @@ public class TestIcebergDistributedHive
         // Hive doesn't support returning statistics on partitioned tables
     }
 
-    @Override
-    public void testStatisticsFileCache()
-            throws Exception
-    {
-        // hive doesn't write Iceberg statistics files when metastore is in use,
-        // so this test won't complete successfully.
-    }
-
     @Test
     public void testCreateAlterTableWithHiveLocksDisabled()
     {

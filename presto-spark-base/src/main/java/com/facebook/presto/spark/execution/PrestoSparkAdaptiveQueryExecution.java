@@ -21,6 +21,7 @@ import com.facebook.presto.Session;
 import com.facebook.presto.cost.FragmentStatsProvider;
 import com.facebook.presto.cost.HistoryBasedPlanStatisticsTracker;
 import com.facebook.presto.event.QueryMonitor;
+import com.facebook.presto.execution.QueryCompletionValidator;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.QueryStateTimer;
 import com.facebook.presto.execution.TaskInfo;
@@ -178,7 +179,8 @@ public class PrestoSparkAdaptiveQueryExecution
             PlanNodeIdAllocator idAllocator,
             FragmentStatsProvider fragmentStatsProvider,
             Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector,
-            PlanCheckerProviderManager planCheckerProviderManager)
+            PlanCheckerProviderManager planCheckerProviderManager,
+            Set<QueryCompletionValidator> completionValidators)
     {
         super(
                 sparkContext,
@@ -217,7 +219,8 @@ public class PrestoSparkAdaptiveQueryExecution
                 metadata,
                 partitioningProviderManager,
                 historyBasedPlanStatisticsTracker,
-                bootstrapMetricsCollector);
+                bootstrapMetricsCollector,
+                completionValidators);
 
         this.fragmentStatsProvider = requireNonNull(fragmentStatsProvider, "fragmentStatsProvider is null");
         this.adaptivePlanOptimizers = requireNonNull(adaptivePlanOptimizers, "adaptivePlanOptimizers is null").getAdaptiveOptimizers();
@@ -348,7 +351,7 @@ public class PrestoSparkAdaptiveQueryExecution
             // Re-optimize plan.
             PlanNode optimizedPlan = planAndFragments.getRemainingPlan().get();
             for (PlanOptimizer optimizer : adaptivePlanOptimizers) {
-                optimizedPlan = optimizer.optimize(optimizedPlan, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector).getPlanNode();
+                optimizedPlan = optimizer.optimize(optimizedPlan, session, TypeProvider.viewOf(variableAllocator.getVariables()), variableAllocator, idAllocator, warningCollector, false).getPlanNode();
             }
 
             if (!optimizedPlan.equals(planAndFragments.getRemainingPlan().get())) {

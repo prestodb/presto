@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.facebook.presto</groupId>
         <artifactId>presto-root</artifactId>
-        <version>0.300-SNAPSHOT</version>
+        <version>0.301-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-native-sidecar-plugin</artifactId>
@@ -144,6 +144,11 @@
         <dependency>
             <groupId>jakarta.annotation</groupId>
             <artifactId>jakarta.annotation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
         </dependency>
 
         <dependency>
@@ -341,6 +346,7 @@
                         <configuration>
                             <excludes>
                                 <exclude>**/TestNativeSidecar*.java</exclude>
+                                <exclude>**/TestSidecarRetryDriver.java</exclude>
                                 <exclude>**/TestNativeExpressionInterpreter.java</exclude>
                                 <exclude>**/TestNativeExpressionOptimizer.java</exclude>
                             </excludes>

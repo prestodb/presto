@@ -13,7 +13,10 @@
  */
 package com.facebook.presto.sql.parser;
 
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnType;
 import com.facebook.presto.spi.security.ViewSecurity;
+import com.facebook.presto.sql.ExpressionFormatter;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.AddConstraint;
 import com.facebook.presto.sql.tree.AliasedRelation;
@@ -159,6 +162,7 @@ import com.facebook.presto.sql.tree.SearchedCaseExpression;
 import com.facebook.presto.sql.tree.Select;
 import com.facebook.presto.sql.tree.SelectItem;
 import com.facebook.presto.sql.tree.SetColumnDefault;
+import com.facebook.presto.sql.tree.SetColumnPosition;
 import com.facebook.presto.sql.tree.SetColumnType;
 import com.facebook.presto.sql.tree.SetProperties;
 import com.facebook.presto.sql.tree.SetRole;
@@ -196,6 +200,7 @@ import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
 import com.facebook.presto.sql.tree.TransactionAccessMode;
 import com.facebook.presto.sql.tree.TransactionMode;
+import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.TruncateTable;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.Union;
@@ -206,7 +211,10 @@ import com.facebook.presto.sql.tree.Use;
 import com.facebook.presto.sql.tree.Values;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
+import com.facebook.presto.sql.tree.WindowDefinition;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowReference;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
@@ -661,7 +669,7 @@ class AstBuilder
     {
         return new DropColumn(getLocation(context),
                 getQualifiedName(context.tableName),
-                (Identifier) visit(context.column),
+                getQualifiedName(context.column),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
                 context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
     }
@@ -870,6 +878,32 @@ class AstBuilder
                 (Identifier) visit(context.column),
                 (Expression) visit(context.expression()),
                 context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitSetColumnPosition(SqlBaseParser.SetColumnPositionContext context)
+    {
+        return new SetColumnPosition(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                getColumnPosition(context),
+                context.EXISTS() != null);
+    }
+
+    /**
+     * The position clause is shared with {@code ADD COLUMN}, but ANTLR generates an unrelated context class
+     * per statement alternative, so the two cannot read it through one method.
+     */
+    private ColumnPosition getColumnPosition(SqlBaseParser.SetColumnPositionContext context)
+    {
+        if (context.FIRST() != null) {
+            return new ColumnPosition.First();
+        }
+        if (context.after != null) {
+            return new ColumnPosition.After((Identifier) visit(context.after));
+        }
+        throw new IllegalStateException("SET COLUMN POSITION must specify FIRST or AFTER");
     }
 
     @Override
@@ -1123,7 +1157,7 @@ class AstBuilder
         return new SetColumnType(
                 getLocation(context),
                 getQualifiedName(context.tableName),
-                (Identifier) visit(context.columnName),
+                getQualifiedName(context.columnName),
                 getType(context.type()),
                 context.EXISTS() != null);
     }
@@ -1169,6 +1203,7 @@ class AstBuilder
                             query.getWhere(),
                             query.getGroupBy(),
                             query.getHaving(),
+                            query.getWindows(),
                             orderBy,
                             offset,
                             limit),
@@ -1212,9 +1247,35 @@ class AstBuilder
                 visitIfPresent(context.where, Expression.class),
                 visitIfPresent(context.groupBy(), GroupBy.class),
                 visitIfPresent(context.having, Expression.class),
+                visit(context.windowDefinition(), WindowDefinition.class),
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty());
+    }
+
+    @Override
+    public Node visitWindowSpecification(SqlBaseParser.WindowSpecificationContext context)
+    {
+        Optional<OrderBy> orderBy = Optional.empty();
+        if (context.ORDER() != null) {
+            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
+        }
+
+        return new WindowSpecification(
+                getLocation(context),
+                visitIfPresent(context.existingWindowName, Identifier.class),
+                visit(context.partition, Expression.class),
+                orderBy,
+                visitIfPresent(context.windowFrame(), WindowFrame.class));
+    }
+
+    @Override
+    public Node visitWindowDefinition(SqlBaseParser.WindowDefinitionContext context)
+    {
+        return new WindowDefinition(
+                getLocation(context),
+                (Identifier) visit(context.name),
+                (WindowSpecification) visit(context.windowSpecification()));
     }
 
     @Override
@@ -2163,6 +2224,36 @@ class AstBuilder
     }
 
     @Override
+    public Node visitTrim(SqlBaseParser.TrimContext context)
+    {
+        if (context.trimsSpecification() == null && context.trimChar == null) {
+            throw parseError("TRIM requires a specification (BOTH, LEADING or TRAILING) or trim characters before FROM", context);
+        }
+
+        Trim.Specification specification = context.trimsSpecification() == null
+                ? Trim.Specification.BOTH
+                : toTrimSpecification(context.trimsSpecification().getStart());
+        return new Trim(
+                getLocation(context),
+                specification,
+                (Expression) visit(context.trimSource),
+                visitIfPresent(context.trimChar, Expression.class));
+    }
+
+    private static Trim.Specification toTrimSpecification(Token token)
+    {
+        switch (token.getType()) {
+            case SqlBaseLexer.BOTH:
+                return Trim.Specification.BOTH;
+            case SqlBaseLexer.LEADING:
+                return Trim.Specification.LEADING;
+            case SqlBaseLexer.TRAILING:
+                return Trim.Specification.TRAILING;
+        }
+        throw new IllegalArgumentException("Unsupported trim specification: " + token.getText());
+    }
+
+    @Override
     public Node visitSubstring(SqlBaseParser.SubstringContext context)
     {
         return new FunctionCall(getLocation(context), QualifiedName.of("substr"), visit(context.valueExpression(), Expression.class));
@@ -2350,16 +2441,11 @@ class AstBuilder
     @Override
     public Node visitOver(SqlBaseParser.OverContext context)
     {
-        Optional<OrderBy> orderBy = Optional.empty();
-        if (context.ORDER() != null) {
-            orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
+        if (context.windowName != null) {
+            return new WindowReference(getLocation(context), (Identifier) visit(context.windowName));
         }
 
-        return new Window(
-                getLocation(context),
-                visit(context.partition, Expression.class),
-                orderBy,
-                visitIfPresent(context.windowFrame(), WindowFrame.class));
+        return visit(context.windowSpecification());
     }
 
     @Override
@@ -2377,14 +2463,55 @@ class AstBuilder
 
         boolean nullable = context.NOT() == null;
 
-        Optional<Expression> defaultExpression = Optional.empty();
-        if (context.DEFAULT() != null && context.expression() != null) {
-            defaultExpression = Optional.of((Expression) visit(context.expression()));
+        if (context.DEFAULT() != null && (context.GENERATED() != null || context.AS() != null)) {
+            throw new ParsingException("Setting a default expression on a derived column is not supported.", getLocation(context));
         }
 
+        Optional<Expression> defaultExpression = Optional.empty();
+        if (context.DEFAULT() != null && context.expression() != null) {
+            defaultExpression = Optional.of((Expression) visit(context.expression().get(0)));
+        }
+
+        Optional<DerivedColumnSpec> derivedColumnExpressionSpec = Optional.empty();
+        QualifiedName columnName = getQualifiedName(context.qualifiedName());
+        // Derived columns are only supported for top-level columns, so the path is always single-part.
+        // Callers reject the dotted form: AddColumnTask (nested ADD COLUMN) and CreateTableTask.
+        Identifier columnIdentifier = columnName.getOriginalParts().get(0);
+        Optional<Expression> derivedColumnExpression = Optional.empty();
+        if (context.AS() != null && !context.expression().isEmpty()) {
+            SqlBaseParser.ExpressionContext tree = context.expression().get(0);
+            check(tree != null, "expression is null ", context);
+            Expression validatedDerivedColumnExpression = (Expression) visit(tree);
+            DerivedColumnType derivedColumnType = DerivedColumnType.PERSISTENT;
+            if (context.GENERATED() != null && context.ALWAYS() != null) {
+                derivedColumnType = DerivedColumnType.GENERATED_ALWAYS_PERSISTENT;
+            }
+            if (context.VIRTUAL() != null) {
+                derivedColumnType = DerivedColumnType.VIRTUAL;
+            }
+            derivedColumnExpression = Optional.of(validatedDerivedColumnExpression);
+            // tree.getText() gets the expression as text, but messes it up by removing spaces. e.g. (CAST(c1 AS decimal) * DECIMAL '10.5') becomes (CAST(c1ASdecimal)*DECIMAL'10.5')
+            derivedColumnExpressionSpec = Optional.of(
+                    new DerivedColumnSpec(derivedColumnType,
+                            ExpressionFormatter.formatExpression(validatedDerivedColumnExpression, Optional.empty()),
+                            columnIdentifier.getValue(),
+                            -1,
+                            getType(context.type())));
+        }
+
+        if (derivedColumnExpressionSpec.isPresent()) {
+            return new ColumnDefinition(Optional.of(getLocation(context)),
+                    columnName,
+                    getType(context.type()),
+                    nullable,
+                    properties,
+                    comment,
+                    derivedColumnExpression,
+                    derivedColumnExpressionSpec);
+        }
         return new ColumnDefinition(
                 getLocation(context),
-                (Identifier) visit(context.identifier()),
+                columnName,
                 getType(context.type()),
                 nullable, properties,
                 comment,

@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.isGeospatialType;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -232,6 +233,13 @@ public class Partition
             Type.PrimitiveType type = idToTypeMapping.get(id);
             if (type == null) {
                 // may occur for non-primitive types such as row-types
+                return;
+            }
+            if (isGeospatialType(type)) {
+                // Iceberg cannot deserialize a geospatial bound: Conversions.fromByteBuffer
+                // fails with "Cannot deserialize type: geography" because geospatial bounds
+                // are not single values. Writers that treat these columns as plain binary
+                // still record byte-wise bounds, so skip them rather than fail.
                 return;
             }
             map.put(id, Conversions.fromByteBuffer(type, value));

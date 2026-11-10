@@ -36,6 +36,7 @@ import com.facebook.presto.event.QueryMonitor;
 import com.facebook.presto.execution.DDLDefinitionTask;
 import com.facebook.presto.execution.DataDefinitionTask;
 import com.facebook.presto.execution.ExecutionFailureInfo;
+import com.facebook.presto.execution.QueryCompletionValidator;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryManagerConfig;
@@ -206,6 +207,7 @@ public class PrestoSparkQueryExecutionFactory
     private final AdaptivePlanOptimizers adaptivePlanOptimizers;
     private final FragmentStatsProvider fragmentStatsProvider;
     private final PlanCheckerProviderManager planCheckerProviderManager;
+    private final Set<QueryCompletionValidator> completionValidators;
 
     @Inject
     public PrestoSparkQueryExecutionFactory(
@@ -246,7 +248,8 @@ public class PrestoSparkQueryExecutionFactory
             HistoryBasedPlanStatisticsManager historyBasedPlanStatisticsManager,
             AdaptivePlanOptimizers adaptivePlanOptimizers,
             FragmentStatsProvider fragmentStatsProvider,
-            PlanCheckerProviderManager planCheckerProviderManager)
+            PlanCheckerProviderManager planCheckerProviderManager,
+            Set<QueryCompletionValidator> completionValidators)
     {
         this.queryIdGenerator = requireNonNull(queryIdGenerator, "queryIdGenerator is null");
         this.sessionSupplier = requireNonNull(sessionSupplier, "sessionSupplier is null");
@@ -287,6 +290,7 @@ public class PrestoSparkQueryExecutionFactory
         this.adaptivePlanOptimizers = requireNonNull(adaptivePlanOptimizers, "adaptivePlanOptimizers is null");
         this.fragmentStatsProvider = requireNonNull(fragmentStatsProvider, "fragmentStatsProvider is null");
         this.planCheckerProviderManager = requireNonNull(planCheckerProviderManager, "planCheckerProviderManager is null");
+        this.completionValidators = ImmutableSet.copyOf(requireNonNull(completionValidators, "completionValidators is null"));
     }
 
     public static QueryInfo createQueryInfo(
@@ -728,7 +732,8 @@ public class PrestoSparkQueryExecutionFactory
                             metadata,
                             partitioningProviderManager,
                             historyBasedPlanStatisticsTracker,
-                            bootstrapMetricsCollector);
+                            bootstrapMetricsCollector,
+                            completionValidators);
                 }
                 else {
                     return new PrestoSparkAdaptiveQueryExecution(
@@ -773,7 +778,8 @@ public class PrestoSparkQueryExecutionFactory
                             planNodeIdAllocator,
                             fragmentStatsProvider,
                             bootstrapMetricsCollector,
-                            planCheckerProviderManager);
+                            planCheckerProviderManager,
+                            completionValidators);
                 }
             }
         }

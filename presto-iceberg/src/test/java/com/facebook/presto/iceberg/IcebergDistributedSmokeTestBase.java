@@ -21,9 +21,11 @@ import com.facebook.presto.hive.HdfsEnvironment;
 import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.MetastoreClientConfig;
 import com.facebook.presto.hive.s3.HiveS3Config;
+import com.facebook.presto.iceberg.transaction.NotNullCheckingTableOperations;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
@@ -33,17 +35,23 @@ import com.facebook.presto.sql.tree.AstVisitor;
 import com.facebook.presto.sql.tree.ColumnDefinition;
 import com.facebook.presto.sql.tree.CreateTable;
 import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.assertions.Assert;
 import com.facebook.presto.tests.AbstractTestIntegrationSmokeTest;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tests.ResultWithQueryId;
+import com.facebook.presto.tests.sql.TestTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.iceberg.HasTableOperations;
+import org.apache.iceberg.ManageSnapshots;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.Transaction;
+import org.apache.iceberg.Transactions;
 import org.apache.iceberg.UpdateProperties;
 import org.apache.parquet.column.ParquetProperties;
 import org.intellij.lang.annotations.Language;
@@ -51,6 +59,9 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +74,7 @@ import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
+import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergTableProperties.COMMIT_RETRIES;
@@ -74,6 +86,12 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.METADATA_PREVIO
 import static com.facebook.presto.iceberg.IcebergTableProperties.METRICS_MAX_INFERRED_COLUMN;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
 import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_TABLE_PROPERTY;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.concurrentSetNotNullError;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.moveBranchError;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.noNullCountError;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.nullValuesError;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.updateNullError;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.writerNullError;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.METADATA_FOLDER_NAME;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.getFileSystem;
 import static com.facebook.presto.iceberg.procedure.RegisterTableProcedure.resolveLatestMetadataLocation;
@@ -84,6 +102,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
+import static java.time.format.DateTimeFormatter.ofPattern;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -834,7 +853,7 @@ public abstract class IcebergDistributedSmokeTestBase
         // schema, so it is not a usable target; the engine rejects it before the connector is reached
         assertQueryFails(
                 "ALTER TABLE test_add_column_position_errors ADD COLUMN c INTEGER AFTER \"$path\"",
-                ".*Cannot add a column after hidden column '\\$path'");
+                ".*Cannot position a column after hidden column '\\$path'");
         assertEquals(columnNames("test_add_column_position_errors"), ImmutableList.of("a", "b"));
 
         // IF NOT EXISTS makes the same statement a no-op, which must not reorder the existing column either
@@ -843,6 +862,96 @@ public abstract class IcebergDistributedSmokeTestBase
         assertQuery(session, "SELECT * FROM test_add_column_position_errors", "VALUES (1, 2)");
 
         dropTable(session, "test_add_column_position_errors");
+    }
+
+    @Test
+    public void testSetColumnPosition()
+    {
+        Session session = getSession();
+        assertUpdate(session, "CREATE TABLE test_set_column_position (a INTEGER, b INTEGER, c INTEGER)");
+        assertUpdate(session, "INSERT INTO test_set_column_position VALUES (1, 2, 3)", 1);
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("a", "b", "c"));
+
+        // Moving a column moves its values with it, so reading by name is unaffected while SELECT *, which
+        // expands in table order, reflects the new order. Every column holds a distinct value, so the two
+        // assertions together fail unless the engine and the connector agree on where each column now is
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c FIRST");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("c", "a", "b"));
+        assertQuery(session, "SELECT * FROM test_set_column_position", "VALUES (3, 1, 2)");
+        assertQuery(session, "SELECT a, b, c FROM test_set_column_position", "VALUES (1, 2, 3)");
+
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c AFTER a");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("a", "c", "b"));
+        assertQuery(session, "SELECT * FROM test_set_column_position", "VALUES (1, 3, 2)");
+
+        // With no LAST keyword, a column is moved to the end by naming the column that is currently last
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN a AFTER b");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("c", "b", "a"));
+        assertQuery(session, "SELECT * FROM test_set_column_position", "VALUES (3, 2, 1)");
+
+        // A move to where the column already is has nothing to do, rather than being an error
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN a AFTER b");
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c FIRST");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("c", "b", "a"));
+
+        // Several moves in sequence, restoring the original order
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN a FIRST");
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN b AFTER a");
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c AFTER b");
+        assertEquals(columnNames("test_set_column_position"), ImmutableList.of("a", "b", "c"));
+        assertQuery(session, "SELECT * FROM test_set_column_position", "VALUES (1, 2, 3)");
+
+        // Rows written after the moves round-trip in the current order
+        assertUpdate(session, "ALTER TABLE test_set_column_position ALTER COLUMN c FIRST");
+        assertUpdate(session, "INSERT INTO test_set_column_position VALUES (30, 10, 20)", 1);
+        assertQuery(session, "SELECT a, b, c FROM test_set_column_position WHERE a = 10", "VALUES (10, 20, 30)");
+        assertQueryOrdered(session, "SELECT * FROM test_set_column_position ORDER BY a", "VALUES (3, 1, 2), (30, 10, 20)");
+
+        dropTable(session, "test_set_column_position");
+    }
+
+    @Test
+    public void testSetColumnPositionErrors()
+    {
+        Session session = getSession();
+        assertUpdate(session, "CREATE TABLE test_set_column_position_errors (a INTEGER, b INTEGER)");
+        assertUpdate(session, "INSERT INTO test_set_column_position_errors VALUES (1, 2)", 1);
+
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN does_not_exist FIRST",
+                ".*Column 'does_not_exist' does not exist");
+
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN a AFTER does_not_exist",
+                ".*Column 'does_not_exist' does not exist");
+
+        // Iceberg rejects a move of a column after itself, and the engine rejects it for every connector
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN a AFTER a",
+                ".*Column 'a' cannot be moved after itself");
+
+        // A synthesized column is not part of the table's column order, so it can be neither moved nor a
+        // target. Both are rejected by the engine, so no connector has to guard against them, and the
+        // target is rejected with the same message as for ADD COLUMN
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN \"$path\" FIRST",
+                ".*Cannot move hidden column");
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_errors ALTER COLUMN a AFTER \"$path\"",
+                ".*Cannot position a column after hidden column '\\$path'");
+
+        assertQueryFails(
+                "ALTER TABLE test_set_column_position_missing_table ALTER COLUMN a FIRST",
+                ".*Table '.*test_set_column_position_missing_table' does not exist");
+
+        // IF EXISTS suppresses the missing table, as it does for the other ALTER TABLE statements
+        assertUpdate(session, "ALTER TABLE IF EXISTS test_set_column_position_missing_table ALTER COLUMN a FIRST");
+
+        // No failed statement moved anything
+        assertEquals(columnNames("test_set_column_position_errors"), ImmutableList.of("a", "b"));
+        assertQuery(session, "SELECT * FROM test_set_column_position_errors", "VALUES (1, 2)");
+
+        dropTable(session, "test_set_column_position_errors");
     }
 
     @Test
@@ -974,6 +1083,455 @@ public abstract class IcebergDistributedSmokeTestBase
         assertUpdate(session, "INSERT INTO test_schema_evolution_drop_middle VALUES (3, 4, 5)", 1);
         assertQuery(session, "SELECT * FROM test_schema_evolution_drop_middle", "VALUES(0, 2, NULL), (3, 4, 5)");
         dropTable(session, "test_schema_evolution_drop_middle");
+    }
+
+    @Test
+    public void testAddNestedField()
+    {
+        testWithAllFileFormats(this::testAddNestedField);
+    }
+
+    private void testAddNestedField(Session session, FileFormat fileFormat)
+    {
+        String format = "\"write.format.default\" = '" + fileFormat + "'";
+
+        // --- Single-level struct: add a new field ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_field (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_add_field VALUES (1, ROW('alice', 30))", 1);
+        assertQuery(session, "SELECT id, info.name, info.age FROM test_nested_add_field", "VALUES (1, 'alice', 30)");
+
+        // Add a new field to the struct
+        assertUpdate(session, "ALTER TABLE test_nested_add_field ADD COLUMN info.email VARCHAR");
+
+        // Old rows have NULL for the new field (subfield access — SYNTHESIZED path)
+        assertQuery(session, "SELECT id, info.name, info.age, info.email FROM test_nested_add_field",
+                "VALUES (1, 'alice', 30, NULL)");
+
+        // Whole-struct read of an old file after schema evolution must not crash or hang
+        // (regression for type-override bug introduced in #27470: the physical Parquet type was
+        // overwriting the logical evolved type, causing a field-count mismatch in ParquetPageSource).
+        // H2 cannot parse VALUES ROW(…) so we use computeActual for ROW-typed columns.
+        MaterializedResult infoOldOnly = computeActual(session,
+                "SELECT info FROM test_nested_add_field WHERE id = 1");
+        assertEquals(infoOldOnly.getRowCount(), 1);
+        assertEquals(infoOldOnly.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30, null));
+
+        // SELECT * on an old file after schema evolution must also not crash
+        MaterializedResult starOldOnly = computeActual(session,
+                "SELECT * FROM test_nested_add_field WHERE id = 1");
+        assertEquals(starOldOnly.getRowCount(), 1);
+        assertEquals(starOldOnly.getMaterializedRows().get(0).getField(0), 1L);
+        assertEquals(starOldOnly.getMaterializedRows().get(0).getField(1), Arrays.asList("alice", 30, null));
+
+        // New rows can populate the new field
+        assertUpdate(session, "INSERT INTO test_nested_add_field VALUES (2, ROW('bob', 25, 'bob@example.com'))", 1);
+        assertQuery(session, "SELECT id, info.name, info.age, info.email FROM test_nested_add_field ORDER BY id",
+                "VALUES (1, 'alice', 30, NULL), (2, 'bob', 25, 'bob@example.com')");
+
+        // Whole-struct read spanning both old and new file after schema evolution
+        MaterializedResult infoBothFiles = computeActual(session,
+                "SELECT info FROM test_nested_add_field ORDER BY id");
+        assertEquals(infoBothFiles.getRowCount(), 2);
+        assertEquals(infoBothFiles.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30, null));
+        assertEquals(infoBothFiles.getMaterializedRows().get(1).getField(0), Arrays.asList("bob", 25, "bob@example.com"));
+
+        // SELECT * spanning both files
+        MaterializedResult starBothFiles = computeActual(session,
+                "SELECT * FROM test_nested_add_field ORDER BY id");
+        assertEquals(starBothFiles.getRowCount(), 2);
+        assertEquals(starBothFiles.getMaterializedRows().get(0).getField(1), Arrays.asList("alice", 30, null));
+        assertEquals(starBothFiles.getMaterializedRows().get(1).getField(1), Arrays.asList("bob", 25, "bob@example.com"));
+
+        dropTable(session, "test_nested_add_field");
+
+        // --- IF NOT EXISTS: silently skip if field already exists ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_field_ifne (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "ALTER TABLE test_nested_add_field_ifne ADD COLUMN info.score INTEGER");
+        // Second time with IF NOT EXISTS must not throw
+        assertUpdate(session, "ALTER TABLE test_nested_add_field_ifne ADD COLUMN IF NOT EXISTS info.score INTEGER");
+        dropTable(session, "test_nested_add_field_ifne");
+
+        // --- Multi-level nesting ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_deep (" +
+                "id BIGINT, " +
+                "outer_col ROW(inner_col ROW(value VARCHAR))" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_add_deep VALUES (1, ROW(ROW('hello')))", 1);
+        assertUpdate(session, "ALTER TABLE test_nested_add_deep ADD COLUMN outer_col.inner_col.extra BIGINT");
+        assertQuery(session, "SELECT outer_col.inner_col.value, outer_col.inner_col.extra FROM test_nested_add_deep",
+                "VALUES ('hello', NULL)");
+        // Whole-struct read of a deeply nested column after schema evolution (also tests the reader fix)
+        MaterializedResult deepResult = computeActual(session,
+                "SELECT * FROM test_nested_add_deep");
+        assertEquals(deepResult.getRowCount(), 1);
+        assertEquals(deepResult.getMaterializedRows().get(0).getField(0), 1L);
+        // outer_col is ROW(inner_col ROW(value VARCHAR, extra BIGINT))
+        // RowType.getObjectValue returns an unmodifiable List<Object>.
+        @SuppressWarnings("unchecked")
+        List<Object> outerCol = (List<Object>) deepResult.getMaterializedRows().get(0).getField(1);
+        assertEquals(outerCol.size(), 1); // one child: inner_col
+        @SuppressWarnings("unchecked")
+        List<Object> innerCol = (List<Object>) outerCol.get(0);
+        assertEquals(innerCol.get(0), "hello");  // value field
+        assertEquals(innerCol.get(1), null);      // extra field — null from old file
+        dropTable(session, "test_nested_add_deep");
+
+        // --- Error: parent struct does not exist ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_bad (" +
+                "id BIGINT" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_bad ADD COLUMN nonexistent.new_field VARCHAR",
+                ".*Cannot find parent field 'nonexistent' in table.*");
+        dropTable(session, "test_nested_add_bad");
+
+        // --- Error: parent field exists but is not a struct ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_non_struct (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_non_struct ADD COLUMN id.x INT",
+                ".*is not a struct/ROW type.*");
+        dropTable(session, "test_nested_add_non_struct");
+
+        // --- Error: child field already exists without IF NOT EXISTS ---
+        assertUpdate(session, "CREATE TABLE test_nested_add_already_exists (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_already_exists ADD COLUMN info.name VARCHAR",
+                ".*Field 'name' already exists.*");
+        dropTable(session, "test_nested_add_already_exists");
+
+        // --- Error: clauses accepted by grammar but without SPI support for nested fields ---
+        // NOT NULL, COMMENT, FIRST/AFTER, DEFAULT, GENERATED/AS, and WITH properties must all be
+        // rejected at task level rather than silently ignored.
+        assertUpdate(session, "CREATE TABLE test_nested_add_unsupported (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT NOT NULL",
+                ".*NOT NULL constraint is not supported when adding a nested field.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT COMMENT 'user age'",
+                ".*COMMENT is not supported when adding a nested field.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT FIRST",
+                ".*FIRST/AFTER is not supported when adding a nested field.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT DEFAULT 10",
+                ".*DEFAULT is not supported when adding a nested field.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT AS (1 + 1) PERSISTENT",
+                ".*GENERATED/AS expression is not supported when adding a nested field.*");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_add_unsupported ADD COLUMN info.age INT WITH (nullable = true)",
+                ".*WITH properties are not supported when adding a nested field.*");
+        dropTable(session, "test_nested_add_unsupported");
+    }
+
+    @Test
+    public void testDropNestedField()
+    {
+        testWithAllFileFormats(this::testDropNestedField);
+    }
+
+    private void testDropNestedField(Session session, FileFormat fileFormat)
+    {
+        String format = "\"write.format.default\" = '" + fileFormat + "'";
+
+        // --- Single-level struct: drop one field, verify remaining field and whole-struct reads ---
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_field (" +
+                    "id BIGINT, " +
+                    "info ROW(name VARCHAR, age INTEGER)" +
+                    ") WITH (" + format + ")");
+            assertUpdate(session, "INSERT INTO test_nested_drop_field VALUES (1, ROW('alice', 30))", 1);
+            assertQuery(session, "SELECT id, info.name, info.age FROM test_nested_drop_field",
+                    "VALUES (1, 'alice', 30)");
+
+            // Drop one field from the struct
+            assertUpdate(session, "ALTER TABLE test_nested_drop_field DROP COLUMN info.age");
+
+            // Remaining field still readable via subfield access
+            assertQuery(session, "SELECT id, info.name FROM test_nested_drop_field",
+                    "VALUES (1, 'alice')");
+
+            // Whole-struct read after field drop (uses computeActual because H2 cannot parse VALUES ROW(...))
+            MaterializedResult infoAfterDrop = computeActual(session,
+                    "SELECT info FROM test_nested_drop_field");
+            assertEquals(infoAfterDrop.getRowCount(), 1);
+            assertEquals(infoAfterDrop.getMaterializedRows().get(0).getField(0), Arrays.asList("alice"));
+
+            // New rows work correctly with the evolved schema
+            assertUpdate(session, "INSERT INTO test_nested_drop_field VALUES (2, ROW('bob'))", 1);
+            assertQuery(session, "SELECT id, info.name FROM test_nested_drop_field ORDER BY id",
+                    "VALUES (1, 'alice'), (2, 'bob')");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS test_nested_drop_field");
+        }
+
+        // --- Multi-level nesting: drop a field from a deeply nested struct ---
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_deep (" +
+                    "id BIGINT, " +
+                    "outer_col ROW(inner_col ROW(a VARCHAR, b BIGINT))" +
+                    ") WITH (" + format + ")");
+            assertUpdate(session, "INSERT INTO test_nested_drop_deep VALUES (1, ROW(ROW('hello', 42)))", 1);
+            assertQuery(session, "SELECT outer_col.inner_col.a, outer_col.inner_col.b FROM test_nested_drop_deep",
+                    "VALUES ('hello', 42)");
+
+            assertUpdate(session, "ALTER TABLE test_nested_drop_deep DROP COLUMN outer_col.inner_col.b");
+
+            // Remaining deeply nested field still readable
+            assertQuery(session, "SELECT outer_col.inner_col.a FROM test_nested_drop_deep",
+                    "VALUES ('hello')");
+
+            // Whole-struct read of deeply nested column after drop
+            MaterializedResult deepResult = computeActual(session,
+                    "SELECT * FROM test_nested_drop_deep");
+            assertEquals(deepResult.getRowCount(), 1);
+            assertEquals(deepResult.getMaterializedRows().get(0).getField(0), 1L);
+            @SuppressWarnings("unchecked")
+            List<Object> outerCol = (List<Object>) deepResult.getMaterializedRows().get(0).getField(1);
+            assertEquals(outerCol.size(), 1); // one child: inner_col
+            @SuppressWarnings("unchecked")
+            List<Object> innerCol = (List<Object>) outerCol.get(0);
+            assertEquals(innerCol.size(), 1); // one remaining field: a
+            assertEquals(innerCol.get(0), "hello");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS test_nested_drop_deep");
+        }
+
+        // --- Middle-field drop: verify ordinal-position correctness ---
+        // Dropping the middle field of a 3-field struct must not make the last field unreadable
+        // or associate it with the wrong ordinal. A reader using positional mapping would fail here.
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_middle (" +
+                    "id BIGINT, " +
+                    "info ROW(first VARCHAR, middle INTEGER, last VARCHAR)" +
+                    ") WITH (" + format + ")");
+            assertUpdate(session, "INSERT INTO test_nested_drop_middle VALUES (1, ROW('alice', 99, 'smith'))", 1);
+            assertQuery(session, "SELECT info.first, info.middle, info.last FROM test_nested_drop_middle",
+                    "VALUES ('alice', 99, 'smith')");
+
+            assertUpdate(session, "ALTER TABLE test_nested_drop_middle DROP COLUMN info.middle");
+
+            // Remaining fields must be readable with correct values
+            assertQuery(session, "SELECT info.first, info.last FROM test_nested_drop_middle",
+                    "VALUES ('alice', 'smith')");
+
+            // Whole-struct read must show exactly 2 elements in the correct order
+            MaterializedResult middleResult = computeActual(session,
+                    "SELECT info FROM test_nested_drop_middle");
+            assertEquals(middleResult.getRowCount(), 1);
+            assertEquals(middleResult.getMaterializedRows().get(0).getField(0),
+                    Arrays.asList("alice", "smith"));
+
+            // The dropped field must no longer be accessible.
+            // For dotted names (prefix present), the analyzer emits "'x.y' cannot be resolved"
+            // rather than "Column 'x.y' cannot be resolved".
+            assertQueryFails(session,
+                    "SELECT info.middle FROM test_nested_drop_middle",
+                    ".*'info.middle' cannot be resolved.*");
+
+            // IF EXISTS on the already-dropped field must silently succeed
+            assertUpdate(session, "ALTER TABLE test_nested_drop_middle DROP COLUMN IF EXISTS info.middle");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS test_nested_drop_middle");
+        }
+
+        // --- IF EXISTS: silently skip if nested field does not exist ---
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_ifexists (" +
+                    "id BIGINT, " +
+                    "info ROW(name VARCHAR, age INTEGER)" +
+                    ") WITH (" + format + ")");
+            // Field exists — drops normally
+            assertUpdate(session, "ALTER TABLE test_nested_drop_ifexists DROP COLUMN IF EXISTS info.age");
+            // Field no longer exists — IF EXISTS suppresses the error
+            assertUpdate(session, "ALTER TABLE test_nested_drop_ifexists DROP COLUMN IF EXISTS info.age");
+            // Missing parent — IF EXISTS suppresses the error
+            assertUpdate(session, "ALTER TABLE test_nested_drop_ifexists DROP COLUMN IF EXISTS nonexistent.field");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS test_nested_drop_ifexists");
+        }
+
+        // --- Error: leaf field does not exist (no IF EXISTS) ---
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_missing (" +
+                    "id BIGINT, " +
+                    "info ROW(name VARCHAR)" +
+                    ") WITH (" + format + ")");
+            assertQueryFails(session,
+                    "ALTER TABLE test_nested_drop_missing DROP COLUMN info.nonexistent",
+                    "Field 'info.nonexistent' does not exist in table '.*\\.test_nested_drop_missing'");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS test_nested_drop_missing");
+        }
+
+        // --- Error: parent struct does not exist (no IF EXISTS) ---
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_no_parent (" +
+                    "id BIGINT" +
+                    ") WITH (" + format + ")");
+            assertQueryFails(session,
+                    "ALTER TABLE test_nested_drop_no_parent DROP COLUMN nonexistent.field",
+                    "Cannot find parent field 'nonexistent' in table '.*\\.test_nested_drop_no_parent'");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS test_nested_drop_no_parent");
+        }
+
+        // --- Error: dropping the only field from a nested struct ---
+        // Must fail cleanly; the table must remain readable after the rejected DDL.
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_only_field (" +
+                    "id BIGINT, " +
+                    "info ROW(name VARCHAR)" +
+                    ") WITH (" + format + ")");
+            assertUpdate(session, "INSERT INTO test_nested_drop_only_field VALUES (1, ROW('alice'))", 1);
+            assertQueryFails(session,
+                    "ALTER TABLE test_nested_drop_only_field DROP COLUMN info.name",
+                    "Cannot drop the only field 'name' in row type: info");
+            // Table must still be fully readable after the rejected DDL
+            assertQuery(session, "SELECT id, info.name FROM test_nested_drop_only_field",
+                    "VALUES (1, 'alice')");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS test_nested_drop_only_field");
+        }
+
+        // --- Error: dropping the only field from a deeply nested struct ---
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_only_deep (" +
+                    "id BIGINT, " +
+                    "outer_col ROW(inner_col ROW(x VARCHAR))" +
+                    ") WITH (" + format + ")");
+            assertQueryFails(session,
+                    "ALTER TABLE test_nested_drop_only_deep DROP COLUMN outer_col.inner_col.x",
+                    "Cannot drop the only field 'x' in row type: outer_col.inner_col");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS test_nested_drop_only_deep");
+        }
+
+        // --- Error: non-struct parent ---
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_non_struct (" +
+                    "id BIGINT, " +
+                    "info ROW(name VARCHAR)" +
+                    ") WITH (" + format + ")");
+            assertQueryFails(session,
+                    "ALTER TABLE test_nested_drop_non_struct DROP COLUMN id.leaf",
+                    "Parent field 'id' in table '.*\\.test_nested_drop_non_struct' is not a struct/ROW type");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS test_nested_drop_non_struct");
+        }
+
+        // --- Map of structs: drop a field from the value struct (m.value.field) ---
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_map (" +
+                    "id BIGINT, " +
+                    "m MAP(VARCHAR, ROW(name VARCHAR, age INTEGER))" +
+                    ") WITH (" + format + ")");
+            assertUpdate(session, "INSERT INTO test_nested_drop_map VALUES (1, MAP(ARRAY['k'], ARRAY[ROW('alice', 30)]))", 1);
+            assertUpdate(session, "ALTER TABLE test_nested_drop_map DROP COLUMN m.value.age");
+            // Remaining field in value struct is still readable
+            assertQuery(session, "SELECT m['k'].name FROM test_nested_drop_map", "VALUES ('alice')");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS test_nested_drop_map");
+        }
+
+        // --- Map & List: verify rejection of key, element, or value drops ---
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_map_reject (" +
+                    "id BIGINT, " +
+                    "m MAP(ROW(k1 VARCHAR), ROW(name VARCHAR))" +
+                    ") WITH (" + format + ")");
+            assertQueryFails(session,
+                    "ALTER TABLE test_nested_drop_map_reject DROP COLUMN m.key.k1",
+                    "Cannot drop or traverse the key of map 'm' in table '.*\\.test_nested_drop_map_reject'");
+            assertQueryFails(session,
+                    "ALTER TABLE test_nested_drop_map_reject DROP COLUMN m.value",
+                    "Cannot drop the value of map 'm' in table '.*\\.test_nested_drop_map_reject'");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS test_nested_drop_map_reject");
+        }
+
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_list_reject (" +
+                    "id BIGINT, " +
+                    "items ARRAY(ROW(name VARCHAR))" +
+                    ") WITH (" + format + ")");
+            assertQueryFails(session,
+                    "ALTER TABLE test_nested_drop_list_reject DROP COLUMN items.element",
+                    "Cannot drop the element of list 'items' in table '.*\\.test_nested_drop_list_reject'");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS test_nested_drop_list_reject");
+        }
+
+        // --- Array of structs: drop a field from the element struct (arr.element.field) ---
+        // 'element' is not a keyword in Presto SQL; the path resolves via Iceberg's IndexByName
+        // which names the list element field "element".
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_array (" +
+                    "id BIGINT, " +
+                    "items ARRAY(ROW(name VARCHAR, value INTEGER))" +
+                    ") WITH (" + format + ")");
+            assertUpdate(session, "INSERT INTO test_nested_drop_array VALUES (1, ARRAY[ROW('a', 10), ROW('b', 20)])", 1);
+            // Verify name field is readable before the DROP
+            assertQuery(session, "SELECT items[1].name, items[2].name FROM test_nested_drop_array",
+                    "VALUES ('a', 'b')");
+            assertUpdate(session, "ALTER TABLE test_nested_drop_array DROP COLUMN items.element.value");
+            // Remaining field in element struct is still readable with correct values after DROP
+            assertQuery(session, "SELECT items[1].name, items[2].name FROM test_nested_drop_array",
+                    "VALUES ('a', 'b')");
+        }
+        finally {
+            assertUpdate(session, "DROP TABLE IF EXISTS test_nested_drop_array");
+        }
+
+        // Re-adding a previously dropped nested field name must be rejected to avoid stale reads.
+        try {
+            assertUpdate(session, "CREATE TABLE test_nested_drop_readd (" +
+                    "id BIGINT, " +
+                    "info ROW(name VARCHAR, age INTEGER)" +
+                    ") WITH (" + format + ")");
+            assertUpdate(session, "INSERT INTO test_nested_drop_readd VALUES (1, ROW('alice', 30))", 1);
+            assertUpdate(session, "ALTER TABLE test_nested_drop_readd DROP COLUMN info.age");
+            assertQuery(session, "SELECT id, info.name FROM test_nested_drop_readd", "VALUES (1, 'alice')");
+
+            assertQueryFails(session,
+                    "ALTER TABLE test_nested_drop_readd ADD COLUMN info.age INTEGER",
+                    "Cannot add field 'age' to 'info': that name was previously used by another field.*");
+
+            assertUpdate(session, "ALTER TABLE test_nested_drop_readd ADD COLUMN info.years INTEGER");
+            assertUpdate(session, "INSERT INTO test_nested_drop_readd VALUES (2, ROW('bob', 40))", 1);
+            assertQuery(session, "SELECT id, info.name, info.years FROM test_nested_drop_readd ORDER BY id",
+                    "VALUES (1, 'alice', NULL), (2, 'bob', 40)");
+        }
+        finally {
+            dropTable(session, "test_nested_drop_readd");
+        }
     }
 
     @Test
@@ -1492,6 +2050,801 @@ public abstract class IcebergDistributedSmokeTestBase
     }
 
     @Test
+    public void testAlterColumnSetAndDropNotNull()
+    {
+        try (TestTable table = newTable("test_alter_column_set_and_drop_not_null", "(c1 BIGINT, c2 BIGINT, c3 VARCHAR NOT NULL)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2, 'a')", tableName), 1);
+
+            assertUpdate(setNotNull(tableName, "c2"));
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'NO'), ('c3', 'NO')");
+            assertQueryFails(format("INSERT INTO %s VALUES (2, NULL, 'b')", tableName), writerNullError("c2"));
+            assertQueryFails(format("INSERT INTO %s (c1, c3) VALUES (2, 'b')", tableName), writerNullError("c2"));
+            assertQueryFails(
+                    format("MERGE INTO %s t USING (VALUES 1) s(c1) ON t.c1 = s.c1 WHEN MATCHED THEN UPDATE SET c2 = NULL", tableName),
+                    updateNullError("c2"));
+            assertQueryFails(
+                    format("MERGE INTO %s t USING (VALUES 2) s(c1) ON t.c1 = s.c1 WHEN NOT MATCHED THEN INSERT VALUES (s.c1, NULL, 'b')", tableName),
+                    updateNullError("c2"));
+
+            assertUpdate(dropNotNull(tableName, "c2"));
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES'), ('c3', 'NO')");
+            assertUpdate(format("INSERT INTO %s VALUES (2, NULL, 'b')", tableName), 1);
+            assertQueryFails(format("INSERT INTO %s VALUES (3, 4, NULL)", tableName), writerNullError("c3"));
+            assertQuery(format("SELECT c1, c2, c3 FROM %s", tableName), "VALUES (1, 2, 'a'), (2, NULL, 'b')");
+
+            // DROP NOT NULL on a nullable column fails, as in Hive, and changes nothing
+            assertQueryFails(dropNotNull(tableName, "c2"), "Not Null constraint not found on column c2");
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES'), ('c3', 'NO')");
+        }
+    }
+
+    @Test
+    public void testUnsupportedNotNullChanges()
+    {
+        try (TestTable table = newTable("test_unsupported_not_null_changes", "(c1 BIGINT NOT NULL, c2 BIGINT)")) {
+            String tableName = table.getName();
+
+            // Iceberg has no named constraints, so DROP CONSTRAINT <name> is rejected.
+            assertQueryFails(
+                    format("ALTER TABLE %s DROP CONSTRAINT some_constraint", tableName),
+                    ".*Iceberg does not support named constraints.*");
+
+            assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'br1'", tableName));
+            String branchTableName = format("\"%s.branch_br1\"", tableName);
+            assertQueryFails(setNotNull(branchTableName, "c2"), ".*ALTER COLUMN SET NOT NULL is not supported on branch-specific tables.*");
+            assertQueryFails(dropNotNull(branchTableName, "c1"), ".*ALTER COLUMN DROP NOT NULL is not supported on branch-specific tables.*");
+        }
+    }
+
+    /**
+     * {@code _row_id} and {@code _last_updated_sequence_number} reach the connector as regular column handles and are
+     * rejected. Iceberg doesn't reserve metadata column names, so a real {@code _pos} column is a regular column.
+     */
+    @Test
+    public void testAlterColumnNotNullOnMetadataColumns()
+    {
+        try (TestTable table = newTable("test_not_null_metadata_columns", "(c1 BIGINT, \"_pos\" BIGINT)")) {
+            String tableName = table.getName();
+            for (String column : ImmutableList.of("_row_id", "_last_updated_sequence_number")) {
+                assertQueryFails(
+                        setNotNull(tableName, column),
+                        format(".*Cannot set NOT NULL on metadata column '%s'.*", column));
+                assertQueryFails(
+                        dropNotNull(tableName, column),
+                        format(".*Cannot drop NOT NULL on metadata column '%s'.*", column));
+            }
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('_pos', 'YES')");
+
+            assertUpdate(setNotNull(tableName, "_pos"));
+            assertQueryFails(format("INSERT INTO %s VALUES (1, NULL)", tableName), writerNullError("_pos"));
+            assertUpdate(dropNotNull(tableName, "_pos"));
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
+        }
+    }
+
+    @Test
+    public void testAlterColumnNotNullInTransaction()
+    {
+        // Like ADD COLUMN, the change is staged in the transaction: later statements see it and ROLLBACK discards it.
+        try (TestTable table = newTable("test_alter_column_not_null_txn", "(c1 BIGINT, c2 BIGINT NOT NULL)")) {
+            String tableName = table.getName();
+
+            Session session = getSession();
+            Session txnSession = assertStartTransaction(session, "START TRANSACTION");
+            assertUpdate(txnSession, setNotNull(tableName, "c1"));
+            assertQueryFails(
+                    txnSession,
+                    format("INSERT INTO %s VALUES (NULL, 2)", tableName),
+                    writerNullError("c1"));
+            session = assertEndTransaction(txnSession, "ROLLBACK");
+
+            // ROLLBACK discarded the change, so c1 accepts NULL again.
+            assertUpdate(session, format("INSERT INTO %s VALUES (NULL, 2)", tableName), 1);
+
+            txnSession = assertStartTransaction(session, "START TRANSACTION");
+            assertUpdate(txnSession, dropNotNull(tableName, "c2"));
+            assertUpdate(txnSession, format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
+            assertEndTransaction(txnSession, "COMMIT");
+
+            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (NULL, 2), (1, NULL)");
+        }
+    }
+
+    @Test
+    public void testAlterColumnNotNullOnMixedCaseColumn()
+    {
+        // Other engines can write mixed-case field names, but Presto passes the column name lowercased.
+        try (TestTable table = newTable("test_not_null_mixed_case", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
+            Table icebergTable = loadTable(tableName);
+            icebergTable.updateSchema().renameColumn("c2", "MixedCase").commit();
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL), (2, 5)", tableName), 2);
+
+            assertQueryFails(setNotNull(tableName, "mixedcase"), nullValuesError("mixedcase", "main"));
+            assertUpdate(format("DELETE FROM %s WHERE c1 = 1", tableName), 1);
+            rewriteAllDataFiles(tableName, 1);
+
+            assertUpdate(setNotNull(tableName, "mixedcase"));
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('mixedcase', 'NO')");
+            assertQuery(format("SELECT c1 FROM %s WHERE mixedcase IS NOT NULL", tableName), "VALUES 2");
+            assertQueryFails(format("INSERT INTO %s VALUES (1, NULL)", tableName), writerNullError("mixedcase"));
+
+            assertUpdate(dropNotNull(tableName, "mixedcase"));
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('mixedcase', 'YES')");
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
+
+            icebergTable.refresh();
+            assertEquals(icebergTable.schema().findField(2).name(), "MixedCase");
+        }
+    }
+
+    @Test
+    public void testDropNotNullOnIdentifierField()
+    {
+        // Iceberg requires identifier fields, which engines like Flink set, to be NOT NULL.
+        try (TestTable table = newTable("test_drop_not_null_identifier_field", "(id BIGINT NOT NULL, c BIGINT)")) {
+            String tableName = table.getName();
+            Table icebergTable = loadTable(tableName);
+            icebergTable.updateSchema().setIdentifierFields("id").commit();
+
+            assertQueryFails(
+                    dropNotNull(tableName, "id"),
+                    format("Cannot drop NOT NULL on column 'id': it is an identifier field of table '.*%s'", tableName));
+            assertColumnNullability(tableName, "VALUES ('id', 'NO'), ('c', 'YES')");
+        }
+    }
+
+    @Test
+    public void testSetNotNullWithExistingNullData()
+    {
+        for (String fileFormat : ImmutableList.of("PARQUET", "ORC")) {
+            try (TestTable table = newTable("test_set_not_null_existing_nulls", format("(c1 BIGINT, c2 BIGINT) WITH (format = '%s')", fileFormat))) {
+                String tableName = table.getName();
+                assertUpdate(format("INSERT INTO %s VALUES (1, NULL), (2, 5)", tableName), 2);
+
+                assertQueryFails(setNotNull(tableName, "c2"), nullValuesError("c2", "main"));
+                assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES')");
+                assertUpdate(format("INSERT INTO %s VALUES (3, NULL)", tableName), 1);
+            }
+        }
+    }
+
+    /**
+     * Deleting the NULL partition drops its data files, so SET NOT NULL needs no rewrite.
+     */
+    @Test
+    public void testSetNotNullOnPartitionColumnWithExistingNullData()
+    {
+        try (TestTable table = newRegionTable("test_set_not_null_existing_null_partition")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL), (2, 'us'), (3, NULL)", tableName), 3);
+            assertQueryFails(setNotNull(tableName, "region"), nullValuesError("region", "main"));
+
+            assertUpdate(format("DELETE FROM %s WHERE region IS NULL", tableName), 2);
+            assertUpdate(setNotNull(tableName, "region"));
+            assertColumnNullability(tableName, "VALUES ('id', 'YES'), ('region', 'NO')");
+            assertQuery(format("SELECT id, region FROM %s", tableName), "VALUES (2, 'us')");
+        }
+    }
+
+    /**
+     * NULL counts ignore delete files, so files that held NULLs block SET NOT NULL until they are rewritten.
+     */
+    @Test
+    public void testSetNotNullAfterRemovingNullRows()
+    {
+        assertSetNotNullAfterRemovingNullRows("DELETE FROM %s WHERE c2 IS NULL", 1, "VALUES (2, 5)");
+        assertSetNotNullAfterRemovingNullRows("UPDATE %s SET c2 = 0 WHERE c2 IS NULL", 2, "VALUES (1, 0), (2, 5)");
+    }
+
+    private void assertSetNotNullAfterRemovingNullRows(String removeNulls, long remainingRows, String expectedRows)
+    {
+        try (TestTable table = newTable("test_set_not_null_after_removing_nulls", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL), (2, 5)", tableName), 2);
+            assertUpdate(format(removeNulls, tableName), 1);
+            assertQueryFails(setNotNull(tableName, "c2"), nullValuesError("c2", "main"));
+
+            rewriteAllDataFiles(tableName, remainingRows);
+            assertUpdate(setNotNull(tableName, "c2"));
+            assertQuery(format("SELECT c1, c2 FROM %s", tableName), expectedRows);
+        }
+    }
+
+    /**
+     * A data file has no NULL count for a column added after it was written, which reads NULL, or for a column past
+     * the metrics limit.
+     */
+    @Test
+    public void testSetNotNullWithoutNullCounts()
+    {
+        try (TestTable table = newTable("test_set_not_null_added_column", "(c1 BIGINT)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES 1", tableName), 1);
+            assertUpdate(format("ALTER TABLE %s ADD COLUMN c2 BIGINT", tableName));
+
+            assertQueryFails(setNotNull(tableName, "c2"), noNullCountError("c2"));
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES')");
+        }
+
+        try (TestTable table = newTable("test_set_not_null_without_null_counts", "(c1 BIGINT, c2 BIGINT) WITH (\"write.metadata.metrics.max-inferred-column-defaults\" = 1)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2)", tableName), 1);
+
+            assertQueryFails(setNotNull(tableName, "c2"), noNullCountError("c2"));
+            assertUpdate(setNotNull(tableName, "c1"));
+            assertColumnNullability(tableName, "VALUES ('c1', 'NO'), ('c2', 'YES')");
+        }
+    }
+
+    /**
+     * Branches use the current schema, so every branch head is checked. Tags keep their snapshot's schema and are skipped.
+     */
+    @Test
+    public void testSetNotNullWithNullOnBranch()
+    {
+        try (TestTable table = newTable("test_set_not_null_null_on_branch", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL), (2, 5)", tableName), 2);
+            assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'br1'", tableName));
+            assertUpdate(format("ALTER TABLE %s CREATE TAG 'tag1'", tableName));
+            assertUpdate(format("DELETE FROM %s WHERE c2 IS NULL", tableName), 1);
+            rewriteAllDataFiles(tableName, 1);
+
+            assertQueryFails(setNotNull(tableName, "c2"), nullValuesError("c2", "br1"));
+            assertUpdate(format("ALTER TABLE %s DROP BRANCH 'br1'", tableName));
+            assertUpdate(setNotNull(tableName, "c2"));
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'NO')");
+        }
+    }
+
+    @Test
+    public void testSetNotNullOnRequiredColumnKeepsMetadata()
+    {
+        try (TestTable table = newTable("test_set_not_null_required_column", "(c1 BIGINT NOT NULL, c2 BIGINT)");
+                TestTable otherTable = newTable("test_set_not_null_required_column_other", "(c BIGINT)")) {
+            String tableName = table.getName();
+            String otherTableName = otherTable.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2)", tableName), 1);
+            assertUpdate(setNotNull(tableName, "c2"));
+            Table icebergTable = loadTable(tableName);
+            String metadataLocation = ((HasTableOperations) icebergTable).operations().current().metadataFileLocation();
+
+            assertUpdate(setNotNull(tableName, "c2"));
+            assertUpdate(setNotNull(tableName, "c1"));
+            icebergTable.refresh();
+            assertEquals(((HasTableOperations) icebergTable).operations().current().metadataFileLocation(), metadataLocation);
+            assertColumnNullability(tableName, "VALUES ('c1', 'NO'), ('c2', 'NO')");
+
+            // A transaction writes to one table, so a no-op SET NOT NULL must not claim this one.
+            Session txnSession = startTransaction();
+            assertUpdate(txnSession, setNotNull(tableName, "c1"));
+            assertUpdate(txnSession, format("INSERT INTO %s VALUES 1", otherTableName), 1);
+            assertEndTransaction(txnSession, "COMMIT");
+            assertQuery(format("SELECT c FROM %s", otherTableName), "VALUES 1");
+        }
+    }
+
+    /**
+     * The check sees NULL values staged earlier in the transaction, and its failure aborts the transaction.
+     */
+    @Test
+    public void testSetNotNullWithNullStagedInTransaction()
+    {
+        try (TestTable table = newTable("test_set_not_null_staged_nulls", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, 1)", tableName), 1);
+
+            Session txnSession = startTransaction();
+            assertUpdate(txnSession, format("INSERT INTO %s VALUES (2, NULL)", tableName), 1);
+            assertQueryFails(txnSession, setNotNull(tableName, "c2"), nullValuesError("c2", "main"));
+            assertQueryFails(txnSession, format("INSERT INTO %s VALUES (3, 3)", tableName), "Current transaction is aborted, commands ignored until end of transaction block");
+            assertQueryFails(txnSession, "COMMIT", "Current transaction has already been aborted");
+
+            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, 1)");
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES')");
+        }
+    }
+
+    /**
+     * A NULL committed outside the transaction after SET NOT NULL makes COMMIT fail. A NULL committed after the
+     * transaction first read the table, but before SET NOT NULL, fails SET NOT NULL, because the check reads the
+     * metadata it commits on. The Hive catalog caches the table location per transaction, so there the check sees the
+     * stale table and COMMIT fails instead.
+     */
+    @Test
+    public void testSetNotNullWithNullCommittedAfterTransactionRead()
+    {
+        try (TestTable table = newTable("test_set_not_null_null_after_read", "(c1 BIGINT, c2 BIGINT, c3 BIGINT)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2, 3)", tableName), 1);
+
+            Session txnSession = startTransaction();
+            assertUpdate(txnSession, setNotNull(tableName, "c3"));
+            assertUpdate(format("INSERT INTO %s VALUES (2, 2, NULL)", tableName), 1);
+            assertQueryFails(txnSession, "COMMIT", "Table metadata refresh is required");
+
+            txnSession = startTransaction();
+            assertQuery(txnSession, format("SELECT count(*) FROM %s", tableName), "VALUES 2");
+            assertUpdate(format("INSERT INTO %s VALUES (3, NULL, 3)", tableName), 1);
+            if (catalogType == HIVE) {
+                assertUpdate(txnSession, setNotNull(tableName, "c2"));
+                assertQueryFails(txnSession, "COMMIT", "Table metadata refresh is required");
+            }
+            else {
+                assertQueryFails(txnSession, setNotNull(tableName, "c2"), nullValuesError("c2", "main"));
+                assertEndTransaction(txnSession, "ROLLBACK");
+            }
+
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES'), ('c3', 'YES')");
+            assertQuery(format("SELECT c1 FROM %s WHERE c2 IS NULL OR c3 IS NULL", tableName), "VALUES 2, 3");
+        }
+    }
+
+    /**
+     * A write checks NOT NULL against the schema it read, so its commit fails if another query set NOT NULL on a column
+     * after that read and the write stored NULL values in the column.
+     */
+    @Test
+    public void testWriteCommittedAfterSetNotNull()
+    {
+        try (TestTable table = newTable("test_write_after_set_not_null", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, 1)", tableName), 1);
+
+            Session txnSession = startTransaction();
+            assertUpdate(txnSession, format("INSERT INTO %s VALUES (2, NULL)", tableName), 1);
+            assertUpdate(setNotNull(tableName, "c2"));
+            assertQueryFails(txnSession, "COMMIT", concurrentSetNotNullError("c2"));
+
+            txnSession = startTransaction();
+            assertUpdate(txnSession, format("INSERT INTO %s VALUES (3, 3)", tableName), 1);
+            assertUpdate(setNotNull(tableName, "c1"));
+            assertEndTransaction(txnSession, "COMMIT");
+
+            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, 1), (3, 3)");
+            assertColumnNullability(tableName, "VALUES ('c1', 'NO'), ('c2', 'NO')");
+        }
+    }
+
+    /**
+     * A column added and set NOT NULL after a write read the table is missing from the write's data files, so they read
+     * NULL in it unless the column has an initial default.
+     */
+    @Test
+    public void testWriteCommittedAfterAddColumnAndSetNotNull()
+    {
+        try (TestTable table = newTable("test_write_after_add_column_set_not_null", "(c1 BIGINT)")) {
+            String tableName = table.getName();
+
+            Session txnSession = startTransaction();
+            assertUpdate(txnSession, format("INSERT INTO %s VALUES 1", tableName), 1);
+            assertUpdate(format("ALTER TABLE %s ADD COLUMN c2 BIGINT", tableName));
+            assertUpdate(setNotNull(tableName, "c2"));
+            assertQueryFails(txnSession, "COMMIT", concurrentSetNotNullError("c2"));
+
+            assertQueryReturnsEmptyResult(format("SELECT c1, c2 FROM %s", tableName));
+        }
+
+        try (TestTable table = newTable("test_write_after_add_column_with_default_set_not_null", "(c1 BIGINT) WITH (format_version = '3')")) {
+            String tableName = table.getName();
+
+            Session txnSession = startTransaction();
+            assertUpdate(txnSession, format("INSERT INTO %s VALUES 1", tableName), 1);
+            assertUpdate(format("ALTER TABLE %s ADD COLUMN c2 BIGINT DEFAULT 5", tableName));
+            assertUpdate(setNotNull(tableName, "c2"));
+            assertEndTransaction(txnSession, "COMMIT");
+
+            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, 5)");
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'NO')");
+        }
+    }
+
+    /**
+     * rollback_to_snapshot, rollback_to_timestamp and set_current_snapshot move main with an operation that Iceberg
+     * reapplies on the refreshed table when the commit retries, so a move that read the table before another query set
+     * NOT NULL is checked again when it commits, and commits if the target holds no NULL values.
+     */
+    @Test
+    public void testMoveMainBranchCommittedAfterSetNotNull()
+    {
+        try (TestTable table = newRegionTable("test_move_main_after_set_not_null")) {
+            String tableName = table.getName();
+            long withNulls = insertAndDeleteNullRegion(tableName);
+
+            for (BiConsumer<ManageSnapshots, Long> move : ImmutableList.<BiConsumer<ManageSnapshots, Long>>of(
+                    (manageSnapshots, snapshotId) -> manageSnapshots.rollbackTo(snapshotId).commit(),
+                    (manageSnapshots, snapshotId) -> manageSnapshots.setCurrentSnapshot(snapshotId).commit())) {
+                Transaction transaction = newNotNullCheckingTransaction(tableName);
+                move.accept(transaction.manageSnapshots(), withNulls);
+                assertUpdate(setNotNull(tableName, "region"));
+                assertThatThrownBy(transaction::commitTransaction)
+                        .isInstanceOf(PrestoException.class)
+                        .hasMessageMatching(moveBranchError("region"));
+
+                assertQuery(format("SELECT id, region FROM %s", tableName), "VALUES (2, 'us')");
+                assertUpdate(dropNotNull(tableName, "region"));
+            }
+
+            long withoutNulls = latestSnapshotId(tableName);
+            assertUpdate(format("INSERT INTO %s VALUES (3, 'eu')", tableName), 1);
+            Transaction transaction = newNotNullCheckingTransaction(tableName);
+            transaction.manageSnapshots().rollbackTo(withoutNulls).commit();
+            assertUpdate(setNotNull(tableName, "region"));
+            transaction.commitTransaction();
+
+            assertQuery(format("SELECT id, region FROM %s", tableName), "VALUES (2, 'us')");
+            assertColumnNullability(tableName, "VALUES ('id', 'YES'), ('region', 'NO')");
+        }
+    }
+
+    /**
+     * Branch creation, replacement and fast-forward commit against the table they read and are not reapplied on a
+     * retry, so their commit fails after another query sets NOT NULL. If Iceberg starts reapplying them, the commit
+     * check must cover them as it does a move of main.
+     */
+    @Test
+    public void testCreateBranchCommittedAfterSetNotNull()
+    {
+        try (TestTable table = newRegionTable("test_create_branch_after_set_not_null")) {
+            String tableName = table.getName();
+            long withNulls = insertAndDeleteNullRegion(tableName);
+
+            Session txnSession = startTransaction();
+            assertUpdate(txnSession, format("ALTER TABLE %s CREATE BRANCH 'b1' FOR SYSTEM_VERSION AS OF %d", tableName, withNulls));
+            assertUpdate(setNotNull(tableName, "region"));
+            assertQueryFails(txnSession, "COMMIT", "Table metadata refresh is required");
+
+            assertQuery(format("SELECT name FROM \"%s$refs\"", tableName), "VALUES 'main'");
+            assertColumnNullability(tableName, "VALUES ('id', 'YES'), ('region', 'NO')");
+        }
+    }
+
+    @Test
+    public void testSetNotNullAndMoveBranchInTransaction()
+    {
+        try (TestTable table = newRegionTable("test_set_not_null_move_branch_txn")) {
+            String tableName = table.getName();
+            long withNulls = insertAndDeleteNullRegion(tableName);
+
+            Session txnSession = startTransaction();
+            assertUpdate(txnSession, setNotNull(tableName, "region"));
+            assertQueryFails(txnSession, format("ALTER TABLE %s CREATE BRANCH 'b1' FOR SYSTEM_VERSION AS OF %d", tableName, withNulls), moveBranchError("region"));
+            assertEndTransaction(txnSession, "ROLLBACK");
+
+            txnSession = startTransaction();
+            assertUpdate(txnSession, format("ALTER TABLE %s CREATE BRANCH 'b2' FOR SYSTEM_VERSION AS OF %d", tableName, withNulls));
+            assertQueryFails(txnSession, setNotNull(tableName, "region"), nullValuesError("region", "b2"));
+            assertEndTransaction(txnSession, "ROLLBACK");
+
+            assertQuery(format("SELECT name FROM \"%s$refs\"", tableName), "VALUES 'main'");
+            assertColumnNullability(tableName, "VALUES ('id', 'YES'), ('region', 'YES')");
+        }
+    }
+
+    @Test
+    public void testSetAndDropNotNullInTransaction()
+    {
+        try (TestTable table = newTable("test_set_and_drop_not_null_txn", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
+            Session txnSession = startTransaction();
+            assertUpdate(txnSession, setNotNull(tableName, "c2"));
+            assertUpdate(txnSession, dropNotNull(tableName, "c2"));
+            assertUpdate(txnSession, format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
+            assertEndTransaction(txnSession, "COMMIT");
+
+            assertColumnNullability(tableName, "VALUES ('c1', 'YES'), ('c2', 'YES')");
+            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, NULL)");
+        }
+    }
+
+    @Test
+    public void testSetNotNullOnColumnDroppedAfterTransactionRead()
+    {
+        try (TestTable table = newTable("test_set_not_null_dropped_after_read", "(c1 BIGINT, c2 BIGINT)")) {
+            String tableName = table.getName();
+            Session txnSession = startTransaction();
+            assertQuery(txnSession, format("SELECT count(*) FROM %s", tableName), "VALUES 0");
+            loadTable(tableName).updateSchema().deleteColumn("c2").commit();
+
+            if (catalogType == HIVE) {
+                assertUpdate(txnSession, setNotNull(tableName, "c2"));
+                assertQueryFails(txnSession, "COMMIT", "Table metadata refresh is required");
+            }
+            else {
+                assertQueryFails(txnSession, setNotNull(tableName, "c2"),
+                        format("Cannot set NOT NULL: column 'c2' does not exist in table '.*%s'", tableName));
+                assertEndTransaction(txnSession, "ROLLBACK");
+            }
+        }
+    }
+
+    /**
+     * Branches use the current schema, so moving one to a snapshot from before SET NOT NULL is checked too.
+     */
+    @Test
+    public void testMoveBranchToSnapshotWithNullValues()
+    {
+        String schemaName = getSession().getSchema().get();
+        try (TestTable table = newRegionTable("test_move_branch_null_values")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (2, 'us')", tableName), 1);
+            assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'existing'", tableName));
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
+            long withNulls = latestSnapshotId(tableName);
+            assertUpdate(format("ALTER TABLE %s CREATE TAG 'with_nulls'", tableName));
+            long withNullsMillis = loadTable(tableName).snapshot(withNulls).timestampMillis();
+            waitUntilAfter(withNullsMillis);
+            assertUpdate(format("DELETE FROM %s WHERE region IS NULL", tableName), 1);
+            long withoutNulls = latestSnapshotId(tableName);
+            assertUpdate(setNotNull(tableName, "region"));
+            // Without legacy timestamps, the literals are in UTC. rollback_to_timestamp picks the newest snapshot strictly
+            // older than the timestamp, which is withNulls for both timestamps below.
+            Session session = Session.builder(getSession()).setSystemProperty(LEGACY_TIMESTAMP, "false").build();
+            String withNullsTimestamp = utcTimestamp(withNullsMillis);
+            String withoutNullsTimestamp = utcTimestamp(loadTable(tableName).snapshot(withoutNulls).timestampMillis());
+
+            for (String moveToNulls : ImmutableList.of(
+                    rollbackToSnapshot(tableName, withNulls),
+                    format("CALL system.rollback_to_timestamp('%s', '%s', TIMESTAMP '%s')", schemaName, tableName, utcTimestamp(withNullsMillis + 1)),
+                    format("CALL system.rollback_to_timestamp('%s', '%s', TIMESTAMP '%s')", schemaName, tableName, withoutNullsTimestamp),
+                    format("CALL system.set_current_snapshot('%s', '%s', %d)", schemaName, tableName, withNulls),
+                    format("CALL system.set_current_snapshot(schema => '%s', table_name => '%s', ref => 'with_nulls')", schemaName, tableName),
+                    format("CALL system.fast_forward('%s', '%s', 'existing', 'with_nulls')", schemaName, tableName),
+                    format("CALL system.fast_forward('%s', '%s', 'new', 'with_nulls')", schemaName, tableName),
+                    format("ALTER TABLE %s CREATE BRANCH 'new' FOR SYSTEM_VERSION AS OF %d", tableName, withNulls),
+                    format("ALTER TABLE %s CREATE BRANCH 'new' FOR SYSTEM_TIME AS OF TIMESTAMP '%s UTC'", tableName, withNullsTimestamp),
+                    format("ALTER TABLE %s CREATE OR REPLACE BRANCH 'existing' FOR SYSTEM_VERSION AS OF %d", tableName, withNulls))) {
+                assertQueryFails(session, moveToNulls, moveBranchError("region"));
+            }
+            assertQuery(format("SELECT name FROM \"%s$refs\"", tableName), "VALUES 'main', 'existing', 'with_nulls'");
+            assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'new' FOR SYSTEM_VERSION AS OF %d", tableName, withoutNulls));
+            assertQuery(format("SELECT id, region FROM %s", tableName), "VALUES (2, 'us')");
+
+            assertUpdate(dropNotNull(tableName, "region"));
+            assertUpdate(rollbackToSnapshot(tableName, withNulls));
+            assertQuery(format("SELECT id FROM %s WHERE region IS NULL", tableName), "VALUES 1");
+        }
+    }
+
+    @Test
+    public void testMoveBranchToSnapshotFromBeforeColumnAdded()
+    {
+        try (TestTable table = newTable("test_move_branch_added_column", "(c1 BIGINT)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES 1", tableName), 1);
+            long beforeColumnAdded = latestSnapshotId(tableName);
+            assertUpdate(format("ALTER TABLE %s ADD COLUMN c2 BIGINT", tableName));
+            assertUpdate(format("DELETE FROM %s", tableName), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (2, 5)", tableName), 1);
+            assertUpdate(setNotNull(tableName, "c2"));
+            assertQueryFails(
+                    rollbackToSnapshot(tableName, beforeColumnAdded),
+                    moveBranchError("c2"));
+        }
+    }
+
+    /**
+     * Without NULL counts, only the snapshot's schema shows that the column holds no NULLs.
+     */
+    @Test
+    public void testMoveBranchToSnapshotWithColumnAlreadyRequired()
+    {
+        try (TestTable table = newTable("test_move_branch_required_column", "(c1 BIGINT, c2 BIGINT NOT NULL) WITH (\"write.metadata.metrics.max-inferred-column-defaults\" = 1)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2)", tableName), 1);
+            long requiredColumnSnapshot = latestSnapshotId(tableName);
+            assertUpdate(format("INSERT INTO %s VALUES (3, 4)", tableName), 1);
+            assertUpdate(rollbackToSnapshot(tableName, requiredColumnSnapshot));
+            assertQuery(format("SELECT c1, c2 FROM %s", tableName), "VALUES (1, 2)");
+        }
+    }
+
+    /**
+     * After a rename, the snapshot's name for a column may be gone or belong to another column.
+     */
+    @Test
+    public void testMoveBranchToSnapshotAfterColumnRename()
+    {
+        try (TestTable renamedTable = newTable("test_move_branch_renamed", "(a BIGINT, b BIGINT)");
+                TestTable swappedTable = newTable("test_move_branch_swapped", "(a BIGINT NOT NULL, b BIGINT)")) {
+            String renamedTableName = renamedTable.getName();
+            String swappedTableName = swappedTable.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, 2)", renamedTableName), 1);
+            long beforeRename = latestSnapshotId(renamedTableName);
+            assertUpdate(format("ALTER TABLE %s RENAME COLUMN b TO c", renamedTableName));
+            assertUpdate(setNotNull(renamedTableName, "c"));
+            // Targets the current snapshot, whose schema has the old name.
+            assertUpdate(format("ALTER TABLE %s CREATE BRANCH 'before_rename'", renamedTableName));
+            assertQuery(format("SELECT a, c FROM %s FOR SYSTEM_VERSION AS OF 'before_rename'", renamedTableName), "VALUES (1, 2)");
+            assertUpdate(format("INSERT INTO %s VALUES (3, 4)", renamedTableName), 1);
+            assertUpdate(rollbackToSnapshot(renamedTableName, beforeRename));
+            assertQuery(format("SELECT a, c FROM %s", renamedTableName), "VALUES (1, 2)");
+            assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", swappedTableName), 1);
+            long withNulls = latestSnapshotId(swappedTableName);
+            assertUpdate(format("ALTER TABLE %s RENAME COLUMN b TO tmp", swappedTableName));
+            assertUpdate(format("ALTER TABLE %s RENAME COLUMN a TO b", swappedTableName));
+            assertUpdate(format("ALTER TABLE %s RENAME COLUMN tmp TO a", swappedTableName));
+            assertUpdate(format("DELETE FROM %s", swappedTableName), 1);
+            assertUpdate(format("INSERT INTO %s VALUES (2, 3)", swappedTableName), 1);
+            assertUpdate(setNotNull(swappedTableName, "a"));
+            assertQueryFails(
+                    rollbackToSnapshot(swappedTableName, withNulls),
+                    moveBranchError("a"));
+        }
+    }
+
+    /**
+     * A partition column without NULL counts is shown to hold no NULLs by its partition values, also when a renamed
+     * column makes the snapshot scan run without a filter, and when the partition column itself is renamed.
+     */
+    @Test
+    public void testMoveBranchToSnapshotWithPartitionColumnWithoutNullCounts()
+    {
+        assertRollbackWithPartitionColumnWithoutNullCounts(ImmutableList.of("RENAME COLUMN c TO d", "ALTER COLUMN d SET NOT NULL", "ALTER COLUMN region SET NOT NULL"), "d, region");
+        assertRollbackWithPartitionColumnWithoutNullCounts(ImmutableList.of("ALTER COLUMN region SET NOT NULL", "RENAME COLUMN region TO area"), "c, area");
+    }
+
+    private void assertRollbackWithPartitionColumnWithoutNullCounts(List<String> alterations, String columns)
+    {
+        try (TestTable table = newTable(
+                "test_move_branch_partition_no_counts",
+                "(c BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'], \"write.metadata.metrics.max-inferred-column-defaults\" = 1)")) {
+            String tableName = table.getName();
+            assertUpdate(format("INSERT INTO %s VALUES (1, 'us')", tableName), 1);
+            long snapshot = latestSnapshotId(tableName);
+            for (String alteration : alterations) {
+                assertUpdate(format("ALTER TABLE %s %s", tableName, alteration));
+            }
+            assertUpdate(format("INSERT INTO %s VALUES (2, 'eu')", tableName), 1);
+
+            assertUpdate(rollbackToSnapshot(tableName, snapshot));
+            assertQuery(format("SELECT %s FROM %s", columns, tableName), "VALUES (1, 'us')");
+        }
+    }
+
+    /**
+     * Parquet counts NULLs only for leaf columns, so ROW, ARRAY and MAP columns have no count of their own.
+     */
+    @Test
+    public void testSetNotNullOnComplexTypeColumn()
+    {
+        try (TestTable table = newTable("test_set_not_null_complex_types", "(id BIGINT, r ROW(x BIGINT), a ARRAY(BIGINT), m MAP(VARCHAR, BIGINT))");
+                TestTable requiredRowTable = newTable("test_set_not_null_required_row", "(id BIGINT, r ROW(x BIGINT) NOT NULL)")) {
+            String tableName = table.getName();
+            String requiredRowTableName = requiredRowTable.getName();
+            for (String column : ImmutableList.of("r", "a", "m")) {
+                assertQueryFails(
+                        setNotNull(tableName, column),
+                        format(".*Cannot set NOT NULL on column '%s': only columns of primitive types are supported", column));
+            }
+            assertUpdate(setNotNull(requiredRowTableName, "r"));
+            assertColumnNullability(requiredRowTableName, "VALUES ('id', 'YES'), ('r', 'NO')");
+            assertUpdate(dropNotNull(requiredRowTableName, "r"));
+            assertColumnNullability(requiredRowTableName, "VALUES ('id', 'YES'), ('r', 'YES')");
+        }
+    }
+
+    @Test
+    public void testAlterColumnNotNullAndReorderInTransaction()
+    {
+        // Both schema changes commit together with the transaction.
+        try (TestTable table = newTable("test_not_null_reorder_txn", "(a BIGINT, b BIGINT, c BIGINT)")) {
+            String tableName = table.getName();
+
+            Session txnSession = startTransaction();
+            assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c FIRST", tableName));
+            assertUpdate(txnSession, setNotNull(tableName, "c"));
+            assertEndTransaction(txnSession, "COMMIT");
+            assertColumnNullability(tableName, "VALUES ('c', 'NO'), ('a', 'YES'), ('b', 'YES')");
+            assertQueryFails(format("INSERT INTO %s VALUES (NULL, 1, 2)", tableName), writerNullError("c"));
+            assertUpdate(format("INSERT INTO %s VALUES (3, 1, NULL)", tableName), 1);
+            assertQuery(format("SELECT a, b, c FROM %s", tableName), "VALUES (1, NULL, 3)");
+
+            txnSession = startTransaction();
+            assertUpdate(txnSession, format("ALTER TABLE %s ALTER COLUMN c AFTER b", tableName));
+            assertUpdate(txnSession, dropNotNull(tableName, "c"));
+            assertEndTransaction(txnSession, "COMMIT");
+            assertColumnNullability(tableName, "VALUES ('a', 'YES'), ('b', 'YES'), ('c', 'YES')");
+            assertUpdate(format("INSERT INTO %s VALUES (4, 5, NULL)", tableName), 1);
+            assertQuery(format("SELECT a, b, c FROM %s", tableName), "VALUES (1, NULL, 3), (4, 5, NULL)");
+        }
+    }
+
+    private TestTable newTable(String namePrefix, String tableDefinition)
+    {
+        return new TestTable(getQueryRunner()::execute, namePrefix, "CREATE TABLE {TABLE_NAME} " + tableDefinition);
+    }
+
+    private TestTable newRegionTable(String namePrefix)
+    {
+        return newTable(namePrefix, "(id BIGINT, region VARCHAR) WITH (partitioning = ARRAY['region'])");
+    }
+
+    /**
+     * Writes a row with a NULL region to a table from {@link #newRegionTable}, then deletes its partition. The table
+     * then holds no NULLs, but the returned snapshot does.
+     */
+    private long insertAndDeleteNullRegion(String tableName)
+    {
+        assertUpdate(format("INSERT INTO %s VALUES (2, 'us')", tableName), 1);
+        assertUpdate(format("INSERT INTO %s VALUES (1, NULL)", tableName), 1);
+        long withNulls = latestSnapshotId(tableName);
+        assertUpdate(format("DELETE FROM %s WHERE region IS NULL", tableName), 1);
+        return withNulls;
+    }
+
+    private Session startTransaction()
+    {
+        return assertStartTransaction(getSession(), "START TRANSACTION");
+    }
+
+    private static String setNotNull(String tableName, String column)
+    {
+        return format("ALTER TABLE %s ALTER COLUMN \"%s\" SET NOT NULL", tableName, column);
+    }
+
+    private static String dropNotNull(String tableName, String column)
+    {
+        return format("ALTER TABLE %s ALTER COLUMN \"%s\" DROP NOT NULL", tableName, column);
+    }
+
+    private String rollbackToSnapshot(String tableName, long snapshotId)
+    {
+        return format("CALL system.rollback_to_snapshot('%s', '%s', %d)", getSession().getSchema().get(), tableName, snapshotId);
+    }
+
+    private Table loadTable(String tableName)
+    {
+        Session session = getSession();
+        ConnectorId connectorId = getDistributedQueryRunner().getCoordinator().getCatalogManager().getCatalog(ICEBERG_CATALOG).get().getConnectorId();
+        return getIcebergTable(session.toConnectorSession(connectorId), session.getSchema().get(), tableName);
+    }
+
+    /**
+     * Opens an Iceberg transaction that commits through the connector's NOT NULL check, as a procedure's does.
+     */
+    private Transaction newNotNullCheckingTransaction(String tableName)
+    {
+        Table icebergTable = loadTable(tableName);
+        SchemaTableName schemaTableName = new SchemaTableName(getSession().getSchema().get(), tableName);
+        return Transactions.newTransaction(icebergTable.name(), new NotNullCheckingTableOperations(schemaTableName, ((HasTableOperations) icebergTable).operations()));
+    }
+
+    private void assertColumnNullability(String tableName, String expectedValues)
+    {
+        assertQueryOrdered(
+                format("SELECT column_name, is_nullable FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' ORDER BY ordinal_position",
+                        getSession().getSchema().get(), tableName),
+                expectedValues);
+    }
+
+    private void rewriteAllDataFiles(String tableName, long expectedRows)
+    {
+        assertUpdate(format("CALL system.rewrite_data_files(table_name => '%s', schema => '%s', options => map(array['rewrite-all'], array['true']))",
+                tableName, getSession().getSchema().get()), expectedRows);
+    }
+
+    private static String utcTimestamp(long epochMillis)
+    {
+        return Instant.ofEpochMilli(epochMillis).atZone(ZoneOffset.UTC).format(ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+    }
+
+    private static void waitUntilAfter(long epochMillis)
+    {
+        while (System.currentTimeMillis() <= epochMillis) {
+            Thread.onSpinWait();
+        }
+    }
+
+    private long latestSnapshotId(String tableName)
+    {
+        // committed_at has millisecond precision, so back-to-back writes can tie on it.
+        return loadTable(tableName).currentSnapshot().snapshotId();
+    }
+
+    @Test
     public void testAlterColumnTypeMultipleRowsWithNulls()
     {
         testWithAllFileFormats((session, fileFormat) -> {
@@ -1541,6 +2894,145 @@ public abstract class IcebergDistributedSmokeTestBase
                 dropTable(session, tableName);
             }
         });
+    }
+
+    @Test
+    public void testAlterNestedFieldType()
+    {
+        testWithAllFileFormats((session, fileFormat) -> {
+            String tableName = "test_alter_nested_field_type_" + fileFormat.name().toLowerCase(ENGLISH);
+            String schemaName = session.getSchema().get();
+            try {
+                assertUpdate(session, format(
+                        "CREATE TABLE %s (" +
+                                "id BIGINT, " +
+                                "info ROW(age INTEGER, score REAL, amount DECIMAL(10, 2), name VARCHAR)" +
+                                ") WITH (format = '%s')",
+                        tableName, fileFormat));
+
+                // Insert rows before widening
+                assertUpdate(session, format(
+                        "INSERT INTO %s VALUES " +
+                                "(1, ROW(25, REAL '1.5', DECIMAL '100.50', 'alice')), " +
+                                "(2, ROW(30, REAL '2.5', DECIMAL '200.75', 'bob'))",
+                        tableName), 2);
+
+                // Verify initial data
+                assertQuery(session,
+                        format("SELECT info.age FROM %s WHERE id = 1", tableName),
+                        "VALUES 25");
+
+                // Widen info.age: INTEGER → BIGINT
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN info.age SET DATA TYPE BIGINT", tableName));
+
+                // Verify schema reflects the widened type
+                validateShowCreateTable(session.getCatalog().get(), schemaName, tableName,
+                        ImmutableList.of(
+                                columnDefinition("id", "bigint"),
+                                columnDefinition("info", "ROW(\"age\" bigint,\"score\" real,\"amount\" decimal(10,2),\"name\" varchar)")),
+                        null,
+                        null);
+
+                // Old rows still readable after INTEGER → BIGINT widening
+                assertQuery(session,
+                        format("SELECT info.age, typeof(info.age) FROM %s WHERE id = 1", tableName),
+                        "VALUES (CAST(25 AS BIGINT), 'bigint')");
+                assertQuery(session,
+                        format("SELECT info.age FROM %s WHERE id = 2", tableName),
+                        "VALUES CAST(30 AS BIGINT)");
+
+                // Insert new row after widening with a value that fits only in BIGINT
+                assertUpdate(session, format("INSERT INTO %s VALUES (3, ROW(CAST(9999999999 AS BIGINT), REAL '3.5', DECIMAL '300.00', 'carol'))", tableName), 1);
+                assertQuery(session,
+                        format("SELECT info.age FROM %s WHERE id = 3", tableName),
+                        "VALUES CAST(9999999999 AS BIGINT)");
+
+                // Widen info.score: REAL → DOUBLE
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN info.score SET DATA TYPE DOUBLE", tableName));
+
+                // Old rows still readable after REAL → DOUBLE widening
+                assertQuery(session,
+                        format("SELECT info.score, typeof(info.score) FROM %s WHERE id = 1", tableName),
+                        "VALUES (CAST(1.5 AS DOUBLE), 'double')");
+                assertQuery(session,
+                        format("SELECT info.score FROM %s WHERE id = 2", tableName),
+                        "VALUES CAST(2.5 AS DOUBLE)");
+
+                // Widen info.amount: DECIMAL(10,2) → DECIMAL(20,2)
+                assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN info.amount SET DATA TYPE DECIMAL(20, 2)", tableName));
+
+                // Old rows still readable after DECIMAL widening
+                assertQuery(session,
+                        format("SELECT info.amount, typeof(info.amount) FROM %s WHERE id = 1", tableName),
+                        "VALUES (CAST(100.50 AS DECIMAL(20,2)), 'decimal(20,2)')");
+                assertQuery(session,
+                        format("SELECT info.amount FROM %s WHERE id = 2", tableName),
+                        "VALUES CAST(200.75 AS DECIMAL(20,2))");
+
+                // Narrowing (BIGINT → INTEGER) must be rejected by Iceberg
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN info.age SET DATA TYPE INTEGER", tableName),
+                        "Failed to set field type: Cannot change column type.*");
+
+                // Missing nested field must fail with a descriptive error
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN info.nonexistent SET DATA TYPE BIGINT", tableName),
+                        "Cannot find nested field 'info\\.nonexistent' in table '.*'");
+
+                // Non-struct parent (id is BIGINT, not ROW) must fail
+                assertQueryFails(
+                        session,
+                        format("ALTER TABLE %s ALTER COLUMN id.age SET DATA TYPE BIGINT", tableName),
+                        "Cannot find nested field 'id\\.age' in table '.*'");
+            }
+            finally {
+                dropTable(session, tableName);
+            }
+        });
+    }
+
+    @Test(dataProvider = "batchReadAndParquetVersions")
+    public void testAlterNestedFieldTypeWithBatchRead(boolean batchRead, ParquetProperties.WriterVersion writerVersion)
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "parquet_batch_read_optimization_enabled", String.valueOf(batchRead))
+                .setCatalogSessionProperty("iceberg", "parquet_writer_version", writerVersion.toString())
+                .build();
+        String tableName = "test_alter_nested_batch_"
+                + (batchRead ? "on" : "off") + "_"
+                + writerVersion.name().toLowerCase(ENGLISH);
+        try {
+            assertUpdate(session,
+                    format("CREATE TABLE %s (id INTEGER, info ROW(score REAL)) WITH (format = 'PARQUET')", tableName));
+            assertUpdate(session,
+                    format("INSERT INTO %s VALUES (1, ROW(REAL '1.5')), (2, ROW(NULL)), (3, ROW(REAL '2.5'))", tableName), 3);
+
+            assertUpdate(session, format("ALTER TABLE %s ALTER COLUMN info.score SET DATA TYPE DOUBLE", tableName));
+
+            // Pre-existing rows must return correct double values after widening.
+            assertQuery(session,
+                    format("SELECT info.score FROM %s ORDER BY id", tableName),
+                    "VALUES CAST(1.5 AS DOUBLE), CAST(NULL AS DOUBLE), CAST(2.5 AS DOUBLE)");
+
+            // Whole-row read exercises the ROW block coercion path.
+            MaterializedResult infoRows = computeActual(session,
+                    format("SELECT info FROM %s ORDER BY id", tableName));
+            assertEquals(infoRows.getRowCount(), 3);
+            assertEquals(infoRows.getMaterializedRows().get(0).getField(0), Arrays.asList(1.5));
+            assertEquals(infoRows.getMaterializedRows().get(1).getField(0), Arrays.asList((Object) null));
+            assertEquals(infoRows.getMaterializedRows().get(2).getField(0), Arrays.asList(2.5));
+
+            // New rows written after widening must also be readable
+            assertUpdate(session, format("INSERT INTO %s VALUES (4, ROW(CAST(4.0 AS DOUBLE)))", tableName), 1);
+            assertQuery(session,
+                    format("SELECT info.score FROM %s WHERE id = 4", tableName),
+                    "VALUES CAST(4.0 AS DOUBLE)");
+        }
+        finally {
+            dropTable(session, tableName);
+        }
     }
 
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
@@ -2913,7 +4405,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
     protected ColumnDefinition columnDefinition(String name, String type)
     {
-        return new ColumnDefinition(new Identifier(name, true), type, true, ImmutableList.of(), Optional.empty());
+        return new ColumnDefinition(QualifiedName.of(ImmutableList.of(new Identifier(name, true))), type, true, ImmutableList.of(), Optional.empty());
     }
 
     private void validateShowCreateTableInner(String catalog, String schema, String table,
@@ -3053,6 +4545,34 @@ public abstract class IcebergDistributedSmokeTestBase
         }
         finally {
             queryRunner.execute("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
+    @Test
+    public void testAggregatePushDownForUuidMinMax()
+    {
+        Session aggregatePushDownEnabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "aggregate_push_down_enabled", "true")
+                .build();
+        Session aggregatePushDownDisabled = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "aggregate_push_down_enabled", "false")
+                .build();
+
+        String tableName = "test_aggregate_push_down_uuid_" + randomTableSuffix();
+        try {
+            assertUpdate(format("CREATE TABLE %s (u UUID)", tableName));
+            for (String uuid : ImmutableList.of("00000000-0000-0000-0000-000000000001", "7fffffff-ffff-ffff-ffff-ffffffffffff", "ffffffff-ffff-ffff-ffff-ffffffffffff")) {
+                assertUpdate(format("INSERT INTO %s VALUES (UUID '%s')", tableName, uuid), 1);
+            }
+
+            @Language("SQL") String query = format("SELECT CAST(min(u) AS VARCHAR), CAST(max(u) AS VARCHAR) FROM %s", tableName);
+            // Presto does not order UUIDs lexicographically.
+            String expected = "VALUES ('7fffffff-ffff-ffff-ffff-ffffffffffff', '00000000-0000-0000-0000-000000000001')";
+            assertQuery(aggregatePushDownEnabled, query, expected);
+            assertQuery(aggregatePushDownDisabled, query, expected);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
     }
 

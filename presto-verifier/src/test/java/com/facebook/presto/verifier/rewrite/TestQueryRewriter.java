@@ -394,6 +394,12 @@ public class TestQueryRewriter
         assertThrows(IllegalArgumentException.class, () -> validateAndConstructFunctionCallSubstituteMap("/func1(a,b)//"));
         assertThrows(IllegalArgumentException.class, () -> validateAndConstructFunctionCallSubstituteMap("/func1(,,c1)/func2(c1)/"));
         assertThrows(IllegalArgumentException.class, () -> validateAndConstructFunctionCallSubstituteMap("/func1(c0,0.1)/row(1,true)/"));
+        // A spec is parsed on its own, so a window name in it has nothing to resolve against.
+        // Both sides are checked, and both spellings of a named window are rejected.
+        assertThrows(IllegalArgumentException.class, () -> validateAndConstructFunctionCallSubstituteMap("/rank() over w/dense_rank() over ()/"));
+        assertThrows(IllegalArgumentException.class, () -> validateAndConstructFunctionCallSubstituteMap("/rank() over ()/dense_rank() over w/"));
+        assertThrows(IllegalArgumentException.class, () -> validateAndConstructFunctionCallSubstituteMap("/rank() over (w)/dense_rank() over ()/"));
+        assertThrows(IllegalArgumentException.class, () -> validateAndConstructFunctionCallSubstituteMap("/rank() over ()/dense_rank() over (w)/"));
     }
 
     @Test
@@ -412,7 +418,8 @@ public class TestQueryRewriter
                         "/min_by(x,_)/min(x)/," +
                         "/now()/date_trunc('day',now())/," +
                         "/rand()/1/," +
-                        "/row_number() over (partition by x order by y)/row_number() over (partition by y)/");
+                        "/row_number() over (partition by x order by y)/row_number() over (partition by y)/," +
+                        "/rank() over ()/dense_rank() over ()/");
         QueryRewriter queryRewriter = getQueryRewriter(new QueryRewriteConfig(), verifierConfig);
 
         // Test rewriting nested function calls.
@@ -443,6 +450,36 @@ public class TestQueryRewriter
                         "SELECT RAND()",
                         CONFIGURATION, CONTROL).getQuery(),
                 "SELECT 1");
+
+        // A substitute whose pattern has an empty window still applies to an inline empty window.
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT RANK() OVER () FROM test_table",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT DENSE_RANK() OVER () FROM test_table");
+
+        // It must not apply to a call over a named window. The referenced window carries partitioning
+        // that the pattern cannot see, so substituting would silently drop it.
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT RANK() OVER w FROM test_table WINDOW w AS (PARTITION BY a)",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT RANK() OVER w FROM test_table WINDOW w AS (PARTITION BY a)");
+
+        // The parenthesised form of a named window is also left alone, since it hides the fields
+        // inherited from w just as the bare form does.
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT RANK() OVER (w ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) FROM test_table WINDOW w AS (PARTITION BY a)",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT RANK() OVER (w ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) FROM test_table WINDOW w AS (PARTITION BY a)");
+
+        // A pattern that declares more window fields than the call has is a non match, not a failure.
+        assertCreateTableAs(
+                queryRewriter.rewriteQuery(
+                        "SELECT ROW_NUMBER() OVER (PARTITION BY a) FROM test_table",
+                        CONFIGURATION, CONTROL).getQuery(),
+                "SELECT ROW_NUMBER() OVER (PARTITION BY a) FROM test_table");
 
         // Test rewriting with if expression.
         assertCreateTableAs(

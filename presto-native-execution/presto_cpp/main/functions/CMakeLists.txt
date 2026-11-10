@@ -11,9 +11,18 @@
 # limitations under the License.
 
 add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
-target_link_libraries(presto_function_metadata presto_common velox)
+target_link_libraries(
+  presto_function_metadata
+  presto_common
+  velox
+  velox_async_rpc_function_registry
+)
+
+add_library(presto_scalar_function_registration OBJECT ScalarFunctionRegistration.cpp)
+target_link_libraries(presto_scalar_function_registration velox)
 
 add_subdirectory(dynamic_registry)
+add_subdirectory(kll_sketch)
 add_subdirectory(theta_sketch)
 
 if(PRESTO_ENABLE_REMOTE_FUNCTIONS)

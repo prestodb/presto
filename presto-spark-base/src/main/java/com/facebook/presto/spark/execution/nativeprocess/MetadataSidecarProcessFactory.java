@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.google.inject.Inject;
 import okhttp3.OkHttpClient;
 
@@ -46,6 +47,7 @@ public class MetadataSidecarProcessFactory
     private final JsonCodec<ServerInfo> serverInfoCodec;
     private final MetadataSidecarConfig config;
     private final SidecarBinaryLocator binaryLocator;
+    private final boolean legacyTimestampWithTimezone;
 
     private volatile MetadataSidecarProcess process;
 
@@ -56,7 +58,8 @@ public class MetadataSidecarProcessFactory
             @ForMetadataSidecar ScheduledExecutorService scheduledExecutor,
             JsonCodec<ServerInfo> serverInfoCodec,
             MetadataSidecarConfig config,
-            SidecarBinaryLocator binaryLocator)
+            SidecarBinaryLocator binaryLocator,
+            FunctionsConfig functionsConfig)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.executor = requireNonNull(executor, "executor is null");
@@ -64,6 +67,7 @@ public class MetadataSidecarProcessFactory
         this.serverInfoCodec = requireNonNull(serverInfoCodec, "serverInfoCodec is null");
         this.config = requireNonNull(config, "config is null");
         this.binaryLocator = requireNonNull(binaryLocator, "binaryLocator is null");
+        this.legacyTimestampWithTimezone = requireNonNull(functionsConfig, "functionsConfig is null").isLegacyTimestampWithTimezone();
     }
 
     /**
@@ -94,7 +98,8 @@ public class MetadataSidecarProcessFactory
                 config.getStartupTimeout(),
                 config.getStorageOncallName(),
                 config.getStorageUserName(),
-                config.getStorageServiceName());
+                config.getStorageServiceName(),
+                legacyTimestampWithTimezone);
         try {
             process.start();
         }

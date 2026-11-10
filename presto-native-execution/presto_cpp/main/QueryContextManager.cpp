@@ -106,11 +106,12 @@ QueryContextManager::findOrCreateQueryCtx(
     const protocol::TaskId& taskId,
     const protocol::TaskUpdateRequest& taskUpdateRequest) {
   std::lock_guard<std::mutex> lock(queryContextCacheMutex_);
+  auto taskConfigs = toTaskConfigs(taskUpdateRequest);
   return findOrCreateQueryCtxLocked(
       taskId,
-      toVeloxConfigs(
-          taskUpdateRequest.session, taskUpdateRequest.extraCredentials),
-      toConnectorConfigs(taskUpdateRequest));
+      std::move(taskConfigs.queryConfig),
+      std::move(taskConfigs.connectorConfigs),
+      std::move(taskConfigs.credentialKeys));
 }
 
 std::shared_ptr<velox::core::QueryCtx>
@@ -118,11 +119,12 @@ QueryContextManager::findOrCreateBatchQueryCtx(
     const protocol::TaskId& taskId,
     const protocol::TaskUpdateRequest& taskUpdateRequest) {
   std::lock_guard<std::mutex> lock(queryContextCacheMutex_);
+  auto taskConfigs = toTaskConfigs(taskUpdateRequest);
   auto queryCtx = findOrCreateQueryCtxLocked(
       taskId,
-      toVeloxConfigs(
-          taskUpdateRequest.session, taskUpdateRequest.extraCredentials),
-      toConnectorConfigs(taskUpdateRequest));
+      std::move(taskConfigs.queryConfig),
+      std::move(taskConfigs.connectorConfigs),
+      std::move(taskConfigs.credentialKeys));
   if (queryCtx->pool()->aborted()) {
     // In Batch mode, only one query is running at a time. When tasks fail
     // during memory arbitration, the query memory pool will be set
@@ -134,11 +136,12 @@ QueryContextManager::findOrCreateBatchQueryCtx(
     // continue execution.
     VELOX_CHECK_EQ(queryContextCache_.size(), 1);
     queryContextCache_.clear();
+    auto retryConfigs = toTaskConfigs(taskUpdateRequest);
     queryCtx = findOrCreateQueryCtxLocked(
         taskId,
-        toVeloxConfigs(
-            taskUpdateRequest.session, taskUpdateRequest.extraCredentials),
-        toConnectorConfigs(taskUpdateRequest));
+        std::move(retryConfigs.queryConfig),
+        std::move(retryConfigs.connectorConfigs),
+        std::move(retryConfigs.credentialKeys));
   }
   return queryCtx;
 }
@@ -161,15 +164,18 @@ QueryContextManager::createAndCacheQueryCtxLocked(
     velox::core::QueryConfig&& queryConfig,
     std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>&&
         connectorConfigs,
-    std::shared_ptr<memory::MemoryPool>&& pool) {
-  auto queryCtx = core::QueryCtx::create(
-      driverExecutor_,
-      std::move(queryConfig),
-      std::move(connectorConfigs),
-      cache::AsyncDataCache::getInstance(),
-      std::move(pool),
-      spillerExecutor_,
-      queryId);
+    std::shared_ptr<memory::MemoryPool>&& pool,
+    velox::core::CredentialKeys&& credentialKeys) {
+  auto queryCtx = core::QueryCtx::Builder()
+                      .executor(driverExecutor_)
+                      .queryConfig(std::move(queryConfig))
+                      .connectorConfigs(std::move(connectorConfigs))
+                      .asyncDataCache(cache::AsyncDataCache::getInstance())
+                      .pool(std::move(pool))
+                      .spillExecutor(spillerExecutor_)
+                      .queryId(queryId)
+                      .credentialKeys(std::move(credentialKeys))
+                      .build();
   return queryContextCache_.insert(queryId, std::move(queryCtx));
 }
 
@@ -177,7 +183,8 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtxLocked(
     const TaskId& taskId,
     velox::core::QueryConfig&& queryConfig,
     std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>&&
-        connectorConfigs) {
+        connectorConfigs,
+    velox::core::CredentialKeys&& credentialKeys) {
   const QueryId queryId{queryIdFromTaskId(taskId)};
 
   if (auto queryCtx = queryContextCache_.get(queryId)) {
@@ -209,7 +216,8 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtxLocked(
       queryId,
       std::move(queryConfig),
       std::move(connectorConfigs),
-      std::move(pool));
+      std::move(pool),
+      std::move(credentialKeys));
 }
 
 void QueryContextManager::visitAllContexts(

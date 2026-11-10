@@ -94,7 +94,7 @@ public class BuiltInProcedureRegistry
                 return procedure;
             }
         }
-        throw new PrestoException(PROCEDURE_NOT_FOUND, "Procedure not registered: " + name);
+        throw new PrestoException(PROCEDURE_NOT_FOUND, "Procedure not registered: " + connectorId.getCatalogName() + "." + name);
     }
 
     @Override
@@ -107,7 +107,7 @@ public class BuiltInProcedureRegistry
                 return (DistributedProcedure) procedure;
             }
         }
-        throw new PrestoException(PROCEDURE_NOT_FOUND, "Distributed procedure not registered: " + name);
+        throw new PrestoException(PROCEDURE_NOT_FOUND, "Distributed procedure not registered: " + connectorId.getCatalogName() + "." + name);
     }
 
     @Override

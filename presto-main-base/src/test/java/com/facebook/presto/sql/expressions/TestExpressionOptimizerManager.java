@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
@@ -126,6 +127,89 @@ public class TestExpressionOptimizerManager
         assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizerFactories(defaultAuthClientConfigs(pluginNodeManager.getCurrentNode().getNodeIdentifier())));
     }
 
+    @Test
+    public void testLoadFromMap()
+    {
+        manager.addExpressionOptimizerFactory(getExpressionOptimizerFactory("foo"));
+        manager.addExpressionOptimizerFactory(getExpressionOptimizerFactory("bar"));
+
+        manager.loadExpressionOptimizers(
+                ImmutableMap.of(
+                        "ai-function-rewrite", ImmutableMap.of("expression-manager-factory.name", "foo"),
+                        "bar", ImmutableMap.of("expression-manager-factory.name", "bar")),
+                defaultAuthClientConfigs(pluginNodeManager.getCurrentNode().getNodeIdentifier()));
+
+        // Resolving by name is the exact call RewriteRowExpressions makes during planning.
+        assertEquals(
+                manager.getExpressionOptimizer("ai-function-rewrite").optimize(expression("1+1"), OPTIMIZED, testSessionBuilder().build().toConnectorSession()),
+                expression("'foo'"));
+        assertEquals(
+                manager.getExpressionOptimizer("bar").optimize(expression("1+1"), OPTIMIZED, testSessionBuilder().build().toConnectorSession()),
+                expression("'bar'"));
+
+        assertOptimizedExpression("1+1", "2", ImmutableMap.of());
+        assertOptimizedExpression("1+1", "'foo'", ImmutableMap.of("expression_optimizer_name", "ai-function-rewrite"));
+    }
+
+    @Test
+    public void testLoadFromMapPassesConfigThroughWithoutFactoryName()
+    {
+        Map<String, String> received = new HashMap<>();
+        manager.addExpressionOptimizerFactory(getConfigCapturingFactory("capturing", received));
+
+        manager.loadExpressionOptimizers(
+                ImmutableMap.of("ai-function-rewrite", ImmutableMap.of(
+                        "expression-manager-factory.name", "capturing",
+                        "allowed-catalogs", "meta")),
+                defaultAuthClientConfigs(pluginNodeManager.getCurrentNode().getNodeIdentifier()));
+
+        assertEquals(received, ImmutableMap.of("allowed-catalogs", "meta"));
+    }
+
+    @Test
+    public void testLoadFromMapDoesNotMutateCallerMap()
+    {
+        manager.addExpressionOptimizerFactory(getExpressionOptimizerFactory("foo"));
+
+        Map<String, Map<String, String>> properties = ImmutableMap.of("ai-function-rewrite", ImmutableMap.of("expression-manager-factory.name", "foo"));
+        manager.loadExpressionOptimizers(properties, defaultAuthClientConfigs(pluginNodeManager.getCurrentNode().getNodeIdentifier()));
+
+        assertEquals(properties.get("ai-function-rewrite"), ImmutableMap.of("expression-manager-factory.name", "foo"));
+    }
+
+    @Test
+    public void testLoadFromMapNoNewOptimizerNameCalledDefault()
+    {
+        manager.addExpressionOptimizerFactory(getExpressionOptimizerFactory("default"));
+        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizers(
+                ImmutableMap.of("default", ImmutableMap.of("expression-manager-factory.name", "default")),
+                defaultAuthClientConfigs(pluginNodeManager.getCurrentNode().getNodeIdentifier())));
+    }
+
+    @Test
+    public void testLoadFromMapNoFactoryName()
+    {
+        manager.addExpressionOptimizerFactory(getExpressionOptimizerFactory("foo"));
+        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizers(
+                ImmutableMap.of("ai-function-rewrite", ImmutableMap.of()),
+                defaultAuthClientConfigs(pluginNodeManager.getCurrentNode().getNodeIdentifier())));
+    }
+
+    @Test
+    public void testLoadFromMapNoFactoryRegistered()
+    {
+        assertThrows(IllegalArgumentException.class, () -> manager.loadExpressionOptimizers(
+                ImmutableMap.of("ai-function-rewrite", ImmutableMap.of("expression-manager-factory.name", "ai-function-rewrite")),
+                defaultAuthClientConfigs(pluginNodeManager.getCurrentNode().getNodeIdentifier())));
+    }
+
+    @Test
+    public void testLoadFromEmptyMapIsNoOp()
+    {
+        manager.loadExpressionOptimizers(ImmutableMap.of(), defaultAuthClientConfigs(pluginNodeManager.getCurrentNode().getNodeIdentifier()));
+        assertOptimizedExpression("1+1", "2", ImmutableMap.of());
+    }
+
     private void assertOptimizedExpression(String originalExpression, String optimizedExpression, Map<String, String> systemProperties)
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder();
@@ -165,6 +249,25 @@ public class TestExpressionOptimizerManager
                 return (expression, level, session, variableResolver) -> constant(
                         Slices.utf8Slice(name),
                         METADATA.getType(TypeSignature.parseTypeSignature(format("varchar(%s)", name.length()))));
+            }
+
+            @Override
+            public String getName()
+            {
+                return name;
+            }
+        };
+    }
+
+    private ExpressionOptimizerFactory getConfigCapturingFactory(String name, Map<String, String> received)
+    {
+        return new ExpressionOptimizerFactory()
+        {
+            @Override
+            public ExpressionOptimizer createOptimizer(Map<String, String> config, ExpressionOptimizerContext context)
+            {
+                received.putAll(config);
+                return (expression, level, session, variableResolver) -> expression;
             }
 
             @Override

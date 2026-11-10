@@ -75,6 +75,17 @@ class PrestoToVeloxConnector {
     return toVeloxTableHandle(tableHandle, exprConverter, typeParser);
   }
 
+  [[nodiscard]] virtual std::unique_ptr<velox::connector::ConnectorTableHandle>
+  toVeloxTableHandle(
+      const protocol::TableHandle& tableHandle,
+      const protocol::Map<
+          protocol::VariableReferenceExpression,
+          std::shared_ptr<protocol::ColumnHandle>>& /*assignments*/,
+      const VeloxExprConverter& exprConverter,
+      const TypeParser& typeParser) const {
+    return toVeloxTableHandle(tableHandle, exprConverter, typeParser);
+  }
+
   [[nodiscard]] virtual std::unique_ptr<
       velox::connector::ConnectorInsertTableHandle>
   toVeloxInsertTableHandle(

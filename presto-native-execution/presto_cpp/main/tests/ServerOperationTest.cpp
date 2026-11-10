@@ -222,7 +222,7 @@ TEST_F(ServerOperationTest, taskEndpoint) {
 
   // Cleanup and shutdown
   for (const auto& taskId : taskIds) {
-    taskManager->deleteTask(taskId, true, true);
+    taskManager->deleteTask(taskId, true, true, /*shouldDropTask=*/false);
   }
   taskManager->shutdown();
   connector::unregisterConnector("test-hive");

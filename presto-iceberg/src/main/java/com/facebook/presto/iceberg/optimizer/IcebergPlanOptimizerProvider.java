@@ -68,8 +68,8 @@ public class IcebergPlanOptimizerProvider
         // "Required subfield does not match column name". Native workers get equivalent pruning from
         // PushdownSubfields, which preserves the base column name.
         if (!connectorSystemConfig.isNativeExecution()) {
-            planOptimizerBuilder.add(new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager, tableProperties));
-            logicalPlanOptimizerBuilder.add(new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, typeManager, tableProperties));
+            planOptimizerBuilder.add(new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, tableProperties));
+            logicalPlanOptimizerBuilder.add(new IcebergParquetDereferencePushDown(transactionManager, rowExpressionService, tableProperties));
         }
 
         logicalPlanOptimizerBuilder.add(new IcebergEqualityDeleteAsJoin(functionResolution, transactionManager, typeManager));

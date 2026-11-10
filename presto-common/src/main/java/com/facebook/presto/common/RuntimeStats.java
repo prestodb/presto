@@ -18,6 +18,7 @@ import com.facebook.drift.annotations.ThriftField;
 import com.facebook.drift.annotations.ThriftStruct;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import jakarta.annotation.Nullable;
 
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadMXBean;
@@ -36,9 +37,13 @@ import static java.util.Objects.requireNonNull;
 @ThriftStruct
 public class RuntimeStats
 {
+    public static final int DEFAULT_QUERY_TRACE_MAX_EVENTS = 2_000;
+
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
     private final ConcurrentMap<String, RuntimeMetric> metrics = new ConcurrentHashMap<>();
+    @Nullable
+    private volatile QueryTracer queryTracer;
 
     public RuntimeStats()
     {
@@ -49,7 +54,7 @@ public class RuntimeStats
     public RuntimeStats(Map<String, RuntimeMetric> metrics)
     {
         requireNonNull(metrics, "metrics is null");
-        metrics.forEach((name, newMetric) -> this.metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, newMetric.getUnit())).mergeWith(newMetric));
+        metrics.forEach(this::mergeMetric);
     }
 
     public static RuntimeStats copyOf(RuntimeStats stats)
@@ -73,8 +78,12 @@ public class RuntimeStats
         return mergedStats;
     }
 
-    public void reset()
+    public synchronized void reset()
     {
+        QueryTracer queryTracer = this.queryTracer;
+        if (queryTracer != null) {
+            queryTracer.reset();
+        }
         metrics.clear();
     }
 
@@ -119,27 +128,111 @@ public class RuntimeStats
         if (stats == null) {
             return;
         }
-        stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, newMetric.getUnit())).mergeWith(newMetric));
+        stats.getMetrics().forEach(this::mergeMetric);
     }
 
     /**
      * Updates the metrics according to their values in {@code stats}.
      * Metrics not included in {@code stats} will not be changed.
+     * Only aggregate values are overwritten; trace events already recorded locally are preserved.
      */
     public void update(RuntimeStats stats)
     {
         if (stats == null) {
             return;
         }
+        if (stats == this) {
+            return;
+        }
         stats.getMetrics().forEach((name, newMetric) -> metrics.computeIfAbsent(name, k -> new RuntimeMetric(name, newMetric.getUnit())).set(newMetric));
+    }
+
+    /**
+     * Creates the query tracer on first use. The query trace starts separately so callers can
+     * establish its exact lifecycle boundary.
+     */
+    public synchronized QueryTracer enableTracing()
+    {
+        return enableTracing(DEFAULT_QUERY_TRACE_MAX_EVENTS);
+    }
+
+    /**
+     * Creates the query tracer on first use with the specified event limit.
+     */
+    public synchronized QueryTracer enableTracing(int maxEvents)
+    {
+        QueryTracer queryTracer = this.queryTracer;
+        if (queryTracer == null) {
+            queryTracer = new QueryTracer(metrics, maxEvents);
+            this.queryTracer = queryTracer;
+        }
+        return queryTracer;
+    }
+
+    /**
+     * Returns whether this instance has been configured to collect query trace events.
+     */
+    public boolean isTracingEnabled()
+    {
+        return queryTracer != null;
+    }
+
+    /**
+     * Returns the active query tracer, or {@code null} when no query trace is active.
+     */
+    @Nullable
+    public QueryTracer getQueryTracer()
+    {
+        QueryTracer queryTracer = this.queryTracer;
+        return queryTracer != null && queryTracer.isTracingActive() ? queryTracer : null;
+    }
+
+    /**
+     * Enables tracing if necessary and starts the query trace.
+     */
+    public QueryTracer startQueryTrace()
+    {
+        return startQueryTrace(DEFAULT_QUERY_TRACE_MAX_EVENTS);
+    }
+
+    /**
+     * Enables tracing if necessary and starts the query trace with the specified event limit.
+     */
+    public QueryTracer startQueryTrace(int maxEvents)
+    {
+        QueryTracer queryTracer = enableTracing(maxEvents);
+        queryTracer.startQueryTrace();
+        return queryTracer;
     }
 
     public <V> V recordWallTime(String tag, Supplier<V> supplier)
     {
         long startTime = System.nanoTime();
-        V result = supplier.get();
-        addMetricValueIgnoreZero(tag, NANO, System.nanoTime() - startTime);
-        return result;
+        QueryTracer queryTracer = this.queryTracer;
+        if (queryTracer == null || !queryTracer.isTracingActive()) {
+            V result = supplier.get();
+            addMetricValueIgnoreZero(tag, NANO, System.nanoTime() - startTime);
+            return result;
+        }
+
+        QueryTracer.TraceSpan traceSpan = queryTracer.startScopedTrace(tag, startTime);
+        boolean failed = true;
+        try {
+            V result = supplier.get();
+            failed = false;
+            return result;
+        }
+        finally {
+            long endTime = System.nanoTime();
+            try {
+                if (!failed) {
+                    addMetricValueIgnoreZero(tag, NANO, endTime - startTime);
+                }
+            }
+            finally {
+                traceSpan.finish(endTime, failed);
+            }
+        }
     }
 
     public void recordWallTime(String tag, Runnable runnable)
@@ -154,15 +247,37 @@ public class RuntimeStats
     {
         long startWall = System.nanoTime();
         long startCpu = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+        QueryTracer queryTracer = this.queryTracer;
+        if (queryTracer == null || !queryTracer.isTracingActive()) {
+            V result = supplier.get();
+            long endWall = System.nanoTime();
+            long endCpu = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+            addMetricValueIgnoreZero(tag, NANO, endWall - startWall);
+            addMetricValueIgnoreZero(tag + "OnCpu", NANO, endCpu - startCpu);
+            return result;
+        }
 
-        V result = supplier.get();
-
-        long endWall = System.nanoTime();
-        long endCpu = THREAD_MX_BEAN.getCurrentThreadCpuTime();
-
-        addMetricValueIgnoreZero(tag, NANO, endWall - startWall);
-        addMetricValueIgnoreZero(tag + "OnCpu", NANO, endCpu - startCpu);
-        return result;
+        // CPU time is an aggregate rather than a wall-clock interval, so only the wall metric is traced.
+        QueryTracer.TraceSpan traceSpan = queryTracer.startScopedTrace(tag, startWall);
+        boolean failed = true;
+        try {
+            V result = supplier.get();
+            failed = false;
+            return result;
+        }
+        finally {
+            long endWall = System.nanoTime();
+            long endCpu = THREAD_MX_BEAN.getCurrentThreadCpuTime();
+            try {
+                if (!failed) {
+                    addMetricValueIgnoreZero(tag, NANO, endWall - startWall);
+                    addMetricValueIgnoreZero(tag + "OnCpu", NANO, endCpu - startCpu);
+                }
+            }
+            finally {
+                traceSpan.finish(endWall, failed);
+            }
+        }
     }
 
     public void recordWallAndCpuTime(String tag, Runnable runnable)

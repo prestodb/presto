@@ -308,6 +308,16 @@ public class IcebergAggregationOptimizer
                             return false;
                         }
                     }
+                    else if (aggregate.type().typeId() == Type.TypeID.UUID) {
+                        // Presto writes UUID bounds in its internal byte order, so they don't hold the column's min and max
+                        if (aggregate.op() == Expression.Operation.MAX
+                                || aggregate.op() == Expression.Operation.MIN) {
+                            LOGGER.info(
+                                    "Skipping aggregate pushdown: Cannot produce min or max from UUID bounds for column %s",
+                                    colName);
+                            return false;
+                        }
+                    }
                 }
             }
             return true;

@@ -13,6 +13,7 @@
  */
 #pragma once
 
+#include <cstdint>
 #include "velox/common/file/FileInputStream.h"
 #include "velox/common/file/FileSystems.h"
 #include "velox/common/memory/MemoryPool.h"
@@ -29,11 +30,18 @@ namespace facebook::presto::operators {
 /// in the above Java classes and its corresponding serde functionalities.
 struct BroadcastFileInfo {
   std::string filePath_;
+  /// Opaque writer handle; opening from it skips the per-reader metadata
+  /// lookup. Empty means open by path. Holds bearer tokens -- never log it.
+  std::string descriptor_;
   // TODO: Add additional stats including checksum, num rows, size.
 
   static std::unique_ptr<BroadcastFileInfo> deserialize(
       const std::string& info);
 };
+
+/// Returns 'broadcastInfo' with the descriptor elided; it embeds bearer tokens
+/// that must never reach a log or an exception message.
+std::string redactBroadcastInfo(std::string_view broadcastInfo);
 
 /// Writes broadcast data to a single file.
 class BroadcastFileWriter : velox::serializer::SerializedPageFileWriter {
@@ -43,7 +51,8 @@ class BroadcastFileWriter : velox::serializer::SerializedPageFileWriter {
       uint64_t maxBroadcastBytes,
       uint64_t writeBufferSize,
       std::unique_ptr<velox::VectorSerde::Options> serdeOptions,
-      velox::memory::MemoryPool* pool);
+      velox::memory::MemoryPool* pool,
+      bool descriptorEnabled = true);
 
   virtual ~BroadcastFileWriter() = default;
 
@@ -77,6 +86,8 @@ class BroadcastFileWriter : velox::serializer::SerializedPageFileWriter {
   void writeFooter();
 
   const uint64_t maxBroadcastBytes_;
+  // Gated by the native_broadcast_file_descriptor_enabled session property.
+  const bool descriptorEnabled_;
 
   uint64_t writtenBytes_{0};
   int64_t numRows_{0};
@@ -130,5 +141,9 @@ class BroadcastFileReader {
   // Wall time metrics in microseconds
   uint64_t openFileAndReadFooterTimeUs_{0};
   uint64_t fileReadWallTimeUs_{0};
+
+  // Which open path this reader took, so the descriptor reuse is measurable.
+  uint32_t descriptorOpenCount_{0};
+  uint32_t pathOpenCount_{0};
 };
 } // namespace facebook::presto::operators

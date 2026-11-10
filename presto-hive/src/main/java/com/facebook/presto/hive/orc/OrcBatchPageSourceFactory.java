@@ -63,6 +63,7 @@ import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcMaxRead
 import static com.facebook.presto.hive.HiveCommonSessionProperties.getOrcTinyStripeThreshold;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcBloomFiltersEnabled;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isOrcZstdJniDecompressionEnabled;
+import static com.facebook.presto.hive.HiveCommonSessionProperties.isReadNullForOutOfBoundsTimestamp;
 import static com.facebook.presto.hive.HiveCommonSessionProperties.isUseOrcColumnNames;
 import static com.facebook.presto.hive.HiveUtil.checkRowIDPartitionComponent;
 import static com.facebook.presto.hive.HiveUtil.getPhysicalHiveColumnHandles;
@@ -165,6 +166,7 @@ public class OrcBatchPageSourceFactory
                         .withTinyStripeThreshold(getOrcTinyStripeThreshold(session))
                         .withMaxBlockSize(getOrcMaxReadBlockSize(session))
                         .withZstdJniDecompressionEnabled(isOrcZstdJniDecompressionEnabled(session))
+                        .withReadNullForOutOfBoundsTimestamp(isReadNullForOutOfBoundsTimestamp(session))
                         .build(),
                 encryptionInformation,
                 NO_ENCRYPTION,

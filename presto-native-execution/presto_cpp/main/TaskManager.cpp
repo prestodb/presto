@@ -14,11 +14,13 @@
 
 #include "presto_cpp/main/TaskManager.h"
 
+#include <chrono>
 #include <utility>
 
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <folly/container/F14Set.h>
+#include <folly/stop_watch.h>
 #include <velox/core/PlanNode.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
@@ -153,13 +155,13 @@ void getData(
     return;
   }
 
-  int64_t startMs = getCurrentTimeMs();
+  const folly::stop_watch<std::chrono::milliseconds> watch;
   auto bufferFound = bufferManager.getData(
       taskId,
       destination,
       maxSize.getValue(protocol::DataUnit::BYTE),
       token,
-      [taskId = taskId, bufferId = destination, promiseHolder, startMs](
+      [taskId = taskId, bufferId = destination, promiseHolder, watch](
           std::vector<std::unique_ptr<folly::IOBuf>> pages,
           int64_t sequence,
           std::vector<int64_t> remainingBytes) mutable {
@@ -184,7 +186,7 @@ void getData(
           }
         }
 
-        int64_t waitTimeMs = getCurrentTimeMs() - startMs;
+        const int64_t waitTimeMs = watch.elapsed().count();
         VLOG(1) << "Task " << taskId << " waited " << waitTimeMs
                 << "ms for data: "
                 << "buffer " << bufferId << ", sequence " << sequence
@@ -205,7 +207,7 @@ void getData(
 
         RECORD_METRIC_VALUE(
             kCounterPartitionedOutputBufferGetDataLatencyMs,
-            getCurrentTimeMs() - startMs);
+            watch.elapsed().count());
       },
       [stateHolder]() {
         auto state = stateHolder.lock();
@@ -365,9 +367,14 @@ TaskManager::TaskManager(
           std::make_unique<QueryContextManager>(
               driverExecutor,
               spillerExecutor)),
+      taskSyncTerminateEnabled_(
+          SystemConfig::instance()->taskSyncTerminateEnabled()),
+      taskSyncTerminateTimeoutMs_(
+          SystemConfig::instance()->taskSyncTerminateTimeoutMs()),
       bufferManager_(velox::exec::DefaultOutputBufferManager::getInstanceRef()),
       httpSrvCpuExecutor_(httpSrvCpuExecutor),
-      lastNotOverloadedTimeInSecs_(velox::getCurrentTimeSec()) {
+      lastNotOverloadedTimeInSecs_(
+          velox::SteadyTime::now<std::chrono::seconds>()) {
   VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
 }
 
@@ -398,6 +405,15 @@ bool TaskManager::emptyBaseSpillDirectory() const {
 void TaskManager::setOldTaskCleanUpMs(int32_t oldTaskCleanUpMs) {
   VELOX_CHECK_GE(oldTaskCleanUpMs, 0);
   oldTaskCleanUpMs_ = oldTaskCleanUpMs;
+}
+
+void TaskManager::setTaskSyncTerminateEnabled(bool taskSyncTerminateEnabled) {
+  taskSyncTerminateEnabled_ = taskSyncTerminateEnabled;
+}
+
+void TaskManager::setTaskSyncTerminateTimeoutMs(
+    uint64_t taskSyncTerminateTimeoutMs) {
+  taskSyncTerminateTimeoutMs_ = taskSyncTerminateTimeoutMs;
 }
 
 TaskMap TaskManager::tasks() const {
@@ -481,7 +497,8 @@ TaskManager::buildTaskSpillDirectoryPath(
 void TaskManager::setServerOverloaded(bool serverOverloaded) {
   serverOverloaded_ = serverOverloaded;
   if (!serverOverloaded) {
-    lastNotOverloadedTimeInSecs_ = velox::getCurrentTimeSec();
+    lastNotOverloadedTimeInSecs_ =
+        velox::SteadyTime::now<std::chrono::seconds>();
   }
 }
 
@@ -551,15 +568,15 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     bool summarize,
     std::shared_ptr<velox::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
-  auto receiveTaskUpdateMs = getCurrentTimeMs();
+  const folly::stop_watch<std::chrono::milliseconds> receiveTaskUpdateWatch;
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
   auto prestoTask = findOrCreateTask(taskId, startProcessCpuTime);
-  if (prestoTask->firstTimeReceiveTaskUpdateMs == 0) {
-    prestoTask->firstTimeReceiveTaskUpdateMs = receiveTaskUpdateMs;
-  }
   {
     std::lock_guard<std::mutex> l(prestoTask->mutex);
+    if (!prestoTask->firstTaskUpdateWatch.has_value()) {
+      prestoTask->firstTaskUpdateWatch = receiveTaskUpdateWatch;
+    }
     prestoTask->updateCoordinatorHeartbeatLocked();
     if ((prestoTask->task == nullptr) && (planFragment.planNode != nullptr)) {
       // If the task is aborted, no need to do anything else.
@@ -622,7 +639,8 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
       prestoTask->task = std::move(newExecTask);
       prestoTask->info.needsPlan = false;
       startTask = true;
-      prestoTask->createFinishTimeMs = getCurrentTimeMs();
+      prestoTask->taskCreationTimeMs =
+          prestoTask->firstTaskUpdateWatch->elapsed().count();
     }
     execTask = prestoTask->task;
   }
@@ -821,8 +839,7 @@ void TaskManager::startTaskLocked(std::shared_ptr<PrestoTask>& prestoTask) {
   // planned (queued) time.
   // Note task could be created at getTaskStatus/getTaskInfo endpoint and later
   // receive taskUpdate to create and start task.
-  const auto queuedTimeInMs =
-      velox::getCurrentTimeMs() - prestoTask->createTimeMs;
+  const auto queuedTimeInMs = prestoTask->createWatch.elapsed().count();
   prestoTask->info.stats.queuedTimeInNanos = queuedTimeInMs * 1'000'000;
   RECORD_METRIC_VALUE(kCounterTaskPlannedTimeMs, queuedTimeInMs);
 }
@@ -905,8 +922,11 @@ void TaskManager::maybeStartNextQueuedTask() {
   }
 }
 
-std::unique_ptr<TaskInfo>
-TaskManager::deleteTask(const TaskId& taskId, bool /*abort*/, bool summarize) {
+std::unique_ptr<TaskInfo> TaskManager::deleteTask(
+    const TaskId& taskId,
+    bool /*abort*/,
+    bool summarize,
+    bool shouldDropTask) {
   LOG(INFO) << "Deleting task " << taskId;
   // Fast. non-blocking delete and cancel serialized on 'taskMap'.
   std::shared_ptr<facebook::presto::PrestoTask> prestoTask;
@@ -923,38 +943,69 @@ TaskManager::deleteTask(const TaskId& taskId, bool /*abort*/, bool summarize) {
     prestoTask = findOrCreateTask(taskId, 0);
   }
 
-  std::lock_guard<std::mutex> l(prestoTask->mutex);
-  prestoTask->updateHeartbeatLocked();
-  prestoTask->updateCoordinatorHeartbeatLocked();
-  auto execTask = prestoTask->task;
-  if (execTask) {
-    auto state = execTask->state();
-    if (state == exec::TaskState::kRunning) {
-      execTask->requestAbort();
+  std::unique_ptr<TaskInfo> taskInfo;
+  bool dropTask{false};
+  velox::ContinueFuture taskDrainFuture = velox::ContinueFuture::makeEmpty();
+  {
+    std::lock_guard<std::mutex> l(prestoTask->mutex);
+    prestoTask->updateHeartbeatLocked();
+    prestoTask->updateCoordinatorHeartbeatLocked();
+    auto execTask = prestoTask->task;
+    if (execTask) {
+      taskDrainFuture = execTask->requestAbort();
+      prestoTask->info.stats.endTimeInMillis =
+          velox::EpochTime::now<std::chrono::milliseconds>();
+      prestoTask->updateInfoLocked(summarize);
+
+      // Do not erase the finished/aborted tasks, because someone might still
+      // want to get some results from them. Instead, we run a periodic task to
+      // clean up the old finished/aborted tasks.
+      if (prestoTask->info.taskStatus.state == protocol::TaskState::RUNNING) {
+        prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
+      }
+      dropTask = shouldDropTask;
+    } else {
+      // If task is not found than we observe DELETE message coming before
+      // CREATE. In that case we create the task with ABORTED state, so we know
+      // we don't need to do anything on CREATE message and can clean up the
+      // cancelled task later. This marker holds no Velox Task and so pins
+      // nothing; it is kept even under 'shouldDropTask', because dropping it
+      // would let the later CREATE start the task the client just cancelled.
+      prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
     }
-    prestoTask->info.stats.endTimeInMillis = velox::getCurrentTimeMs();
-    prestoTask->updateInfoLocked(summarize);
-  } else {
-    // If task is not found than we observe DELETE message coming before
-    // CREATE. In that case we create the task with ABORTED state, so we know
-    // we don't need to do anything on CREATE message and can clean up the
-    // cancelled task later.
-    prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
-    return std::make_unique<TaskInfo>(prestoTask->info);
+    taskInfo = std::make_unique<TaskInfo>(prestoTask->info);
   }
 
-  // Do not erase the finished/aborted tasks, because someone might still want
-  // to get some results from them. Instead, we run a periodic task to clean up
-  // the old finished/aborted tasks.
-  if (prestoTask->info.taskStatus.state == protocol::TaskState::RUNNING) {
-    prestoTask->info.taskStatus.state = protocol::TaskState::ABORTED;
+  // The deferral above assumes cleanOldTasks() will eventually reclaim the
+  // task, but it declines to erase any task whose Drivers have not finished
+  // unwinding (see the zombie check there), so a task left in 'taskMap_' can
+  // pin its Velox Task -- and every resource its operators hold on the shared
+  // per-query memory pool -- for the lifetime of the worker process. Drop the
+  // reference here when the caller states it will never read the task again.
+  // The Velox Task itself stays alive until its Drivers finish unwinding the
+  // abort requested above, so this only releases what is already finished
+  // with.
+  if (dropTask) {
+    taskMap_.withWLock([&](auto& taskMap) { taskMap.erase(taskId); });
+  }
+  if (taskSyncTerminateEnabled_) {
+    const auto taskSyncTerminateTimeout =
+        std::chrono::milliseconds(taskSyncTerminateTimeoutMs_);
+    try {
+      std::move(taskDrainFuture).within(taskSyncTerminateTimeout).get();
+    } catch (const folly::FutureTimeout&) {
+      VELOX_FAIL(
+          "Task could not be terminated within {} ms. Task ID: {}",
+          taskSyncTerminateTimeout.count(),
+          taskId);
+    }
   }
 
-  return std::make_unique<TaskInfo>(prestoTask->info);
+  return taskInfo;
 }
 
 size_t TaskManager::cleanOldTasks() {
-  const auto startTimeMs = getCurrentTimeMs();
+  const folly::stop_watch<std::chrono::milliseconds> watch;
 
   folly::F14FastSet<protocol::TaskId> taskIdsToClean;
 
@@ -1021,7 +1072,7 @@ size_t TaskManager::cleanOldTasks() {
     cancelAbandonedTasksInternal(taskMap, oldTaskCleanUpMs_);
   }
 
-  const auto elapsedMs = (getCurrentTimeMs() - startTimeMs);
+  const auto elapsedMs = watch.elapsed().count();
   if (not taskIdsToClean.empty()) {
     std::vector<std::shared_ptr<PrestoTask>> tasksToDelete;
     tasksToDelete.reserve(taskIdsToClean.size());
@@ -1330,7 +1381,8 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
 
   prestoTask =
       std::make_shared<PrestoTask>(taskId, nodeId_, startProcessCpuTime);
-  prestoTask->info.stats.createTimeInMillis = velox::getCurrentTimeMs();
+  prestoTask->info.stats.createTimeInMillis =
+      velox::EpochTime::now<std::chrono::milliseconds>();
   prestoTask->info.needsPlan = true;
 
   struct UuidSplit {
@@ -1455,7 +1507,7 @@ int32_t TaskManager::yieldTasks(
     int32_t timeSliceMicros) {
   const auto taskMap = taskMap_.rlock();
   int32_t numYields = 0;
-  uint64_t now = getCurrentTimeMicro();
+  uint64_t now = EpochTime::now<std::chrono::microseconds>();
   for (const auto& pair : *taskMap) {
     if (pair.second->task != nullptr) {
       numYields += pair.second->task->yieldIfDue(now - timeSliceMicros);

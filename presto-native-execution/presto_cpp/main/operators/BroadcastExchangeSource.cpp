@@ -16,6 +16,8 @@
 #include <folly/Uri.h>
 
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
+#include "presto_cpp/main/operators/BroadcastFile.h"
+#include "velox/common/base/Exceptions.h"
 
 using namespace facebook::velox;
 
@@ -135,7 +137,11 @@ BroadcastExchangeSource::createExchangeSource(
   } catch (const VeloxException&) {
     throw;
   } catch (const std::exception& e) {
-    VELOX_USER_FAIL("BroadcastInfo deserialization failed: {}", e.what());
+    // Redact: a JSON parse error quotes the payload, which carries the
+    // descriptor and its bearer tokens.
+    VELOX_USER_FAIL(
+        "BroadcastInfo deserialization failed: {}",
+        redactBroadcastInfo(e.what()));
   }
 
   auto fileSystem =

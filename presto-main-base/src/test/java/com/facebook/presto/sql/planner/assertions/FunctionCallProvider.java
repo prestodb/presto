@@ -20,6 +20,7 @@ import com.facebook.presto.sql.tree.OrderBy;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SortItem;
 import com.facebook.presto.sql.tree.WindowFrame;
+import com.facebook.presto.sql.tree.WindowSpecification;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 
@@ -126,7 +127,8 @@ class FunctionCallProvider
 
             return Objects.equals(name, other.getName()) &&
                     other.getWindow().isPresent() &&
-                    Objects.equals(frame, other.getWindow().get().getFrame()) &&
+                    other.getWindow().get() instanceof WindowSpecification &&
+                    Objects.equals(frame, ((WindowSpecification) other.getWindow().get()).getFrame()) &&
                     Objects.equals(distinct, other.isDistinct()) &&
                     Objects.equals(getArguments(), other.getArguments());
         }

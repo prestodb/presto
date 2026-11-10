@@ -29,14 +29,17 @@ import com.facebook.presto.common.type.TimestampType;
 import com.facebook.presto.common.type.TimestampWithTimeZoneType;
 import com.facebook.presto.common.type.TypeManager;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.hive.BaseHiveColumnHandle;
 import com.facebook.presto.hive.HiveOutputInfo;
 import com.facebook.presto.hive.HiveOutputMetadata;
 import com.facebook.presto.hive.HivePartition;
 import com.facebook.presto.hive.NodeVersion;
 import com.facebook.presto.hive.PartitionSet;
+import com.facebook.presto.hive.SubfieldExtractor;
 import com.facebook.presto.hive.UnknownTableTypeException;
 import com.facebook.presto.iceberg.changelog.ChangelogOperation;
 import com.facebook.presto.iceberg.changelog.ChangelogUtil;
+import com.facebook.presto.iceberg.delete.DeleteFile;
 import com.facebook.presto.iceberg.procedure.context.IcebergCommonProcedureContext;
 import com.facebook.presto.iceberg.statistics.StatisticsFileCache;
 import com.facebook.presto.iceberg.transaction.IcebergTransactionContext;
@@ -78,11 +81,16 @@ import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
 import com.facebook.presto.spi.connector.EmptyConnectorCommitHandle;
 import com.facebook.presto.spi.connector.RowChangeParadigm;
+import com.facebook.presto.spi.constraints.NotNullConstraint;
+import com.facebook.presto.spi.constraints.TableConstraint;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpecList;
 import com.facebook.presto.spi.function.StandardFunctionResolution;
 import com.facebook.presto.spi.plan.FilterStatsCalculatorService;
 import com.facebook.presto.spi.procedure.BaseProcedure;
 import com.facebook.presto.spi.procedure.DistributedProcedure;
 import com.facebook.presto.spi.procedure.ProcedureRegistry;
+import com.facebook.presto.spi.relation.DomainTranslator;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.RowExpressionService;
 import com.facebook.presto.spi.security.ViewSecurity;
@@ -91,6 +99,7 @@ import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticType;
 import com.facebook.presto.spi.statistics.TableStatistics;
 import com.facebook.presto.spi.statistics.TableStatisticsMetadata;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.base.Predicates;
 import com.google.common.base.VerifyException;
@@ -111,6 +120,7 @@ import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.IncrementalAppendScan;
 import org.apache.iceberg.ManageSnapshots;
 import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.MetadataColumns;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes.None;
@@ -123,6 +133,7 @@ import org.apache.iceberg.RowLevelOperationMode;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.SnapshotUpdate;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StructLike;
@@ -195,6 +206,7 @@ import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_FORMA
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_MATERIALIZED_VIEW;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
 import static com.facebook.presto.iceberg.IcebergErrorCode.ICEBERG_TRANSACTION_CONFLICT_ERROR;
+import static com.facebook.presto.iceberg.IcebergGeospatialUtils.validateGeospatialWrite;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getMaxSnapshotsPerRefresh;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getRefreshType;
 import static com.facebook.presto.iceberg.IcebergMaterializedViewProperties.getStaleReadBehavior;
@@ -217,22 +229,28 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializ
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewMaxChangedPartitions;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.getMaterializedViewStoragePrefix;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
+import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COLUMN_EXPRESSION_SPEC;
 import static com.facebook.presto.iceberg.IcebergTableProperties.LOCATION_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static com.facebook.presto.iceberg.IcebergTableType.CHANGELOG;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergTableType.EQUALITY_DELETES;
-import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS;
+import static com.facebook.presto.iceberg.IcebergUtil.DERIVED_COLUMN_SPEC_JSON_CODEC;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETE;
+import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_DELETION_VECTORS;
 import static com.facebook.presto.iceberg.IcebergUtil.MIN_FORMAT_VERSION_FOR_ROW_LINEAGE;
 import static com.facebook.presto.iceberg.IcebergUtil.buildColumnMetadata;
+import static com.facebook.presto.iceberg.IcebergUtil.checkInvalidDerivedColumnSpec;
+import static com.facebook.presto.iceberg.IcebergUtil.checkNotSupported;
 import static com.facebook.presto.iceberg.IcebergUtil.convertToIcebergLiteral;
 import static com.facebook.presto.iceberg.IcebergUtil.createDomainFromIcebergPartitionValue;
+import static com.facebook.presto.iceberg.IcebergUtil.findDataFileWithNullValues;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.IcebergUtil.getDeleteMode;
 import static com.facebook.presto.iceberg.IcebergUtil.getFileFormat;
+import static com.facebook.presto.iceberg.IcebergUtil.getNativeValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionFields;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionKeyColumnHandles;
 import static com.facebook.presto.iceberg.IcebergUtil.getPartitionSpecsIncludingValidData;
@@ -240,18 +258,21 @@ import static com.facebook.presto.iceberg.IcebergUtil.getPartitions;
 import static com.facebook.presto.iceberg.IcebergUtil.getSnapshotIdTimeOperator;
 import static com.facebook.presto.iceberg.IcebergUtil.getSortFields;
 import static com.facebook.presto.iceberg.IcebergUtil.getTableComment;
+import static com.facebook.presto.iceberg.IcebergUtil.lastSequenceNumbersWithoutFields;
 import static com.facebook.presto.iceberg.IcebergUtil.opsFromTable;
 import static com.facebook.presto.iceberg.IcebergUtil.resolveSnapshotIdByName;
 import static com.facebook.presto.iceberg.IcebergUtil.supportsRowLineage;
 import static com.facebook.presto.iceberg.IcebergUtil.toHiveColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetLocation;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetProperties;
+import static com.facebook.presto.iceberg.IcebergUtil.tryGetReadSchema;
 import static com.facebook.presto.iceberg.IcebergUtil.tryGetSchema;
 import static com.facebook.presto.iceberg.IcebergUtil.validateBranchExists;
 import static com.facebook.presto.iceberg.IcebergUtil.validateMinimumFormatVersion;
 import static com.facebook.presto.iceberg.IcebergUtil.validateNoBranchInBaseTables;
 import static com.facebook.presto.iceberg.IcebergUtil.validateNoBranchSpecified;
 import static com.facebook.presto.iceberg.IcebergUtil.validateTableMode;
+import static com.facebook.presto.iceberg.IcebergUtil.verifyNoNullValuesInRequiredColumns;
 import static com.facebook.presto.iceberg.IcebergWarningCode.BOUNDED_REFRESH_IGNORED;
 import static com.facebook.presto.iceberg.IcebergWarningCode.SORT_COLUMN_TRANSFORM_NOT_SUPPORTED_WARNING;
 import static com.facebook.presto.iceberg.IcebergWarningCode.USE_OF_DEPRECATED_TABLE_PROPERTY;
@@ -272,11 +293,13 @@ import static com.facebook.presto.iceberg.changelog.ChangelogUtil.getRowTypeFrom
 import static com.facebook.presto.iceberg.optimizer.IcebergPlanOptimizer.getEnforcedColumns;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateBaseTableStatistics;
 import static com.facebook.presto.iceberg.util.StatisticsUtil.calculateStatisticsConsideringLayout;
+import static com.facebook.presto.spi.ColumnMetadata.DEFAULT_VALUE_PROPERTY;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.FULLY_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.NOT_MATERIALIZED;
 import static com.facebook.presto.spi.MaterializedViewStatus.MaterializedViewState.PARTIALLY_MATERIALIZED;
 import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
 import static com.facebook.presto.spi.StandardErrorCode.COLUMN_NOT_FOUND;
+import static com.facebook.presto.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_VIEW;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -286,11 +309,15 @@ import static com.facebook.presto.spi.connector.RowChangeParadigm.DELETE_ROW_AND
 import static com.facebook.presto.spi.statistics.TableStatisticType.ROW_COUNT;
 import static com.facebook.presto.spi.transaction.IsolationLevel.SERIALIZABLE;
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Maps.transformValues;
 import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
@@ -303,6 +330,7 @@ import static org.apache.iceberg.DataOperations.REPLACE;
 import static org.apache.iceberg.MetadataColumns.ROW_POSITION;
 import static org.apache.iceberg.MetadataColumns.SPEC_ID;
 import static org.apache.iceberg.RowLevelOperationMode.MERGE_ON_READ;
+import static org.apache.iceberg.SnapshotRef.MAIN_BRANCH;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
@@ -489,6 +517,13 @@ public abstract class IcebergAbstractMetadata
                     runtimeStats);
         }
 
+        // Native workers need the base table's column handles to read the data files behind a changelog scan
+        Map<String, IcebergColumnHandle> dataColumnHandles = ImmutableMap.of();
+        if (handle.getIcebergTableName().getTableType() == CHANGELOG) {
+            dataColumnHandles = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager).stream()
+                    .collect(toImmutableMap(IcebergColumnHandle::getName, Functions.identity()));
+        }
+
         ConnectorTableLayout layout = getTableLayout(
                 session,
                 new IcebergTableLayoutHandle.Builder()
@@ -502,6 +537,7 @@ public abstract class IcebergAbstractMetadata
                         .setPartitionColumnPredicate(partitionColumnPredicate.simplify())
                         .setPartitions(Optional.ofNullable(partitions.isEmpty() ? null : partitions))
                         .setTable(handle)
+                        .setDataColumnHandles(dataColumnHandles)
                         .build());
         return new ConnectorTableLayoutResult(layout, constraint.getSummary());
     }
@@ -618,16 +654,27 @@ public abstract class IcebergAbstractMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) table;
-        return getTableOrViewMetadata(session, icebergTableHandle.getSchemaTableName(), icebergTableHandle.getIcebergTableName());
+        return getTableOrViewMetadata(
+                session,
+                icebergTableHandle.getSchemaTableName(),
+                icebergTableHandle.getIcebergTableName(),
+                icebergTableHandle.getTableSchemaJson().map(SchemaParser::fromJson));
     }
 
-    protected ConnectorTableMetadata getTableOrViewMetadata(ConnectorSession session, SchemaTableName table, IcebergTableName icebergTableName)
+    /**
+     * @param readSchema the schema this read should use, empty to use the table's current schema
+     */
+    protected ConnectorTableMetadata getTableOrViewMetadata(
+            ConnectorSession session,
+            SchemaTableName table,
+            IcebergTableName icebergTableName,
+            Optional<Schema> readSchema)
     {
         SchemaTableName schemaTableName = new SchemaTableName(table.getSchemaName(), icebergTableName.getTableName());
         try {
             Table icebergTable = getIcebergTable(session, schemaTableName);
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-            columns.addAll(getColumnMetadata(session, icebergTable));
+            columns.addAll(getColumnMetadata(session, icebergTable, readSchema.orElseGet(icebergTable::schema)));
             if (icebergTableName.getTableType() == CHANGELOG) {
                 return ChangelogUtil.getChangelogTableMeta(table, typeManager, columns.build());
             }
@@ -661,7 +708,8 @@ public abstract class IcebergAbstractMetadata
             try {
                 IcebergTableName tableName = IcebergTableName.from(table.getTableName());
                 if (!tableName.isSystemTable()) {
-                    columns.put(table, getTableOrViewMetadata(session, table, tableName).getColumns());
+                    // Listing columns has no version expression to honor, so use the current schema.
+                    columns.put(table, getTableOrViewMetadata(session, table, tableName, Optional.empty()).getColumns());
                 }
             }
             catch (TableNotFoundException e) {
@@ -697,6 +745,7 @@ public abstract class IcebergAbstractMetadata
     protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable, List<String> insertColumnNames)
     {
         validateBranchExists(table, icebergTable);
+        validateGeospatialWrite(icebergTable);
         return new IcebergInsertTableHandle(
                 table.getSchemaName(),
                 table.getIcebergTableName(),
@@ -709,7 +758,20 @@ public abstract class IcebergAbstractMetadata
                 icebergTable.properties(),
                 getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()),
                 Optional.empty(),
-                insertColumnNames);
+                toIcebergFieldNames(session, icebergTable.schema(), insertColumnNames));
+    }
+
+    /**
+     * The engine passes normalized INSERT column names, but the page sink matches them against the
+     * case-preserved Iceberg field names, so a mixed-case column would otherwise look omitted.
+     */
+    private List<String> toIcebergFieldNames(ConnectorSession session, Schema schema, List<String> insertColumnNames)
+    {
+        Set<String> normalizedNames = ImmutableSet.copyOf(insertColumnNames);
+        return schema.columns().stream()
+                .map(NestedField::name)
+                .filter(name -> normalizedNames.contains(normalizeIdentifier(session, name)))
+                .collect(toImmutableList());
     }
 
     public static List<SortField> getSupportedSortFields(Schema schema, SortOrder sortOrder)
@@ -776,8 +838,13 @@ public abstract class IcebergAbstractMetadata
                 .collect(toImmutableList()), icebergTable.location())));
     }
 
-    private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, SchemaTableName tableName, IcebergWritableTableHandle writableTableHandle, Collection<Slice> fragments, ChangelogOperation operationType)
+    private Optional<ConnectorOutputMetadata> finishWrite(ConnectorSession session, SchemaTableName tableName,
+                                                          IcebergWritableTableHandle writableTableHandle,
+                                                          Collection<Slice> fragments,
+                                                          ChangelogOperation operationType,
+                                                          Optional<RowExpression> writeScope)
     {
+        requireNonNull(writeScope, "writeScope is null");
         if (fragments.isEmpty()) {
             return Optional.empty();
         }
@@ -789,20 +856,64 @@ public abstract class IcebergAbstractMetadata
                 .collect(toImmutableList());
 
         RowDelta rowDelta = icebergTable.newRowDelta();
-        writableTableHandle.getTableName().getSnapshotId().map(icebergTable::snapshot).ifPresent(s -> rowDelta.validateFromSnapshot(s.snapshotId()));
+        // The read snapshot may have expired between planning and commit, in which case the
+        // RowDelta is left unbound. replaceDeletionVectors requires the bound, so pass down what
+        // was actually applied rather than the handle's id.
+        Optional<Long> boundReadSnapshotId = writableTableHandle.getTableName().getSnapshotId()
+                .map(icebergTable::snapshot)
+                .map(Snapshot::snapshotId);
+        boundReadSnapshotId.ifPresent(rowDelta::validateFromSnapshot);
         Optional<String> branchName = writableTableHandle.getTableName().getBranchName();
         if (branchName.isPresent()) {
             rowDelta.toBranch(branchName.get());
         }
 
-        ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
-        ImmutableSet.Builder<String> referencedDataFiles = ImmutableSet.builder();
-        commitTasks.forEach(task -> handleTask(task, icebergTable, rowDelta, writtenFiles, referencedDataFiles));
+        writeScope.ifPresent(scope -> {
+            DomainTranslator.ExtractionResult<Subfield> decomposedFilter = rowExpressionService.getDomainTranslator()
+                    .fromPredicate(session, scope, new SubfieldExtractor(functionResolution, rowExpressionService.getExpressionOptimizer(session), session).toColumnExtractor());
 
-        rowDelta.validateDataFilesExist(referencedDataFiles.build());
+            Map<String, IcebergColumnHandle> nameToColumnHandlesMapping = getColumns(icebergTable.schema(), icebergTable.spec(), typeManager)
+                    .stream()
+                    .collect(Collectors.toMap(BaseHiveColumnHandle::getName, e -> e));
+            TupleDomain<IcebergColumnHandle> entireColumnDomain = decomposedFilter.getTupleDomain()
+                    .transform(subfield -> subfield.getPath().isEmpty() ? subfield.getRootName() : null)
+                    .transform(nameToColumnHandlesMapping::get);
+
+            if (!entireColumnDomain.isAll()) {
+                rowDelta.conflictDetectionFilter(toIcebergExpression(entireColumnDomain));
+            }
+        });
+
+        ImmutableSet.Builder<String> writtenFiles = ImmutableSet.builder();
+        ImmutableSet.Builder<String> referencedDataFilesBuilder = ImmutableSet.builder();
+        // On V3 tables a Parquet position-delete fragment (POSITION_DELETES with no Puffin
+        // coordinates) means the Java worker handled the mutation; V3 requires Puffin deletion
+        // vectors, which only the native worker can write. Reject before touching the RowDelta.
+        if (opsFromTable(icebergTable).current().formatVersion() >= MIN_FORMAT_VERSION_FOR_DELETION_VECTORS) {
+            for (CommitTaskData task : commitTasks) {
+                if (task.getContent() == FileContent.POSITION_DELETES && !task.getContentOffset().isPresent()) {
+                    throw v3DeletionVectorNativeOnly();
+                }
+            }
+        }
+        // The unqualified DeleteFile in this file is the connector's own serializable handle
+        // (com.facebook.presto.iceberg.delete.DeleteFile); Iceberg's is spelled out at each use.
+        Map<String, org.apache.iceberg.DeleteFile> addedDeletionVectors = new HashMap<>();
+        commitTasks.forEach(task -> handleTask(task, icebergTable, rowDelta, writtenFiles, referencedDataFilesBuilder, addedDeletionVectors));
+        Set<String> referencedDataFiles = referencedDataFilesBuilder.build();
+
+        rowDelta.validateDataFilesExist(referencedDataFiles);
         if (this.transactionContext.getIsolationLevel() == SERIALIZABLE) {
             rowDelta.validateNoConflictingDataFiles();
         }
+
+        // V3: replace any prior DV for a re-mutated data file with the merged DV the worker just
+        // wrote. The DV map rides on the (inner) insert handle for the UPDATE/MERGE path; other
+        // write paths carry no DVs (empty map). No-op for V2 position deletes.
+        Map<String, DeleteFile> existingDeletionVectors = writableTableHandle instanceof IcebergInsertTableHandle
+                ? ((IcebergInsertTableHandle) writableTableHandle).getExistingDeletionVectors()
+                : ImmutableMap.of();
+        replaceDeletionVectors(rowDelta, boundReadSnapshotId, existingDeletionVectors, addedDeletionVectors, icebergTable.specs());
 
         // Ensure a row that is updated by this commit was not deleted by a separate commit
         if (operationType == UPDATE_BEFORE || operationType == UPDATE_AFTER) {
@@ -833,15 +944,25 @@ public abstract class IcebergAbstractMetadata
         handleFinishData(task, icebergTable, partitionSpec, partitionColumnTypes, appendFiles::appendFile, writtenFiles);
     }
 
-    private void handleTask(CommitTaskData task, Table icebergTable, RowDelta rowDelta, ImmutableSet.Builder<String> writtenFiles, ImmutableSet.Builder<String> referencedDataFiles)
+    private void handleTask(
+            CommitTaskData task,
+            Table icebergTable,
+            RowDelta rowDelta,
+            ImmutableSet.Builder<String> writtenFiles,
+            ImmutableSet.Builder<String> referencedDataFiles,
+            Map<String, org.apache.iceberg.DeleteFile> addedDeletionVectors)
     {
         PartitionSpec partitionSpec = icebergTable.specs().get(task.getPartitionSpecId());
         Type[] partitionColumnTypes = partitionSpec.fields().stream()
                 .map(field -> field.transform().getResultType(icebergTable.schema().findType(field.sourceId())))
                 .toArray(Type[]::new);
+        int formatVersion = opsFromTable(icebergTable).current().formatVersion();
         switch (task.getContent()) {
             case POSITION_DELETES:
-                handleFinishPositionDeletes(task, partitionSpec, partitionColumnTypes, rowDelta, writtenFiles, referencedDataFiles);
+                handleFinishPositionDeletes(task, partitionSpec, partitionColumnTypes, rowDelta, writtenFiles, referencedDataFiles, addedDeletionVectors, formatVersion);
+                break;
+            case DELETION_VECTOR:
+                handleFinishDeletionVector(task, partitionSpec, partitionColumnTypes, rowDelta, writtenFiles, referencedDataFiles, addedDeletionVectors);
                 break;
             case DATA:
                 handleFinishData(task, icebergTable, partitionSpec, partitionColumnTypes, rowDelta::addRows, writtenFiles);
@@ -851,8 +972,30 @@ public abstract class IcebergAbstractMetadata
         }
     }
 
-    private void handleFinishPositionDeletes(CommitTaskData task, PartitionSpec partitionSpec, Type[] partitionColumnTypes, RowDelta rowDelta, ImmutableSet.Builder<String> writtenFiles, ImmutableSet.Builder<String> referencedDataFiles)
+    private void handleFinishPositionDeletes(
+            CommitTaskData task,
+            PartitionSpec partitionSpec,
+            Type[] partitionColumnTypes,
+            RowDelta rowDelta,
+            ImmutableSet.Builder<String> writtenFiles,
+            ImmutableSet.Builder<String> referencedDataFiles,
+            Map<String, org.apache.iceberg.DeleteFile> addedDeletionVectors,
+            int formatVersion)
     {
+        // V3 deletion-vector commits arrive here when the page sink reports
+        // FileContent.POSITION_DELETES but populates the Puffin-only
+        // contentOffset/contentSizeInBytes fields (CommitTaskData docstring).
+        // V3 tables forbid Parquet position-delete files, so route those to the
+        // PUFFIN/deletion-vector builder instead of the V2 Parquet builder.
+        // Puffin coordinates on a pre-V3 table indicate a writer/planner bug: fail
+        // loudly rather than building a Puffin entry the table cannot hold.
+        if (hasPuffinCoordinates(task)) {
+            verify(formatVersion >= MIN_FORMAT_VERSION_FOR_DELETION_VECTORS,
+                    "Deletion-vector commit task for pre-V3 table (format version %s): %s", formatVersion, task.getPath());
+            handleFinishDeletionVector(task, partitionSpec, partitionColumnTypes, rowDelta, writtenFiles, referencedDataFiles, addedDeletionVectors);
+            return;
+        }
+
         FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
                 .withPath(task.getPath())
                 .withFormat(task.getFileFormat().toIceberg())
@@ -871,7 +1014,122 @@ public abstract class IcebergAbstractMetadata
         task.getReferencedDataFile().ifPresent(referencedDataFiles::add);
     }
 
-    private void handleFinishData(CommitTaskData task, Table icebergTable, PartitionSpec partitionSpec, Type[] partitionColumnTypes, Consumer<DataFile> dataFileConsumer, ImmutableSet.Builder<String> writtenFiles)
+    /**
+     * Whether {@code task} carries Puffin blob coordinates, i.e. describes a deletion vector
+     * rather than a Parquet position-delete file. A well-formed fragment sets both coordinates
+     * together; exactly one set is malformed and fails loudly here rather than silently falling
+     * through to the V2 Parquet builder (which would emit a corrupt position-delete file for a
+     * V3 table) or reaching a per-field {@code orElseThrow} whose message does not say what
+     * actually went wrong.
+     */
+    private static boolean hasPuffinCoordinates(CommitTaskData task)
+    {
+        verify(task.getContentOffset().isPresent() == task.getContentSizeInBytes().isPresent(),
+                "Deletion-vector commit task must set both contentOffset and contentSizeInBytes, or neither: %s", task.getPath());
+        return task.getContentOffset().isPresent();
+    }
+
+    /**
+     * Builds the PUFFIN-format position-delete entry for one V3 deletion-vector commit fragment:
+     * referencedDataFile plus the Puffin blob offset/size the worker wrote. Shared by the
+     * DELETE path ({@code finishDeleteWithOutput}) and the UPDATE/MERGE path
+     * ({@link #handleFinishDeletionVector}) so the two cannot drift.
+     *
+     * <p>Absent coordinates mean the Java page sink handled the write (it emits Parquet position
+     * deletes), which V3 forbids; report the actionable native-only error.
+     */
+    @VisibleForTesting
+    static org.apache.iceberg.DeleteFile buildDeletionVectorEntry(CommitTaskData task, PartitionSpec partitionSpec, Type[] partitionColumnTypes)
+    {
+        if (!hasPuffinCoordinates(task)) {
+            throw v3DeletionVectorNativeOnly();
+        }
+        String referencedDataFile = task.getReferencedDataFile()
+                .orElseThrow(() -> new VerifyException("Deletion-vector commit task missing referencedDataFile"));
+
+        FileMetadata.Builder deleteBuilder = FileMetadata.deleteFileBuilder(partitionSpec)
+                .withPath(task.getPath())
+                .withFileSizeInBytes(task.getFileSizeInBytes())
+                .ofPositionDeletes()
+                .withFormat(FileFormat.PUFFIN)
+                .withReferencedDataFile(referencedDataFile)
+                .withContentOffset(task.getContentOffset().get())
+                .withContentSizeInBytes(task.getContentSizeInBytes().get())
+                .withMetrics(task.getMetrics().metrics());
+
+        if (!partitionSpec.fields().isEmpty()) {
+            String partitionDataJson = task.getPartitionDataJson()
+                    .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
+            deleteBuilder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
+        }
+        return deleteBuilder.build();
+    }
+
+    /**
+     * Retains the DV just added for {@code referencedDataFile} so the prior DV for the same data
+     * file can be reconstructed with a matching spec and partition; see
+     * {@link #replaceDeletionVectors}.
+     *
+     * <p>One commit can add more than one DV for the same data file: the Velox sink keeps one DV
+     * writer per data file within a task, but nothing partitions delete rows by data file across
+     * tasks (for example a DELETE planned as a partitioned join), and {@code IcebergSplitSource}
+     * splits data files larger than the target split size. Each such DV is seeded from the same
+     * prior DV, so all of them share its spec and partition and any one of them can reconstruct
+     * it; the first is kept. Iceberg then merges the DVs added for one data file into a single DV
+     * when it commits the row delta ({@code MergingSnapshotProducer.mergeDVs}), which keeps the
+     * one-DV-per-data-file invariant without the connector having to reject the commit.
+     */
+    @VisibleForTesting
+    static void recordAddedDeletionVector(
+            Map<String, org.apache.iceberg.DeleteFile> addedDeletionVectors,
+            String referencedDataFile,
+            org.apache.iceberg.DeleteFile addedDeletionVector)
+    {
+        addedDeletionVectors.putIfAbsent(deletionVectorKey(referencedDataFile), addedDeletionVector);
+    }
+
+    /**
+     * V3 deletion-vector commit handler for the UPDATE/MERGE path, reached via the
+     * POSITION_DELETES -> deletion-vector routing in {@link #handleFinishPositionDeletes}.
+     */
+    private void handleFinishDeletionVector(
+            CommitTaskData task,
+            PartitionSpec partitionSpec,
+            Type[] partitionColumnTypes,
+            RowDelta rowDelta,
+            ImmutableSet.Builder<String> writtenFiles,
+            ImmutableSet.Builder<String> referencedDataFiles,
+            Map<String, org.apache.iceberg.DeleteFile> addedDeletionVectors)
+    {
+        org.apache.iceberg.DeleteFile addedDeletionVector = buildDeletionVectorEntry(task, partitionSpec, partitionColumnTypes);
+        String referencedDataFile = addedDeletionVector.referencedDataFile();
+        rowDelta.addDeletes(addedDeletionVector);
+        writtenFiles.add(task.getPath());
+        referencedDataFiles.add(referencedDataFile);
+        recordAddedDeletionVector(addedDeletionVectors, referencedDataFile, addedDeletionVector);
+    }
+
+    /**
+     * V3 row-level mutations must be committed as Puffin deletion vectors, whose blob coordinates
+     * ({@code contentOffset} / {@code contentSizeInBytes}) are produced only by the native
+     * (Prestissimo) worker. The Java page sink instead emits Parquet position deletes with those
+     * coordinates unset, which V3 tables forbid. Surface a clear, actionable error in that case
+     * rather than a low-level verify failure or a corrupt-commit attempt.
+     */
+    private static PrestoException v3DeletionVectorNativeOnly()
+    {
+        return new PrestoException(NOT_SUPPORTED,
+                "Iceberg V3 deletion-vector writes (DELETE, UPDATE, MERGE) require the native (Prestissimo) worker. " +
+                        "The Java worker cannot produce Puffin deletion vectors.");
+    }
+
+    private void handleFinishData(
+            CommitTaskData task,
+            Table icebergTable,
+            PartitionSpec partitionSpec,
+            Type[] partitionColumnTypes,
+            Consumer<DataFile> dataFileConsumer,
+            ImmutableSet.Builder<String> writtenFiles)
     {
         DataFiles.Builder builder = DataFiles.builder(partitionSpec)
                 .withPath(task.getPath())
@@ -891,6 +1149,20 @@ public abstract class IcebergAbstractMetadata
     @Override
     public Optional<ColumnHandle> getDeleteRowIdColumn(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        // Loads the table only for the format version; the load is transaction-cached
+        // (IcebergTransactionContext), and the handle carries no version field, so there
+        // is no cheaper source for this analysis-time check.
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        if (opsFromTable(icebergTable).current().formatVersion() >= MIN_FORMAT_VERSION_FOR_DELETION_VECTORS) {
+            // A V3 DELETE is committed as a Puffin deletion vector, which the native worker writes
+            // through the same reader/writer path as MERGE. That path requires the row id to be the
+            // 4-field ROW<file_path, pos, spec_id, partition>; a bare row position fails in the
+            // Velox sink with "IcebergDeletionVectorSink expects a two-column (file_path, pos)
+            // input or a ROW<file_path, pos, ...> row-id column". Return the merge target row id so
+            // DELETE and MERGE agree. The deletion-vector sink reads only fields 0 and 1.
+            return Optional.of(getMergeTargetTableRowIdColumnHandle(session, tableHandle));
+        }
         return Optional.of(IcebergColumnHandle.create(ROW_POSITION, typeManager, REGULAR));
     }
 
@@ -927,32 +1199,43 @@ public abstract class IcebergAbstractMetadata
         validateBranchExists(icebergTableHandle, icebergTable);
         int formatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
 
-        if (formatVersion > MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS) {
-            throw new PrestoException(NOT_SUPPORTED,
-                    format("Iceberg table updates for format version %s are not supported yet", formatVersion));
+        // V3 tables use deletion vectors natively and do not require an explicit
+        // write.update.mode='merge-on-read' table property. An explicit copy-on-write-style
+        // setting on V3 is likewise ignored: the spec defines no other V3 delete path.
+        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE) {
+            throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION,
+                    format("Iceberg table updates require at least format version %d", MIN_FORMAT_VERSION_FOR_DELETE));
         }
-
-        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE ||
+        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETION_VECTORS &&
                 !Optional.ofNullable(icebergTable.properties().get(TableProperties.UPDATE_MODE))
                         .map(mode -> mode.equals(MERGE_ON_READ.modeName()))
                         .orElse(false)) {
             throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION,
-                    "Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
+                    "Iceberg table updates require update mode to be merge-on-read");
         }
         validateTableMode(session, icebergTable);
 
-        IcebergInsertTableHandle insertHandle = new IcebergInsertTableHandle(
+        // Capture existing DVs (V3 only) so UPDATE/MERGE seeds (worker) and replaces (commit) a
+        // data file's prior DV; empty for V2 tables and first-time mutations. Carried on the
+        // inner insert handle so both the Prestissimo bridge (reads the inner insert handle) and
+        // finishWrite (receives the inner insert handle) can reach it.
+        Map<String, DeleteFile> existingDeletionVectors = formatVersion >= MIN_FORMAT_VERSION_FOR_DELETION_VECTORS
+                ? enumerateExistingDeletionVectors(icebergTable, icebergTableHandle.getIcebergTableName().getSnapshotId())
+                : ImmutableMap.of();
+
+        IcebergInsertTableHandle insertHandle = IcebergInsertTableHandle.forMergeOnRead(
                 icebergTableHandle.getSchemaName(),
                 icebergTableHandle.getIcebergTableName(),
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
-                getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
+                getColumnsForWrite(icebergTable.schema(), icebergTable.spec(), typeManager),
                 icebergTable.location(),
                 getFileFormat(icebergTable),
                 getCompressionCodec(session),
                 icebergTable.properties(),
                 getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()),
-                Optional.empty());
+                Optional.empty(),
+                existingDeletionVectors);
 
         Map<Integer, PrestoIcebergPartitionSpec> partitionSpecs = transformValues(icebergTable.specs(), partitionSpec -> toPrestoPartitionSpec(partitionSpec, typeManager));
 
@@ -971,19 +1254,56 @@ public abstract class IcebergAbstractMetadata
 
         finishWrite(session,
                 new SchemaTableName(insertTableHandle.getSchemaName(), insertTableHandle.getTableName().getTableName()),
-                insertTableHandle, fragments, UPDATE_AFTER);
+                insertTableHandle, fragments, UPDATE_AFTER, Optional.empty());
     }
 
     @Override
     public boolean isLegacyGetLayoutSupported(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return !isPushdownFilterEnabled(session);
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+
+        return !isPushdownFilterEnabled(session) || icebergTableHandle.getIcebergTableName().getTableType() == CHANGELOG;
+    }
+
+    private ColumnMetadata getColumnMetadata(ConnectorSession session, Table table, String columnName)
+    {
+        Map<String, List<String>> partitionFields = getPartitionFields(table.spec(), ALL);
+        DerivedColumnSpecList derivedColumnSpecList = IcebergUtil.getDerivedColumnSpec(table);
+        List<DerivedColumnSpec> derivedColumnSpec = derivedColumnSpecList.getDerivedColumnSpecs().stream()
+                .filter(spec -> spec.getDerivedColumnName().equals(columnName)).collect(toImmutableList());
+        checkInvalidDerivedColumnSpec(derivedColumnSpec.size() <= 1, "duplicate derived column spec entry found for column %s in table %s",
+                columnName, table.name());
+        NestedField column = table.schema().findField(columnName);
+        verifyNotNull(column, "Column name: %s not found in table : %s", columnName, table.name());
+        return ColumnMetadata.builder()
+                .setName(normalizeIdentifier(session, column.name()))
+                .setType(toPrestoType(column.type(), typeManager))
+                .setNullable(column.isOptional())
+                .setComment(column.doc())
+                .setHidden(false)
+                .setExtraInfo(partitionFields.containsKey(column.name()) ?
+                        columnExtraInfo(partitionFields.get(column.name())) :
+                        null)
+                .setDerivedColumnSpec(derivedColumnSpec.stream().findAny())
+                .build();
     }
 
     protected List<ColumnMetadata> getColumnMetadata(ConnectorSession session, Table table)
     {
+        return getColumnMetadata(session, table, table.schema());
+    }
+
+    protected List<ColumnMetadata> getColumnMetadata(ConnectorSession session, Table table, Schema schema)
+    {
         Map<String, List<String>> partitionFields = getPartitionFields(table.spec(), ALL);
-        return table.schema().columns().stream()
+        DerivedColumnSpecList derivedColumnSpecList = IcebergUtil.getDerivedColumnSpec(table);
+        List<String> derivedColumnNames = derivedColumnSpecList.getDerivedColumnSpecs().stream().map(DerivedColumnSpec::getDerivedColumnName).collect(toImmutableList());
+        checkInvalidDerivedColumnSpec(derivedColumnNames.stream().collect(toImmutableSet()).size() == derivedColumnNames.size(),
+                "duplicate derived column spec entry found for columns in table %s", table.name());
+        Map<String, DerivedColumnSpec> derivedColumnSpecMap =
+                derivedColumnSpecList.getDerivedColumnSpecs().stream()
+                        .collect(toImmutableMap(DerivedColumnSpec::getDerivedColumnName, derivedColumnSpec -> derivedColumnSpec));
+        return schema.columns().stream()
                 .map(column -> ColumnMetadata.builder()
                         .setName(normalizeIdentifier(session, column.name()))
                         .setType(toPrestoType(column.type(), typeManager))
@@ -993,9 +1313,21 @@ public abstract class IcebergAbstractMetadata
                         .setExtraInfo(partitionFields.containsKey(column.name()) ?
                                 columnExtraInfo(partitionFields.get(column.name())) :
                                 null)
-                        .setNullable(column.isOptional())
+                        .setDerivedColumnSpec(Optional.ofNullable(derivedColumnSpecMap.get(normalizeIdentifier(session, column.name()))))
+                        .setProperties(writeDefaultProperties(column))
                         .build())
                 .collect(toImmutableList());
+    }
+
+    /**
+     * The planner reads this to know which omitted INSERT columns the page sink fills with a default.
+     */
+    private Map<String, Object> writeDefaultProperties(NestedField column)
+    {
+        if (column.writeDefault() == null) {
+            return ImmutableMap.of();
+        }
+        return ImmutableMap.of(DEFAULT_VALUE_PROPERTY, getNativeValue(toPrestoType(column.type(), typeManager), column.writeDefault()));
     }
 
     protected List<ColumnMetadata> getColumnMetadata(ConnectorSession session, View view)
@@ -1045,7 +1377,10 @@ public abstract class IcebergAbstractMetadata
         properties.put(TableProperties.METADATA_DELETE_AFTER_COMMIT_ENABLED, IcebergUtil.isMetadataDeleteAfterCommit(icebergTable));
         properties.put(TableProperties.METRICS_MAX_INFERRED_COLUMN_DEFAULTS, IcebergUtil.getMetricsMaxInferredColumn(icebergTable));
         properties.put(TableProperties.SPLIT_SIZE, IcebergUtil.getSplitSize(icebergTable));
-
+        DerivedColumnSpecList derivedColumnSpecList = IcebergUtil.getDerivedColumnSpec(icebergTable);
+        if (!derivedColumnSpecList.getDerivedColumnSpecs().isEmpty()) {
+            properties.put(DERIVED_COLUMN_EXPRESSION_SPEC, derivedColumnSpecList);
+        }
         SortOrder sortOrder = icebergTable.sortOrder();
         // TODO: Support sort column transforms (https://github.com/prestodb/presto/issues/24250)
         if (sortOrder != null && sortOrder.isSorted()) {
@@ -1175,10 +1510,14 @@ public abstract class IcebergAbstractMetadata
                 .or(() -> Optional.ofNullable(icebergTable.currentSnapshot()).map(Snapshot::snapshotId));
         ManageSnapshots manageSnapshots = icebergTable.manageSnapshots();
         if (replace && branchExists) {
-            targetSnapshotId.ifPresent(snapshotId -> manageSnapshots.replaceBranch(branchName, snapshotId));
+            targetSnapshotId.ifPresent(snapshotId -> {
+                verifyNoNullValuesInRequiredColumns(icebergTable, icebergTableHandle.getSchemaTableName(), branchName, snapshotId);
+                manageSnapshots.replaceBranch(branchName, snapshotId);
+            });
         }
         else if (!branchExists) {
             if (targetSnapshotId.isPresent()) {
+                verifyNoNullValuesInRequiredColumns(icebergTable, icebergTableHandle.getSchemaTableName(), branchName, targetSnapshotId.get());
                 manageSnapshots.createBranch(branchName, targetSnapshotId.get());
             }
             else {
@@ -1260,7 +1599,7 @@ public abstract class IcebergAbstractMetadata
      * three-argument form for {@code Last}, so a subclass must not reintroduce that direction of delegation.
      */
     @Override
-    public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
+    public final void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         addColumn(session, tableHandle, column, new ColumnPosition.Last());
     }
@@ -1278,10 +1617,15 @@ public abstract class IcebergAbstractMetadata
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns added");
         validateNoBranchSpecified(handle, "ADD COLUMN");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        // Reject a geospatial column the table could never be written with, rather than
+        // accepting the schema change and failing every subsequent write
+        validateGeospatialWrite(column.getName(), columnType, opsFromTable(icebergTable).current().formatVersion(), getFileFormat(icebergTable));
         UpdateSchema updateSchema = icebergTable.updateSchema();
+        checkNotSupported(column.getDefaultValue().isEmpty() || column.getDerivedColumnSpec().isEmpty(),
+                "A column can either have a 'default expression' or 'derived column definition' and not both.");
         if (column.getDefaultValue().isPresent()) {
             validateMinimumFormatVersion(icebergTable, 3, format("ADD COLUMN with DEFAULT values is only supported with Iceberg format version 3 or higher. " +
-                    "Table '%s' is currently at format version %d. ", handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion(), handle.getSchemaTableName()));
+                    "Table '%s' is currently at format version %d. ", handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion()));
             Object defaultValue = column.getDefaultValue().get();
             Literal<?> defaultLiteral = convertToIcebergLiteral(defaultValue, columnType);
             updateSchema.addColumn(column.getName(), columnType, column.getComment().orElse(null), defaultLiteral);
@@ -1300,6 +1644,9 @@ public abstract class IcebergAbstractMetadata
                         getTransformTerm(column.getName(), transform));
             }
             updatePartitionSpec.commit();
+        }
+        if (column.getDerivedColumnSpec().isPresent()) {
+            derivedColumnOperations(getIcebergTable(session, handle.getSchemaTableName()), Optional.empty(), column, DerivedColumnOperationType.ADD);
         }
     }
 
@@ -1339,29 +1686,160 @@ public abstract class IcebergAbstractMetadata
                         "Column '%s' does not exist as a top-level column. The AFTER clause requires a top-level column name, not a nested field path.",
                         afterColumnName));
             }
-            NestedField afterColumn = findTopLevelColumn(schema, afterColumnName)
-                    .orElseThrow(() -> new PrestoException(COLUMN_NOT_FOUND, format("Column '%s' does not exist", afterColumnName)));
-            updateSchema.moveAfter(columnName, afterColumn.name());
+            updateSchema.moveAfter(columnName, findTopLevelColumn(schema, afterColumnName).name());
             return;
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column position: " + position);
     }
 
     /**
-     * Finds a top-level column of {@code schema} by name, preferring an exact match over a case-insensitive
-     * one, so that a table whose top-level columns differ only by case resolves deterministically rather than
-     * by whatever order the fields happen to be in.
+     * Resolves a column name the engine resolved against {@link #getColumnHandles} to the top-level schema
+     * field it names.
+     *
+     * <p>The engine lowercases the name, while an Iceberg field keeps whatever case the table was created
+     * with, so the lookup has to be case-insensitive to match the name SHOW COLUMNS reports. An exact match
+     * wins over a case-insensitive one, so that a table whose top-level columns differ only by case resolves
+     * deterministically rather than by whatever order the fields happen to be in. Only the top-level columns
+     * are scanned, rather than using {@link Schema#caseInsensitiveFindField}: that builds a lower-case index
+     * over the whole schema, which resolves dotted paths to nested fields whose leaf name would be wrong here,
+     * and throws outright if any two fields anywhere in the table differ only by case.
+     *
+     * <p>{@link #getColumnHandles} also exposes the synthesized columns ($path, $row_id and the like) that are
+     * not fields of the schema at all; rejecting an unresolvable name here keeps the failure a user error,
+     * rather than the {@link IllegalArgumentException} that {@link UpdateSchema} would raise for a name it
+     * cannot find.
      */
-    private static Optional<NestedField> findTopLevelColumn(Schema schema, String columnName)
+    private static NestedField findTopLevelColumn(Schema schema, String columnName)
     {
-        Optional<NestedField> exactMatch = schema.columns().stream()
+        return findTopLevelColumnIfPresent(schema, columnName)
+                .orElseThrow(() -> new PrestoException(COLUMN_NOT_FOUND, format("Column '%s' does not exist", columnName)));
+    }
+
+    private static Optional<NestedField> findTopLevelColumnIfPresent(Schema schema, String columnName)
+    {
+        return schema.columns().stream()
                 .filter(field -> field.name().equals(columnName))
+                .findFirst()
+                .or(() -> schema.columns().stream()
+                        .filter(field -> field.name().equalsIgnoreCase(columnName))
+                        .findFirst());
+    }
+
+    @Override
+    public void setColumnPosition(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, ColumnPosition position)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns moved");
+        validateNoBranchSpecified(handle, "SET COLUMN POSITION");
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        Schema schema = icebergTable.schema();
+        NestedField movedColumn = findTopLevelColumn(schema, ((IcebergColumnHandle) columnHandle).getName());
+        // The move is resolved before an UpdateSchema is created, because one that is created and then not
+        // committed leaves the connector's Iceberg transaction with an operation that never completed, which
+        // fails the statement with an error about the transaction rather than about the column
+        if (position instanceof ColumnPosition.First) {
+            icebergTable.updateSchema().moveFirst(movedColumn.name()).commit();
+            return;
+        }
+        if (position instanceof ColumnPosition.After) {
+            String afterColumnName = findTopLevelColumn(schema, ((ColumnPosition.After) position).getColumnName()).name();
+            icebergTable.updateSchema().moveAfter(movedColumn.name(), afterColumnName).commit();
+            return;
+        }
+        // ALTER COLUMN has no position a connector can honor for free, unlike the omitted ADD COLUMN clause
+        // that ColumnPosition.Last stands for, so anything else is a caller that ignored the SPI contract
+        throw new PrestoException(NOT_SUPPORTED, "Unsupported column position: " + position);
+    }
+
+    @Override
+    public void addField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> parentPath, String fieldName, com.facebook.presto.common.type.Type type, boolean ignoreExisting)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have fields added");
+        validateNoBranchSpecified(handle, "ADD COLUMN");
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        String parentName = String.join(".", parentPath);
+        NestedField parentField = findNestedField(icebergTable.schema(), parentPath)
+                .orElseThrow(() -> new PrestoException(COLUMN_NOT_FOUND,
+                        format("Cannot find parent field '%s' in table '%s'", parentName, handle.getSchemaTableName())));
+
+        if (!parentField.type().isStructType()) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    format("Parent field '%s' in table '%s' is not a struct/ROW type", parentName, handle.getSchemaTableName()));
+        }
+
+        String canonicalParentName = icebergTable.schema().findColumnName(parentField.fieldId());
+
+        Types.StructType parentStruct = parentField.type().asStructType();
+        Optional<NestedField> existingField = findFieldInStruct(parentStruct, fieldName);
+        if (existingField.isPresent()) {
+            if (ignoreExisting) {
+                return;
+            }
+            throw new PrestoException(ALREADY_EXISTS, format("Field '%s' already exists in '%s'", fieldName, canonicalParentName));
+        }
+
+        // Reject re-using a name that was previously used in this struct (dropped or renamed away).
+        // Readers match nested fields by name, not field ID, so existing rows would return stale data.
+        // Note: the guard relies on historical schemas being present in table metadata. If metadata
+        // cleanup (such as expireSnapshots) removes old schema versions, the guard may miss previously
+        // used names and the stale-read risk would reappear for those tables.
+        // The root cause (name-based nested field matching in Parquet/ORC/Velox readers) is tracked
+        // in https://github.com/prestodb/presto/issues/28705.
+        boolean nameWasPreviouslyUsed = icebergTable.schemas().values().stream()
+                .anyMatch(historicalSchema -> {
+                    NestedField historicalParent = historicalSchema.findField(parentField.fieldId());
+                    if (historicalParent == null || !historicalParent.type().isStructType()) {
+                        return false;
+                    }
+                    return historicalParent.type().asStructType().fields().stream()
+                            .anyMatch(child -> child.name().equalsIgnoreCase(fieldName));
+                });
+        if (nameWasPreviouslyUsed) {
+            throw new PrestoException(NOT_SUPPORTED, format(
+                    "Cannot add field '%s' to '%s': that name was previously used by another field " +
+                            "(dropped or renamed). Re-using a name from a prior field is not supported " +
+                            "because existing rows would return stale data for the new field.",
+                    fieldName, canonicalParentName));
+        }
+
+        org.apache.iceberg.types.Type icebergType = toIcebergType(type);
+        try {
+            icebergTable.updateSchema()
+                    .addColumn(canonicalParentName, fieldName, icebergType)
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to add field: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
+    private static Optional<NestedField> findNestedField(Schema schema, List<String> path)
+    {
+        if (path.isEmpty()) {
+            return Optional.empty();
+        }
+        Optional<NestedField> current = findFieldInStruct(schema.asStruct(), path.get(0));
+        for (int i = 1; i < path.size() && current.isPresent(); i++) {
+            if (!current.get().type().isStructType()) {
+                return Optional.empty();
+            }
+            current = findFieldInStruct(current.get().type().asStructType(), path.get(i));
+        }
+        return current;
+    }
+
+    private static Optional<NestedField> findFieldInStruct(Types.StructType structType, String fieldName)
+    {
+        Optional<NestedField> exactMatch = structType.fields().stream()
+                .filter(field -> field.name().equals(fieldName))
                 .findFirst();
         if (exactMatch.isPresent()) {
             return exactMatch;
         }
-        return schema.columns().stream()
-                .filter(field -> field.name().equalsIgnoreCase(columnName))
+        return structType.fields().stream()
+                .filter(field -> field.name().equalsIgnoreCase(fieldName))
                 .findFirst();
     }
 
@@ -1372,6 +1850,8 @@ public abstract class IcebergAbstractMetadata
         verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have column defaults set");
         validateNoBranchSpecified(handle, "SET COLUMN DEFAULT");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        ColumnMetadata columnMetadata = getColumnMetadata(session, icebergTable, columnName);
+        checkNotSupported(columnMetadata.getDerivedColumnSpec().isEmpty(), "SET COLUMN DEFAULT is not supported on derived columns.");
         validateMinimumFormatVersion(icebergTable, 3, format("SET COLUMN DEFAULT is only supported with Iceberg format version 3 or higher. " +
                 "Table '%s' is currently at format version %d.", handle.getSchemaTableName(), opsFromTable(icebergTable).current().formatVersion()));
         // Find the column in the schema
@@ -1388,6 +1868,151 @@ public abstract class IcebergAbstractMetadata
     }
 
     @Override
+    public void dropField(ConnectorSession session, ConnectorTableHandle tableHandle, List<String> fieldPath, boolean ignoreNonExistent)
+    {
+        checkArgument(fieldPath.size() >= 2, "fieldPath must have at least 2 elements, got: %s", fieldPath);
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have fields dropped");
+        validateNoBranchSpecified(handle, "DROP COLUMN");
+        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+
+        // Iceberg's deleteColumn() is case-sensitive; resolve the field first to get its canonical name.
+        Optional<NestedField> resolvedField = resolveFieldToDrop(icebergTable.schema(), fieldPath, ignoreNonExistent, handle.getSchemaTableName());
+        if (!resolvedField.isPresent()) {
+            return;
+        }
+        NestedField field = resolvedField.get();
+        String dottedPath = String.join(".", fieldPath);
+        String canonicalPath = icebergTable.schema().findColumnName(field.fieldId());
+
+        // Reject dropping a field referenced by any partition spec (current or historical).
+        // Cover the field's own ID and all descendant IDs: a leaf partition field (sourceId)
+        // inside a struct being dropped must also be rejected. See apache/iceberg#4563.
+        Set<Integer> droppedFieldIds = ImmutableSet.<Integer>builder()
+                .add(field.fieldId())
+                .addAll(TypeUtil.getProjectedIds(field.type()))
+                .build();
+        boolean isPartitionField = icebergTable.specs().values().stream()
+                .flatMap(spec -> spec.fields().stream())
+                .anyMatch(partField -> droppedFieldIds.contains(partField.sourceId()));
+        if (isPartitionField) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    format("Cannot drop field '%s' which is used by a partition spec", dottedPath));
+        }
+
+        try {
+            icebergTable.updateSchema().deleteColumn(canonicalPath).commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to drop field: " + firstNonNull(e.getMessage(), e), e);
+        }
+    }
+
+    /**
+     * Resolves the field that {@code fieldPath} names, walking one level at a time from the root of the schema.
+     * An exact name match is preferred, then a case-insensitive match among the siblings of that level only, so a
+     * case collision elsewhere in the schema cannot affect the lookup (unlike {@link Schema#caseInsensitiveFindField}).
+     * <p>
+     * The path may pass through struct fields, list elements ({@code .element}) and map values ({@code .value}).
+     * {@code element}, {@code key} and {@code value} are only treated as collection steps when the type being
+     * traversed is a list or map; in a struct they are ordinary field names.
+     *
+     * @return the field to drop, or empty if it does not exist and {@code ignoreNonExistent} is set
+     */
+    @VisibleForTesting
+    static Optional<NestedField> resolveFieldToDrop(Schema schema, List<String> fieldPath, boolean ignoreNonExistent, SchemaTableName tableName)
+    {
+        Type currentType = schema.asStruct();
+        Types.StructType containingStruct = null;
+        NestedField field = null;
+
+        for (int i = 0; i < fieldPath.size(); i++) {
+            String segment = fieldPath.get(i);
+            boolean isLast = i == fieldPath.size() - 1;
+
+            if (currentType.isStructType()) {
+                Optional<NestedField> child = findFieldToDrop(currentType.asStructType(), segment, String.join(".", fieldPath.subList(0, i + 1)), tableName);
+                if (!child.isPresent()) {
+                    if (ignoreNonExistent) {
+                        return Optional.empty();
+                    }
+                    if (isLast) {
+                        throw new PrestoException(COLUMN_NOT_FOUND,
+                                format("Field '%s' does not exist in table '%s'", String.join(".", fieldPath), tableName));
+                    }
+                    throw new PrestoException(COLUMN_NOT_FOUND,
+                            format("Cannot find parent field '%s' in table '%s'", String.join(".", fieldPath.subList(0, i + 1)), tableName));
+                }
+                containingStruct = currentType.asStructType();
+                field = child.get();
+                currentType = field.type();
+            }
+            else if (currentType.isListType()) {
+                if (!segment.equalsIgnoreCase("element")) {
+                    throw notStructParent(fieldPath, i, tableName);
+                }
+                if (isLast) {
+                    throw new PrestoException(NOT_SUPPORTED,
+                            format("Cannot drop the element of list '%s' in table '%s'", String.join(".", fieldPath.subList(0, i)), tableName));
+                }
+                currentType = currentType.asListType().elementType();
+            }
+            else if (currentType.isMapType()) {
+                if (segment.equalsIgnoreCase("key")) {
+                    throw new PrestoException(NOT_SUPPORTED,
+                            format("Cannot drop or traverse the key of map '%s' in table '%s'", String.join(".", fieldPath.subList(0, i)), tableName));
+                }
+                if (!segment.equalsIgnoreCase("value")) {
+                    throw notStructParent(fieldPath, i, tableName);
+                }
+                if (isLast) {
+                    throw new PrestoException(NOT_SUPPORTED,
+                            format("Cannot drop the value of map '%s' in table '%s'", String.join(".", fieldPath.subList(0, i)), tableName));
+                }
+                currentType = currentType.asMapType().valueType();
+            }
+            else {
+                throw notStructParent(fieldPath, i, tableName);
+            }
+        }
+
+        // Reject dropping the only field of a nested struct: Presto's RowType requires at least one field.
+        if (fieldPath.size() > 1 && containingStruct.fields().size() == 1) {
+            String canonicalPath = schema.findColumnName(field.fieldId());
+            int lastDot = canonicalPath.lastIndexOf('.');
+            String canonicalParentPath = lastDot > 0 ? canonicalPath.substring(0, lastDot) : "";
+            throw new PrestoException(NOT_SUPPORTED,
+                    format("Cannot drop the only field '%s' in row type: %s", fieldPath.get(fieldPath.size() - 1), canonicalParentPath));
+        }
+        return Optional.of(field);
+    }
+
+    private static Optional<NestedField> findFieldToDrop(Types.StructType structType, String fieldName, String fieldPath, SchemaTableName tableName)
+    {
+        Optional<NestedField> exactMatch = structType.fields().stream()
+                .filter(field -> field.name().equals(fieldName))
+                .findFirst();
+        if (exactMatch.isPresent()) {
+            return exactMatch;
+        }
+        // Never guess between fields that differ only by case — dropping is destructive.
+        List<NestedField> caseInsensitiveMatches = structType.fields().stream()
+                .filter(field -> field.name().equalsIgnoreCase(fieldName))
+                .collect(toImmutableList());
+        if (caseInsensitiveMatches.size() > 1) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    format("Field '%s' in table '%s' is ambiguous: multiple fields match ignoring case", fieldPath, tableName));
+        }
+        return caseInsensitiveMatches.stream().findFirst();
+    }
+
+    private static PrestoException notStructParent(List<String> fieldPath, int segmentIndex, SchemaTableName tableName)
+    {
+        return new PrestoException(NOT_SUPPORTED,
+                format("Parent field '%s' in table '%s' is not a struct/ROW type", String.join(".", fieldPath.subList(0, segmentIndex)), tableName));
+    }
+
+    @Override
     public void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
@@ -1395,7 +2020,6 @@ public abstract class IcebergAbstractMetadata
         verify(icebergTableHandle.getIcebergTableName().getTableType() == DATA, "only the data table can have columns dropped");
         validateNoBranchSpecified(icebergTableHandle, "DROP COLUMN");
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
-
         // Currently drop partition column used in any partition specs of a table would introduce some problems in Iceberg.
         // So we explicitly disallow dropping partition columns until Iceberg fix this problem.
         // See https://github.com/apache/iceberg/issues/4563
@@ -1405,7 +2029,8 @@ public abstract class IcebergAbstractMetadata
         if (shouldNotDropPartitionColumn) {
             throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping columns which exist in any of the table's partition specs");
         }
-
+        ColumnMetadata columnMetadata = getColumnMetadata(session, icebergTable, ((IcebergColumnHandle) column).getName());
+        derivedColumnOperations(icebergTable, Optional.empty(), columnMetadata, DerivedColumnOperationType.DROP);
         icebergTable.updateSchema().deleteColumn(handle.getName()).commit();
     }
 
@@ -1417,6 +2042,7 @@ public abstract class IcebergAbstractMetadata
         validateNoBranchSpecified(icebergTableHandle, "RENAME COLUMN");
         IcebergColumnHandle columnHandle = (IcebergColumnHandle) source;
         Table icebergTable = getIcebergTable(session, icebergTableHandle.getSchemaTableName());
+        ColumnMetadata columnMetadataSource = getColumnMetadata(session, icebergTable, ((IcebergColumnHandle) source).getName());
         icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
         icebergTable.spec().fields().stream()
                 .filter(field -> field.sourceId() == columnHandle.getId())
@@ -1424,6 +2050,8 @@ public abstract class IcebergAbstractMetadata
                     String transform = field.transform().toString();
                     icebergTable.updateSpec().renameField(field.name(), getPartitionColumnName(target, transform)).commit();
                 });
+        ColumnMetadata columnMetadataTarget = columnMetadataSource.toBuilder().setName(target).build();
+        derivedColumnOperations(getIcebergTable(session, icebergTableHandle.getSchemaTableName()), Optional.of(columnMetadataSource), columnMetadataTarget, DerivedColumnOperationType.RENAME);
     }
 
     @Override
@@ -1447,7 +2075,8 @@ public abstract class IcebergAbstractMetadata
             schema = ChangelogUtil.changelogTableSchema(getRowTypeFromColumnMeta(getColumnMetadata(session, icebergTable)));
         }
         else {
-            schema = icebergTable.schema();
+            // The correct schema was already worked out and stored as tableSchemaJson in table.
+            schema = table.getTableSchemaJson().map(SchemaParser::fromJson).orElseGet(icebergTable::schema);
         }
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
@@ -1529,13 +2158,13 @@ public abstract class IcebergAbstractMetadata
         // Get Iceberg tables schema, properties, and location with missing
         // filesystem metadata will fail.
         // See https://github.com/prestodb/presto/pull/21181
-        Optional<Schema> tableSchema = tryGetSchema(table);
+        Optional<Schema> tableSchema = tryGetReadSchema(table, name, tableVersion, tableSnapshotId);
         Optional<String> tableSchemaJson = tableSchema.map(SchemaParser::toJson);
 
         return new IcebergTableHandle(
                 tableNameToLoad.getSchemaName(),
                 new IcebergTableName(tableNameToLoad.getTableName(), name.getTableType(), tableSnapshotId, name.getBranchName(), name.getChangelogEndSnapshot()),
-                name.getSnapshotId().isPresent(),
+                tableVersion.isPresent() || name.getSnapshotId().isPresent(),
                 tryGetLocation(table),
                 tryGetProperties(table),
                 tableSchemaJson,
@@ -1630,27 +2259,223 @@ public abstract class IcebergAbstractMetadata
         if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE) {
             throw new PrestoException(NOT_SUPPORTED, format("This connector only supports delete where one or more partitions are deleted entirely for table versions older than %d", MIN_FORMAT_VERSION_FOR_DELETE));
         }
-        if (formatVersion > MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS) {
-            throw new PrestoException(NOT_SUPPORTED,
-                    format("Iceberg table updates for format version %s are not supported yet", formatVersion));
-        }
-        if (getDeleteMode(icebergTable) == RowLevelOperationMode.COPY_ON_WRITE) {
+        // V3 tables use deletion vectors natively; write.delete.mode defaults to copy-on-write
+        // in the Iceberg spec but V3 always supports row-level deletes via DV files, so only
+        // reject copy-on-write for pre-V3 tables. An explicit copy-on-write setting on V3 is
+        // likewise ignored: the spec defines no other V3 delete path.
+        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETION_VECTORS && getDeleteMode(icebergTable) == RowLevelOperationMode.COPY_ON_WRITE) {
             throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely. To enable row level deletions, change the write.delete.mode table property to `merge-on-read`.");
         }
         validateTableMode(session, icebergTable);
 
-        return handle;
+        // Surface a typed DELETE handle the Prestissimo bridge recognises. V2 tables use
+        // Parquet position deletes; V3 tables use one deletion vector (Puffin) per data file.
+        FileContent fileContent = formatVersion >= MIN_FORMAT_VERSION_FOR_DELETION_VECTORS
+                ? FileContent.DELETION_VECTOR
+                : FileContent.POSITION_DELETES;
+
+        // V3 tables use one deletion vector per data file. Capture the DVs that already exist
+        // in the snapshot this mutation reads from so the worker can seed the new DV (union of
+        // positions) and the commit can replace the old one; V2 position-delete paths are
+        // unaffected.
+        Map<String, DeleteFile> existingDeletionVectors = formatVersion >= MIN_FORMAT_VERSION_FOR_DELETION_VECTORS
+                ? enumerateExistingDeletionVectors(icebergTable, handle.getIcebergTableName().getSnapshotId())
+                : ImmutableMap.of();
+
+        return new IcebergDeleteTableHandle(
+                handle.getSchemaName(),
+                handle.getIcebergTableName(),
+                toPrestoSchema(icebergTable.schema(), typeManager),
+                toPrestoPartitionSpec(icebergTable.spec(), typeManager),
+                getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
+                icebergTable.location(),
+                getFileFormat(icebergTable),
+                getCompressionCodec(session),
+                icebergTable.properties(),
+                getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()),
+                Optional.empty(),
+                fileContent,
+                existingDeletionVectors);
+    }
+
+    /**
+     * Enumerates the deletion vectors that already exist in {@code readSnapshotId}, keyed by the
+     * data file each DV references. V3 DELETE/UPDATE/MERGE uses this to seed and replace a data
+     * file's prior DV so the one-DV-per-data-file invariant holds across repeated mutations.
+     * Returns an empty map when the table has no snapshot yet.
+     *
+     * <p>{@code readSnapshotId} is the id the mutation reads from and commits against, resolved
+     * by {@link IcebergUtil#resolveSnapshotIdByName}. It must be used rather than
+     * {@code currentSnapshot()}: on a branch mutation the two differ (the former is the branch
+     * head, the latter the main head), and enumerating main would both leave the branch's prior
+     * DV in place — two DVs on one data file — and let the worker seed from main's DV, which
+     * resurrects rows already deleted on the branch.
+     *
+     * <p>Reads only that snapshot's delete manifests (which carry deletion vectors) rather than
+     * planning every data file via {@code newScan().planFiles()}, so the cost scales with the
+     * number of deletion vectors, not the table size. {@code beginDelete} / {@code beginMerge}
+     * receive only the table handle (the connector SPI does not pass the mutation predicate), so
+     * the enumeration cannot be scoped by the DELETE/MERGE filter here; limiting it to delete
+     * manifests is the tightest scoping available at this layer.
+     *
+     * <p>The resulting map holds one entry per data file carrying a live DV in the read
+     * snapshot and is fanned out on the delete/insert handle JSON to every writer task;
+     * seeding writers from per-split delete files instead is a follow-up.
+     */
+    @VisibleForTesting
+    static Map<String, DeleteFile> enumerateExistingDeletionVectors(Table icebergTable, Optional<Long> readSnapshotId)
+    {
+        if (!readSnapshotId.isPresent()) {
+            return ImmutableMap.of();
+        }
+        Snapshot snapshot = icebergTable.snapshot(readSnapshotId.get());
+        if (snapshot == null) {
+            throw new PrestoException(ICEBERG_INVALID_SNAPSHOT_ID,
+                    format("Invalid snapshot [%s] for table: %s", readSnapshotId.get(), icebergTable));
+        }
+        Map<Integer, PartitionSpec> specsById = icebergTable.specs();
+        Map<String, DeleteFile> deletionVectors = new HashMap<>();
+        // Cost is proportional to the number of delete manifests in the snapshot: each is opened
+        // and iterated, and the PUFFIN test below is per entry, so a table mixing V2 position or
+        // equality deletes with V3 DVs still pays for those manifests on every beginDelete/Merge.
+        // ManifestReader.iterator() yields only live (non-deleted) entries, so replaced/removed
+        // DVs are not surfaced here.
+        for (ManifestFile manifest : snapshot.deleteManifests(icebergTable.io())) {
+            try (CloseableIterable<org.apache.iceberg.DeleteFile> deleteFiles =
+                    ManifestFiles.readDeleteManifest(manifest, icebergTable.io(), specsById)) {
+                for (org.apache.iceberg.DeleteFile deleteFile : deleteFiles) {
+                    if (deleteFile.format() == FileFormat.PUFFIN && deleteFile.referencedDataFile() != null) {
+                        // A data file may surface across multiple delete manifests; the first DV
+                        // seen per referenced data file wins (they are identical).
+                        deletionVectors.putIfAbsent(
+                                deletionVectorKey(deleteFile.referencedDataFile()),
+                                DeleteFile.fromIceberg(deleteFile));
+                    }
+                }
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException("Failed to read delete manifest: " + manifest.path(), e);
+            }
+        }
+        return ImmutableMap.copyOf(deletionVectors);
+    }
+
+    /**
+     * Canonical identity for the data-file path that keys {@code existingDeletionVectors}. Applied
+     * on both the enumeration side (Iceberg manifest {@code referencedDataFile}) and the commit
+     * side (the {@code referencedDataFile} carried in {@link CommitTaskData}) so the two always
+     * agree. Centralized here so the {@code CharSequence} is resolved to a {@code String} exactly
+     * once and any future path normalization is applied identically to both sides.
+     */
+    private static String deletionVectorKey(CharSequence referencedDataFile)
+    {
+        return referencedDataFile.toString();
+    }
+
+    /**
+     * For a V3 mutation that re-touches data files already carrying a deletion vector, removes
+     * each prior DV from {@code rowDelta} so the merged DV the worker just wrote (union of old +
+     * new positions) becomes the single DV for that data file, preserving Iceberg's
+     * one-DV-per-data-file invariant. Only DVs whose referenced data file was actually
+     * re-mutated (i.e. present in {@code addedDeletionVectors}) are removed.
+     *
+     * <p>The prior DV is reconstructed with the spec and partition of the DV just added for the
+     * same data file. Both describe the same data file, so they share a partition, and Iceberg
+     * prunes candidate manifests by partition before matching (see
+     * {@link #toIcebergDeletionVector}).
+     *
+     * <p>Requires the caller to have already bound {@code rowDelta} to {@code readSnapshotId} via
+     * {@link RowDelta#validateFromSnapshot}, and to pass the id it actually bound. That bound is
+     * not optional for a V3 mutation: the worker may have added a brand-new DV for a data file
+     * that previously had none, and without it {@code MergingSnapshotProducer.validateAddedDVs}
+     * walks all ancestor snapshots and rejects the prior DVs — now committed ancestors — as
+     * concurrently added. An absent {@code readSnapshotId} therefore means nothing was bound, and
+     * committing unbound would corrupt the table, so fail instead.
+     *
+     * <p>The two callers reach that state differently, and deliberately so. {@code finishWrite}
+     * skips the bind when the read snapshot has expired (pre-existing behaviour), so expiry
+     * surfaces here as an absent id. {@code finishDeleteWithOutput} binds whenever the handle
+     * carries an id, so expiry there surfaces later as Iceberg's own ValidationException at
+     * commit. Both fail; do not "harmonise" them by giving {@code finishDeleteWithOutput} the
+     * expiry skip, which would let a V2 delete commit unbound where it currently fails.
+     */
+    @VisibleForTesting
+    static void replaceDeletionVectors(
+            RowDelta rowDelta,
+            Optional<Long> readSnapshotId,
+            Map<String, DeleteFile> existingDeletionVectors,
+            Map<String, org.apache.iceberg.DeleteFile> addedDeletionVectors,
+            Map<Integer, PartitionSpec> specsById)
+    {
+        if (existingDeletionVectors.isEmpty()) {
+            return;
+        }
+        verify(readSnapshotId.isPresent(), "rowDelta must be bound to the read snapshot before replacing existing deletion vectors");
+        for (Map.Entry<String, DeleteFile> entry : existingDeletionVectors.entrySet()) {
+            org.apache.iceberg.DeleteFile addedDeletionVector = addedDeletionVectors.get(entry.getKey());
+            if (addedDeletionVector == null) {
+                continue;
+            }
+            PartitionSpec spec = specsById.get(addedDeletionVector.specId());
+            verify(spec != null, "Unknown partition spec %s for deletion vector on %s", addedDeletionVector.specId(), entry.getKey());
+            rowDelta.removeDeletes(toIcebergDeletionVector(entry.getKey(), entry.getValue(), spec, addedDeletionVector.partition()));
+        }
+    }
+
+    /**
+     * Reconstructs the prior deletion vector as an Iceberg {@link org.apache.iceberg.DeleteFile}
+     * so {@link RowDelta#removeDeletes} can drop it.
+     *
+     * <p>The reconstruction must carry the real spec and partition. Before matching a delete for
+     * removal, {@code ManifestFilterManager.delete} records {@code (specId, partition)} in its
+     * {@code deleteFilePartitions} set and {@code canContainDeletedFiles} prunes candidate
+     * manifests through {@code ManifestFileUtil.canContainAny}. An unpartitioned reconstruction
+     * contributes the empty partition tuple, which cannot match a partitioned manifest, so the
+     * manifest holding the prior DV is skipped and the DV is silently left behind — the data file
+     * then carries two DVs. (Entry equality alone does ignore partition data, which is why this
+     * is not caught by matching; the pruning happens first.)
+     *
+     * <p>Partition data is not threaded through the serialized {@link DeleteFile} handle, so the
+     * spec and partition are taken from the DV just added for the same data file, which
+     * necessarily shares its partition.
+     *
+     * <p>Guarded end-to-end by {@code TestIcebergV3DeletionVectorRoundTrip}, which performs
+     * repeated mutations against the same data file on both unpartitioned and partitioned tables
+     * and asserts the one-DV-per-data-file invariant.
+     */
+    @VisibleForTesting
+    static org.apache.iceberg.DeleteFile toIcebergDeletionVector(String referencedDataFile, DeleteFile deleteFile, PartitionSpec spec, StructLike partition)
+    {
+        FileMetadata.Builder builder = FileMetadata.deleteFileBuilder(spec)
+                .ofPositionDeletes()
+                .withPath(deleteFile.path())
+                .withFormat(FileFormat.PUFFIN)
+                .withFileSizeInBytes(deleteFile.fileSizeInBytes())
+                .withRecordCount(deleteFile.recordCount())
+                .withReferencedDataFile(referencedDataFile)
+                .withContentOffset(deleteFile.getContentOffset()
+                        .orElseThrow(() -> new VerifyException("Existing deletion vector missing contentOffset: " + deleteFile.path())))
+                .withContentSizeInBytes(deleteFile.getContentSizeInBytes()
+                        .orElseThrow(() -> new VerifyException("Existing deletion vector missing contentSizeInBytes: " + deleteFile.path())));
+        if (spec.isPartitioned()) {
+            builder.withPartition(requireNonNull(partition, "partition is null for partitioned spec"));
+        }
+        return builder.build();
     }
 
     @Override
     public Optional<ConnectorOutputMetadata> finishDeleteWithOutput(ConnectorSession session, ConnectorDeleteTableHandle tableHandle, Collection<Slice> fragments)
     {
-        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        IcebergDeleteTableHandle handle = (IcebergDeleteTableHandle) tableHandle;
+        SchemaTableName schemaTableName = new SchemaTableName(handle.getSchemaName(), handle.getTableName().getTableName());
+        Table icebergTable = getIcebergTable(session, schemaTableName);
 
         RowDelta rowDelta = icebergTable.newRowDelta();
-        handle.getIcebergTableName().getSnapshotId().ifPresent(rowDelta::validateFromSnapshot);
-        Optional<String> branchName = handle.getIcebergTableName().getBranchName();
+        // Bound whenever the handle carries an id, so the id passed to replaceDeletionVectors
+        // below is always the one actually bound. Unlike finishWrite this does not skip an
+        // expired snapshot: that would let a V2 delete commit unbound where it currently fails.
+        handle.getTableName().getSnapshotId().ifPresent(rowDelta::validateFromSnapshot);
+        Optional<String> branchName = handle.getTableName().getBranchName();
         if (branchName.isPresent()) {
             rowDelta.toBranch(branchName.get());
         }
@@ -1659,9 +2484,23 @@ public abstract class IcebergAbstractMetadata
                 .collect(toImmutableList());
 
         CharSequenceSet referencedDataFiles = CharSequenceSet.empty();
+        Map<String, org.apache.iceberg.DeleteFile> addedDeletionVectors = new HashMap<>();
 
         for (CommitTaskData task : commitTasks) {
             PartitionSpec spec = icebergTable.specs().get(task.getPartitionSpecId());
+            Type[] partitionColumnTypes = spec.fields().stream()
+                    .map(field -> field.transform().getResultType(
+                            spec.schema().findType(field.sourceId())))
+                    .toArray(Type[]::new);
+
+            if (handle.getFileContent() == FileContent.DELETION_VECTOR) {
+                org.apache.iceberg.DeleteFile addedDeletionVector = buildDeletionVectorEntry(task, spec, partitionColumnTypes);
+                rowDelta.addDeletes(addedDeletionVector);
+                referencedDataFiles.add(addedDeletionVector.referencedDataFile());
+                recordAddedDeletionVector(addedDeletionVectors, addedDeletionVector.referencedDataFile(), addedDeletionVector);
+                continue;
+            }
+
             FileMetadata.Builder builder = FileMetadata.deleteFileBuilder(spec)
                     .ofPositionDeletes()
                     .withPath(task.getPath())
@@ -1672,20 +2511,20 @@ public abstract class IcebergAbstractMetadata
             if (!spec.fields().isEmpty()) {
                 String partitionDataJson = task.getPartitionDataJson()
                         .orElseThrow(() -> new VerifyException("No partition data for partitioned table"));
-                Type[] partitionColumnTypes = spec.fields().stream()
-                        .map(field -> field.transform().getResultType(
-                                spec.schema().findType(field.sourceId())))
-                        .toArray(Type[]::new);
                 builder.withPartition(PartitionData.fromJson(partitionDataJson, partitionColumnTypes));
             }
             rowDelta.addDeletes(builder.build());
-            if (task.getReferencedDataFile().isPresent()) {
-                referencedDataFiles.add(task.getReferencedDataFile().get());
-            }
+            task.getReferencedDataFile().ifPresent(referencedDataFiles::add);
         }
 
         if (!referencedDataFiles.isEmpty()) {
             rowDelta.validateDataFilesExist(referencedDataFiles);
+        }
+
+        // V3: replace any prior DV for a re-mutated data file with the merged DV the worker just
+        // wrote. No-op for V2.
+        if (handle.getFileContent() == FileContent.DELETION_VECTOR) {
+            replaceDeletionVectors(rowDelta, handle.getTableName().getSnapshotId(), handle.getExistingDeletionVectors(), addedDeletionVectors, icebergTable.specs());
         }
 
         rowDelta.commit();
@@ -1766,7 +2605,6 @@ public abstract class IcebergAbstractMetadata
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         validateNoBranchSpecified(handle, "SET TABLE PROPERTIES");
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
-
         UpdateProperties updateProperties = icebergTable.updateProperties();
         for (Map.Entry<String, Object> entry : properties.entrySet()) {
             if (!tableProperties.getUpdatableProperties()
@@ -1780,7 +2618,14 @@ public abstract class IcebergAbstractMetadata
                 session.getWarningCollector().add(warning);
                 propertyName = newPropertyKey;
             }
-            updateProperties.set(propertyName, String.valueOf(entry.getValue()));
+
+            if (propertyName.equals(DERIVED_COLUMN_EXPRESSION_SPEC)) {
+                updateProperties.set(propertyName, DERIVED_COLUMN_SPEC_JSON_CODEC.toJson((DerivedColumnSpecList) entry.getValue()));
+            }
+            else {
+                // TODO: utilize and improve propertyMetadata encoder for correct encoding impl.
+                updateProperties.set(propertyName, String.valueOf(entry.getValue()));
+            }
         }
 
         updateProperties.commit();
@@ -1904,23 +2749,42 @@ public abstract class IcebergAbstractMetadata
     @Override
     public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
     {
+        return beginUpdate(session, tableHandle, updatedColumns, Optional.empty());
+    }
+
+    @Override
+    public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns, Optional<RowExpression> updateScope)
+    {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
         validateBranchExists(handle, icebergTable);
         int formatVersion = opsFromTable(icebergTable).current().formatVersion();
 
-        if (formatVersion > MAX_FORMAT_VERSION_FOR_ROW_LEVEL_OPERATIONS) {
-            throw new PrestoException(NOT_SUPPORTED,
-                    format("Iceberg table updates for format version %s are not supported yet", formatVersion));
+        // V3 tables use deletion vectors natively and do not require an explicit
+        // write.update.mode='merge-on-read' table property.
+        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE) {
+            throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION,
+                    format("Iceberg table updates require at least format version %d", MIN_FORMAT_VERSION_FOR_DELETE));
         }
-
-        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETE ||
+        if (formatVersion < MIN_FORMAT_VERSION_FOR_DELETION_VECTORS &&
                 !Optional.ofNullable(icebergTable.properties().get(TableProperties.UPDATE_MODE))
                         .map(mode -> mode.equals(MERGE_ON_READ.modeName()))
                         .orElse(false)) {
-            throw new RuntimeException("Iceberg table updates require at least format version 2 and update mode must be merge-on-read");
+            throw new PrestoException(ICEBERG_INVALID_FORMAT_VERSION,
+                    "Iceberg table updates require update mode to be merge-on-read");
         }
         validateTableMode(session, icebergTable);
+        // finishUpdate commits through an IcebergOutputTableHandle, which carries no
+        // existingDeletionVectors, so this path cannot replace a data file's prior deletion
+        // vector. V3 UPDATE reaches the working DV path only after QueryPlanner rewrites it to
+        // MERGE, which happens exclusively on native clusters, so reject rather than commit a
+        // table that violates the one-DV-per-data-file invariant.
+        if (formatVersion >= MIN_FORMAT_VERSION_FOR_DELETION_VECTORS) {
+            throw new PrestoException(NOT_SUPPORTED,
+                    "Iceberg V3 UPDATE requires the native (Prestissimo) worker with native_update_merge_enabled, " +
+                            "which rewrites UPDATE to MERGE via QueryPlanner. The Java worker cannot produce Puffin deletion vectors.");
+        }
+        this.transactionContext.setQueryWriteScope(session.getQueryId(), updateScope);
         return handle
                 .withUpdatedColumns(updatedColumns.stream()
                         .map(IcebergColumnHandle.class::cast)
@@ -1943,7 +2807,8 @@ public abstract class IcebergAbstractMetadata
                 getCompressionCodec(session),
                 icebergTable.properties(),
                 handle.getSortOrder());
-        finishWrite(session, handle.getSchemaTableName(), outputTableHandle, fragments, UPDATE_AFTER);
+        finishWrite(session, handle.getSchemaTableName(), outputTableHandle, fragments, UPDATE_AFTER,
+                this.transactionContext.getQueryWriteScope(session.getQueryId()));
     }
 
     protected Optional<String> getDataLocationBasedOnWarehouseDataDir(SchemaTableName schemaTableName)
@@ -2610,6 +3475,7 @@ public abstract class IcebergAbstractMetadata
         SchemaTableName storageTableName = icebergTableHandle.getSchemaTableName();
         IcebergTableHandle storageTableHandle = getTableHandle(session, storageTableName);
         Table storageTable = getIcebergTable(session, storageTableName);
+        validateGeospatialWrite(storageTable);
         SchemaTableName materializedViewName = icebergTableHandle.getMaterializedViewName().get();
         MaterializedViewStatus status = getMaterializedViewStatus(session, materializedViewName, TupleDomain.all());
         boolean fullRefreshRequired = !status.isFullyMaterialized()
@@ -2707,7 +3573,7 @@ public abstract class IcebergAbstractMetadata
         Optional<IcebergViewMetadata> viewMetadata = getViewMetadata(session, materializedViewName);
         if (!viewMetadata.isPresent()) {
             throw new PrestoException(ICEBERG_INVALID_MATERIALIZED_VIEW,
-                        format("Materialized view metadata not found for %s", materializedViewName));
+                    format("Materialized view metadata not found for %s", materializedViewName));
         }
         Map<String, String> viewProperties = viewMetadata.get().getProperties();
         boolean useTimestampBasedStaleness = isTimestampBasedStalenessEnabled(viewProperties);
@@ -2753,13 +3619,17 @@ public abstract class IcebergAbstractMetadata
 
     private SchemaTableName getStorageTableName(ConnectorSession session, SchemaTableName viewName, Map<String, Object> properties)
     {
-        String tableName = getStorageTable(properties).orElseGet(() -> {
-            // Generate default storage table name using prefix
-            return getMaterializedViewStoragePrefix(session) + viewName.getTableName();
-        });
-        String schema = getStorageSchema(properties)
+        String resolvedSchema = getStorageSchema(properties)
                 .orElseGet(() -> getMaterializedViewDefaultStorageSchema(session).orElse(viewName.getSchemaName()));
-        return new SchemaTableName(schema, tableName);
+        String tableName = getStorageTable(properties).orElseGet(() -> {
+            String prefix = getMaterializedViewStoragePrefix(session);
+            if (!resolvedSchema.equals(viewName.getSchemaName())) {
+                String schema = viewName.getSchemaName();
+                return prefix + schema.length() + "_" + schema + "__" + viewName.getTableName();
+            }
+            return prefix + viewName.getTableName();
+        });
+        return new SchemaTableName(resolvedSchema, tableName);
     }
 
     private String serializeColumnMappings(List<ColumnMapping> columnMappings)
@@ -2869,6 +3739,7 @@ public abstract class IcebergAbstractMetadata
         IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
 
         Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        ColumnMetadata columnMetadataSource = getColumnMetadata(session, icebergTable, column.getName());
         try {
             icebergTable.updateSchema()
                     .updateColumn(column.getName(), toIcebergType(type).asPrimitiveType())
@@ -2877,6 +3748,146 @@ public abstract class IcebergAbstractMetadata
         catch (RuntimeException e) {
             throw new PrestoException(ICEBERG_INCOMPATIBLE_COLUMN_TYPE, "Failed to set column type: " + firstNonNull(e.getMessage(), e), e);
         }
+        ColumnMetadata columnMetadataTarget = columnMetadataSource.toBuilder().setType(type).build();
+        derivedColumnOperations(icebergTable, Optional.of(columnMetadataSource), columnMetadataTarget, DerivedColumnOperationType.UPDATE);
+    }
+
+    @Override
+    public void setFieldType(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle, List<String> fieldPath, com.facebook.presto.common.type.Type type)
+    {
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        verify(table.getIcebergTableName().getTableType() == DATA, "only the data table can have field types changed");
+        validateNoBranchSpecified(table, "SET DATA TYPE");
+        IcebergColumnHandle column = (IcebergColumnHandle) columnHandle;
+
+        Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
+        ColumnMetadata columnMetadataSource = getColumnMetadata(session, icebergTable, column.getName());
+
+        // Build the full path: top-level column name followed by the nested fieldPath elements.
+        List<String> fullPath = ImmutableList.<String>builder()
+                .add(column.getName())
+                .addAll(fieldPath)
+                .build();
+        String fullPathString = String.join(".", fullPath);
+        Schema schema = icebergTable.schema();
+        NestedField field = findNestedField(schema, fullPath)
+                .orElseThrow(() -> new PrestoException(COLUMN_NOT_FOUND,
+                        format("Cannot find nested field '%s' in table '%s'", fullPathString, table.getSchemaTableName())));
+
+        try {
+            icebergTable.updateSchema()
+                    .updateColumn(schema.findColumnName(field.fieldId()), toIcebergType(type).asPrimitiveType())
+                    .commit();
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(ICEBERG_INCOMPATIBLE_COLUMN_TYPE, "Failed to set field type: " + firstNonNull(e.getMessage(), e), e);
+        }
+        Table updatedIcebergTable = getIcebergTable(session, table.getSchemaTableName());
+        ColumnMetadata columnMetadataTarget = getColumnMetadata(session, updatedIcebergTable, column.getName());
+        derivedColumnOperations(updatedIcebergTable, Optional.of(columnMetadataSource), columnMetadataTarget, DerivedColumnOperationType.UPDATE);
+    }
+
+    @Override
+    public void dropConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> constraintName, Optional<String> columnName)
+    {
+        if (!columnName.isPresent()) {
+            throw new PrestoException(NOT_SUPPORTED, "Iceberg does not support named constraints; only NOT NULL constraints identified by column are supported");
+        }
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have constraints dropped");
+        validateNoBranchSpecified(handle, "ALTER COLUMN DROP NOT NULL");
+        updateColumnNullability(session, handle, columnName.get(), false);
+    }
+
+    @Override
+    public void addConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, TableConstraint<String> constraint)
+    {
+        verify(constraint instanceof NotNullConstraint, "only NOT NULL constraints can be added, found %s", constraint.getClass().getSimpleName());
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        verify(handle.getIcebergTableName().getTableType() == DATA, "only the data table can have constraints added");
+        validateNoBranchSpecified(handle, "ALTER COLUMN SET NOT NULL");
+        updateColumnNullability(session, handle, getOnlyElement(constraint.getColumns()), true);
+    }
+
+    /**
+     * Only top-level schema columns can be altered. {@code _row_id} and {@code _last_updated_sequence_number}
+     * reach here as regular column handles, but they are metadata columns, not part of the schema.
+     */
+    private void updateColumnNullability(ConnectorSession session, IcebergTableHandle handle, String columnName, boolean required)
+    {
+        SchemaTableName tableName = handle.getSchemaTableName();
+        String operation = required ? "set" : "drop";
+        Table icebergTable = getIcebergTable(session, tableName);
+        Optional<NestedField> loadedField = findTopLevelColumnIfPresent(icebergTable.schema(), columnName);
+        if (!loadedField.isPresent()) {
+            // The engine has already resolved the column against this schema, so only a metadata column is missing from it.
+            verify(MetadataColumns.isMetadataColumn(columnName), "column %s is neither in the schema nor a metadata column", columnName);
+            throw new PrestoException(NOT_SUPPORTED, format("Cannot %s NOT NULL on metadata column '%s'", operation, columnName));
+        }
+        if (required && loadedField.get().isRequired()) {
+            return;
+        }
+        if (!required && loadedField.get().isOptional()) {
+            throw new PrestoException(NOT_FOUND, format("Not Null constraint not found on column %s", columnName));
+        }
+        if (!required && icebergTable.schema().identifierFieldIds().contains(loadedField.get().fieldId())) {
+            throw new PrestoException(NOT_SUPPORTED, format("Cannot drop NOT NULL on column '%s': it is an identifier field of table '%s'", columnName, tableName));
+        }
+        if (required && !loadedField.get().type().isPrimitiveType()) {
+            throw new PrestoException(NOT_SUPPORTED, format("Cannot set NOT NULL on column '%s': only columns of primitive types are supported", columnName));
+        }
+        // Open the update so the NULL check reads the metadata this change commits on. A failure after this point leaves
+        // the update uncommitted in the Iceberg transaction, which can then never commit; Presto fails its transaction on
+        // any statement error, so it is never committed.
+        UpdateSchema updateSchema = icebergTable.updateSchema();
+        NestedField field = icebergTable.schema().findField(loadedField.get().fieldId());
+        if (field == null) {
+            throw new PrestoException(COLUMN_NOT_FOUND, format("Cannot %s NOT NULL: column '%s' does not exist in table '%s'", operation, columnName, tableName));
+        }
+        if (required) {
+            verifyNoNullValues(icebergTable, field, columnName, tableName);
+            // Iceberg treats optional -> required as an incompatible change.
+            updateSchema.allowIncompatibleChanges().requireColumn(field.name());
+        }
+        else {
+            updateSchema.makeColumnOptional(field.name());
+        }
+        updateSchema.commit();
+    }
+
+    /**
+     * Checks every branch head, since branches are read with the current schema.
+     * NULL counts are recorded at write time and ignore delete files.
+     */
+    private static void verifyNoNullValues(Table icebergTable, NestedField field, String columnName, SchemaTableName tableName)
+    {
+        List<NestedField> fields = ImmutableList.of(field);
+        Map<Integer, Long> lastSequenceNumbersWithoutFields = lastSequenceNumbersWithoutFields(icebergTable, fields);
+        Set<Long> checkedSnapshotIds = new HashSet<>();
+        for (Map.Entry<String, SnapshotRef> ref : icebergTable.refs().entrySet()) {
+            if (!ref.getValue().isBranch() || !checkedSnapshotIds.add(ref.getValue().snapshotId())) {
+                continue;
+            }
+            String branchName = ref.getKey();
+            Optional<DataFile> file = findDataFileWithNullValues(icebergTable.newScan().useRef(branchName), fields, ImmutableSet.of(field.fieldId()), lastSequenceNumbersWithoutFields)
+                    .map(Map.Entry::getValue);
+            if (!file.isPresent()) {
+                continue;
+            }
+            Map<Integer, Long> nullCounts = file.get().nullValueCounts();
+            if (nullCounts == null || !nullCounts.containsKey(field.fieldId())) {
+                throw new PrestoException(NOT_SUPPORTED, format(
+                        "Cannot set NOT NULL on column '%s' of table '%s': data file '%s' on branch '%s' has no NULL count for the column",
+                        columnName, tableName, file.get().location(), branchName));
+            }
+            // rewrite_data_files rewrites only the main branch.
+            String remedy = MAIN_BRANCH.equals(branchName)
+                    ? "Update or delete those rows, then run rewrite_data_files with the rewrite-all option"
+                    : "Drop or replace the branch";
+            throw new PrestoException(CONSTRAINT_VIOLATION, format(
+                    "Cannot set NOT NULL on column '%s' of table '%s': data file '%s' on branch '%s' has NULL values in the column. %s",
+                    columnName, tableName, file.get().location(), branchName, remedy));
+        }
     }
 
     protected void openCreateTableTransaction(SchemaTableName tableName, Transaction transaction)
@@ -2884,9 +3895,85 @@ public abstract class IcebergAbstractMetadata
         transactionContext.registerTransaction(tableName, transaction);
     }
 
+    private enum DerivedColumnOperationType
+    {
+        ADD, DROP, RENAME, UPDATE
+    }
+
+    private void derivedColumnOperations(Table icebergTable, Optional<ColumnMetadata> source, ColumnMetadata target, DerivedColumnOperationType op)
+    {
+        int targetFieldId = icebergTable.schema().findField(target.getName()).fieldId();
+        DerivedColumnSpecList existingDerivedColumnsSpecs = IcebergUtil.getDerivedColumnSpec(icebergTable);
+        Optional<DerivedColumnSpecList> updatedDerivedColumnsSpecs = Optional.empty();
+        switch (requireNonNull(op)) {
+            case ADD: {
+                if (target.getDerivedColumnSpec().isPresent()) {
+                    DerivedColumnSpec derivedColumnSpec =
+                            DerivedColumnSpec.buildFrom(target.getDerivedColumnSpec().get()).setDerivedColumnFieldId(targetFieldId).build();
+                    List<DerivedColumnSpec> expressionSpecs =
+                            ImmutableList.<DerivedColumnSpec>builder().addAll(existingDerivedColumnsSpecs.getDerivedColumnSpecs()).add(derivedColumnSpec).build();
+                    updatedDerivedColumnsSpecs = Optional.of(new DerivedColumnSpecList(expressionSpecs));
+                }
+            }
+            break;
+
+            case DROP:
+                if (!existingDerivedColumnsSpecs.getDerivedColumnSpecs().isEmpty() && target.getDerivedColumnSpec().isPresent()) {
+                    List<DerivedColumnSpec> filteredSpecs = existingDerivedColumnsSpecs.getDerivedColumnSpecs().stream()
+                            .filter(spec -> !spec.getDerivedColumnName().equals(target.getName())).collect(toImmutableList());
+                    updatedDerivedColumnsSpecs = Optional.of(new DerivedColumnSpecList(filteredSpecs));
+                }
+                break;
+            case RENAME:
+                if (!existingDerivedColumnsSpecs.getDerivedColumnSpecs().isEmpty() && source.isPresent() && source.get().getDerivedColumnSpec().isPresent()) {
+                    List<DerivedColumnSpec> filteredSpecs = existingDerivedColumnsSpecs.getDerivedColumnSpecs().stream()
+                            .filter(spec -> !spec.getDerivedColumnName().equals(source.get().getName())).collect(toImmutableList());
+                    DerivedColumnSpec sourceDerivedColumnSpec = source.get().getDerivedColumnSpec().get();
+                    checkInvalidDerivedColumnSpec(sourceDerivedColumnSpec.getDerivedColumnFieldId() == targetFieldId,
+                            "Derived column %s is not in sync with it's configuration - fieldIds changed. Expected :%s , actual :%s",
+                            target.getName(), sourceDerivedColumnSpec.getDerivedColumnFieldId(), targetFieldId);
+                    checkInvalidDerivedColumnSpec(sourceDerivedColumnSpec.getDerivedColumnReturnType().equals(target.getType().getTypeSignature().toString()),
+                            "Derived column %s is not in sync with it's configuration - return type changed. Expected :%s , actual :%s",
+                            target.getName(), sourceDerivedColumnSpec.getDerivedColumnReturnType(), target.getType().getTypeSignature().toString());
+                    DerivedColumnSpec renamedColumnSpec = DerivedColumnSpec.buildFrom(sourceDerivedColumnSpec).setDerivedColumnName(target.getName()).build();
+                    updatedDerivedColumnsSpecs = Optional.of(new DerivedColumnSpecList(ImmutableList.<DerivedColumnSpec>builder().addAll(filteredSpecs).add(renamedColumnSpec).build()));
+                }
+                break;
+            case UPDATE:
+                checkState(source.isPresent());
+                if (!existingDerivedColumnsSpecs.getDerivedColumnSpecs().isEmpty() && source.get().getDerivedColumnSpec().isPresent()) {
+                    List<DerivedColumnSpec> filteredSpecs = existingDerivedColumnsSpecs.getDerivedColumnSpecs().stream()
+                            .filter(spec -> !spec.getDerivedColumnName().equals(source.get().getName())).collect(toImmutableList());
+                    checkState(target.getDerivedColumnSpec().isPresent(), "target column must have derived column spec, the update should not remove it.");
+                    DerivedColumnSpec targetDerivedColumnSpec = target.getDerivedColumnSpec().get();
+                    checkInvalidDerivedColumnSpec(targetDerivedColumnSpec.getDerivedColumnFieldId() == icebergTable.schema().findField(source.get().getName()).fieldId(),
+                            "Derived column %s is not in sync with it's configuration - fieldIds changed. Expected :%s , actual :%s",
+                            target.getName(), targetDerivedColumnSpec.getDerivedColumnFieldId(), icebergTable.schema().findField(source.get().getName()).fieldId());
+                    checkInvalidDerivedColumnSpec(source.get().getDerivedColumnSpec().get().getDerivedColumnReturnType().equals(source.get().getType().getTypeSignature().toString()),
+                            "Derived column %s is not in sync with it's configuration - return type changed. Expected :%s , actual :%s",
+                            target.getName(), source.get().getDerivedColumnSpec().get().getDerivedColumnReturnType(), source.get().getType().getTypeSignature().toString());
+                    DerivedColumnSpec modifiedSpec = DerivedColumnSpec.buildFrom(targetDerivedColumnSpec).setDerivedColumnReturnType(target.getType().getTypeSignature().toString()).build();
+                    updatedDerivedColumnsSpecs = Optional.of(new DerivedColumnSpecList(ImmutableList.<DerivedColumnSpec>builder().addAll(filteredSpecs).add(modifiedSpec).build()));
+                }
+                break;
+            default:
+                throw new IllegalStateException(format("Illegal operation found: %s", op));
+        }
+        updatedDerivedColumnsSpecs.ifPresent(specList -> {
+            checkInvalidDerivedColumnSpec(specList.validateFieldIds(), "derived column spec should have valid fieldIds for table: %s",
+                    icebergTable.name());
+            if (specList.getDerivedColumnSpecs().isEmpty()) {
+                icebergTable.updateProperties().remove(DERIVED_COLUMN_EXPRESSION_SPEC).commit();
+            }
+            else {
+                icebergTable.updateProperties().set(DERIVED_COLUMN_EXPRESSION_SPEC, DERIVED_COLUMN_SPEC_JSON_CODEC.toJson(specList)).commit();
+            }
+        });
+    }
+
     /**
      * Check and ensure that the specified statement can only run in a transaction with autocommit context set to true.
-     * */
+     */
     protected void shouldRunInAutoCommitTransaction(String statement)
     {
         if (!transactionContext.isAutoCommitContext()) {

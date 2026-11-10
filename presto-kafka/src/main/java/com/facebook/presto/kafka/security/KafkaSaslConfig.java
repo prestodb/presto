@@ -48,6 +48,7 @@ public class KafkaSaslConfig
     }
 
     @Config("kafka.sasl.jaas.config")
+    @ConfigSecuritySensitive
     @ConfigDescription("The JAAS config of the SASL authentication")
     public KafkaSaslConfig setSaslJaasConfig(String saslJaasConfig)
     {

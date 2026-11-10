@@ -187,7 +187,8 @@ public class TableStatisticsMaker
         TupleDomain<IcebergColumnHandle> intersection = constraint.getSummary()
                 .transform(IcebergColumnHandle.class::cast);
         if (currentPredicate.isPresent()) {
-            intersection.intersect(currentPredicate.get());
+            // TupleDomain is immutable, so the narrowed domain is the return value
+            intersection = intersection.intersect(currentPredicate.get());
         }
 
         if (intersection.isNone()) {
@@ -310,9 +311,10 @@ public class TableStatisticsMaker
             List<Types.NestedField> nonPartitionPrimitiveColumns,
             List<PartitionField> partitionFields)
     {
+        // Iceberg's expression binder rejects predicates on metadata columns; strip them here.
         CloseableIterable<DeleteFile> deleteFiles = IcebergUtil.getDeleteFiles(icebergTable,
                 tableHandle.getIcebergTableName().getSnapshotId().get(),
-                intersection,
+                IcebergUtil.getNonMetadataColumnConstraints(intersection),
                 tableHandle.getPartitionSpecId(),
                 tableHandle.getEqualityFieldIds(),
                 session.getRuntimeStats());

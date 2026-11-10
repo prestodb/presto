@@ -14,17 +14,12 @@
 package com.facebook.presto.flightshim;
 
 import com.facebook.airlift.json.JsonCodec;
-import com.facebook.airlift.json.JsonCodecFactory;
-import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.log.Logger;
 import com.facebook.plugin.arrow.ArrowBatchSource;
 import com.facebook.presto.Session;
-import com.facebook.presto.block.BlockJsonSerde;
+import com.facebook.presto.client.ErrorLocation;
 import com.facebook.presto.common.RuntimeStats;
-import com.facebook.presto.common.block.Block;
-import com.facebook.presto.common.block.BlockEncodingManager;
-import com.facebook.presto.common.type.RowType;
-import com.facebook.presto.common.type.Type;
+import com.facebook.presto.execution.ExecutionFailureInfo;
 import com.facebook.presto.execution.QueryIdGenerator;
 import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ColumnHandle;
@@ -34,14 +29,17 @@ import com.facebook.presto.spi.ConnectorPageSource;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.ErrorCause;
+import com.facebook.presto.spi.HostAddress;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
 import com.facebook.presto.split.PageSourceManager;
-import com.facebook.presto.type.TypeDeserializer;
-import com.google.common.collect.ImmutableMap;
+import com.facebook.presto.util.Failures;
+import com.google.common.collect.ImmutableList;
 import org.apache.arrow.flight.BackpressureStrategy;
 import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.ErrorFlightMetadata;
 import org.apache.arrow.flight.NoOpFlightProducer;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
@@ -65,6 +63,8 @@ public class FlightShimProducer
         extends NoOpFlightProducer
         implements AutoCloseable
 {
+    public static final String METADATA_KEY_ARROW_STATUS_CODE = "x-arrow-status";
+    public static final String METADATA_KEY_ARROW_STATUS_BIN = "grpc-status-details-bin";
     private static final Logger log = Logger.get(FlightShimProducer.class);
     private static final int CLIENT_POLL_TIME = 5000;  // Backpressure poll time ms
     private final BufferAllocator allocator;
@@ -73,6 +73,7 @@ public class FlightShimProducer
     private final FlightShimConfig config;
     private final ExecutorService shimExecutor;
     private final JsonCodec<FlightShimRequest> requestCodec;
+    private final JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec;
 
     @Inject
     public FlightShimProducer(
@@ -81,26 +82,16 @@ public class FlightShimProducer
             FlightShimConfig config,
             @ForFlightShimServer ExecutorService shimExecutor,
             PageSourceManager pageSourceManager,
-            TypeDeserializer typeDeserializer,
-            BlockEncodingManager blockEncodingManager)
+            JsonCodec<FlightShimRequest> requestCodec,
+            JsonCodec<ExecutionFailureInfo> executionFailureInfoCodec)
     {
         this.allocator = allocator.newChildAllocator("flight-shim", 0, Long.MAX_VALUE);
         this.pluginManager = requireNonNull(pluginManager, "pluginManager is null");
         this.config = requireNonNull(config, "config is null");
         this.shimExecutor = requireNonNull(shimExecutor, "shimExecutor is null");
         this.pageSourceManager = requireNonNull(pageSourceManager, "pageSourceManager is null");
-        requireNonNull(typeDeserializer, "typeDeserializer is null");
-        requireNonNull(blockEncodingManager, "blockEncodingManager is null");
-
-        JsonObjectMapperProvider provider = new JsonObjectMapperProvider();
-        BlockJsonSerde.Deserializer blockDeserializer = new BlockJsonSerde.Deserializer(blockEncodingManager);
-        provider.setJsonDeserializers(ImmutableMap.of(
-                RowType.class, typeDeserializer,
-                Type.class, typeDeserializer,
-                Block.class, blockDeserializer));
-        JsonCodecFactory jsonCodecFactory = new JsonCodecFactory(provider);
-
-        this.requestCodec = jsonCodecFactory.jsonCodec(FlightShimRequest.class);
+        this.requestCodec = requireNonNull(requestCodec, "requestCodec is null");
+        this.executionFailureInfoCodec = requireNonNull(executionFailureInfoCodec, "executionFailureInfoCodec is null");
     }
 
     @Override
@@ -123,14 +114,14 @@ public class FlightShimProducer
             FlightShimRequest request = requestCodec.fromJson(ticket.getBytes());
             log.debug("Request for connector: %s", request.getConnectorId());
 
-            FlightShimPluginManager.ConnectorCodecs connectorCodecs = pluginManager.getConnectorCodecs(request.getConnectorId());
+            String connectorName = pluginManager.getConnectorName(request.getConnectorId());
 
-            ConnectorSplit connectorSplit = connectorCodecs.getCodecSplit().fromJson(request.getSplitBytes());
+            ConnectorSplit connectorSplit = pluginManager.decodeSplit(connectorName, request.getSplitBytes());
 
-            ConnectorTableHandle connectorTableHandle = connectorCodecs.getCodecTableHandle().fromJson(request.getTableHandleBytes());
-            ConnectorTransactionHandle transactionHandle = connectorCodecs.getCodecTransactionHandle().fromJson(request.getTransactionHandleBytes());
-            Optional<ConnectorTableLayoutHandle> connectorTableLayoutHandle =
-                    request.getTableLayoutHandleBytes().map(tableLayoutHandleBytes -> connectorCodecs.getCodecTableLayoutHandle().fromJson(tableLayoutHandleBytes));
+            ConnectorTableHandle connectorTableHandle = pluginManager.decodeTableHandle(connectorName, request.getTableHandleBytes());
+            ConnectorTransactionHandle transactionHandle = pluginManager.decodeTransactionHandle(connectorName, request.getTransactionHandleBytes());
+            Optional<ConnectorTableLayoutHandle> connectorTableLayoutHandle = request.getTableLayoutHandleBytes().map(
+                    tableLayoutHandleBytes -> pluginManager.decodeTableLayoutHandle(connectorName, tableLayoutHandleBytes));
             TableHandle tableHandle = new TableHandle(new ConnectorId(request.getConnectorId()), connectorTableHandle, transactionHandle, connectorTableLayoutHandle);
 
             // Create a dummy session to load the connector
@@ -144,7 +135,7 @@ public class FlightShimProducer
             Split split = new Split(connectorId, transactionHandle, connectorSplit);
 
             List<ColumnHandle> columnHandles = request.getColumnHandlesBytes().stream().map(
-                    columnHandleBytes -> connectorCodecs.getCodecColumnHandle().fromJson(columnHandleBytes)
+                    columnHandleBytes -> pluginManager.decodeColumnHandle(connectorName, columnHandleBytes)
             ).collect(toImmutableList());
 
             AtomicInteger fieldCount = new AtomicInteger();
@@ -184,7 +175,8 @@ public class FlightShimProducer
         catch (Throwable t) {
             final String message = "Error getting connector flight stream";
             log.error(t, message);
-            listener.error(CallStatus.INTERNAL.withCause(t).withDescription(format("%s [%s]", message, t)).toRuntimeException());
+            final CallStatus callStatus = createCallStatusWithFailureInfo(t).withDescription(format("%s [%s]", message, t));
+            listener.error(callStatus.toRuntimeException());
         }
         finally {
             log.debug(format("Processing GetStream completed [columns=%d, rows=%d, batches=%d]", columnCount, rowCount, batchCount));
@@ -213,5 +205,36 @@ public class FlightShimProducer
         }
         pluginManager.stop();
         allocator.close();
+    }
+
+    private CallStatus createCallStatusWithFailureInfo(Throwable t)
+    {
+        CallStatus callStatus = CallStatus.INTERNAL.withCause(t);
+        try {
+            ExecutionFailureInfo failureInfoFull = Failures.toFailure(t);
+
+            // NOTE: gRPC has limit of metadata size, only include necessary info
+            ExecutionFailureInfo failureInfo = new ExecutionFailureInfo(
+                    failureInfoFull.getType(),
+                    failureInfoFull.getMessage(),
+                    null,
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    new ErrorLocation(1, 1),
+                    failureInfoFull.getErrorCode(),
+                    new HostAddress("0.0.0.0", 0),
+                    ErrorCause.UNKNOWN);
+
+            ErrorFlightMetadata metadata = new ErrorFlightMetadata();
+            // NOTE: must include metadata with a valid gRPC status code for arrow-cpp client to receive metadata status binary
+            metadata.insert(METADATA_KEY_ARROW_STATUS_CODE, String.valueOf(io.grpc.Status.Code.INTERNAL.value()));
+            metadata.insert(METADATA_KEY_ARROW_STATUS_BIN, executionFailureInfoCodec.toJsonBytes(failureInfo));
+
+            return callStatus.withMetadata(metadata);
+        }
+        catch (Exception e) {
+            log.error(e, "Unable to serialize failure information");
+            return callStatus;
+        }
     }
 }

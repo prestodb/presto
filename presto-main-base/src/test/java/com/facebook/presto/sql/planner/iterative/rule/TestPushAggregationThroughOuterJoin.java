@@ -14,14 +14,19 @@
 
 package com.facebook.presto.sql.planner.iterative.rule;
 
+import com.facebook.presto.spi.plan.AggregationNode.GroupingSetDescriptor;
 import com.facebook.presto.spi.plan.EquiJoinClause;
 import com.facebook.presto.spi.plan.JoinType;
 import com.facebook.presto.spi.plan.Ordering;
 import com.facebook.presto.spi.plan.OrderingScheme;
+import com.facebook.presto.sql.planner.TestTableConstraintsConnectorFactory;
+import com.facebook.presto.sql.planner.iterative.properties.LogicalPropertiesProviderImpl;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
+import com.facebook.presto.sql.relational.FunctionResolution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -35,12 +40,15 @@ import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.aggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.expression;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.filter;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.globalAggregation;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.join;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.output;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.project;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.sort;
+import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.values;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.constantExpressions;
 import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
@@ -51,10 +59,19 @@ import static java.util.Collections.emptyList;
 public class TestPushAggregationThroughOuterJoin
         extends BaseRuleTest
 {
+    private LogicalPropertiesProviderImpl logicalPropertiesProvider;
+
     @BeforeClass
     public final void setUp()
     {
-        tester = new RuleTester(emptyList(), ImmutableMap.of(USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS, Boolean.toString(false)));
+        tester = new RuleTester(emptyList(),
+                ImmutableMap.of(
+                        "exploit_constraints", Boolean.toString(true),
+                        USE_DEFAULTS_FOR_CORRELATED_AGGREGATION_PUSHDOWN_THROUGH_OUTER_JOINS, Boolean.toString(false)),
+                Optional.of(1),
+                new TestTableConstraintsConnectorFactory(1));
+
+        logicalPropertiesProvider = new LogicalPropertiesProviderImpl(new FunctionResolution(tester.getMetadata().getFunctionAndTypeManager().getFunctionAndTypeResolver()));
     }
 
     @Test
@@ -195,6 +212,49 @@ public class TestPushAggregationThroughOuterJoin
     }
 
     @Test
+    public void testUsesLogicalPropertiesForDistinctCheck()
+    {
+        // Sub-query of TPCH Q13. `customer` has a primary key constraint on `custkey`, so the outer side of the join is
+        // known to be distinct only through its logical properties, which is what allows the aggregation to be pushed down.
+        // The predicate on the inner side is written as a derived table because this test does not run PredicatePushDown,
+        // and the rule does not fire while the predicate is still a join filter.
+        tester().assertThat(ImmutableSet.of(new PushAggregationThroughOuterJoin(getFunctionManager())), logicalPropertiesProvider)
+                .on("select\n" +
+                        "    c.custkey,\n" +
+                        "    count(o.orderkey) as c_count\n" +
+                        "from\n" +
+                        "    customer c\n" +
+                        "    left outer join (\n" +
+                        "        select orderkey, custkey from orders where comment not like '%special%requests%'\n" +
+                        "    ) o on c.custkey = o.custkey\n" +
+                        "group by\n" +
+                        "    c.custkey")
+                .matches(output(
+                        project(ImmutableMap.of("COUNT", expression("coalesce(COUNT, COUNT_NULL)")),
+                                join(JoinType.INNER, ImmutableList.of(),
+                                        join(JoinType.LEFT, ImmutableList.of(equiJoinClause("CUSTKEY", "O_CUSTKEY")),
+                                                tableScan("customer", ImmutableMap.of("CUSTKEY", "custkey")),
+                                                aggregation(
+                                                        singleGroupingSet("O_CUSTKEY"),
+                                                        ImmutableMap.of(Optional.of("COUNT"), functionCall("count", ImmutableList.of("ORDERKEY"))),
+                                                        ImmutableMap.of(),
+                                                        Optional.empty(),
+                                                        SINGLE,
+                                                        project(
+                                                                filter(
+                                                                        tableScan(
+                                                                                "orders",
+                                                                                ImmutableMap.of("ORDERKEY", "orderkey", "O_CUSTKEY", "custkey")))))),
+                                        aggregation(
+                                                globalAggregation(),
+                                                ImmutableMap.of(Optional.of("COUNT_NULL"), functionCall("count", ImmutableList.of("null_literal"))),
+                                                ImmutableMap.of(),
+                                                Optional.empty(),
+                                                SINGLE,
+                                                values(ImmutableList.of("null_literal", "null_literal2")))))));
+    }
+
+    @Test
     public void testDoesNotFireWhenNotDistinct()
     {
         tester().assertThat(new PushAggregationThroughOuterJoin(getFunctionManager()))
@@ -272,6 +332,101 @@ public class TestPushAggregationThroughOuterJoin
                                 Optional.empty()))
                         .addAggregation(p.variable("SUM", DOUBLE), p.rowExpression("sum(COL1)"))
                         .singleGroupingSet(p.variable("COL1"))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForScalarAggregationOverLeftJoin()
+    {
+        // A scalar (global) aggregation whose outer side has no output columns: the grouping keys and the
+        // outer columns are both empty, so a plain set comparison considers the aggregation to group on all
+        // outer columns. Pushing down here is not valid - a scalar aggregation always produces exactly one
+        // row, but the rewritten plan produces no rows at all when the outer side is empty.
+        tester().assertThat(new PushAggregationThroughOuterJoin(getFunctionManager()))
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                JoinType.LEFT,
+                                // a single row with no columns, so the outer side is distinct
+                                p.values(1),
+                                p.values(p.variable("COL2")),
+                                ImmutableList.of(),
+                                ImmutableList.of(p.variable("COL2")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL2)"))
+                        .globalGrouping()))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForScalarAggregationOverRightJoin()
+    {
+        tester().assertThat(new PushAggregationThroughOuterJoin(getFunctionManager()))
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                JoinType.RIGHT,
+                                p.values(p.variable("COL2")),
+                                // a single row with no columns, so the outer side is distinct
+                                p.values(1),
+                                ImmutableList.of(),
+                                ImmutableList.of(p.variable("COL2")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL2)"))
+                        .globalGrouping()))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForMultipleGroupingSets()
+    {
+        // GROUP BY GROUPING SETS ((COL1), (COL3)). The union of the grouping keys covers all the outer
+        // columns, but each individual grouping set does not, and the rewrite can only express a single
+        // grouping set on the join criteria.
+        tester().assertThat(new PushAggregationThroughOuterJoin(getFunctionManager()))
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                JoinType.LEFT,
+                                p.values(
+                                        ImmutableList.of(p.variable("COL1"), p.variable("COL3")),
+                                        ImmutableList.of(constantExpressions(BIGINT, 10L, 20L))),
+                                p.values(p.variable("COL2")),
+                                ImmutableList.of(new EquiJoinClause(p.variable("COL1"), p.variable("COL2"))),
+                                ImmutableList.of(p.variable("COL1"), p.variable("COL3"), p.variable("COL2")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL2)"))
+                        .groupingSets(new GroupingSetDescriptor(
+                                ImmutableList.of(p.variable("COL1"), p.variable("COL3")),
+                                2,
+                                ImmutableSet.of()))))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testDoesNotFireForGroupingSetsContainingScalarAggregation()
+    {
+        // GROUP BY ROLLUP (COL1), i.e. GROUPING SETS ((COL1), ()). The grouping keys match the outer columns,
+        // but one of the grouping sets is a scalar aggregation which the rewrite would silently drop.
+        tester().assertThat(new PushAggregationThroughOuterJoin(getFunctionManager()))
+                .on(p -> p.aggregation(ab -> ab
+                        .source(p.join(
+                                JoinType.LEFT,
+                                p.values(ImmutableList.of(p.variable("COL1")), ImmutableList.of(constantExpressions(BIGINT, 10L))),
+                                p.values(p.variable("COL2")),
+                                ImmutableList.of(new EquiJoinClause(p.variable("COL1"), p.variable("COL2"))),
+                                ImmutableList.of(p.variable("COL1"), p.variable("COL2")),
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty()))
+                        .addAggregation(p.variable("AVG", DOUBLE), p.rowExpression("avg(COL2)"))
+                        .groupingSets(new GroupingSetDescriptor(
+                                ImmutableList.of(p.variable("COL1")),
+                                2,
+                                ImmutableSet.of(1)))))
                 .doesNotFire();
     }
 }

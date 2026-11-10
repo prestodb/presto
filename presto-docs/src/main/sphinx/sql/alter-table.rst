@@ -8,13 +8,14 @@ Synopsis
 .. code-block:: none
 
     ALTER TABLE [ IF EXISTS ] name RENAME TO new_name
-    ALTER TABLE [ IF EXISTS ] name ADD COLUMN [ IF NOT EXISTS ] column_name data_type [ DEFAULT default_expression ] [ COMMENT comment ] [ WITH ( property_name = expression [, ...] ) ] [ FIRST | AFTER existing_column_name ]
+    ALTER TABLE [ IF EXISTS ] name ADD COLUMN [ IF NOT EXISTS ] column_name data_type [ DEFAULT default_expression ] [ COMMENT comment ] [[GENERATED ALWAYS] AS expression [VIRTUAL | PERSISTENT]] [ WITH ( property_name = expression [, ...] ) ] [ FIRST | AFTER existing_column_name ]
     ALTER TABLE [ IF EXISTS ] name DROP COLUMN column_name
     ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] column_name TO new_column_name
     ALTER TABLE [ IF EXISTS ] name ADD [ CONSTRAINT constraint_name ] { PRIMARY KEY | UNIQUE } ( { column_name [, ...] } ) [ { ENABLED | DISABLED } ] [ [ NOT ] RELY ] [ [ NOT ] ENFORCED } ]
     ALTER TABLE [ IF EXISTS ] name DROP CONSTRAINT [ IF EXISTS ] constraint_name
     ALTER TABLE [ IF EXISTS ] name ALTER [ COLUMN ] column_name { SET | DROP } NOT NULL
     ALTER TABLE [ IF EXISTS ] name ALTER [ COLUMN ] column_name SET DEFAULT default_expression
+    ALTER TABLE [ IF EXISTS ] name ALTER [ COLUMN ] column_name { FIRST | AFTER existing_column_name }
     ALTER TABLE [ IF EXISTS ] name SET PROPERTIES (property_name=value, [, ...])
     ALTER TABLE [ IF EXISTS ] name DROP BRANCH [ IF EXISTS ] branch_name
     ALTER TABLE [ IF EXISTS ] name DROP TAG [ IF EXISTS ] tag_name
@@ -45,6 +46,30 @@ column is placed in the table's column order. When neither clause is given, the 
 end. ``FIRST`` and ``AFTER`` require support from the connector; connectors that do not support them
 report an error. ``AFTER`` requires the named column to already exist.
 
+When ``column_name`` contains a dot (e.g. ``info.email``), the column is added as a nested field
+inside the named ``ROW`` column. The optional clauses ``NOT NULL``, ``COMMENT``, ``DEFAULT``,
+``GENERATED``/``AS``, ``WITH`` properties, and ``FIRST``/``AFTER`` do not apply to nested fields
+and will be rejected. Adding a nested field requires ``ALTER COLUMN`` permission on the table,
+not ``ADD COLUMN`` permission.
+
+For ``ALTER COLUMN … SET DATA TYPE`` statements, when ``column_name`` contains a dot
+(e.g. ``info.age``), the type change is applied to the named nested field inside the ``ROW``
+column. Only widening conversions are supported: ``INTEGER`` to ``BIGINT``, ``REAL`` to
+``DOUBLE``, or ``DECIMAL(p,s)`` to ``DECIMAL(p2,s)`` where ``p2 >= p``.
+Narrowing conversions are rejected. The path must refer to a field inside a struct; paths
+into arrays or maps are not supported.
+
+When ``column_name`` contains a dot (for example ``address.zip``) in a ``DROP COLUMN`` statement, the nested field
+is dropped from the named ``ROW`` column. Dropping a nested field requires ``ALTER COLUMN`` permission on the table,
+not ``DROP COLUMN`` permission.
+
+For ``ALTER COLUMN`` statements, the ``FIRST`` and ``AFTER`` clauses move an existing column within the
+table's column order, leaving the data of every column unchanged. Unlike ``ADD COLUMN``, one of the two
+clauses is required, since the statement does nothing else; a column is moved to the end of the table by
+naming the column that is currently last in ``AFTER``. ``AFTER`` requires the named column to already exist
+and to be a column other than the one being moved. Moving a column requires support from the connector;
+connectors that do not support it report an error.
+
 For ``CREATE BRANCH`` statements:
 
 * The optional ``OR REPLACE`` clause causes the branch to be replaced if it already exists.
@@ -72,7 +97,11 @@ Add column ``zip`` to the ``users`` table::
 
     ALTER TABLE users ADD COLUMN zip varchar;
 
-Add column ``zip`` to the ``users`` table if table ``users`` exists and column ``zip`` not already exists::
+Add column ``zip_derived`` to the ``users`` table with a derived column expression::
+
+    ALTER TABLE users ADD COLUMN zip_derived varchar AS upper(zip);
+
+Add column ``zip`` to the ``users`` table if table ``users`` exists and column ``zip`` does not already exist::
 
     ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS zip varchar;
 
@@ -84,6 +113,22 @@ Add column ``zip`` immediately after the ``city`` column of the ``users`` table:
 
     ALTER TABLE users ADD COLUMN zip varchar AFTER city;
 
+Add a nested field ``email`` inside the ``address`` struct column of the ``users`` table::
+
+    ALTER TABLE users ADD COLUMN address.email varchar;
+
+Widen the type of a nested field ``age`` inside the ``info`` struct column of the ``users`` table::
+
+    ALTER TABLE users ALTER COLUMN info.age SET DATA TYPE BIGINT;
+
+Move the existing ``zip`` column to the front of the ``users`` table::
+
+    ALTER TABLE users ALTER COLUMN zip FIRST;
+
+Move the existing ``zip`` column immediately after the ``city`` column of the ``users`` table::
+
+    ALTER TABLE users ALTER COLUMN zip AFTER city;
+
 Drop column ``zip`` from the ``users`` table::
 
     ALTER TABLE users DROP COLUMN zip;
@@ -91,6 +136,10 @@ Drop column ``zip`` from the ``users`` table::
 Drop column ``zip`` from the ``users`` table if table ``users`` and column ``zip`` exists::
 
     ALTER TABLE IF EXISTS users DROP COLUMN IF EXISTS zip;
+
+Drop a nested field ``zip`` inside the ``address`` struct column of the ``users`` table::
+
+    ALTER TABLE users DROP COLUMN address.zip;
 
 Rename column ``id`` to ``user_id`` in the ``users`` table::
 

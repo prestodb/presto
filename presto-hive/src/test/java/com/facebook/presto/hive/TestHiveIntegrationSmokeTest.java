@@ -142,7 +142,9 @@ import static com.facebook.presto.sql.planner.optimizations.PlanNodeSearcher.sea
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Scope.REMOTE_MATERIALIZED;
 import static com.facebook.presto.sql.planner.planPrinter.PlanPrinter.textLogicalPlan;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.ADD_CONSTRAINT;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.CREATE_SCHEMA;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.DROP_CONSTRAINT;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static com.facebook.presto.testing.TestingAccessControlManager.privilege;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
@@ -3335,6 +3337,26 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("ALTER TABLE test_add_column ADD COLUMN c bigint COMMENT 'test comment CCC'");
         assertQuery("SHOW COLUMNS FROM test_add_column", "VALUES ('a', 'bigint', '', 'test comment AAA', 19, NULL, NULL), ('b', 'bigint', '', 'test comment BBB', 19, NULL, NULL), ('c', 'bigint', '', 'test comment CCC', 19, NULL, NULL)");
         assertUpdate("DROP TABLE test_add_column");
+    }
+
+    @Test
+    public void testSetColumnPosition()
+    {
+        assertUpdate("CREATE TABLE test_set_column_position (a bigint, b bigint)");
+        try {
+            // Hive cannot reorder the columns of an existing table, so every position has to be rejected. Unlike
+            // ADD COLUMN, there is no position the connector can honor for free by leaving the table alone
+            assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN b FIRST", ".*This connector does not support moving columns");
+            assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN a AFTER b", ".*This connector does not support moving columns");
+            // The engine rejects a column that does not exist before reaching the connector
+            assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN missing FIRST", ".*Column 'missing' does not exist");
+            assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN a AFTER missing", ".*Column 'missing' does not exist");
+            assertQueryFails("ALTER TABLE test_set_column_position ALTER COLUMN a AFTER a", ".*Column 'a' cannot be moved after itself");
+            assertQuery("SHOW COLUMNS FROM test_set_column_position", "VALUES ('a', 'bigint', '', '', 19, NULL, NULL), ('b', 'bigint', '', '', 19, NULL, NULL)");
+        }
+        finally {
+            assertUpdate("DROP TABLE test_set_column_position");
+        }
     }
 
     @Test
@@ -7220,6 +7242,26 @@ public class TestHiveIntegrationSmokeTest
 
         String dropTableStmt = format("DROP TABLE %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), tableName);
         assertUpdate(getSession(), dropTableStmt);
+    }
+
+    @Test
+    public void testAlterColumnNotNullAccessControl()
+    {
+        String tableName = "test_alter_column_not_null_access_control";
+        assertUpdate("CREATE TABLE " + tableName + " (c1 bigint) WITH (format = 'ORC')");
+        try {
+            @Language("SQL") String setNotNull = "ALTER TABLE " + tableName + " ALTER COLUMN c1 SET NOT NULL";
+            @Language("SQL") String dropNotNull = "ALTER TABLE " + tableName + " ALTER COLUMN c1 DROP NOT NULL";
+
+            assertAccessDenied(setNotNull, "Cannot add a constraint to table .*" + tableName + ".*", privilege(tableName, ADD_CONSTRAINT));
+            assertAccessAllowed(setNotNull, privilege(tableName, DROP_CONSTRAINT));
+
+            assertAccessDenied(dropNotNull, "Cannot drop a constraint from table .*" + tableName + ".*", privilege(tableName, DROP_CONSTRAINT));
+            assertAccessAllowed(dropNotNull, privilege(tableName, ADD_CONSTRAINT));
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     private void testCreateTableWithHeaderAndFooter(String format)

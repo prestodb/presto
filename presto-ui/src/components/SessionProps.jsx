@@ -16,6 +16,7 @@ import React from "react";
 import DataTable from "react-data-table-component";
 import { clsx } from "clsx";
 import { CUSTOM_STYLES } from "./QueryResults";
+import { PRESTO_DARK_THEME } from "./DataTableTheme";
 import { createClient } from "./SQLInput";
 
 const NameFilter = ({ filterText, onFilter, onClear }) => (
@@ -191,13 +192,10 @@ export function SessionProps({ show, changeHandler }) {
                     <DataTable
                         columns={COLUMNS}
                         data={filter.data}
-                        theme="dark"
+                        theme={PRESTO_DARK_THEME}
                         customStyles={CUSTOM_STYLES}
-                        subHeader
+                        subHeader={<NameFilter filterText={filter.text} onFilter={filterData} onClear={clearFilter} />}
                         onRowClicked={rowClicked}
-                        subHeaderComponent={
-                            <NameFilter filterText={filter.text} onFilter={filterData} onClear={clearFilter} />
-                        }
                         pagination
                         dense
                         conditionalRowStyles={highlightAltered}

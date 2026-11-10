@@ -19,6 +19,7 @@ import com.facebook.presto.spi.plan.PlanNodeId;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
@@ -54,6 +55,7 @@ public class RPCNode
     private final List<VariableReferenceExpression> outputVariables;
     private final StreamingMode streamingMode;
     private final int dispatchBatchSize;
+    private final int recommendedTaskCount;
 
     @JsonCreator
     public RPCNode(
@@ -69,7 +71,33 @@ public class RPCNode
     {
         this(sourceLocation, id, Optional.empty(), source, functionName,
                 arguments, argumentColumns, outputVariable, streamingMode,
-                dispatchBatchSize != null ? dispatchBatchSize : 0);
+                dispatchBatchSize != null ? dispatchBatchSize : 0, 0);
+    }
+
+    public RPCNode(
+            Optional<SourceLocation> sourceLocation,
+            PlanNodeId id,
+            PlanNode source,
+            String functionName,
+            List<RowExpression> arguments,
+            List<String> argumentColumns,
+            VariableReferenceExpression outputVariable,
+            StreamingMode streamingMode,
+            int dispatchBatchSize,
+            int recommendedTaskCount)
+    {
+        this(
+                sourceLocation,
+                id,
+                Optional.empty(),
+                source,
+                functionName,
+                arguments,
+                argumentColumns,
+                outputVariable,
+                streamingMode,
+                dispatchBatchSize,
+                recommendedTaskCount);
     }
 
     public RPCNode(
@@ -82,7 +110,8 @@ public class RPCNode
             List<String> argumentColumns,
             VariableReferenceExpression outputVariable,
             StreamingMode streamingMode,
-            int dispatchBatchSize)
+            int dispatchBatchSize,
+            int recommendedTaskCount)
     {
         super(sourceLocation, id, statsEquivalentPlanNode);
         this.source = requireNonNull(source, "source is null");
@@ -100,6 +129,8 @@ public class RPCNode
                 this.streamingMode != StreamingMode.AUTOMATIC,
                 "RPCNode streamingMode must be PER_ROW or BATCH, not AUTOMATIC (coordinator-only value); resolve it before constructing the node");
         this.dispatchBatchSize = dispatchBatchSize;
+        checkArgument(recommendedTaskCount >= 0, "recommendedTaskCount must be non-negative: %s", recommendedTaskCount);
+        this.recommendedTaskCount = recommendedTaskCount;
 
         ImmutableList.Builder<VariableReferenceExpression> outputs = ImmutableList.builder();
         outputs.addAll(source.getOutputVariables());
@@ -149,6 +180,15 @@ public class RPCNode
         return dispatchBatchSize;
     }
 
+    /**
+     * Returns the coordinator-only remote task recommendation, or zero for default planning.
+     */
+    @JsonIgnore
+    public int getRecommendedTaskCount()
+    {
+        return recommendedTaskCount;
+    }
+
     @Override
     @JsonProperty
     public List<VariableReferenceExpression> getOutputVariables()
@@ -181,7 +221,8 @@ public class RPCNode
                 argumentColumns,
                 outputVariable,
                 streamingMode,
-                dispatchBatchSize);
+                dispatchBatchSize,
+                recommendedTaskCount);
     }
 
     @Override
@@ -197,6 +238,7 @@ public class RPCNode
                 argumentColumns,
                 outputVariable,
                 streamingMode,
-                dispatchBatchSize);
+                dispatchBatchSize,
+                recommendedTaskCount);
     }
 }

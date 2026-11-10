@@ -20,6 +20,7 @@ import static com.facebook.presto.common.RuntimeUnit.BYTE;
 import static com.facebook.presto.common.RuntimeUnit.NANO;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 
 public class TestRuntimeMetric
 {
@@ -121,6 +122,54 @@ public class TestRuntimeMetric
         RuntimeMetric actual = codec.fromJson(json);
 
         assertRuntimeMetricEquals(actual, metric);
+    }
+
+    @Test
+    public void testEmptyMetricReportsZeroMinMax()
+    {
+        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_NAME, NANO);
+        assertEquals(metric.getMin(), 0);
+        assertEquals(metric.getMax(), 0);
+
+        // A copy of an empty metric must still aggregate correctly once it receives a value.
+        RuntimeMetric copy = RuntimeMetric.copyOf(metric);
+        assertEquals(copy.getMin(), 0);
+        assertEquals(copy.getMax(), 0);
+        copy.addValue(7);
+        assertRuntimeMetricEquals(copy, new RuntimeMetric(TEST_METRIC_NAME, NANO, 7, 1, 7, 7));
+    }
+
+    @Test
+    public void testMergeWithEmptyMetricPreservesMinMax()
+    {
+        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_NAME, NONE, 25, 4, 11, 1);
+        metric.mergeWith(new RuntimeMetric(TEST_METRIC_NAME, NONE));
+        assertRuntimeMetricEquals(metric, new RuntimeMetric(TEST_METRIC_NAME, NONE, 25, 4, 11, 1));
+
+        // Merging empty into empty keeps it able to aggregate later.
+        RuntimeMetric empty = new RuntimeMetric(TEST_METRIC_NAME, NONE);
+        empty.mergeWith(new RuntimeMetric(TEST_METRIC_NAME, NONE));
+        assertEquals(empty.getMin(), 0);
+        assertEquals(empty.getMax(), 0);
+        empty.addValue(5);
+        assertRuntimeMetricEquals(empty, new RuntimeMetric(TEST_METRIC_NAME, NONE, 5, 1, 5, 5));
+    }
+
+    @Test
+    public void testEmptyMetricJsonHasNoSentinelMinMax()
+    {
+        JsonCodec<RuntimeMetric> codec = JsonCodec.jsonCodec(RuntimeMetric.class);
+        RuntimeMetric metric = new RuntimeMetric(TEST_METRIC_NAME, NANO);
+
+        String json = codec.toJson(metric);
+        assertFalse(json.contains(String.valueOf(Long.MAX_VALUE)));
+        assertFalse(json.contains(String.valueOf(Long.MIN_VALUE)));
+
+        RuntimeMetric actual = codec.fromJson(json);
+        assertEquals(actual.getMin(), 0);
+        assertEquals(actual.getMax(), 0);
+        actual.addValue(9);
+        assertRuntimeMetricEquals(actual, new RuntimeMetric(TEST_METRIC_NAME, NANO, 9, 1, 9, 9));
     }
 
     @Test

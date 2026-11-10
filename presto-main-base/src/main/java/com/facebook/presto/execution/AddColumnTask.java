@@ -24,14 +24,13 @@ import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.connector.ColumnPosition;
+import com.facebook.presto.spi.derivedcolumns.DerivedColumnSpec;
 import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.spi.type.UnknownTypeException;
 import com.facebook.presto.sql.analyzer.SemanticException;
 import com.facebook.presto.sql.planner.ExpressionInterpreter;
 import com.facebook.presto.sql.tree.AddColumn;
 import com.facebook.presto.sql.tree.ColumnDefinition;
-import com.facebook.presto.sql.tree.ColumnPosition.After;
-import com.facebook.presto.sql.tree.ColumnPosition.First;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.transaction.TransactionManager;
@@ -44,18 +43,21 @@ import java.util.Optional;
 
 import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.execution.ColumnPositionUtil.toConnectorColumnPosition;
+import static com.facebook.presto.execution.CreateTableTask.normalizeDerivedColumnSpec;
 import static com.facebook.presto.metadata.MetadataUtil.createQualifiedObjectName;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.spi.ColumnMetadata.DEFAULT_VALUE_PROPERTY;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_ALREADY_EXISTS;
-import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_COLUMN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.MISSING_TABLE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.TYPE_MISMATCH;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static java.util.stream.Collectors.joining;
 
 public class AddColumnTask
         implements DDLDefinitionTask<AddColumn>
@@ -86,31 +88,51 @@ public class AddColumnTask
             return immediateFuture(null);
         }
 
-        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, tableName.getCatalogName());
+        ColumnDefinition element = statement.getColumn();
+        List<String> nameParts = element.getName().getParts();
 
+        if (nameParts.size() == 1) {
+            return executeAddColumn(statement, metadata, accessControl, session, parameters, tableName, tableHandle.get(), element);
+        }
+        return executeAddField(statement, metadata, accessControl, session, tableName, tableHandle.get(), element);
+    }
+
+    private ListenableFuture<?> executeAddColumn(
+            AddColumn statement,
+            Metadata metadata,
+            AccessControl accessControl,
+            Session session,
+            List<Expression> parameters,
+            QualifiedObjectName tableName,
+            TableHandle tableHandle,
+            ColumnDefinition element)
+    {
         accessControl.checkCanAddColumns(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
 
-        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
+        ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, tableName.getCatalogName());
 
-        ColumnDefinition element = statement.getColumn();
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+
+        String columnName = element.getName().getOriginalParts().get(0).getValue();
+        String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnName);
         Type type;
         try {
             type = metadata.getType(parseTypeSignature(element.getType()));
         }
         catch (IllegalArgumentException | UnknownTypeException e) {
-            throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
+            throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), columnName);
         }
         if (type.equals(UNKNOWN)) {
-            throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
+            throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), columnName);
         }
-        if (columnHandles.containsKey(element.getName().getValueLowerCase())) {
+        if (columnHandles.containsKey(name)) {
             if (!statement.isColumnNotExists()) {
-                throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
+                throw new SemanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", columnName);
             }
             return immediateFuture(null);
         }
         if (!element.isNullable() && !metadata.getConnectorCapabilities(session, connectorId).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
-            throw new SemanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", connectorId.getCatalogName(), element.getName());
+            throw new SemanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", connectorId.getCatalogName(), columnName);
         }
 
         Map<String, Expression> sqlProperties = mapFromProperties(element.getProperties());
@@ -122,71 +144,104 @@ public class AddColumnTask
                 metadata,
                 parameterExtractor(statement, parameters));
 
-        Identifier columnIdentifier = element.getName();
-        String name = metadata.normalizeIdentifier(session, tableName.getCatalogName(), columnIdentifier.getValue());
-
+        if (element.getDefaultExpression().isPresent() && element.getDerivedColumnSpec().isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, element, "Both default expression and derived column expression cannot be set on the same column %s.", columnName);
+        }
         // Handle default expression if present
         if (element.getDefaultExpression().isPresent()) {
+            Map<String, Object> updatedProperties = new java.util.HashMap<>(columnProperties);
             Expression defaultExpr = element.getDefaultExpression().get();
             Object defaultValue = ExpressionInterpreter.evaluateConstantExpression(defaultExpr, type, metadata, session, ImmutableMap.of());
-            Map<String, Object> updatedProperties = new java.util.HashMap<>(columnProperties);
             updatedProperties.put(DEFAULT_VALUE_PROPERTY, defaultValue);
             columnProperties = updatedProperties;
         }
-
+        Optional<DerivedColumnSpec> derivedColumnSpec = normalizeDerivedColumnSpec(element, name);
         ColumnMetadata column = ColumnMetadata.builder()
                 .setName(name)
                 .setType(type)
                 .setNullable(element.isNullable())
                 .setComment(element.getComment().orElse(null))
                 .setProperties(columnProperties)
+                .setDerivedColumnSpec(derivedColumnSpec)
                 .build();
 
-        ColumnPosition position = toConnectorColumnPosition(statement, metadata, session, tableName.getCatalogName(), tableHandle.get(), columnHandles);
+        ColumnPosition position = statement.getPosition()
+                .map(p -> toConnectorColumnPosition(p, statement, metadata, session, tableName.getCatalogName(), tableHandle, columnHandles))
+                .orElseGet(ColumnPosition.Last::new);
 
-        metadata.addColumn(session, tableHandle.get(), column, position);
+        metadata.addColumn(session, tableHandle, column, position);
 
         return immediateFuture(null);
     }
 
-    /**
-     * Converts the optional {@code FIRST | AFTER <column>} clause of the statement into the connector
-     * representation. An absent clause becomes {@link ColumnPosition.Last}, so the column is appended,
-     * which is the pre-existing behavior.
-     * <p>
-     * The two {@code ColumnPosition} types in scope here are distinct: the unqualified {@code First} and
-     * {@code After} are {@link com.facebook.presto.sql.tree.ColumnPosition} from the statement, while
-     * {@code ColumnPosition.First} and the like are the {@link ColumnPosition} handed to the connector.
-     */
-    private static ColumnPosition toConnectorColumnPosition(
+    private ListenableFuture<?> executeAddField(
             AddColumn statement,
             Metadata metadata,
+            AccessControl accessControl,
             Session session,
-            String catalogName,
+            QualifiedObjectName tableName,
             TableHandle tableHandle,
-            Map<String, ColumnHandle> columnHandles)
+            ColumnDefinition element)
     {
-        return statement.getPosition()
-                .<ColumnPosition>map(position -> {
-                    if (position instanceof First) {
-                        return new ColumnPosition.First();
-                    }
-                    if (position instanceof After) {
-                        Identifier afterIdentifier = ((After) position).getColumn();
-                        String afterColumn = metadata.normalizeIdentifier(session, catalogName, afterIdentifier.getValue());
-                        ColumnHandle afterColumnHandle = columnHandles.get(afterColumn);
-                        if (afterColumnHandle == null) {
-                            throw new SemanticException(MISSING_COLUMN, statement, "Column '%s' does not exist", afterIdentifier.getValue());
-                        }
-                        // A hidden column, such as a connector's synthesized "$path", has no place in the table's
-                        // column order, so it cannot be positioned after even though getColumnHandles exposes it
-                        if (metadata.getColumnMetadata(session, tableHandle, afterColumnHandle).isHidden()) {
-                            throw new SemanticException(NOT_SUPPORTED, statement, "Cannot add a column after hidden column '%s'", afterIdentifier.getValue());
-                        }
-                        return new ColumnPosition.After(afterColumn);
-                    }
-                    throw new SemanticException(NOT_SUPPORTED, statement, "Unsupported column position: %s", position);
-                })
-                .orElseGet(ColumnPosition.Last::new);
+        accessControl.checkCanAlterColumn(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), tableName);
+
+        if (statement.getPosition().isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, statement,
+                    "FIRST/AFTER is not supported when adding a nested field");
+        }
+
+        if (!element.isNullable()) {
+            throw new SemanticException(NOT_SUPPORTED, element,
+                    "NOT NULL constraint is not supported when adding a nested field");
+        }
+
+        if (element.getComment().isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, element,
+                    "COMMENT is not supported when adding a nested field");
+        }
+
+        if (element.getDefaultExpression().isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, element,
+                    "DEFAULT is not supported when adding a nested field");
+        }
+
+        if (element.getDerivedColumnSpec().isPresent()) {
+            throw new SemanticException(NOT_SUPPORTED, element,
+                    "GENERATED/AS expression is not supported when adding a nested field");
+        }
+
+        if (!element.getProperties().isEmpty()) {
+            throw new SemanticException(NOT_SUPPORTED, element,
+                    "WITH properties are not supported when adding a nested field");
+        }
+
+        String displayName = element.getName().getOriginalParts().stream()
+                .map(Identifier::getValue)
+                .collect(joining("."));
+        Type type;
+        try {
+            type = metadata.getType(parseTypeSignature(element.getType()));
+        }
+        catch (IllegalArgumentException | UnknownTypeException e) {
+            throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), displayName);
+        }
+        if (type.equals(UNKNOWN)) {
+            throw new SemanticException(TYPE_MISMATCH, element, "Unknown type '%s' for column '%s'", element.getType(), displayName);
+        }
+
+        // columnPath is all parts except the last; fieldName is the last part.
+        // Use getOriginalParts() + getValue() to preserve user-supplied casing before normalizeIdentifier.
+        List<String> originalParts = element.getName().getOriginalParts().stream()
+                .map(Identifier::getValue)
+                .collect(toImmutableList());
+        List<String> parentPath = originalParts.subList(0, originalParts.size() - 1).stream()
+                .map(part -> metadata.normalizeIdentifier(session, tableName.getCatalogName(), part))
+                .collect(toImmutableList());
+        String fieldName = metadata.normalizeIdentifier(session, tableName.getCatalogName(),
+                originalParts.get(originalParts.size() - 1));
+
+        metadata.addField(session, tableHandle, parentPath, fieldName, type, statement.isColumnNotExists());
+
+        return immediateFuture(null);
     }
 }

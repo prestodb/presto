@@ -13,12 +13,19 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.facebook.presto.tests.sql.TestTable;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogUtil;
+import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
@@ -28,24 +35,43 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.types.Types;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.UUID;
+import java.util.stream.Stream;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.UuidType.javaUuidToPrestoUuid;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
 import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_METADATA_TABLES;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.noNullCountError;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.nullValuesError;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.writerNullError;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 
 public class TestIcebergV3
@@ -150,8 +176,26 @@ public class TestIcebergV3
                     + " VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0)", 3);
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
                     "VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0)");
+            // V3 row-level deletes are committed as Puffin deletion vectors, which only the
+            // native (Prestissimo) worker can write, so a Java-only query runner cannot complete
+            // this DELETE. The failure now surfaces from the engine rather than from the
+            // connector's own native-only check: getDeleteRowIdColumn returns the 4-field
+            // ROW<file_path, pos, spec_id, partition> the Velox deletion-vector sink requires, and
+            // the Java delete path cannot consume that row id. Assert the DELETE fails with a
+            // real execution error (not an NPE short-circuit before the DV path is reached)
+            // rather than pinning an engine-internal message, which is version-fragile.
+            // Producing a connector-level error here needs a way to tell at beginDelete whether
+            // the query will run on native workers, which the connector cannot currently see.
+            // DELETE is intentionally not gated in QueryPlanner: full-table and
+            // partition-aligned deletes are rewritten to MetadataDeleteNode after planning
+            // and succeed on Java, and the planner cannot distinguish those at plan time.
             assertThatThrownBy(() -> getQueryRunner().execute("DELETE FROM " + tableName + " WHERE id = 1"))
-                    .hasMessageContaining("Iceberg table updates for format version 3 are not supported yet");
+                    .isInstanceOf(RuntimeException.class)
+                    .isNotInstanceOf(NullPointerException.class);
+            // The failed DELETE committed nothing: all rows remain visible.
+            assertQuery("SELECT count(*) FROM " + tableName, "SELECT 3");
+            assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'Alice', 100.0), (2, 'Bob', 200.0), (3, 'Charlie', 300.0)");
         }
         finally {
             dropTable(tableName);
@@ -221,9 +265,15 @@ public class TestIcebergV3
                     3);
             assertQuery("SELECT * FROM " + tableName + " ORDER BY id",
                     "VALUES (1, 'Alice', 'active', 85.5), (2, 'Bob', 'active', 92.0), (3, 'Charlie', 'inactive', 78.3)");
+            // V3 UPDATE lands as a Puffin deletion vector + new rows; the DV write requires the
+            // native (Prestissimo) worker, so the Java-only query runner rejects it. The planner
+            // gate (QueryPlanner.checkV3DeletionVectorRequiresNative) fires first with the
+            // connector's message family; the connector's beginUpdate additionally names the
+            // native_update_merge_enabled session property as the unblock path for callers
+            // that reach it directly.
             assertThatThrownBy(() -> getQueryRunner()
                     .execute("UPDATE " + tableName + " SET status = 'updated', score = 95.0 WHERE id = 1"))
-                    .hasMessageContaining("Iceberg table updates for format version 3 are not supported yet");
+                    .hasMessageContaining("require the native (Prestissimo) worker");
         }
         finally {
             dropTable(tableName);
@@ -249,7 +299,7 @@ public class TestIcebergV3
                     "MERGE INTO " + tableName + " t USING " + sourceTable + " s ON t.id = s.id " +
                             "WHEN MATCHED THEN UPDATE SET name = s.name, value = s.value " +
                             "WHEN NOT MATCHED THEN INSERT (id, name, value) VALUES (s.id, s.name, s.value)"))
-                    .hasMessageContaining("Iceberg table updates for format version 3 are not supported yet");
+                    .hasMessageContaining("require the native (Prestissimo) worker");
         }
         finally {
             dropTable(tableName);
@@ -702,6 +752,27 @@ public class TestIcebergV3
     }
 
     @Test
+    public void testInsertIntoMixedCaseWriteDefaultColumn()
+    {
+        String tableName = "test_insert_mixed_case_write_default";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN status VARCHAR DEFAULT 'ACTIVE'");
+            // Engines such as Spark preserve the case of field names; Presto lowercases them
+            loadTable(tableName).updateSchema().renameColumn("status", "Status").commit();
+
+            assertUpdate("INSERT INTO " + tableName + " (id, \"Status\") VALUES (1, 'PAUSED'), (2, NULL)", 2);
+            assertUpdate("INSERT INTO " + tableName + " (id) VALUES (3)", 1);
+
+            assertQuery("SELECT id, status FROM " + tableName + " ORDER BY id",
+                    "VALUES (1, 'PAUSED'), (2, NULL), (3, 'ACTIVE')");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
     public void testInsertWithMultipleWriteDefaultColumns()
     {
         String tableName = "test_insert_multiple_write_default_columns";
@@ -762,6 +833,187 @@ public class TestIcebergV3
         finally {
             dropTable(tableName);
         }
+    }
+
+    /**
+     * Once the snapshot from before the column was added expires, older files are not known to read its initial
+     * default. A rewrite writes the default out with a NULL count.
+     */
+    @Test
+    public void testSetNotNullOnColumnAddedWithDefaultAfterOlderSnapshotsExpire()
+    {
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_set_not_null_default_after_older_snapshots_expire")) {
+            String tableName = table.getName();
+            long beforeColumnAdded = loadTable(tableName).currentSnapshot().snapshotId();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 7)", 1);
+            assertUpdate(format("CALL system.expire_snapshots(schema => '%s', table_name => '%s', snapshot_ids => ARRAY[%d])", TEST_SCHEMA, tableName, beforeColumnAdded));
+
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", noNullCountError("c2"));
+            assertQuerySucceeds(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['rewrite-all'], array['true']))", TEST_SCHEMA, tableName));
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5), (2, 7)");
+        }
+    }
+
+    /**
+     * Every row of a snapshot from before a column was added reads the column's initial default.
+     */
+    @Test
+    public void testRollbackToSnapshotBeforeRequiredColumnWithDefaultWasAdded()
+    {
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_rollback_before_required_column_with_default")) {
+            String tableName = table.getName();
+            long beforeColumnAdded = loadTable(tableName).currentSnapshot().snapshotId();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 7)", 1);
+            // Made required via the Iceberg API, so only the rollback's check runs
+            loadTable(tableName).updateSchema().allowIncompatibleChanges().requireColumn("c2").commit();
+
+            assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %d)", TEST_SCHEMA, tableName, beforeColumnAdded));
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5)");
+        }
+    }
+
+    /**
+     * Only files written before the column was added read its initial default; for later files, the NULL count decides.
+     */
+    @Test
+    public void testSetNotNullOnColumnWithDefaultChecksLaterFiles()
+    {
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_set_not_null_default_with_null")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, NULL)", 1);
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", nullValuesError("c2", "main"));
+        }
+
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_set_not_null_default_without_null_count", "\"write.metadata.metrics.max-inferred-column-defaults\" = 1")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, NULL)", 1);
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", noNullCountError("c2"));
+        }
+    }
+
+    /**
+     * A write default applies only to new writes, so files written before the column was added read NULL.
+     */
+    @Test
+    public void testSetNotNullOnColumnWithWriteDefaultOnly()
+    {
+        try (TestTable table = createV3Table("test_set_not_null_write_default_only")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c2 BIGINT");
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET DEFAULT 5");
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", noNullCountError("c2"));
+        }
+    }
+
+    @Test
+    public void testInsertOmittingNotNullColumnWithDefault()
+    {
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_insert_omitting_not_null_column_with_default")) {
+            String tableName = table.getName();
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
+
+            assertUpdate("INSERT INTO " + tableName + " (c1) VALUES (2)", 1);
+            assertQueryFails("INSERT INTO " + tableName + " VALUES (3, NULL)", writerNullError("c2"));
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5), (2, 5)");
+
+            assertFalse(((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("default_value"));
+            try (TestTable likeTable = new TestTable(getQueryRunner()::execute, tableName + "_like", "CREATE TABLE {TABLE_NAME} (LIKE " + tableName + ") WITH (\"format-version\" = '3')")) {
+                assertQuery(
+                        "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + likeTable.getName() + "'",
+                        "VALUES ('c1', 'YES'), ('c2', 'NO')");
+            }
+        }
+    }
+
+    @Test
+    public void testInsertOmittingNotNullPartitionColumnWithDefault()
+    {
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_insert_omitting_not_null_partition_column")) {
+            String tableName = table.getName();
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
+            loadTable(tableName).updateSpec().addField("c2").commit();
+
+            assertUpdate("INSERT INTO " + tableName + " (c1) VALUES (2)", 1);
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5), (2, 5)");
+            Table icebergTable = loadTable(tableName);
+            DataFile file = getOnlyElement(icebergTable.currentSnapshot().addedDataFiles(icebergTable.io()));
+            assertEquals(file.partition().get(0, Long.class), Long.valueOf(5));
+        }
+    }
+
+    /**
+     * The Java worker rejects MERGE on V3 tables, where write defaults exist. The native MERGE case is in
+     * {@code TestIcebergAlterColumnNotNull#testInsertOmittingNotNullColumnWithDefault}.
+     */
+    @Test
+    public void testMergeOmittingNotNullColumnWithDefault()
+    {
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_merge_omitting_not_null_column_with_default")) {
+            String tableName = table.getName();
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
+
+            assertQueryFails(
+                    "MERGE INTO " + tableName + " t USING (VALUES 2) s(c1) ON t.c1 = s.c1 WHEN NOT MATCHED THEN INSERT (c1) VALUES (s.c1)",
+                    "Iceberg V3 deletion-vector writes \\(MERGE\\) require the native \\(Prestissimo\\) worker.*");
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5)");
+        }
+    }
+
+    @Test
+    public void testColumnMetadataWithBinaryTimestampWithTimeZoneAndUuidWriteDefaults()
+    {
+        UUID uuid = UUID.fromString("f79c3e09-677c-4bbd-a479-3f349cb785e7");
+        long timestampMicros = 1_672_531_200_123_000L;
+        try (TestTable table = createV3Table("test_column_metadata_with_write_defaults")) {
+            String tableName = table.getName();
+            loadTable(tableName).updateSchema()
+                    .addColumn("c_varbinary", Types.BinaryType.get(), Literal.of(ByteBuffer.wrap(new byte[] {1, 2})))
+                    .addColumn("c_fixed", Types.FixedType.ofLength(2), Literal.of(ByteBuffer.wrap(new byte[] {3, 4})).to(Types.FixedType.ofLength(2)))
+                    .addColumn("c_timestamptz", Types.TimestampType.withZone(), Literal.of(timestampMicros).to(Types.TimestampType.withZone()))
+                    .addColumn("c_uuid", Types.UUIDType.get(), Literal.of(uuid))
+                    .commit();
+
+            assertQuerySucceeds("DESCRIBE " + tableName);
+            assertQuerySucceeds("SELECT * FROM " + tableName);
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + tableName + "'",
+                    "VALUES 'c1', 'c_varbinary', 'c_fixed', 'c_timestamptz', 'c_uuid'");
+            assertEquals(getWriteDefaults(tableName), ImmutableMap.of(
+                    "c_varbinary", wrappedBuffer(new byte[] {1, 2}),
+                    "c_fixed", wrappedBuffer(new byte[] {3, 4}),
+                    "c_timestamptz", packDateTimeWithZone(MICROSECONDS.toMillis(timestampMicros), UTC_KEY),
+                    "c_uuid", javaUuidToPrestoUuid(uuid)));
+        }
+    }
+
+    private Map<String, Object> getWriteDefaults(String tableName)
+    {
+        Metadata metadata = getQueryRunner().getMetadata();
+        return transaction(getQueryRunner().getTransactionManager(), new AllowAllAccessControl())
+                .execute(getSession(), session -> {
+                    TableHandle tableHandle = metadata.getMetadataResolver(session).getTableHandle(new QualifiedObjectName(ICEBERG_CATALOG, TEST_SCHEMA, tableName)).get();
+                    return metadata.getTableMetadata(session, tableHandle).getColumns().stream()
+                            .filter(column -> column.getDefaultValue().isPresent())
+                            .collect(toImmutableMap(ColumnMetadata::getName, column -> column.getDefaultValue().get()));
+                });
+    }
+
+    private TestTable createV3Table(String namePrefix, String... tableProperties)
+    {
+        String properties = Stream.concat(Stream.of("\"format-version\" = '3'"), Arrays.stream(tableProperties)).collect(joining(", "));
+        return new TestTable(getQueryRunner()::execute, namePrefix, "CREATE TABLE {TABLE_NAME} (c1 BIGINT) WITH (" + properties + ")");
+    }
+
+    /**
+     * Creates a V3 table with a row in {@code c1}, then adds {@code c2} with a default of 5.
+     */
+    private TestTable createV3TableWithColumnAddedWithDefault(String namePrefix, String... tableProperties)
+    {
+        TestTable table = createV3Table(namePrefix, tableProperties);
+        assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+        assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN c2 BIGINT DEFAULT 5");
+        return table;
     }
 
     private Table loadTable(String tableName)

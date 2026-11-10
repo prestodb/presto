@@ -54,6 +54,7 @@ import static com.facebook.presto.common.type.StandardTypes.INTERVAL_YEAR_TO_MON
 import static com.facebook.presto.common.type.StandardTypes.IPADDRESS;
 import static com.facebook.presto.common.type.StandardTypes.IPPREFIX;
 import static com.facebook.presto.common.type.StandardTypes.JSON;
+import static com.facebook.presto.common.type.StandardTypes.KLL_SKETCH;
 import static com.facebook.presto.common.type.StandardTypes.K_HYPER_LOG_LOG;
 import static com.facebook.presto.common.type.StandardTypes.MAP;
 import static com.facebook.presto.common.type.StandardTypes.P4_HYPER_LOG_LOG;
@@ -62,6 +63,7 @@ import static com.facebook.presto.common.type.StandardTypes.REAL;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.StandardTypes.SETDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.SMALLINT;
+import static com.facebook.presto.common.type.StandardTypes.SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.common.type.StandardTypes.TDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.TIME;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
@@ -109,12 +111,14 @@ public class NativeTypeManager
                     INTERVAL_YEAR_TO_MONTH,
                     VARCHAR,
                     UNKNOWN,
-                    GEOMETRY);
+                    GEOMETRY,
+                    SPHERICAL_GEOGRAPHY);
 
     private static final Set<String> NATIVE_ENGINE_SUPPORTED_PARAMETRIC_TYPES =
             ImmutableSet.of(
                     ARRAY,
                     DECIMAL,
+                    KLL_SKETCH,
                     MAP,
                     QDIGEST,
                     ROW,

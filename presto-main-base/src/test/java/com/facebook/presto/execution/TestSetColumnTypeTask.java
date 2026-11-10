@@ -14,233 +14,203 @@
 package com.facebook.presto.execution;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.common.CatalogSchemaName;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
-import com.facebook.presto.connector.informationSchema.InformationSchemaTableHandle;
 import com.facebook.presto.metadata.AbstractMockMetadata;
-import com.facebook.presto.metadata.Catalog;
 import com.facebook.presto.metadata.CatalogManager;
-import com.facebook.presto.metadata.ColumnPropertyManager;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
-import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorId;
-import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.TableHandle;
-import com.facebook.presto.spi.TableMetadata;
 import com.facebook.presto.spi.TestingColumnHandle;
 import com.facebook.presto.spi.WarningCollector;
-import com.facebook.presto.spi.connector.ConnectorCapabilities;
-import com.facebook.presto.spi.connector.ConnectorContext;
-import com.facebook.presto.spi.security.AccessControl;
-import com.facebook.presto.sql.tree.Identifier;
+import com.facebook.presto.spi.analyzer.MetadataResolver;
+import com.facebook.presto.spi.analyzer.ViewDefinition;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.sql.tree.NodeLocation;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SetColumnType;
-import com.facebook.presto.testing.TestingConnectorContext;
+import com.facebook.presto.testing.TestingMetadata.TestingTableHandle;
+import com.facebook.presto.testing.TestingTransactionHandle;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
-import static com.facebook.presto.spi.StandardErrorCode.ALREADY_EXISTS;
-import static com.facebook.presto.spi.session.PropertyMetadata.stringProperty;
-import static com.facebook.presto.sql.QueryUtil.identifier;
 import static com.facebook.presto.testing.TestingSession.createBogusTestingCatalog;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.MoreCollectors.onlyElement;
-import static com.google.common.collect.Sets.immutableEnumSet;
-import static java.util.Collections.emptySet;
-import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestSetColumnTypeTask
 {
-    public static final String SCHEMA = "schema";
     private static final String CATALOG_NAME = "catalog";
+    private static final String SCHEMA = "schema";
+
     private Session testSession;
-
-    protected TransactionManager transactionManager;
-    protected MockMetadata metadata;
-    protected AccessControl accessControl;
-    protected ConnectorContext context;
-    protected WarningCollector warningCollector;
-
-    protected static QualifiedObjectName qualifiedObjectName(String objectName)
-    {
-        return new QualifiedObjectName(CATALOG_NAME, SCHEMA, objectName);
-    }
-
-    protected static QualifiedName asQualifiedName(QualifiedObjectName qualifiedObjectName)
-    {
-        return QualifiedName.of(qualifiedObjectName.getCatalogName(), qualifiedObjectName.getSchemaName(), qualifiedObjectName.getObjectName());
-    }
+    private TransactionManager transactionManager;
+    private MockMetadata metadata;
 
     @BeforeMethod
     public void setUp()
     {
         CatalogManager catalogManager = new CatalogManager();
-        FunctionAndTypeManager functionAndTypeManager = createTestFunctionAndTypeManager();
+        catalogManager.registerCatalog(createBogusTestingCatalog(CATALOG_NAME));
         transactionManager = createTestTransactionManager(catalogManager);
-        TablePropertyManager tablePropertyManager = new TablePropertyManager();
-        ColumnPropertyManager columnPropertyManager = new ColumnPropertyManager();
-        Catalog testCatalog = createBogusTestingCatalog(CATALOG_NAME);
-        catalogManager.registerCatalog(testCatalog);
-        tablePropertyManager.addProperties(testCatalog.getConnectorId(),
-                ImmutableList.of(stringProperty("baz", "test property", null, false)));
-        columnPropertyManager.addProperties(testCatalog.getConnectorId(), ImmutableList.of());
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
-        context = new TestingConnectorContext();
-        metadata = new MockMetadata(
-            functionAndTypeManager,
-            tablePropertyManager,
-            columnPropertyManager,
-            testCatalog.getConnectorId(),
-            emptySet(), testCatalog);
+        ConnectorId connectorId = catalogManager.getCatalog(CATALOG_NAME).get().getConnectorId();
+        metadata = new MockMetadata(createTestFunctionAndTypeManager(), connectorId);
     }
 
     @Test
     public void testSetDataTypeNotExistingTable()
     {
-        QualifiedObjectName tableName = qualifiedObjectName("not_existing_table");
-
-        assertThatThrownBy(() -> getFutureValue(executeSetColumnType(asQualifiedName(tableName), identifier("test"), "INTEGER", false)));
+        assertThatThrownBy(() -> getFutureValue(executeSetColumnType(
+                QualifiedName.of(CATALOG_NAME, SCHEMA, "not_existing_table"),
+                QualifiedName.of("test"),
+                "INTEGER",
+                false)));
     }
 
     @Test
     public void testSetDataTypeNotExistingTableIfExists()
     {
-        QualifiedObjectName tableName = qualifiedObjectName("not_existing_table");
-
-        getFutureValue(executeSetColumnType(asQualifiedName(tableName), identifier("test"), "INTEGER", true));
+        getFutureValue(executeSetColumnType(
+                QualifiedName.of(CATALOG_NAME, SCHEMA, "not_existing_table"),
+                QualifiedName.of("test"),
+                "INTEGER",
+                true));
         // no exception
+    }
+
+    @Test
+    public void testSetDataTypeNestedColumn()
+    {
+        getFutureValue(executeSetColumnType(
+                QualifiedName.of(CATALOG_NAME, SCHEMA, "existing_table"),
+                QualifiedName.of("info", "age"),
+                "BIGINT",
+                false));
+        assertThat(metadata.getFieldPath()).containsExactly("age");
+        assertThat(metadata.getFieldColumn()).isEqualTo("info");
+    }
+
+    @Test
+    public void testSetDataTypeTopLevelColumn()
+    {
+        getFutureValue(executeSetColumnType(
+                QualifiedName.of(CATALOG_NAME, SCHEMA, "existing_table"),
+                QualifiedName.of("info"),
+                "BIGINT",
+                false));
+        assertThat(metadata.getFieldPath()).isNull();
+        assertThat(metadata.isColumnTypeSet()).isTrue();
     }
 
     @Test
     public void testSetDataTypeNotExistingColumn()
     {
-        QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        assertThatThrownBy(() -> getFutureValue(executeSetColumnType(asQualifiedName(tableName), identifier("not_existing_column"), "INTEGER", false)));
+        assertThatThrownBy(() -> getFutureValue(executeSetColumnType(
+                QualifiedName.of(CATALOG_NAME, SCHEMA, "existing_table"),
+                QualifiedName.of("not_existing_column"),
+                "INTEGER",
+                false)));
     }
 
-    private ListenableFuture<Void> executeSetColumnType(QualifiedName table, Identifier column, String type, boolean exists)
+    private ListenableFuture<Void> executeSetColumnType(QualifiedName table, QualifiedName column, String type, boolean exists)
     {
         return new SetColumnTypeTask(metadata)
-                .execute(new SetColumnType(new NodeLocation(1, 1), table, column, type, exists), transactionManager, metadata, accessControl, testSession, ImmutableList.of(), warningCollector, null);
+                .execute(new SetColumnType(new NodeLocation(1, 1), table, column, type, exists),
+                        transactionManager, metadata, new AllowAllAccessControl(),
+                        testSession, ImmutableList.of(), (WarningCollector) null, null);
     }
 
-    private static class MockMetadata
+    private static final class MockMetadata
             extends AbstractMockMetadata
     {
         private final FunctionAndTypeManager functionAndTypeManager;
-        private final TablePropertyManager tablePropertyManager;
-        private final ColumnPropertyManager columnPropertyManager;
-        private final ConnectorId catalogHandle;
-        private final Map<SchemaTableName, ConnectorTableMetadata> tables = new ConcurrentHashMap<>();
-        private final Set<ConnectorCapabilities> connectorCapabilities;
-        private final Catalog catalog;
-        public MockMetadata(
-                FunctionAndTypeManager functionAndTypeManager,
-                TablePropertyManager tablePropertyManager,
-                ColumnPropertyManager columnPropertyManager,
-                ConnectorId catalogHandle,
-                Set<ConnectorCapabilities> connectorCapabilities, Catalog testCatalog)
+        private final TableHandle tableHandle;
+
+        private List<String> fieldPath;
+        private String fieldColumn;
+        private boolean columnTypeSet;
+
+        MockMetadata(FunctionAndTypeManager functionAndTypeManager, ConnectorId connectorId)
         {
-            this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionAndTypeManager is null");
-            this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
-            this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
-            this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
-            this.catalog = testCatalog;
-            this.connectorCapabilities = requireNonNull(immutableEnumSet(connectorCapabilities), "connectorCapabilities is null");
+            this.functionAndTypeManager = functionAndTypeManager;
+            this.tableHandle = new TableHandle(connectorId, new TestingTableHandle(), TestingTransactionHandle.create(), Optional.empty());
         }
 
         @Override
-        public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle columnHandle, Type type)
+        public MetadataResolver getMetadataResolver(Session session)
         {
-            SchemaTableName tableName = getTableName(tableHandle);
-            ConnectorTableMetadata metadata = tables.get(tableName);
-
-            ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builderWithExpectedSize(metadata.getColumns().size());
-            for (ColumnMetadata column : metadata.getColumns()) {
-                if (column.getName().equals(((TestingColumnHandle) columnHandle).getName())) {
-                    columns.add(ColumnMetadata.builder().setName(column.getName()).setType(type).build());
+            MetadataResolver base = super.getMetadataResolver(session);
+            return new MetadataResolver()
+            {
+                @Override
+                public boolean catalogExists(String catalogName)
+                {
+                    return base.catalogExists(catalogName);
                 }
-                else {
-                    columns.add(column);
+
+                @Override
+                public boolean schemaExists(CatalogSchemaName schemaName)
+                {
+                    return base.schemaExists(schemaName);
                 }
-            }
-            tables.put(tableName, new ConnectorTableMetadata(tableName, columns.build()));
-        }
 
-        @Override
-        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
-        {
-            tables.put(tableMetadata.getTable(), tableMetadata);
-            if (!ignoreExisting) {
-                throw new PrestoException(ALREADY_EXISTS, "Table already exists");
-            }
-        }
+                @Override
+                public Optional<TableHandle> getTableHandle(QualifiedObjectName tableName)
+                {
+                    return tableName.getObjectName().equals("existing_table") ? Optional.of(tableHandle) : Optional.empty();
+                }
 
-        @Override
-        public TablePropertyManager getTablePropertyManager()
-        {
-            return tablePropertyManager;
-        }
+                @Override
+                public List<ColumnMetadata> getColumns(TableHandle t)
+                {
+                    return base.getColumns(t);
+                }
 
-        @Override
-        public ColumnPropertyManager getColumnPropertyManager()
-        {
-            return columnPropertyManager;
-        }
+                @Override
+                public Map<String, ColumnHandle> getColumnHandles(TableHandle t)
+                {
+                    return base.getColumnHandles(t);
+                }
 
-        @Override
-        public TableMetadata getTableMetadata(Session session, TableHandle tableHandle)
-        {
-            return new TableMetadata(catalog.getConnectorId(), getTableMetadata(tableHandle));
-        }
+                @Override
+                public Optional<ViewDefinition> getView(QualifiedObjectName v)
+                {
+                    return base.getView(v);
+                }
 
-        private ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
-        {
-            return tables.get(((InformationSchemaTableHandle) tableHandle.getConnectorHandle()).getSchemaTableName());
-        }
-        private SchemaTableName getTableName(TableHandle tableHandle)
-        {
-            return ((InformationSchemaTableHandle) tableHandle.getConnectorHandle()).getSchemaTableName();
+                @Override
+                public Optional<MaterializedViewDefinition> getMaterializedView(QualifiedObjectName v)
+                {
+                    return base.getMaterializedView(v);
+                }
+            };
         }
 
         @Override
         public Map<String, ColumnHandle> getColumnHandles(Session session, TableHandle tableHandle)
         {
-            return getTableMetadata(tableHandle).getColumns().stream()
-                    .collect(toImmutableMap(
-                        ColumnMetadata::getName,
-                        column -> new TestingColumnHandle(column.getName())));
-        }
-
-        @Override
-        public ColumnMetadata getColumnMetadata(Session session, TableHandle tableHandle, ColumnHandle columnHandle)
-        {
-            String columnName = ((TestingColumnHandle) columnHandle).getName();
-            return getTableMetadata(tableHandle).getColumns().stream()
-                    .filter(column -> column.getName().equals(columnName))
-                    .collect(onlyElement());
+            return ImmutableMap.of("info", new TestingColumnHandle("info"));
         }
 
         @Override
@@ -250,18 +220,31 @@ public class TestSetColumnTypeTask
         }
 
         @Override
-        public Optional<ConnectorId> getCatalogHandle(Session session, String catalogName)
+        public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle columnHandle, Type type)
         {
-            if (catalogHandle.getCatalogName().equals(catalogName)) {
-                return Optional.of(catalogHandle);
-            }
-            return Optional.empty();
+            this.columnTypeSet = true;
         }
 
         @Override
-        public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, ConnectorId catalogName)
+        public void setFieldType(Session session, TableHandle tableHandle, ColumnHandle columnHandle, List<String> fieldPath, Type type)
         {
-            return connectorCapabilities;
+            this.fieldPath = fieldPath;
+            this.fieldColumn = ((TestingColumnHandle) columnHandle).getName();
+        }
+
+        List<String> getFieldPath()
+        {
+            return fieldPath;
+        }
+
+        String getFieldColumn()
+        {
+            return fieldColumn;
+        }
+
+        boolean isColumnTypeSet()
+        {
+            return columnTypeSet;
         }
     }
 }

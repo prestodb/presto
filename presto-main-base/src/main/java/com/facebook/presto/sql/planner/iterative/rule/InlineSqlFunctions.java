@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.SystemSessionProperties.isInlineSqlFunctions;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionRowExpression;
 import static java.util.Objects.requireNonNull;
 
@@ -107,6 +108,7 @@ public class InlineSqlFunctions
                         metadata.getFunctionAndTypeManager(),
                         session.getSqlFunctionProperties(),
                         session.getSessionFunctions(),
+                        isNativeExecutionEnabled(session),
                         rewrittenArguments);
             }
         }

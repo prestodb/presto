@@ -6,7 +6,10 @@ This connector allows the use of MongoDB collections as tables in Presto.
 
 .. note::
 
-    This connector uses MongoDB Java Sync Driver version 5.6.5, for which MongoDB 4.2 or above is recommended. Supported MongoDB server versions should follow the driver compatibility matrix in the MongoDB documentation:
+    This connector uses MongoDB Java Sync Driver version 5.12.0. For the MongoDB
+    server versions supported by that driver, see the driver compatibility matrix
+    in the MongoDB documentation:
+
     https://www.mongodb.com/docs/drivers/compatibility/?driver-language=java&java-driver-framework=java-sync#mongodb-server-compatibility-5
 
 Configuration

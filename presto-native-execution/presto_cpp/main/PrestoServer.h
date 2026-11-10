@@ -14,6 +14,8 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
+#include <optional>
 
 #include <folly/SocketAddress.h>
 #include <folly/Synchronized.h>
@@ -347,8 +349,9 @@ class PrestoServer {
   // Current worker overloaded status. It can still be true when memory and CPU
   // overloaded flags are not due to cooldown period.
   bool serverOverloaded_{false};
-  // Last time point (in seconds) when the worker was overloaded.
-  uint64_t lastOverloadedTimeInSecs_{0};
+  // Steady clock time when the worker was last overloaded. Not set if it never
+  // was.
+  std::optional<std::chrono::steady_clock::time_point> lastOverloadedTime_;
 
   // We update these members asynchronously and return in http requests w/o
   // delay.

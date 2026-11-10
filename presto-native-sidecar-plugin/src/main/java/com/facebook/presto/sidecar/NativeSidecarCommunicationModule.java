@@ -27,6 +27,7 @@ import javax.management.MBeanServer;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.http.client.HttpClientBinder.httpClientBinder;
 import static com.facebook.presto.server.CommonInternalCommunicationModule.bindInternalAuth;
 import static java.lang.management.ManagementFactory.getPlatformMBeanServer;
@@ -48,6 +49,7 @@ public class NativeSidecarCommunicationModule
     {
         bindInternalAuth(binder, authClientConfigs);
         httpClientBinder(binder).bindHttpClient("sidecar", ForSidecarInfo.class);
+        configBinder(binder).bindConfig(SidecarRetryConfig.class, SidecarRetryConfig.CONFIG_PREFIX);
     }
 
     public static void installMBeanModule(Binder binder)

@@ -34,6 +34,18 @@ resource contention.
 
 Native Execution only. Use legacy TIME and TIMESTAMP semantics.
 
+``legacy_timestamp_with_timezone``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+When ``true``, ``TIMESTAMP WITH TIME ZONE`` values render in each value's embedded
+time zone. When ``false``, they render the UTC instant in the session time zone, so
+values that compare equal render identically. For a ``TIMESTAMP WITH TIME ZONE``
+input, ``AT TIME ZONE`` returns a zoned timestamp when this property is ``true``
+and a ``TIMESTAMP`` containing the requested-zone wall clock when it is ``false``.
+
 ``native_aggregation_spill_memory_threshold``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -64,6 +76,24 @@ Native Execution only. The maximum partial aggregation memory when data reductio
 When good data reduction is achieved through partial aggregation, more memory would be given even
 when we reach the limit of ``native_max_partial_aggregation_memory``.
 Default is 64MB.
+
+``native_abandon_partial_aggregation_min_rows``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``100000``
+
+Native Execution only. Number of input rows to receive before starting to check whether to abandon
+partial aggregation.
+
+``native_abandon_partial_aggregation_min_pct``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Default value:** ``80``
+
+Native Execution only. Abandons partial aggregation if the number of groups equals or exceeds this
+percentage of the number of input rows.
 
 
 ``native_debug_validate_output_from_operators``
@@ -580,11 +610,12 @@ dynamic adjustment is disabled and the batch size is fixed at ``preferred_output
 * **Type:** ``boolean``
 * **Default value:** ``true``
 
-Native Execution only. Enable the adaptive per-tier RPC rate limiter (AIMD on the backend
-rate-limit/timeout overload signal). When enabled, the rate limiter automatically adjusts the
-per-tier max-pending cap based on backend overload signals, using additive increase and
-multiplicative decrease. On by default (protective for shared, rate-limited inference backends);
-set to false to keep a static cap defined by ``native_rpc_ratelimiter_max_limit``.
+Native Execution only. Enable the adaptive per-tier RPC rate limiter. When enabled, the limiter
+uses multiplicative decrease on backend rate-limit/timeout overload signals, doubles a fractional
+window during healthy recovery until it reaches one, and then uses additive increase. Set to
+``true`` by default (protective for shared, rate-limited inference backends); set to ``false`` to
+keep a static cap at the resolved hard ceiling: the smaller positive function/session bound, or
+200 when neither is set.
 
 ``native_rpc_ratelimiter_min_limit``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -592,10 +623,10 @@ set to false to keep a static cap defined by ``native_rpc_ratelimiter_max_limit`
 * **Type:** ``bigint``
 * **Default value:** ``50``
 
-Native Execution only. Floor for the adaptive RPC rate limiter's per-tier max-pending cap.
-The adaptive limiter will not shrink the per-tier cap below this value, even under sustained
-overload. Default is 50. A floor of 1 can stall under sustained throttling. Only used when
-``native_rpc_ratelimiter_adaptive_enabled`` is true.
+Native Execution only. Integral override for the adaptive RPC congestion-window floor. Positive
+values preserve the legacy in-flight floor. Zero delegates to the function's backend policy,
+which may choose a fractional floor and pace discrete admissions using a smoothed successful
+completion duration. Only used when ``native_rpc_ratelimiter_adaptive_enabled`` is true.
 
 ``native_rpc_ratelimiter_decrease_factor``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -604,9 +635,9 @@ overload. Default is 50. A floor of 1 can stall under sustained throttling. Only
 * **Default value:** ``0.5``
 
 Native Execution only. Multiplicative-decrease factor applied to the adaptive RPC rate limiter's
-per-tier max-pending cap on each overload-classified drain. For example, with the default 0.5,
-the cap is halved on each overload. Only used when ``native_rpc_ratelimiter_adaptive_enabled``
-is true.
+per-tier window. Canonical typed overload completions from the same admitted epoch are coalesced;
+function-specific aggregate overload verdicts apply at driver consumption. For example, the
+default 0.5 halves the window. Only used when ``native_rpc_ratelimiter_adaptive_enabled`` is true.
 
 ``native_rpc_ratelimiter_max_limit``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -614,12 +645,27 @@ is true.
 * **Type:** ``bigint``
 * **Default value:** ``200``
 
-Native Execution only. Ceiling for the per-tier RPC rate-limiter max-pending cap. The adaptive
-limiter grows the per-tier cap up to this value under normal conditions and shrinks from here
-under overload. Default is 200, validated for LLM-inference backends. Set to 0 to fall back to
-the built-in default of 20. Admission-controlled dispatch makes this cap bind; the adaptive
-limiter shrinks from here under overload. Only used when ``native_rpc_ratelimiter_adaptive_enabled``
-is true. Set the adaptive limiter to false to keep a static cap at this value.
+Native Execution only. Legacy session ceiling for the per-tier RPC rate limiter. Zero defers to
+the function ceiling or the built-in legacy limit; a positive value overrides the function
+ceiling. This property remains unchanged for coordinator/worker compatibility and is superseded by
+``native_rpc_ratelimiter_hard_limit`` when that property is non-negative.
+
+``native_rpc_ratelimiter_hard_limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Default value:** ``-1``
+
+Native Execution only. Versioned session hard ceiling for the per-tier RPC rate limiter. Minus one
+preserves ``native_rpc_ratelimiter_max_limit`` semantics during a mixed-version rollout. Zero adds
+no session ceiling; a positive value is combined with a positive function ceiling using the
+smaller value. With no positive ceiling, adaptive mode starts at 200 with a 1,000,000 safety
+ceiling and fixed mode uses 200. Deploy workers that understand this property before setting it to
+zero or a positive value.
+
+The first query to use an admission key fixes these settings for that worker process. Changing a
+session property does not reconfigure an existing key; canaries and rollbacks require isolated or
+restarted workers whose first request carries the intended settings.
 
 ``native_rpc_congestion_max_window``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -631,6 +677,34 @@ Native Execution only. Ceiling for the per-driver RPC congestion window. When se
 the per-mode built-in values are used: PER_ROW mode defaults to 100, BATCH mode defaults to 256.
 Raise this value for high-latency backends so admission-controlled dispatch can run at high
 concurrency. The congestion window controls how many RPC requests can be in flight per driver.
+
+``native_rpc_congestion_batch_start_window``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Restrictions:** must be non-negative
+* **Default value:** ``0``
+
+Native Execution only. Initial per-driver BATCH RPC congestion window. Zero preserves the default
+of 2. A positive value is clamped between 1 and ``native_rpc_congestion_max_window``. PER_ROW always
+starts at its ceiling and is unaffected by this property.
+
+``native_rpc_congestion_async_growth_max_window``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``bigint``
+* **Restrictions:** must be non-negative
+* **Default value:** ``0``
+
+Native Execution only. Cap for per-driver BATCH window growth on clean completions that carry no
+usable latency sample. Zero disables this growth. Overload may still shrink the window, and clean
+completions without usable latency samples do not grow it back toward the start.
+
+A positive value enables additive growth up to the cap. A positive value below the effective BATCH
+start window is raised to that start. ``native_rpc_congestion_max_window`` remains the overall
+ceiling (256 for BATCH when zero). Set ``native_rpc_congestion_batch_start_window`` and this property
+together when raising the start for backends without usable latency samples. Size both at or below
+the backend's measured concurrency knee.
 
 ``native_request_data_sizes_max_wait_sec``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -739,6 +813,18 @@ Native Execution only. If true, enables lightweight memory compaction before
 spilling during memory reclaim in aggregation. When enabled, the aggregation
 operator will try to compact aggregate function state (for example, free dead strings)
 before resorting to spilling.
+
+``native_broadcast_file_descriptor_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Native Execution only. If true, the storage broadcast writer serializes a file
+descriptor alongside each broadcast file so readers can open it without a
+per-reader metadata lookup. Set this to false to fall back to opening by path.
+This only has an effect on file systems that supply a descriptor; on the others
+the writer emits none and readers open by path regardless.
 
 ``optimizer.optimize_top_n_rank``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

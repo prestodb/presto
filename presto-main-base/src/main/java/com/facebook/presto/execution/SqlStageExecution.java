@@ -168,7 +168,12 @@ public final class SqlStageExecution
 
         SqlStageExecution sqlStageExecution = new SqlStageExecution(
                 session,
-                new StageExecutionStateMachine(stageExecutionId, executor, schedulerStats, !fragment.getTableScanSchedulingOrder().isEmpty()),
+                new StageExecutionStateMachine(
+                        stageExecutionId,
+                        executor,
+                        schedulerStats,
+                        !fragment.getTableScanSchedulingOrder().isEmpty(),
+                        session.getRuntimeStats().getQueryTracer()),
                 fragment,
                 remoteTaskFactory,
                 nodeTaskMap,
@@ -569,20 +574,20 @@ public final class SqlStageExecution
         stateMachine.recordGetSplitTime(start);
     }
 
-    public void recordSchedulerRunningTime(long cpuTimeNanos, long wallTimeNanos)
+    public void recordSchedulerRunningTime(long cpuTimeNanos, long startWallTimeNanos, long endWallTimeNanos)
     {
         if (planFragment.isLeaf()) {
-            stateMachine.recordLeafStageSchedulerRunningTime(cpuTimeNanos, wallTimeNanos);
+            stateMachine.recordLeafStageSchedulerRunningTime(cpuTimeNanos, startWallTimeNanos, endWallTimeNanos);
         }
-        stateMachine.recordSchedulerRunningTime(cpuTimeNanos, wallTimeNanos);
+        stateMachine.recordSchedulerRunningTime(cpuTimeNanos, startWallTimeNanos, endWallTimeNanos);
     }
 
-    public void recordSchedulerBlockedTime(ScheduleResult.BlockedReason reason, long nanos)
+    public void recordSchedulerBlockedTime(ScheduleResult.BlockedReason reason, long startTimeNanos, long endTimeNanos)
     {
         if (planFragment.isLeaf()) {
-            stateMachine.recordLeafStageSchedulerBlockedTime(reason, nanos);
+            stateMachine.recordLeafStageSchedulerBlockedTime(reason, startTimeNanos, endTimeNanos);
         }
-        stateMachine.recordSchedulerBlockedTime(reason, nanos);
+        stateMachine.recordSchedulerBlockedTime(reason, startTimeNanos, endTimeNanos);
     }
 
     private static Split createRemoteSplitFor(TaskId taskId, URI remoteSourceTaskLocation, TaskId remoteSourceTaskId)
