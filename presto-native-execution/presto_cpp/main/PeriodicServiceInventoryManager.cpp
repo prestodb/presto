@@ -13,6 +13,7 @@
  */
 #include "presto_cpp/main/PeriodicServiceInventoryManager.h"
 #include <folly/futures/Retrying.h>
+#include <proxygen/lib/http/HTTPMessage.h>
 #include <velox/common/memory/Memory.h>
 #include "presto_cpp/main/common/Configs.h"
 
@@ -111,6 +112,14 @@ void PeriodicServiceInventoryManager::sendRequest() {
   }
 
   auto [request, body] = httpRequest();
+
+  // Set Host explicitly from the coordinator's DNS hostname so that Jetty's
+  // http-server.https.sni-host-check passes. ensureHostHeader() in HttpClient
+  // derives Host from the resolved IP in serviceAddress_, which fails SNI.
+  auto coordinatorHostHeader = coordinatorDiscoverer_->getHostHeader();
+  if (!coordinatorHostHeader.empty()) {
+    request.getHeaders().set(proxygen::HTTP_HEADER_HOST, coordinatorHostHeader);
+  }
 
   client_->sendRequest(request, body)
       .via(eventBaseThread_.getEventBase())
