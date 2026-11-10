@@ -89,11 +89,12 @@ public class AggregationStatsRule
                     statsProvider.getStats(node.getSource()),
                     node.getGroupingKeys(),
                     node.getAggregations());
-            // Walk back from the aggregation through nodes that keep the following invariant: they may drop or repeat rows but
-            // cannot add values of the grouping keys. If the walk reaches an AssignUniqueId whose id is a grouping key (as in
-            // decorrelated subqueries), each of its rows has its own grouping value, so the aggregation returns at most as many
-            // rows as the AssignUniqueId has. That count is read from its source, which has the same count and is a memo reference
-            // whose statistics stay current during optimization, while those cached for the node the search returns may not
+            // Walk back from the aggregation through nodes that keep the following invariant: each row they output carries the
+            // grouping-key tuple of one row of their input (for a join, of one side), so they may drop or repeat tuples but cannot
+            // add any. If the walk reaches an AssignUniqueId whose id is a grouping key (as in decorrelated subqueries), each of its
+            // rows has its own tuple, so the aggregation returns at most as many rows as the AssignUniqueId has. That count is read
+            // from its source, which has the same count and is a memo reference whose statistics stay current during optimization,
+            // while those cached for the node the search returns may not
             double maxGroups = findSourceWithOneRowPerGroup(node.getSource(), ImmutableSet.copyOf(node.getGroupingKeys()), lookup)
                     .map(assignUniqueId -> statsProvider.getStats(assignUniqueId.getSource()).getOutputRowCount())
                     .orElse(NaN);
