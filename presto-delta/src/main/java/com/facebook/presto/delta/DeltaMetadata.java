@@ -57,8 +57,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.PARTITION;
-import static com.facebook.presto.delta.DeltaColumnHandle.ColumnType.REGULAR;
 import static com.facebook.presto.delta.DeltaExpressionUtils.splitPredicate;
 import static com.facebook.presto.delta.DeltaTableProperties.EXTERNAL_LOCATION_PROPERTY;
 import static com.facebook.presto.delta.DeltaTableProperties.getTableStorageFormat;
@@ -321,7 +319,7 @@ public class DeltaMetadata
                             column.getPhysicalName(),
                             column.getLogicalName(),
                             column.getType(),
-                            column.isPartition() ? PARTITION : REGULAR,
+                            DeltaColumnMetadataUtil.getColumnTypeFromDeltaColumn(column),
                             Optional.empty()));
         }
         return columnHandles.build();
@@ -357,9 +355,20 @@ public class DeltaMetadata
             properties.put(DeltaTableProperties.EXTERNAL_LOCATION_PROPERTY, deltaTable.getTableLocation());
         }
 
-        List<ColumnMetadata> columnMetadata = deltaTable.getColumns().stream()
+        List<DeltaColumn> columns = deltaTable.getColumns();
+        List<ColumnMetadata> columnMetadata = columns.stream()
                 .map(column -> getColumnMetadata(session, column))
                 .collect(Collectors.toList());
+
+        // Obtain both partitioned by and clustered by columns to show them as table properties
+        List<String> partitionedBy = columns.stream().filter(DeltaColumn::isPartition).map(DeltaColumn::getLogicalName).toList();
+        if (!partitionedBy.isEmpty()) {
+            properties.put(DeltaTableProperties.PARTITIONED_BY_PROPERTY, partitionedBy);
+        }
+        List<String> clusteredBy = columns.stream().filter(DeltaColumn::isClusterColumn).map(DeltaColumn::getLogicalName).toList();
+        if (!clusteredBy.isEmpty()) {
+            properties.put(DeltaTableProperties.CLUSTERED_BY_PROPERTY, clusteredBy);
+        }
 
         return new ConnectorTableMetadata(tableName, columnMetadata, properties);
     }

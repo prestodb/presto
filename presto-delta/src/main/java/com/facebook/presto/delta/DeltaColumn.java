@@ -31,6 +31,7 @@ public final class DeltaColumn
     private final TypeSignature type;
     private final boolean nullable;
     private final boolean partition;
+    private final boolean clusterColumn;
 
     @JsonCreator
     public DeltaColumn(
@@ -39,7 +40,8 @@ public final class DeltaColumn
             @JsonProperty("logicalName") String logicalName,
             @JsonProperty("type") TypeSignature type,
             @JsonProperty("nullable") boolean nullable,
-            @JsonProperty("partition") boolean partition)
+            @JsonProperty("partition") boolean partition,
+            @JsonProperty("clusterColumn") boolean clusterColumn)
     {
         checkArgument(!isNullOrEmpty(logicalName), "name is null or is empty");
         this.id = id;
@@ -48,6 +50,7 @@ public final class DeltaColumn
         this.type = requireNonNull(type, "type is null");
         this.nullable = nullable;
         this.partition = partition;
+        this.clusterColumn = clusterColumn;
     }
 
     @JsonProperty
@@ -84,6 +87,12 @@ public final class DeltaColumn
     public boolean isPartition()
     {
         return partition;
+    }
+
+    @JsonProperty
+    public boolean isClusterColumn()
+    {
+        return this.clusterColumn;
     }
 
     @Override
