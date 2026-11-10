@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
@@ -210,7 +211,8 @@ public class TestDriverSidecarFunctionRegistryTool
                     java.util.concurrent.Executors.newSingleThreadScheduledExecutor(),
                     JsonCodec.jsonCodec(com.facebook.presto.client.ServerInfo.class),
                     new MetadataSidecarConfig().setExecutablePath("/bin/echo"),
-                    java.util.Optional::empty);
+                    java.util.Optional::empty,
+                    new FunctionsConfig());
             this.uri = uri;
         }
 

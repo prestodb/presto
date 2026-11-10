@@ -13,29 +13,16 @@
  */
 #include "presto_cpp/main/functions/ScalarFunctionRegistration.h"
 
-#include "velox/functions/Registerer.h"
-#include "velox/functions/prestosql/DateTimeCalendarFunctions.h"
+#include <string>
+
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 
 namespace facebook::presto::functions {
-
-void registerPrestoScalarFunctions(const std::string& prefix) {
-  // The coordinator calls `at_timezone` whenever the AT TIME ZONE result type
-  // is not TIMESTAMP, so keep the overloads that return TIMESTAMP WITH TIME
-  // ZONE.
+void registerPrestoScalarFunctions(
+    const std::string& prefix,
+    const bool ignoreTimeZoneLabel) {
   velox::functions::prestosql::registerAllScalarFunctions(
-      prefix, /*defaultOwner=*/{}, /*ignoreTimeZoneLabel=*/false);
-
-  // With legacy_timestamp_with_timezone=false, the coordinator types AT TIME
-  // ZONE on a TIMESTAMP WITH TIME ZONE value as TIMESTAMP and calls
-  // `at_timezone_convert`. Velox fixes the `at_timezone` result type at
-  // registration, while the session property can differ per query, so register
-  // the TIMESTAMP-returning overload under the separate name.
-  velox::registerFunction<
-      velox::functions::AtTimezoneToTimestampFunction,
-      velox::Timestamp,
-      velox::TimestampWithTimezone,
-      velox::Varchar>({prefix + "at_timezone_convert"}, {}, true);
+      prefix, /*defaultOwner=*/{}, ignoreTimeZoneLabel);
 }
 
 } // namespace facebook::presto::functions

@@ -70,9 +70,11 @@ import com.facebook.presto.index.IndexManager;
 import com.facebook.presto.memory.MemoryManagerConfig;
 import com.facebook.presto.memory.NodeMemoryConfig;
 import com.facebook.presto.metadata.AnalyzePropertyManager;
+import com.facebook.presto.metadata.AtTimeZoneExecutionPolicy;
 import com.facebook.presto.metadata.BuiltInProcedureRegistry;
 import com.facebook.presto.metadata.CatalogManager;
 import com.facebook.presto.metadata.ColumnPropertyManager;
+import com.facebook.presto.metadata.DefaultAtTimeZoneExecutionPolicy;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleJsonModule;
 import com.facebook.presto.metadata.InternalNodeManager;
@@ -488,6 +490,7 @@ public class PrestoSparkModule
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, AtTimeZoneExecutionPolicy.class).setDefault().to(DefaultAtTimeZoneExecutionPolicy.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, RpcExecutionPolicy.class).setDefault().to(DefaultRpcExecutionPolicy.class).in(Scopes.SINGLETON);
         binder.bind(AdaptivePlanOptimizers.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPlanOptimizerManager.class).in(Scopes.SINGLETON);

@@ -64,6 +64,7 @@ public class MetadataSidecarProcess
     private final String storageOncallName;
     private final String storageUserName;
     private final String storageServiceName;
+    private final boolean legacyTimestampWithTimezone;
 
     // Captured during populateConfigurationFiles so close() can clean up the etc tree the
     // sidecar process wrote at startup. Volatile because start() runs on the caller's
@@ -80,7 +81,8 @@ public class MetadataSidecarProcess
             Duration maxErrorDuration,
             String storageOncallName,
             String storageUserName,
-            String storageServiceName)
+            String storageServiceName,
+            boolean legacyTimestampWithTimezone)
     {
         super(executablePath,
                 programArguments,
@@ -94,6 +96,7 @@ public class MetadataSidecarProcess
         this.storageOncallName = storageOncallName;
         this.storageUserName = storageUserName;
         this.storageServiceName = storageServiceName;
+        this.legacyTimestampWithTimezone = legacyTimestampWithTimezone;
     }
 
     @Override
@@ -149,6 +152,7 @@ public class MetadataSidecarProcess
                 "http-server.report-bound-port-to-file=true",
                 "shutdown-onset-sec=1",
                 "native-sidecar=true",
+                "legacy-timestamp-with-timezone=" + legacyTimestampWithTimezone,
                 "storage_oncall_name=" + storageOncallName,
                 "storage_user_name=" + storageUserName,
                 "storage_service_name=" + storageServiceName,
