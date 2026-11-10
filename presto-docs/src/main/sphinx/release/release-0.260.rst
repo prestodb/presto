@@ -6,7 +6,7 @@ Release 0.260
    There is a concurrency issue in the metric tracking framework in this release which could cause query failures when Alluxio caching is enabled.
 
 .. warning::
-   ``optimizer.aggregation-if-to-filter-rewrite-enabled`` is enabled by default in this release which could cause query failures when the ``IF`` branch returns exceptions for rows not meeting the ``IF`` condition, e.g, ``SUM(IF(CARDINALITY(array) > 0, array[1]))``.
+   ``optimizer.aggregation-if-to-filter-rewrite-enabled`` is enabled by default in this release which could cause query failures when the ``IF`` branch returns exceptions for rows not meeting the ``IF`` condition. For example, ``SUM(IF(CARDINALITY(array) > 0, array[1]))``.
 
 **Details**
 ===========
