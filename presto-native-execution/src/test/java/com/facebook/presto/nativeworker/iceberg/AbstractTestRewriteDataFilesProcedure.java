@@ -539,6 +539,31 @@ public abstract class AbstractTestRewriteDataFilesProcedure
         }
     }
 
+    /**
+     * A top-level UNKNOWN column is stripped from the file schema, so the rewritten files have
+     * no UNKNOWN column but reads still return NULL for it. The rewrite must succeed, not be
+     * rejected as it would be for an all-UNKNOWN table.
+     */
+    @Test
+    public void testRewriteDataFilesWithUnknownColumn()
+    {
+        String tableName = "rewrite_unknown_column_table";
+        String schemaName = getSession().getSchema().get();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, marker UNKNOWN) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, NULL)", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, NULL)", 1);
+            assertUpdate(format(
+                    "CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['rewrite-all'], array['true']))",
+                    schemaName, tableName), 2);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL), (2, NULL)");
+            assertQuery("SELECT count(marker) FROM " + tableName, "VALUES 0");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     private void createPartitionedTableWithInitialDataAndValidate(String tableName)
     {
         assertUpdate("CREATE TABLE " + tableName + " (c1 integer, c2 varchar) with (partitioning = ARRAY['c2'])");

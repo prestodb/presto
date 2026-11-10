@@ -1970,6 +1970,30 @@ public class TestRewriteDataFilesProcedure
         }
     }
 
+    /**
+     * A top-level UNKNOWN column is stripped from the file schema, so the rewritten files have
+     * no UNKNOWN column but reads still return NULL for it. The rewrite must succeed, not be
+     * rejected as it would be for an all-UNKNOWN table.
+     */
+    @Test
+    public void testRewriteDataFilesWithUnknownColumn()
+    {
+        String tableName = "rewrite_unknown_column_table";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, marker UNKNOWN) WITH (\"format-version\" = '3')");
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, NULL)", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, NULL)", 1);
+            assertUpdate(format(
+                    "CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['rewrite-all'], array['true']))",
+                    TEST_SCHEMA, tableName), 2);
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL), (2, NULL)");
+            assertQuery("SELECT count(marker) FROM " + tableName, "VALUES 0");
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
     private Table loadTable(String tableName)
     {
         Catalog catalog = CatalogUtil.loadCatalog(HadoopCatalog.class.getName(), ICEBERG_CATALOG, getProperties(), new Configuration());
