@@ -77,14 +77,14 @@ public class TestKafkaIntegrationSmokeTest
                         "all_datatypes_csv",
                         ImmutableList.of("f_bigint", "f_int", "f_double", "f_boolean", "f_varchar"),
                         ImmutableList.of(
-                                ImmutableList.of(100000, 1000, 100, 10, 1000.001, true, "'test'"),
-                                ImmutableList.of(123456, 1234, 123, 12, 12345.123, false, "'abcd'"))))
+                                ImmutableList.of(100000, 1000, 1000.001, true, "'test'"),
+                                ImmutableList.of(123456, 1234, 12345.123, false, "'abcd'"))))
                 .add(new RoundTripTestCase(
                         "all_datatypes_json",
-                        ImmutableList.of("f_bigint", "f_int", "f_double", "f_boolean", "f_varchar"),
+                        ImmutableList.of("f_bigint", "f_int", "f_smallint", "f_tinyint", "f_double", "f_boolean", "f_varchar"),
                         ImmutableList.of(
-                                ImmutableList.of(100000, 1000, 100, 10, 1000.001, true, "'test'"),
-                                ImmutableList.of(123748, 1234, 123, 12, 12345.123, false, "'abcd'"))))
+                                ImmutableList.of(100000, 1000, "CAST(100 AS SMALLINT)", "CAST(10 AS TINYINT)", 1000.001, true, "'test'"),
+                                ImmutableList.of(123748, 1234, "CAST(123 AS SMALLINT)", "CAST(12 AS TINYINT)", 12345.123, false, "'abcd'"))))
                 .build();
     }
 
