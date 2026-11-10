@@ -144,6 +144,30 @@ public abstract class AbstractTestNativeIcebergV3Dml
         dropTable(table);
     }
 
+    /**
+     * QueryPlanner.nullValueOfType must return a bare NullLiteral for an UNKNOWN output column —
+     * Cast(NullLiteral, "unknown") is not valid. The MERGE planner hits this code path for every
+     * target column when building the unmatched-row else clause. UNKNOWN requires format version 3,
+     * and Java rejects MERGE on V3, so this path is only reachable here on native workers.
+     */
+    @Test
+    public void testMergeOnTableWithUnknownColumn()
+    {
+        String table = "dml_merge_unknown_column";
+        // UNKNOWN requires V3; MERGE on V3 goes through the deletion-vector path on native.
+        createV3Table(table, "id integer, v varchar, marker unknown");
+        assertUpdate("INSERT INTO " + table + " VALUES (1, 'a', NULL), (2, 'b', NULL)", 2);
+        assertNativeRowLevelDml(
+                "MERGE INTO " + table + " t USING (VALUES (2, 'B'), (3, 'C')) s(id, v) ON t.id = s.id "
+                        + "WHEN MATCHED THEN UPDATE SET v = s.v "
+                        + "WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v)",
+                2,
+                table,
+                "VALUES (1, 'a', NULL), (2, 'B', NULL), (3, 'C', NULL)",
+                "VALUES (1, 'a', NULL), (2, 'b', NULL)");
+        dropTable(table);
+    }
+
     @Test
     public void testNativeMergeSourceDuplicatesFail()
     {
