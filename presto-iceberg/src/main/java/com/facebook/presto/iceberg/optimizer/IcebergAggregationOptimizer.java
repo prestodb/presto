@@ -50,6 +50,7 @@ import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotSummary;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
@@ -74,8 +75,10 @@ import static com.facebook.presto.iceberg.IcebergSessionProperties.isAggregatePu
 import static com.facebook.presto.iceberg.IcebergSessionProperties.isPushdownFilterEnabled;
 import static com.facebook.presto.iceberg.IcebergUtil.getNativeValue;
 import static com.facebook.presto.iceberg.IcebergUtil.getNonMetadataColumnConstraints;
+import static com.facebook.presto.iceberg.util.StatisticsUtil.getTotalRecords;
 import static com.facebook.presto.spi.plan.ProjectNode.Locality.LOCAL;
 import static com.google.common.base.Preconditions.checkState;
+import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergAggregationOptimizer
@@ -226,12 +229,24 @@ public class IcebergAggregationOptimizer
             if (!metricsModeSupportsAggregatePushDown(table, aggregateEvaluator.aggregates())) {
                 return node;
             }
-            TableScan scan = table.newScan().includeColumnStats();
             Snapshot snapshot = snapshotId.map(table::snapshot).orElseGet(table::currentSnapshot);
             if (snapshot == null) {
                 LOGGER.info("Skipping aggregate pushdown: table snapshot is null");
                 return node;
             }
+
+            // An unfiltered COUNT(*) is the sum of every live data file's record count, which the
+            // snapshot summary already holds as total-records, so it needs no manifest read at all.
+            // The fold below gives up on any file with row level deletes; a summary that records
+            // no delete files guarantees there are none.
+            if (filter.op() == Expression.Operation.TRUE && isCountStarOnly(node, aggregateEvaluator.aggregates())) {
+                Optional<Long> totalRecords = getTotalRecords(snapshot);
+                if (totalRecords.isPresent() && hasNoDeleteFiles(snapshot)) {
+                    return toValues(node, nCopies(node.getOutputVariables().size(), totalRecords.get()));
+                }
+            }
+
+            TableScan scan = table.newScan().includeColumnStats();
             scan = scan.useSnapshot(snapshot.snapshotId());
             scan = scan.filter(filter);
 
@@ -256,12 +271,33 @@ public class IcebergAggregationOptimizer
 
             StructLike structLike = aggregateEvaluator.result();
             List<Types.NestedField> fields = aggregateEvaluator.resultType().fields();
+            List<Object> values = new ArrayList<>();
+            for (int i = 0; i < node.getOutputVariables().size(); i++) {
+                values.add(structLike.get(i, fields.get(i).type().typeId().javaClass()));
+            }
+            return toValues(node, values);
+        }
+
+        private static boolean isCountStarOnly(AggregationNode node, List<BoundAggregate<?, ?>> aggregates)
+        {
+            return aggregates.size() == node.getOutputVariables().size() &&
+                    aggregates.stream().allMatch(aggregate -> aggregate.op() == Expression.Operation.COUNT_STAR);
+        }
+
+        private static boolean hasNoDeleteFiles(Snapshot snapshot)
+        {
+            return "0".equals(snapshot.summary().get(SnapshotSummary.TOTAL_DELETE_FILES_PROP));
+        }
+
+        /**
+         * Replaces the aggregation with a single row holding {@code values}, one per output variable.
+         */
+        private PlanNode toValues(AggregationNode node, List<Object> values)
+        {
             Assignments.Builder assignmentsBuilder = Assignments.builder();
             for (int i = 0; i < node.getOutputVariables().size(); i++) {
                 VariableReferenceExpression outputVariable = node.getOutputVariables().get(i);
-                Class<?> javaClass = fields.get(i).type().typeId().javaClass();
-                Object value = structLike.get(i, javaClass);
-                RowExpression expression = new ConstantExpression(getNativeValue(outputVariable.getType(), value), outputVariable.getType());
+                RowExpression expression = new ConstantExpression(getNativeValue(outputVariable.getType(), values.get(i)), outputVariable.getType());
                 assignmentsBuilder.put(outputVariable, expression);
             }
             Assignments assignments = assignmentsBuilder.build();

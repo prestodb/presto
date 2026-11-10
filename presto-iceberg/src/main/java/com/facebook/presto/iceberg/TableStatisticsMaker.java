@@ -198,6 +198,22 @@ public class TableStatisticsMaker
                     .build();
         }
 
+        // When nothing constrains the scan and no column statistics are wanted, the row count is the
+        // only thing the caller can use, and Iceberg already records it in the snapshot summary.
+        // This is not an approximation: the manifest walk below sums recordCount over the same data
+        // files without subtracting deletes, which is exactly what total-records holds.
+        // MetadataQueryOptimizer and queries projecting nothing take this path.
+        if (intersection.isAll() &&
+                selectedColumns.isEmpty() &&
+                tableHandle.getIcebergTableName().getTableType() != IcebergTableType.EQUALITY_DELETES) {
+            Optional<Long> totalRecords = getTotalRecords(icebergTable.snapshot(tableHandle.getIcebergTableName().getSnapshotId().get()));
+            if (totalRecords.isPresent()) {
+                return TableStatistics.builder()
+                        .setRowCount(Estimate.of(totalRecords.get()))
+                        .build();
+            }
+        }
+
         List<Types.NestedField> columns = icebergTable.schema().columns();
 
         Map<Integer, Type.PrimitiveType> idToTypeMapping = columns.stream()
