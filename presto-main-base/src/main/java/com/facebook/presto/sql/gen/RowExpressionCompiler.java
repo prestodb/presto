@@ -58,7 +58,7 @@ import static com.facebook.presto.sql.gen.BytecodeUtils.generateWrite;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateLambda;
 import static com.facebook.presto.sql.gen.LambdaBytecodeGenerator.generateMethodsForLambda;
-import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionRowExpression;
+import static com.facebook.presto.sql.relational.SqlFunctionUtils.getSqlFunctionRowExpressionForJavaExecution;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
@@ -141,7 +141,7 @@ public class RowExpressionCompiler
                     return (new FunctionCallCodeGenerator()).generateCall(call.getFunctionHandle(), generatorContext, call.getType(), call.getArguments(), context.getOutputBlockVariable());
                 case SQL:
                     SqlInvokedScalarFunctionImplementation functionImplementation = (SqlInvokedScalarFunctionImplementation) functionAndTypeManager.getScalarFunctionImplementation(call.getFunctionHandle());
-                    RowExpression function = getSqlFunctionRowExpression(
+                    RowExpression function = getSqlFunctionRowExpressionForJavaExecution(
                             functionMetadata,
                             functionImplementation,
                             metadata.getFunctionAndTypeManager(),

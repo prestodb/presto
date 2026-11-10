@@ -13,22 +13,39 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.metadata.MetadataManager;
+import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.relation.CallExpression;
+import com.facebook.presto.spi.relation.RowExpression;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
+import com.facebook.presto.sql.planner.DesugarAtTimeZoneRewriter;
+import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.CoalesceExpression;
 import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.LongLiteral;
 import com.facebook.presto.sql.tree.NodeRef;
+import com.facebook.presto.sql.tree.QualifiedName;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
+import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
+import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP_WITH_TIMEZONE;
+import static com.facebook.presto.SystemSessionProperties.NATIVE_EXECUTION_ENABLED;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.DecimalType.createDecimalType;
 import static com.facebook.presto.common.type.Decimals.encodeScaledValue;
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static com.facebook.presto.sql.relational.Expressions.constant;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 public class TestSqlToRowExpressionTranslator
 {
@@ -45,6 +62,99 @@ public class TestSqlToRowExpressionTranslator
             types.put(NodeRef.of(expression), BIGINT);
         }
         translator.translateAndOptimize(expression, types.build());
+    }
+
+    @Test
+    public void testNativeAtTimeZoneUsesCanonicalFunction()
+    {
+        for (boolean legacyTimestampWithTimezone : new boolean[] {true, false}) {
+            MetadataManager metadata = MetadataManager.createTestMetadataManager(
+                    new FunctionsConfig().setLegacyTimestampWithTimezone(legacyTimestampWithTimezone));
+            Session session = Session.builder(TEST_SESSION)
+                    .setSystemProperty(LEGACY_TIMESTAMP_WITH_TIMEZONE, String.valueOf(legacyTimestampWithTimezone))
+                    .setSystemProperty(NATIVE_EXECUTION_ENABLED, "true")
+                    .build();
+            TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(metadata, session);
+            Expression atTimeZone = expression("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'");
+
+            RowExpression translated = translator.translate(atTimeZone, TypeProvider.empty());
+            assertTrue(translated instanceof CallExpression);
+            assertEquals(((CallExpression) translated).getDisplayName(), "at_timezone");
+        }
+    }
+
+    @Test
+    public void testNativeAtTimeZoneRejectsSessionModeMismatch()
+    {
+        for (boolean configuredLegacyTimestampWithTimezone : new boolean[] {true, false}) {
+            MetadataManager metadata = MetadataManager.createTestMetadataManager(
+                    new FunctionsConfig().setLegacyTimestampWithTimezone(configuredLegacyTimestampWithTimezone));
+            Session session = Session.builder(TEST_SESSION)
+                    .setSystemProperty(LEGACY_TIMESTAMP_WITH_TIMEZONE, String.valueOf(!configuredLegacyTimestampWithTimezone))
+                    .setSystemProperty(NATIVE_EXECUTION_ENABLED, "true")
+                    .build();
+            TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(metadata, session);
+
+            PrestoException exception = expectThrows(
+                    PrestoException.class,
+                    () -> translator.translate(expression("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'"), TypeProvider.empty()));
+            assertEquals(exception.getErrorCode(), INVALID_SESSION_PROPERTY.toErrorCode());
+        }
+    }
+
+    @Test
+    public void testNativeTimeAtTimeZoneAllowsSessionModeMismatch()
+    {
+        for (boolean configuredLegacyTimestampWithTimezone : new boolean[] {true, false}) {
+            MetadataManager metadata = MetadataManager.createTestMetadataManager(
+                    new FunctionsConfig().setLegacyTimestampWithTimezone(configuredLegacyTimestampWithTimezone));
+            Session session = Session.builder(TEST_SESSION)
+                    .setSystemProperty(LEGACY_TIMESTAMP_WITH_TIMEZONE, String.valueOf(!configuredLegacyTimestampWithTimezone))
+                    .setSystemProperty(NATIVE_EXECUTION_ENABLED, "true")
+                    .build();
+            TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(metadata, session);
+
+            for (String sql : new String[] {
+                    "TIME '10:00:00' AT TIME ZONE '+02:00'",
+                    "TIME '10:00:00 +00:00' AT TIME ZONE '+02:00'"}) {
+                RowExpression translated = translator.translate(expression(sql), TypeProvider.empty());
+                assertTrue(translated instanceof CallExpression);
+                assertEquals(((CallExpression) translated).getDisplayName(), "at_timezone");
+            }
+        }
+    }
+
+    @Test
+    public void testJavaAtTimeZoneUsesConversionFunction()
+    {
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        Session session = Session.builder(TEST_SESSION)
+                .setSystemProperty(LEGACY_TIMESTAMP_WITH_TIMEZONE, "false")
+                .setSystemProperty(NATIVE_EXECUTION_ENABLED, "false")
+                .build();
+        TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(metadata, session);
+        Expression atTimeZone = expression("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'");
+
+        RowExpression translated = translator.translate(atTimeZone, TypeProvider.empty());
+        assertTrue(translated instanceof CallExpression);
+        assertEquals(((CallExpression) translated).getDisplayName(), "at_timezone_convert");
+    }
+
+    @Test
+    public void testAtTimeZoneDesugaringUsesJavaFunction()
+    {
+        MetadataManager metadata = MetadataManager.createTestMetadataManager();
+        Session session = Session.builder(TEST_SESSION)
+                .setSystemProperty(LEGACY_TIMESTAMP_WITH_TIMEZONE, "false")
+                .build();
+        TestingRowExpressionTranslator translator = new TestingRowExpressionTranslator(metadata, session);
+        Expression atTimeZone = expression("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'");
+        Map<NodeRef<Expression>, Type> expressionTypes = translator.getExpressionTypes(atTimeZone, TypeProvider.empty());
+
+        FunctionCall rewritten = (FunctionCall) DesugarAtTimeZoneRewriter.rewrite(
+                atTimeZone,
+                expressionTypes);
+        assertEquals(rewritten.getName(), QualifiedName.of("at_timezone_convert"));
     }
 
     @Test

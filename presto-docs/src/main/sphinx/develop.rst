@@ -13,6 +13,7 @@ This guide is intended for Presto contributors and plugin developers.
     develop/delete-and-update
     develop/types
     develop/functions
+    develop/materialized-view-rollups
     develop/table-functions
     develop/procedures
     develop/system-access-control

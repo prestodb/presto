@@ -982,8 +982,9 @@ public final class SystemSessionProperties
                         true),
                 booleanProperty(
                         LEGACY_TIMESTAMP_WITH_TIMEZONE,
-                        "When true, render TIMESTAMP WITH TIME ZONE values in their embedded zone and keep AT TIME ZONE on those values zoned; " +
-                                "when false, render them in the session zone and return their target-zone wall clock as TIMESTAMP",
+                        "When true, render TIMESTAMP WITH TIME ZONE values in their embedded zone and make AT TIME ZONE return TIMESTAMP WITH TIME ZONE; " +
+                                "when false, render them in the session zone and make AT TIME ZONE return the target-zone wall clock as TIMESTAMP. " +
+                                "The default native execution policy requires this value to match the server configuration",
                         functionsConfig.isLegacyTimestampWithTimezone(),
                         false),
                 booleanProperty(

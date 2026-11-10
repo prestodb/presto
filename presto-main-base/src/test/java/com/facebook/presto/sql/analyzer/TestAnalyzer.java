@@ -15,6 +15,8 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -31,6 +33,9 @@ import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.planner.CompilerConfig;
+import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.collect.ImmutableList;
@@ -43,6 +48,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
@@ -1980,6 +1988,47 @@ public class TestAnalyzer
                 .build();
         assertFails(session, SCHEMA_NOT_SPECIFIED, "SHOW TABLES");
         assertFails(session, MISSING_SCHEMA, "SHOW TABLES FROM unknown");
+    }
+
+    @Test
+    public void testAtTimeZoneResultType()
+    {
+        String timestamp = "TIMESTAMP '2020-06-15 12:00:00' AT TIME ZONE 'UTC'";
+        String timestampWithTimeZone = "TIMESTAMP '2020-06-15 12:00:00 UTC' AT TIME ZONE 'UTC'";
+        assertAtTimeZoneType(true, timestamp, TIMESTAMP_WITH_TIME_ZONE);
+        assertAtTimeZoneType(true, timestampWithTimeZone, TIMESTAMP_WITH_TIME_ZONE);
+        assertAtTimeZoneType(false, timestamp, TIMESTAMP);
+        assertAtTimeZoneType(false, timestampWithTimeZone, TIMESTAMP);
+
+        String time = "TIME '10:00:00' AT TIME ZONE '+02:00'";
+        String timeWithTimeZone = "TIME '10:00:00 +00:00' AT TIME ZONE '+02:00'";
+        assertAtTimeZoneType(true, time, TIME_WITH_TIME_ZONE);
+        assertAtTimeZoneType(true, timeWithTimeZone, TIME_WITH_TIME_ZONE);
+        assertAtTimeZoneType(false, time, TIME_WITH_TIME_ZONE);
+        assertAtTimeZoneType(false, timeWithTimeZone, TIME_WITH_TIME_ZONE);
+    }
+
+    private void assertAtTimeZoneType(boolean legacyTimestampWithTimezone, String sql, Type expectedType)
+    {
+        Expression expression = SQL_PARSER.createExpression(sql);
+        SqlFunctionProperties sqlFunctionProperties = SqlFunctionProperties.builder()
+                .setTimeZoneKey(CLIENT_SESSION.getTimeZoneKey())
+                .setSessionLocale(CLIENT_SESSION.getLocale())
+                .setSessionUser(CLIENT_SESSION.getUser())
+                .setLegacyTimestampWithTimezone(legacyTimestampWithTimezone)
+                .build();
+        ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
+                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                Optional.of(CLIENT_SESSION.getSessionFunctions()),
+                CLIENT_SESSION.getTransactionId(),
+                sqlFunctionProperties,
+                TypeProvider.empty(),
+                ImmutableMap.of(),
+                node -> new IllegalStateException("Unexpected node: " + node),
+                WarningCollector.NOOP,
+                false);
+        analyzer.analyze(expression, Scope.create());
+        assertEquals(analyzer.getExpressionTypes().get(NodeRef.of(expression)), expectedType);
     }
 
     @Test

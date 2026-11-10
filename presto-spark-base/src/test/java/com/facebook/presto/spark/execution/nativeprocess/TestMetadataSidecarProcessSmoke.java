@@ -17,6 +17,7 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.client.ServerInfo;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
 import com.facebook.presto.spi.function.SqlFunction;
+import com.facebook.presto.sql.analyzer.FunctionsConfig;
 import okhttp3.OkHttpClient;
 import org.testng.SkipException;
 import org.testng.annotations.AfterMethod;
@@ -83,7 +84,8 @@ public class TestMetadataSidecarProcessSmoke
                 scheduledExecutor,
                 jsonCodec(ServerInfo.class),
                 config,
-                Optional::empty);
+                Optional::empty,
+                new FunctionsConfig());
     }
 
     @AfterMethod(alwaysRun = true)

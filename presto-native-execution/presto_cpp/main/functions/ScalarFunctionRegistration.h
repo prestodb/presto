@@ -17,10 +17,10 @@
 
 namespace facebook::presto::functions {
 
-/// Registers the Velox Presto scalar functions with 'prefix', plus the
-/// `at_timezone_convert` function that Velox no longer registers. The
-/// coordinator calls `at_timezone_convert` for AT TIME ZONE expressions whose
-/// result type is TIMESTAMP.
-void registerPrestoScalarFunctions(const std::string& prefix);
+/// Registers the Velox Presto scalar functions with 'prefix' and the selected
+/// timestamp-with-time-zone semantics.
+void registerPrestoScalarFunctions(
+    const std::string& prefix,
+    bool ignoreTimeZoneLabel);
 
 } // namespace facebook::presto::functions

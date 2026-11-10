@@ -22,11 +22,13 @@ import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.execution.BasicStageExecutionStats;
 import com.facebook.presto.execution.LocationFactory;
 import com.facebook.presto.execution.PartialResultQueryManager;
+import com.facebook.presto.execution.QueryCompletionValidator;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.execution.QueryStateMachine;
 import com.facebook.presto.execution.RemoteTask;
 import com.facebook.presto.execution.RemoteTaskFactory;
 import com.facebook.presto.execution.SqlStageExecution;
+import com.facebook.presto.execution.StageExecutionId;
 import com.facebook.presto.execution.StageExecutionInfo;
 import com.facebook.presto.execution.StageExecutionState;
 import com.facebook.presto.execution.StageId;
@@ -124,6 +126,7 @@ public class SqlQueryScheduler
     private final SplitSchedulerStats schedulerStats;
 
     private final QueryStateMachine queryStateMachine;
+    private final QueryCompletionValidation completionValidation;
     private final AtomicReference<SubPlan> plan = new AtomicReference<>();
     private final StreamingPlanSection sectionedPlan;
     private final StageId rootStageId;
@@ -173,7 +176,8 @@ public class SqlQueryScheduler
             PlanChecker planChecker,
             Metadata metadata,
             SqlParser sqlParser,
-            PartialResultQueryManager partialResultQueryManager)
+            PartialResultQueryManager partialResultQueryManager,
+            Set<QueryCompletionValidator> queryCompletionValidators)
     {
         SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
                 locationFactory,
@@ -196,7 +200,8 @@ public class SqlQueryScheduler
                 planChecker,
                 metadata,
                 sqlParser,
-                partialResultQueryManager);
+                partialResultQueryManager,
+                queryCompletionValidators);
         sqlQueryScheduler.initialize();
         return sqlQueryScheduler;
     }
@@ -222,13 +227,15 @@ public class SqlQueryScheduler
             PlanChecker planChecker,
             Metadata metadata,
             SqlParser sqlParser,
-            PartialResultQueryManager partialResultQueryManager)
+            PartialResultQueryManager partialResultQueryManager,
+            Set<QueryCompletionValidator> queryCompletionValidators)
     {
         this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
         this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
         this.executor = queryExecutor;
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
+        this.completionValidation = new QueryCompletionValidation(session, queryCompletionValidators);
         this.plan.compareAndSet(null, requireNonNull(plan, "plan is null"));
         this.session = requireNonNull(session, "session is null");
         this.functionAndTypeManager = requireNonNull(functionAndTypeManager, "functionManager is null");
@@ -270,7 +277,7 @@ public class SqlQueryScheduler
         SqlStageExecution rootStage = stageExecutions.get(rootStageId).getStageExecution();
         rootStage.addStateChangeListener(state -> {
             if (state == FINISHED) {
-                queryStateMachine.transitionToFinishing();
+                finishQuery();
             }
             else if (state == CANCELED) {
                 // output stage was canceled
@@ -291,29 +298,7 @@ public class SqlQueryScheduler
                     }
                 });
             }
-            stageExecution.addStateChangeListener(state -> {
-                if (queryStateMachine.isDone()) {
-                    return;
-                }
-                if (state == FAILED) {
-                    queryStateMachine.transitionToFailed(stageExecution.getStageExecutionInfo().getFailureCause().get().toException());
-                }
-                else if (state == ABORTED) {
-                    // this should never happen, since abort can only be triggered in query clean up after the query is finished
-                    queryStateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "Query stage was aborted"));
-                }
-                else if (state == FINISHED) {
-                    // checks if there's any new sections available for execution and starts the scheduling if any
-                    startScheduling();
-                }
-                else if (queryStateMachine.getQueryState() == QueryState.STARTING) {
-                    // if the stage has at least one task, we are running
-                    if (stageExecution.hasTasks()) {
-                        queryStateMachine.transitionToRunning();
-                    }
-                }
-            });
-            stageExecution.addFinalStageInfoListener(status -> queryStateMachine.updateQueryInfo(Optional.of(getStageInfo())));
+            registerStageListeners(stageExecution);
         }
 
         // when query is done or any time a stage completes, attempt to transition query to "final query info ready"
@@ -322,6 +307,79 @@ public class SqlQueryScheduler
                 queryStateMachine.updateQueryInfo(Optional.of(getStageInfo()));
             }
         });
+    }
+
+    private void registerStageListeners(SqlStageExecution stageExecution)
+    {
+        stageExecution.addStateChangeListener(state -> {
+            if (queryStateMachine.isDone()) {
+                return;
+            }
+            if (state == FAILED) {
+                queryStateMachine.transitionToFailed(stageExecution.getStageExecutionInfo().getFailureCause().get().toException());
+            }
+            else if (state == ABORTED) {
+                // this should never happen, since abort can only be triggered in query clean up after the query is finished
+                queryStateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "Query stage was aborted"));
+            }
+            else if (state == FINISHED) {
+                // checks if there's any new sections available for execution and starts the scheduling if any
+                startScheduling();
+            }
+            else if (queryStateMachine.getQueryState() == QueryState.STARTING) {
+                // if the stage has at least one task, we are running
+                if (stageExecution.hasTasks()) {
+                    queryStateMachine.transitionToRunning();
+                }
+            }
+        });
+        stageExecution.addFinalStageInfoListener(status -> stageFinished(stageExecution, status));
+    }
+
+    private void stageFinished(SqlStageExecution stage, StageExecutionInfo finalInfo)
+    {
+        if (!queryStateMachine.isDone()) {
+            try {
+                completionValidation.validateStage(stage.getStageExecutionId(), stage.getFragment(), finalInfo);
+                tryFinishQuery();
+            }
+            catch (Throwable failure) {
+                queryStateMachine.transitionToFailed(failure);
+            }
+        }
+        queryStateMachine.updateQueryInfo(Optional.of(getStageInfo()));
+    }
+
+    private void finishQuery()
+    {
+        List<SqlStageExecution> unfinishedStages = ImmutableList.of();
+        if (completionValidation.isEnabled()) {
+            synchronized (this) {
+                completionValidation.markOutputFinished();
+                unfinishedStages = stream(forTree(SubPlan::getChildren).depthFirstPreOrder(plan.get()))
+                        .map(subPlan -> getStageExecution(subPlan.getFragment().getId()))
+                        .filter(stage -> !stage.getState().isDone())
+                        .collect(toImmutableList());
+            }
+        }
+        else {
+            completionValidation.markOutputFinished();
+        }
+        unfinishedStages.forEach(SqlStageExecution::cancel);
+        tryFinishQuery();
+    }
+
+    private void tryFinishQuery()
+    {
+        if (queryStateMachine.isDone()) {
+            return;
+        }
+        Set<StageExecutionId> stages = completionValidation.isEnabled() ? stageExecutions.values().stream()
+                .map(execution -> execution.getStageExecution().getStageExecutionId())
+                .collect(Collectors.toSet()) : ImmutableSet.of();
+        if (completionValidation.tryFinish(stages)) {
+            queryStateMachine.transitionToFinishing();
+        }
     }
 
     private static void updateQueryOutputLocations(QueryStateMachine queryStateMachine, OutputBufferId rootBufferId, Set<RemoteTask> tasks, boolean noMoreExchangeLocations)
@@ -596,6 +654,9 @@ public class SqlQueryScheduler
 
     private List<StreamingPlanSection> getSectionsReadyForExecution()
     {
+        if (completionValidation.isEnabled() && completionValidation.isOutputFinished()) {
+            return ImmutableList.of();
+        }
         long runningPlanSections =
                 stream(forTree(StreamingPlanSection::getChildren).depthFirstPreOrder(sectionedPlan))
                         .map(section -> getStageExecution(section.getPlan().getFragment().getId()).getState())
@@ -638,11 +699,6 @@ public class SqlQueryScheduler
         if (oldToNewFragment.isEmpty()) {
             return section;
         }
-
-        oldToNewFragment.forEach((oldFragment, newFragment) -> runtimeOptimizedStages.add(getStageId(oldFragment.getId())));
-
-        // Update SubPlan so that getStageInfo will reflect the latest optimized plan when query is finished.
-        updatePlan(oldToNewFragment);
 
         // Rebuild and update entries of the stageExecutions map.
         updateStageExecutions(section, oldToNewFragment);
@@ -725,12 +781,25 @@ public class SqlQueryScheduler
                 splitSourceFactory,
                 0,
                 cteMaterializationTracker);
-        addStateChangeListeners(sectionExecution);
         Map<StageId, StageExecutionAndScheduler> updatedStageExecutions = sectionExecution.getSectionStages().stream()
                 .collect(toImmutableMap(execution -> execution.getStageExecution().getStageExecutionId().getStageId(), identity()));
+        boolean outputFinished;
         synchronized (this) {
-            stageExecutions.putAll(updatedStageExecutions);
+            outputFinished = completionValidation.isEnabled() && completionValidation.isOutputFinished();
+            if (!outputFinished) {
+                updatePlan(oldToNewFragment);
+                stageExecutions.putAll(updatedStageExecutions);
+            }
         }
+        if (outputFinished) {
+            for (StageExecutionAndScheduler execution : sectionExecution.getSectionStages()) {
+                execution.getStageExecution().cancel();
+                execution.getStageScheduler().close();
+            }
+            return;
+        }
+        oldToNewFragment.forEach((oldFragment, newFragment) -> runtimeOptimizedStages.add(getStageId(oldFragment.getId())));
+        addStateChangeListeners(sectionExecution);
     }
 
     private void updatePlan(Map<PlanFragment, PlanFragment> oldToNewFragments)
@@ -760,7 +829,7 @@ public class SqlQueryScheduler
             if (isRootFragment(stageExecution.getFragment())) {
                 stageExecution.addStateChangeListener(state -> {
                     if (state == FINISHED) {
-                        queryStateMachine.transitionToFinishing();
+                        finishQuery();
                     }
                     else if (state == CANCELED) {
                         // output stage was canceled
@@ -768,29 +837,7 @@ public class SqlQueryScheduler
                     }
                 });
             }
-            stageExecution.addStateChangeListener(state -> {
-                if (queryStateMachine.isDone()) {
-                    return;
-                }
-                if (state == FAILED) {
-                    queryStateMachine.transitionToFailed(stageExecution.getStageExecutionInfo().getFailureCause().get().toException());
-                }
-                else if (state == ABORTED) {
-                    // this should never happen, since abort can only be triggered in query clean up after the query is finished
-                    queryStateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "Query stage was aborted"));
-                }
-                else if (state == FINISHED) {
-                    // checks if there's any new sections available for execution and starts the scheduling if any
-                    startScheduling();
-                }
-                else if (queryStateMachine.getQueryState() == QueryState.STARTING) {
-                    // if the stage has at least one task, we are running
-                    if (stageExecution.hasTasks()) {
-                        queryStateMachine.transitionToRunning();
-                    }
-                }
-            });
-            stageExecution.addFinalStageInfoListener(status -> queryStateMachine.updateQueryInfo(Optional.of(getStageInfo())));
+            registerStageListeners(stageExecution);
         }
     }
 
