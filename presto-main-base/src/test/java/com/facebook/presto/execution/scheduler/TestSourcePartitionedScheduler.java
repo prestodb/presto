@@ -32,6 +32,7 @@ import com.facebook.presto.failureDetector.NoOpFailureDetector;
 import com.facebook.presto.metadata.InMemoryNodeManager;
 import com.facebook.presto.metadata.InternalNode;
 import com.facebook.presto.metadata.InternalNodeManager;
+import com.facebook.presto.metadata.Split;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitSource;
@@ -63,7 +64,9 @@ import com.facebook.presto.util.FinalizerService;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -72,6 +75,8 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -86,6 +91,7 @@ import static com.facebook.presto.execution.scheduler.SourcePartitionedScheduler
 import static com.facebook.presto.spi.StandardErrorCode.NO_NODES_AVAILABLE;
 import static com.facebook.presto.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.schedule.NodeSelectionStrategy.NO_PREFERENCE;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.plan.ExchangeNode.Type.GATHER;
@@ -147,6 +153,62 @@ public class TestSourcePartitionedScheduler
         assertEffectivelyFinished(scheduleResult, scheduler);
 
         stage.abort();
+    }
+
+    @Test
+    public void testPreservesSplitSourceOrder()
+    {
+        List<ConnectorSplit> expectedOrder = new ArrayList<>();
+        for (int splitId = 31; splitId >= 0; splitId--) {
+            expectedOrder.add(new TestingSplitWithHashCode(splitId));
+        }
+
+        SubPlan plan = createPlan();
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
+        List<ConnectorSplit> actualOrder = new ArrayList<>();
+        SplitPlacementPolicy placementPolicy = new SplitPlacementPolicy()
+        {
+            @Override
+            public SplitPlacementResult computeAssignments(Set<Split> splits)
+            {
+                splits.stream()
+                        .map(Split::getConnectorSplit)
+                        .forEach(actualOrder::add);
+                return new SplitPlacementResult(Futures.immediateVoidFuture(), ImmutableMultimap.of());
+            }
+
+            @Override
+            public void lockDownNodes()
+            {
+            }
+
+            @Override
+            public List<InternalNode> getActiveNodes()
+            {
+                return ImmutableList.of();
+            }
+        };
+        SplitSource splitSource = new ConnectorAwareSplitSource(
+                CONNECTOR_ID,
+                new TestingTransactionHandle(new UUID(0, 0)),
+                new FixedSplitSource(expectedOrder));
+        StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
+                stage,
+                TABLE_SCAN_NODE_ID,
+                splitSource,
+                placementPolicy,
+                expectedOrder.size(),
+                new CTEMaterializationTracker());
+
+        try {
+            scheduler.schedule();
+            assertEquals(actualOrder, expectedOrder);
+        }
+        finally {
+            scheduler.close();
+            stage.abort();
+        }
     }
 
     @Test
@@ -617,6 +679,37 @@ public class TestSourcePartitionedScheduler
         public synchronized void close()
         {
             closed = true;
+        }
+    }
+
+    private static class TestingSplitWithHashCode
+            extends TestingSplit
+    {
+        private final int hashCode;
+
+        public TestingSplitWithHashCode(int hashCode)
+        {
+            super(NO_PREFERENCE, ImmutableList.of());
+            this.hashCode = hashCode;
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            TestingSplitWithHashCode other = (TestingSplitWithHashCode) obj;
+            return hashCode == other.hashCode;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return hashCode;
         }
     }
 }
