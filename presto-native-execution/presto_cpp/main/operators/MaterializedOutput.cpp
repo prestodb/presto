@@ -31,7 +31,6 @@ namespace facebook::presto::operators {
 
 namespace {
 constexpr int64_t kMinTargetSize = 1L << 20; // 1MB
-constexpr int64_t kDefaultMaxTargetSize = 16L << 20; // 16MB
 constexpr int64_t kDefaultAvgRowSize = 1024; // 1KB
 
 core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
