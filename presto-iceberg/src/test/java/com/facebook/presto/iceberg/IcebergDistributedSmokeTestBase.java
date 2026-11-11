@@ -2363,14 +2363,16 @@ public abstract class IcebergDistributedSmokeTestBase
             Session txnSession = startTransaction();
             assertUpdate(txnSession, setNotNull(tableName, "c3"));
             assertUpdate(format("INSERT INTO %s VALUES (2, 2, NULL)", tableName), 1);
-            assertQueryFails(txnSession, "COMMIT", "Table metadata refresh is required");
+            assertQueryFails(txnSession, "COMMIT", "Failed to commit changes to the Iceberg table " +
+                    ".*test_set_not_null_null_after_read.* because it was concurrently modified");
 
             txnSession = startTransaction();
             assertQuery(txnSession, format("SELECT count(*) FROM %s", tableName), "VALUES 2");
             assertUpdate(format("INSERT INTO %s VALUES (3, NULL, 3)", tableName), 1);
             if (catalogType == HIVE) {
                 assertUpdate(txnSession, setNotNull(tableName, "c2"));
-                assertQueryFails(txnSession, "COMMIT", "Table metadata refresh is required");
+                assertQueryFails(txnSession, "COMMIT", "Failed to commit changes to the Iceberg table " +
+                        ".*test_set_not_null_null_after_read.* because it was concurrently modified");
             }
             else {
                 assertQueryFails(txnSession, setNotNull(tableName, "c2"), nullValuesError("c2", "main"));
@@ -2494,7 +2496,7 @@ public abstract class IcebergDistributedSmokeTestBase
             Session txnSession = startTransaction();
             assertUpdate(txnSession, format("ALTER TABLE %s CREATE BRANCH 'b1' FOR SYSTEM_VERSION AS OF %d", tableName, withNulls));
             assertUpdate(setNotNull(tableName, "region"));
-            assertQueryFails(txnSession, "COMMIT", "Table metadata refresh is required");
+            assertQueryFails(txnSession, "COMMIT", ".*Table metadata refresh is required");
 
             assertQuery(format("SELECT name FROM \"%s$refs\"", tableName), "VALUES 'main'");
             assertColumnNullability(tableName, "VALUES ('id', 'YES'), ('region', 'NO')");
@@ -2550,7 +2552,7 @@ public abstract class IcebergDistributedSmokeTestBase
 
             if (catalogType == HIVE) {
                 assertUpdate(txnSession, setNotNull(tableName, "c2"));
-                assertQueryFails(txnSession, "COMMIT", "Table metadata refresh is required");
+                assertQueryFails(txnSession, "COMMIT", ".*Table metadata refresh is required");
             }
             else {
                 assertQueryFails(txnSession, setNotNull(tableName, "c2"),
