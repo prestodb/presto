@@ -23,11 +23,14 @@ import com.facebook.presto.sql.TestingRowExpressionTranslator;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.tree.Expression;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZER_USE_HISTOGRAMS;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
@@ -37,12 +40,20 @@ import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 
 public abstract class AbstractTestFilterStatsCalculator
 {
     private static final VarcharType MEDIUM_VARCHAR_TYPE = VarcharType.createVarcharType(100);
+    private static final double PINNED_X_EQ_1_OR_X_EQ_3 = 37.5;
+    private static final double PINNED_X_LT_0_OR_X_LT_MINUS_7_5 = 375.0;
+    private static final double PINNED_X_LT_0_OR_Y_GT_2 = 562.5;
+    private static final double PINNED_VARCHAR_IS_NULL_OR_EQ = 344.0;
+    private static final double PINNED_TWO_VARCHAR_COLUMNS = 253.0;
+    private static final double PINNED_VARCHAR_OR_NUMERIC = 21.75;
+    private static final double PINNED_NUMERIC_OR_VARCHAR = 21.75;
 
     private VariableStatsEstimate xStats;
     private VariableStatsEstimate yStats;
@@ -52,6 +63,7 @@ public abstract class AbstractTestFilterStatsCalculator
     private VariableStatsEstimate unknownRangeStats;
     private VariableStatsEstimate emptyRangeStats;
     private VariableStatsEstimate mediumVarcharStats;
+    private VariableStatsEstimate smallVarcharStats;
     private FilterStatsCalculator statsCalculator;
     private PlanNodeStatsEstimate standardInputStatistics;
     private TypeProvider standardTypes;
@@ -155,6 +167,13 @@ public abstract class AbstractTestFilterStatsCalculator
                 .setHighValue(POSITIVE_INFINITY)
                 .setNullsFraction(0.34)
                 .build();
+        smallVarcharStats = VariableStatsEstimate.builder()
+                .setAverageRowSize(10.0)
+                .setDistinctValuesCount(4)
+                .setLowValue(NEGATIVE_INFINITY)
+                .setHighValue(POSITIVE_INFINITY)
+                .setNullsFraction(0.0)
+                .build();
         standardInputStatistics = PlanNodeStatsEstimate.builder()
                 .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "x", DOUBLE), xStats)
                 .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "y", DOUBLE), yStats)
@@ -164,6 +183,7 @@ public abstract class AbstractTestFilterStatsCalculator
                 .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "unknownRange", DOUBLE), unknownRangeStats)
                 .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "emptyRange", DOUBLE), emptyRangeStats)
                 .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "mediumVarchar", MEDIUM_VARCHAR_TYPE), mediumVarcharStats)
+                .addVariableStatistics(new VariableReferenceExpression(Optional.empty(), "smallVarchar", MEDIUM_VARCHAR_TYPE), smallVarcharStats)
                 .setOutputRowCount(1000.0)
                 .build();
 
@@ -176,6 +196,7 @@ public abstract class AbstractTestFilterStatsCalculator
                 .add(new VariableReferenceExpression(Optional.empty(), "unknownRange", DOUBLE))
                 .add(new VariableReferenceExpression(Optional.empty(), "emptyRange", DOUBLE))
                 .add(new VariableReferenceExpression(Optional.empty(), "mediumVarchar", MEDIUM_VARCHAR_TYPE))
+                .add(new VariableReferenceExpression(Optional.empty(), "smallVarchar", MEDIUM_VARCHAR_TYPE))
                 .build());
 
         MetadataManager metadata = MetadataManager.createTestMetadataManager();
@@ -303,6 +324,76 @@ public abstract class AbstractTestFilterStatsCalculator
 
         assertExpression("x = 1e0 OR (CAST('b' AS VARCHAR(3)) IN (CAST('a' AS VARCHAR(3)), CAST('b' AS VARCHAR(3)))) OR x = 3e0")
                 .equalTo(standardInputStatistics);
+    }
+
+    @Test
+    public void testOrOfStringEqualities()
+    {
+        // 1000 rows * (1 - 0.34 nulls) / 165 distinct values
+        double oneValue = 4.0;
+        assertExpression(varcharEquals("mediumVarchar", "a")).outputRowsCount(oneValue);
+
+        // A second equality on the same string column used to look like it kept every row, so the OR
+        // collapsed to one branch. Different literals on one column cannot both match, so the branches add.
+        assertExpression(varcharEquals("mediumVarchar", "a") + " OR " + varcharEquals("mediumVarchar", "b"))
+                .outputRowsCount(2 * oneValue);
+        assertExpression(varcharEquals("mediumVarchar", "a") + " OR " + format("mediumVarchar IN (CAST('b' AS %1$s), CAST('c' AS %1$s))", MEDIUM_VARCHAR_TYPE))
+                .outputRowsCount(3 * oneValue);
+    }
+
+    @Test
+    public void testOrOfStringConjunctionsGrowsWithBranches()
+    {
+        // One (mediumVarchar AND smallVarchar) branch: 4 rows * 1/4
+        double oneBranch = 1.0;
+        assertExpression(orOfStringConjunctions(1)).outputRowsCount(oneBranch);
+
+        // Branches with different literals cannot both match, so each one adds its rows.
+        for (int branches = 2; branches <= 20; branches++) {
+            assertExpression(orOfStringConjunctions(branches)).outputRowsCount(branches * oneBranch);
+        }
+
+        // Branches that repeat a value of one column still cannot overlap when they differ on the other.
+        String sameFirstColumn = format("(%s AND %s) OR (%s AND %s)",
+                varcharEquals("mediumVarchar", "m"), varcharEquals("smallVarchar", "s0"),
+                varcharEquals("mediumVarchar", "m"), varcharEquals("smallVarchar", "s1"));
+        assertExpression(sameFirstColumn).outputRowsCount(2 * oneBranch);
+    }
+
+    private static String varcharEquals(String column, String value)
+    {
+        return format("%s = CAST('%s' AS %s)", column, value, MEDIUM_VARCHAR_TYPE);
+    }
+
+    @Test
+    public void testOrEstimatesUnchangedByStringColumnCap()
+    {
+        // Pinned to the estimates before the cap on ORs over string columns. Each case was already estimated
+        // correctly: numeric ranges whose overlap the range math sees, a string IS NULL branch that cannot
+        // overlap an equality, ORs over two different string columns, and string and numeric branches mixed.
+        for (Map.Entry<String, Double> expected : orEstimatesBeforeStringColumnCap().entrySet()) {
+            assertExpression(expected.getKey()).outputRowsCount(expected.getValue());
+        }
+    }
+
+    private static Map<String, Double> orEstimatesBeforeStringColumnCap()
+    {
+        return ImmutableMap.<String, Double>builder()
+                .put("x = 1e0 OR x = 3e0", PINNED_X_EQ_1_OR_X_EQ_3)
+                .put("x < 0e0 OR x < DOUBLE '-7.5'", PINNED_X_LT_0_OR_X_LT_MINUS_7_5)
+                .put("x < 0e0 OR y > 2e0", PINNED_X_LT_0_OR_Y_GT_2)
+                .put("mediumVarchar IS NULL OR " + varcharEquals("mediumVarchar", "a"), PINNED_VARCHAR_IS_NULL_OR_EQ)
+                .put(varcharEquals("mediumVarchar", "a") + " OR " + varcharEquals("smallVarchar", "b"), PINNED_TWO_VARCHAR_COLUMNS)
+                .put(varcharEquals("mediumVarchar", "a") + " OR x = 1e0", PINNED_VARCHAR_OR_NUMERIC)
+                .put("x = 1e0 OR " + varcharEquals("mediumVarchar", "a"), PINNED_NUMERIC_OR_VARCHAR)
+                .build();
+    }
+
+    private static String orOfStringConjunctions(int branches)
+    {
+        return IntStream.range(0, branches)
+                .mapToObj(i -> format("(%s AND %s)", varcharEquals("mediumVarchar", "m" + i), varcharEquals("smallVarchar", "s" + i)))
+                .collect(joining(" OR "));
     }
 
     @Test
