@@ -47,8 +47,8 @@ public class TaskSource
     {
         this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
         // Sort the splits to make sure that the order of scheduling splits is deterministic
-        this.splits = requireNonNull(splits, "splits is null").stream()
-                .collect(toImmutableSortedSet(comparingLong(ScheduledSplit::getSequenceId)));
+        this.splits = ImmutableSet.copyOf(requireNonNull(splits, "splits is null").stream()
+                .collect(toImmutableSortedSet(comparingLong(ScheduledSplit::getSequenceId))));
         this.noMoreSplitsForLifespan = ImmutableSet.copyOf(noMoreSplitsForLifespan);
         this.noMoreSplits = noMoreSplits;
     }
