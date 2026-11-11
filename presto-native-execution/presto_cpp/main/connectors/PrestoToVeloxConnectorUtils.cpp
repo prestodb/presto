@@ -634,6 +634,8 @@ template TypePtr fieldNamesToLowerCase<TypeKind::VARCHAR>(const TypePtr&);
 template TypePtr fieldNamesToLowerCase<TypeKind::VARBINARY>(const TypePtr&);
 template TypePtr fieldNamesToLowerCase<TypeKind::TIMESTAMP>(const TypePtr&);
 template TypePtr fieldNamesToLowerCase<TypeKind::HUGEINT>(const TypePtr&);
+// Iceberg V3 unknown columns have no field names; return the type as-is.
+template TypePtr fieldNamesToLowerCase<TypeKind::UNKNOWN>(const TypePtr&);
 
 std::unique_ptr<common::Filter> toFilter(
     const protocol::Domain& domain,
@@ -780,8 +782,20 @@ std::unique_ptr<common::Filter> toFilter(
       auto allOrNoneValueSet =
           std::dynamic_pointer_cast<protocol::AllOrNoneValueSet>(
               domain.values)) {
-    VELOX_UNSUPPORTED(
-        "AllOrNoneValueSet to Velox filter conversion is not supported yet.");
+    // Presto uses AllOrNoneValueSet for types that are neither orderable nor
+    // comparable, e.g. Geometry and SphericalGeography. Such a domain holds
+    // either every non-null value or none, so 'IS NULL' and 'IS NOT NULL' are
+    // the only predicates it can express, and neither reads the value bytes.
+    if (allOrNoneValueSet->all) {
+      if (nullAllowed) {
+        return std::make_unique<common::AlwaysTrue>();
+      }
+      return std::make_unique<common::IsNotNull>();
+    }
+    if (nullAllowed) {
+      return std::make_unique<common::IsNull>();
+    }
+    return std::make_unique<common::AlwaysFalse>();
   }
   VELOX_UNSUPPORTED("Unsupported filter found.");
 }
@@ -872,7 +886,7 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
       folly::toLowerAscii(name);
       names.emplace_back(std::move(name));
       auto parsedType = hiveTypeParser.parse(column.type);
-      types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
+      types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH_WITH_UNKNOWN(
           fieldNamesToLowerCase, parsedType->kind(), parsedType));
     }
     finalDataColumns = ROW(std::move(names), std::move(types));

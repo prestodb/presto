@@ -45,13 +45,22 @@ public enum IcebergErrorCode
     ICEBERG_TRANSACTION_CONFLICT_ERROR(20, EXTERNAL),
     ICEBERG_INCOMPATIBLE_COLUMN_TYPE(21, USER_ERROR),
     ICEBERG_INCOMPATIBLE_VERSION(21, EXTERNAL),
+
+    // The commit was rejected because another writer changed the table concurrently.
+    // Nothing was written, so the statement can be executed again against the new state of the table.
+    ICEBERG_COMMIT_CONFLICT(22, EXTERNAL, true),
     /**/;
 
     private final ErrorCode errorCode;
 
     IcebergErrorCode(int code, ErrorType type)
     {
-        errorCode = new ErrorCode(code + 0x0504_0000, name(), type);
+        this(code, type, false);
+    }
+
+    IcebergErrorCode(int code, ErrorType type, boolean retriable)
+    {
+        errorCode = new ErrorCode(code + 0x0504_0000, name(), type, retriable);
     }
 
     @Override

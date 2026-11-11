@@ -46,14 +46,14 @@ column is placed in the table's column order. When neither clause is given, the 
 end. ``FIRST`` and ``AFTER`` require support from the connector; connectors that do not support them
 report an error. ``AFTER`` requires the named column to already exist.
 
-When ``column_name`` contains a dot (e.g. ``info.email``), the column is added as a nested field
+When ``column_name`` contains a dot (for example ``info.email``), the column is added as a nested field
 inside the named ``ROW`` column. The optional clauses ``NOT NULL``, ``COMMENT``, ``DEFAULT``,
 ``GENERATED``/``AS``, ``WITH`` properties, and ``FIRST``/``AFTER`` do not apply to nested fields
 and will be rejected. Adding a nested field requires ``ALTER COLUMN`` permission on the table,
 not ``ADD COLUMN`` permission.
 
 For ``ALTER COLUMN … SET DATA TYPE`` statements, when ``column_name`` contains a dot
-(e.g. ``info.age``), the type change is applied to the named nested field inside the ``ROW``
+(for example ``info.age``), the type change is applied to the named nested field inside the ``ROW``
 column. Only widening conversions are supported: ``INTEGER`` to ``BIGINT``, ``REAL`` to
 ``DOUBLE``, or ``DECIMAL(p,s)`` to ``DECIMAL(p2,s)`` where ``p2 >= p``.
 Narrowing conversions are rejected. The path must refer to a field inside a struct; paths

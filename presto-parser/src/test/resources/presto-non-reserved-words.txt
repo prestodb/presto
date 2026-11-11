@@ -12,8 +12,8 @@
 # table or alias name stop parsing. Adding a new keyword to the nonReserved rule of SqlBase.g4?
 # Add it here too.
 #
-# TRIM is in this list but not in the nonReserved rule: it is not a keyword token at all. A TRIM
-# token was added for ANSI trim syntax and reverted because it silently reserved the word.
+# BOTH, LEADING, TRAILING and TRIM are keyword tokens for the ANSI trim syntax. An earlier TRIM token
+# was reverted because it silently reserved the word; all four now live in the nonReserved rule.
 ADD
 ADMIN
 ALL
@@ -24,6 +24,7 @@ ASC
 AT
 BEFORE
 BERNOULLI
+BOTH
 BRANCH
 CALL
 CALLED
@@ -83,6 +84,7 @@ KEY
 LANGUAGE
 LAST
 LATERAL
+LEADING
 LEVEL
 LIMIT
 LOGICAL
@@ -163,6 +165,7 @@ TEXT
 TIME
 TIMESTAMP
 TO
+TRAILING
 TRANSACTION
 TRIM
 TRUNCATE

@@ -15,9 +15,11 @@
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <folly/CppAttributes.h>
 #include <folly/system/HardwareConcurrency.h>
 #include <glog/logging.h>
 #include <proxygen/lib/http/HTTPHeaders.h>
+#include <velox/common/base/Exceptions.h>
 #include <cerrno>
 #include <chrono>
 #include <cstdio>
@@ -38,6 +40,7 @@
 #include "presto_cpp/main/connectors/SystemConnector.h"
 #include "presto_cpp/main/connectors/hive/functions/HiveFunctionRegistration.h"
 #include "presto_cpp/main/functions/FunctionMetadata.h"
+#include "presto_cpp/main/functions/ScalarFunctionRegistration.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
@@ -83,7 +86,6 @@
 #include "velox/exec/rpc/RPCPlanNodeTranslator.h"
 #include "velox/expression/rpc/AsyncRPCFunctionRegistry.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 #include "velox/serializers/CompactRowSerializer.h"
 #include "velox/serializers/PrestoSerializer.h"
@@ -212,6 +214,7 @@ std::unique_ptr<std::thread> ucxCommunicatorThread;
 void startUcxCommunicator() {
 #ifdef PRESTO_ENABLE_UCX_EXCHANGE
   if (ucxCommunicatorThread != nullptr) {
+    VLOG(1) << "UCX exchange Communicator already started";
     return;
   }
   auto* systemConfig = SystemConfig::instance();
@@ -480,10 +483,17 @@ void PrestoServer::run() {
       velox::connector::ConnectorRegistry::findAll<
           velox::connector::hive::HiveConnector>(),
       this);
+  // Initialize memoryChecker_ before any periodic callback that reads it is
+  // registered. PeriodicTaskManager::addTask() hands the callback to
+  // folly::ThreadedRepeatingFunctionRunner::add(), which spawns the thread
+  // right away with initialSleep=0, so by the time addServerPeriodicTasks()
+  // returns the callback can already be running; periodicTaskManager_->
+  // start() does not gate it. Creating the checker here publishes the
+  // final pointer before any task that reads it can fire.
+  createPeriodicMemoryChecker();
   addServerPeriodicTasks();
   addAdditionalPeriodicTasks();
   periodicTaskManager_->start();
-  createPeriodicMemoryChecker();
   if (memoryChecker_ != nullptr) {
     memoryChecker_->start();
   }
@@ -1647,8 +1657,12 @@ void PrestoServer::registerCustomOperators() {
 }
 
 void PrestoServer::registerFunctions() {
-  velox::functions::prestosql::registerAllScalarFunctions(
-      prestoBuiltinFunctionPrefix_);
+  const SystemConfig* FOLLY_NONNULL const systemConfig =
+      SystemConfig::instance();
+  VELOX_CHECK_NOT_NULL(systemConfig);
+  functions::registerPrestoScalarFunctions(
+      prestoBuiltinFunctionPrefix_,
+      !systemConfig->legacyTimestampWithTimezone());
   velox::aggregate::prestosql::registerAllAggregateFunctions(
       prestoBuiltinFunctionPrefix_);
   velox::window::prestosql::registerAllWindowFunctions(
@@ -1835,6 +1849,12 @@ void PrestoServer::populateMemAndCPUInfo() {
   RECORD_METRIC_VALUE(
       kCounterMemoryManagerTotalBytes,
       velox::memory::memoryManager()->getTotalBytes());
+
+  // Empty when no checker is installed, so the metric time series stays
+  // absent (not zero) in that case; see PeriodicMemoryChecker::sampleAndRecord.
+  memoryInfo.systemMemoryBytes =
+      memoryChecker_ ? memoryChecker_->sampleAndRecord() : nullptr;
+
   cpuMon_.update();
   checkOverload();
   **memoryInfo_.wlock() = std::move(memoryInfo);
@@ -2172,7 +2192,7 @@ protocol::NodeStatus PrestoServer::fetchNodeStatus() {
   const int64_t nonHeapUsed = 0;
 
   // In-memory AsyncDataCache footprint (evictable/reclaimable), sampled off the
-  // serving path by populateMemAndCPUInfo() — read the cached value here so the
+  // serving path by populateMemAndCPUInfo(); read the cached value here so the
   // refreshStats() cache-shard walk never runs on the /v1/status poll path.
   const int64_t asyncDataCacheBytes =
       asyncDataCacheBytes_.load(std::memory_order_relaxed);

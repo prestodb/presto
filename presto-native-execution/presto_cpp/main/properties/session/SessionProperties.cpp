@@ -62,23 +62,25 @@ SessionProperties::SessionProperties() {
   // Use empty instance to get default property values.
   QueryConfig c{{}};
 
-  // The default follows this worker: on where the cuDF UCX transport is
-  // registered, off where it is not. This runs when the singleton is first used
-  // -- serving /v1/properties/session, or converting the first plan -- which is
-  // after registerCudf() has registered the transport.
+  // A constant default, so that it does not depend on when this singleton is
+  // first created relative to registerCudf(). The coordinator sends this
+  // property only when a query sets it, so the default never reaches the plan
+  // converter, which resolves an unset value per exchange edge from what this
+  // worker has registered.
   addSessionProperty(
       kCudfExchangeEnabled,
       "Native Execution only. Whether this query's worker-to-worker exchanges "
-      "may use the cuDF UCX transport. Defaults to true on a worker that has "
-      "the transport registered, which is a worker with 'cudf.exchange' enabled "
-      "in a build that has the UCX exchange, and to false on every other "
-      "worker. Setting it false always uses the in-memory transport; setting it "
-      "true on a worker without the transport fails the query instead of "
-      "silently using the in-memory transport.",
+      "may use the cuDF UCX transport. When unset, the worker decides: it uses "
+      "the transport where it is registered, which is a worker with "
+      "'cudf.exchange' enabled in a build that has the UCX exchange, and the "
+      "in-memory transport elsewhere. Leaving it unset is therefore not the "
+      "same as setting it false, which always uses the in-memory transport. "
+      "Setting it true on a worker without the transport fails the query "
+      "instead of silently using the in-memory transport.",
       BOOLEAN(),
       false,
       kCudfExchangeEnabledConfig,
-      util::boolToLowerCaseString(isCudfExchangeAvailable()));
+      "false");
 
   addSessionProperty(
       kExprEvalSimplified,
@@ -572,9 +574,8 @@ SessionProperties::SessionProperties() {
       "value's embedded time zone instead of the session time zone.",
       BOOLEAN(),
       false,
-      QueryConfig::kUseSessionTimezoneForTimestampWithTimezone,
-      util::boolToLowerCaseString(
-          !c.useSessionTimezoneForTimestampWithTimezone()));
+      QueryConfig::kIgnoreTimeZoneLabel,
+      util::boolToLowerCaseString(!c.ignoreTimeZoneLabel()));
 
   // TODO: remove this once cpu driver slicing config is turned on by default in
   // Velox.

@@ -13,6 +13,25 @@
  */
 
 #include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
+
+#include <algorithm>
+#include <cctype>
+#include <functional>
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+#include <folly/Conv.h>
+#include <folly/CppAttributes.h>
+#include <folly/String.h>
+#include <presto_cpp/presto_protocol/core/presto_protocol_core.h>
+#include <velox/common/config/Config.h>
+#include <velox/core/QueryCtx.h>
+
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/LegacyHiveConfigKeys.h"
 #include "presto_cpp/main/properties/session/SessionProperties.h"
@@ -45,6 +64,15 @@ void updateVeloxConfigsWithSpecialCases(
   }
 }
 
+void setTimestampWithTimezoneMode(
+    std::unordered_map<std::string, std::string>& configs) {
+  const SystemConfig* FOLLY_NONNULL const systemConfig =
+      SystemConfig::instance();
+  configs.insert_or_assign(
+      velox::core::QueryConfig::kIgnoreTimeZoneLabel,
+      systemConfig->legacyTimestampWithTimezone() ? "false" : "true");
+}
+
 void updateFromSessionConfigs(
     const std::map<std::string, std::string>& systemProperties,
     std::unordered_map<std::string, std::string>& queryConfigs) {
@@ -68,8 +96,7 @@ void updateFromSessionConfigs(
       queryConfigs[velox::core::QueryConfig::kShuffleCompressionKind] =
           velox::common::compressionKindToString(compressionKind);
     } else if (it.first == SessionProperties::kLegacyTimestampWithTimezone) {
-      queryConfigs[velox::core::QueryConfig::
-                       kUseSessionTimezoneForTimestampWithTimezone] =
+      queryConfigs[velox::core::QueryConfig::kIgnoreTimeZoneLabel] =
           folly::to<bool>(it.second) ? "false" : "true";
     } else if (!sessionProperties->hasVeloxConfig(it.first)) {
       sessionProperties->updateSessionPropertyValue(it.first, it.second);
@@ -255,6 +282,7 @@ std::unordered_map<std::string, std::string>
 toVeloxConfigsFromSessionProperties(
     const std::map<std::string, std::string>& sessionProperties) {
   std::unordered_map<std::string, std::string> configs;
+  setTimestampWithTimezoneMode(configs);
   updateFromSessionConfigs(sessionProperties, configs);
   return configs;
 }
@@ -265,6 +293,7 @@ std::unordered_map<std::string, std::string> toVeloxConfigs(
 
   // Firstly apply Presto system properties to Velox query config.
   updateFromSystemConfigs(configs);
+  setTimestampWithTimezoneMode(configs);
 
   // Secondly apply and possibly override with Presto session properties.
   updateFromSessionConfigs(session, configs);

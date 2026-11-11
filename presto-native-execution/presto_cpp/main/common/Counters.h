@@ -77,6 +77,15 @@ constexpr std::string_view kCounterNumQueryContexts{
 constexpr std::string_view kCounterMemoryManagerTotalBytes{
     "presto_cpp.memory_manager_total_bytes"};
 
+/// Total process-level memory sampled by the periodic memory checker (on
+/// Linux: cgroup inactive_anon+active_anon, with /proc/meminfo
+/// MemTotal-MemAvailable as a fallback). Covers the presto_server binary,
+/// shared libraries, mmap'd files and other process overhead that the
+/// query and AsyncDataCache counters do not. Not recorded when no checker
+/// is installed, so the time series is absent (not zero) in that case.
+constexpr std::string_view kCounterMemoryCheckerUsedBytes{
+    "presto_cpp.memory_checker_used_bytes"};
+
 constexpr std::string_view kCounterNumTasks{"presto_cpp.num_tasks"};
 constexpr std::string_view kCounterNumTasksBytesProcessed{
     "presto_cpp.num_tasks_bytes_processed"};

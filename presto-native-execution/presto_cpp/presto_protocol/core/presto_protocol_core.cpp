@@ -17,8 +17,9 @@
 
 // This file is generated DO NOT EDIT @generated
 
-#include <folly/Format.h>
 #include <iostream>
+
+#include <fmt/format.h>
 
 #include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
@@ -7529,6 +7530,13 @@ void to_json(json& j, const MemoryInfo& p) {
       "totalNodeMemory");
   to_json_key(
       j,
+      "systemMemoryBytes",
+      p.systemMemoryBytes,
+      "MemoryInfo",
+      "Long",
+      "systemMemoryBytes");
+  to_json_key(
+      j,
       "pools",
       p.pools,
       "MemoryInfo",
@@ -7544,6 +7552,13 @@ void from_json(const json& j, MemoryInfo& p) {
       "MemoryInfo",
       "DataSize",
       "totalNodeMemory");
+  from_json_key(
+      j,
+      "systemMemoryBytes",
+      p.systemMemoryBytes,
+      "MemoryInfo",
+      "Long",
+      "systemMemoryBytes");
   from_json_key(
       j,
       "pools",

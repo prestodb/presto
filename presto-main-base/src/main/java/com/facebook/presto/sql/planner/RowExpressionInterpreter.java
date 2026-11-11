@@ -62,6 +62,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.getMaxSerializableObjectSize;
+import static com.facebook.presto.SystemSessionProperties.isNativeExecutionEnabled;
 import static com.facebook.presto.common.function.OperatorType.EQUAL;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
@@ -159,6 +160,12 @@ public class RowExpressionInterpreter
     public Type getType()
     {
         return expression.getType();
+    }
+
+    private boolean isNativeExecution()
+    {
+        return session instanceof FullConnectorSession &&
+                isNativeExecutionEnabled(((FullConnectorSession) session).getSession());
     }
 
     public Object evaluate()
@@ -286,6 +293,7 @@ public class RowExpressionInterpreter
                         functionAndTypeManager,
                         session.getSqlFunctionProperties(),
                         session.getSessionFunctions(),
+                        isNativeExecution(),
                         node.getArguments());
                 RowExpressionInterpreter rowExpressionInterpreter = new RowExpressionInterpreter(function, functionAndTypeManager, session, optimizationLevel);
                 if (optimizationLevel.ordinal() >= EVALUATED.ordinal()) {

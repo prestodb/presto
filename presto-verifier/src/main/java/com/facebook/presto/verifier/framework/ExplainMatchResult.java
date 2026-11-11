@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.verifier.framework;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 public class ExplainMatchResult
@@ -27,16 +29,32 @@ public class ExplainMatchResult
     }
 
     private final MatchType matchType;
+    private final Optional<String> mismatchDetails;
 
     public ExplainMatchResult(MatchType matchType)
     {
-        this.matchType = requireNonNull(matchType, "matchType is null");
+        this(matchType, Optional.empty());
     }
 
+    public ExplainMatchResult(MatchType matchType, Optional<String> mismatchDetails)
+    {
+        this.matchType = requireNonNull(matchType, "matchType is null");
+        this.mismatchDetails = requireNonNull(mismatchDetails, "mismatchDetails is null");
+    }
+
+    /**
+     * A structure mismatch fails verification like a result mismatch does. A details-only
+     * mismatch (estimates or operator details) does not.
+     */
     @Override
     public boolean isMatched()
     {
-        return true;
+        return matchType != MatchType.STRUCTURE_MISMATCH;
+    }
+
+    public MatchType getMatchType()
+    {
+        return matchType;
     }
 
     @Override
@@ -66,6 +84,6 @@ public class ExplainMatchResult
     @Override
     public String getReport()
     {
-        return matchType.name();
+        return matchType.name() + mismatchDetails.map(details -> "\n" + details).orElse("");
     }
 }

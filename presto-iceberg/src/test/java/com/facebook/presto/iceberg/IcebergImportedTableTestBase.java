@@ -55,12 +55,23 @@ public abstract class IcebergImportedTableTestBase
 
     protected abstract QueryRunner createQueryRunner() throws Exception;
 
+    /**
+     * Schema the tables are registered in. The golden tables are always read from the
+     * {@code iceberg_v3} resource directory; a subclass whose query runner shares its metastore
+     * with other tests can register them in a schema of its own, so dropping the schema after
+     * the class does not depend on what other tests left in {@code iceberg_v3}.
+     */
+    protected String getSchemaName()
+    {
+        return SCHEMANAME;
+    }
+
     @BeforeClass
     public void createSchema()
     {
         QueryRunner queryRunner = getQueryRunner();
         if (queryRunner != null) {
-            createSchema(CATALOGNAME, SCHEMANAME, queryRunner);
+            createSchema(CATALOGNAME, getSchemaName(), queryRunner);
         }
     }
 
@@ -69,7 +80,7 @@ public abstract class IcebergImportedTableTestBase
     {
         QueryRunner queryRunner = getQueryRunner();
         if (queryRunner != null) {
-            dropSchema(CATALOGNAME, SCHEMANAME, queryRunner);
+            dropSchema(CATALOGNAME, getSchemaName(), queryRunner);
         }
     }
 
@@ -158,7 +169,7 @@ public abstract class IcebergImportedTableTestBase
                     "schema => '%s', " +
                     "table_name => '%s', " +
                     "metadata_location => 'file://%s'" +
-                    ")", CATALOGNAME, SCHEMANAME, testName, activeTable);
+                    ")", CATALOGNAME, getSchemaName(), testName, activeTable);
             computeActual(session, queryCreate);
 
             return activeTableParent;
@@ -175,7 +186,7 @@ public abstract class IcebergImportedTableTestBase
     {
         // Remove table from schema
         Session session = Session.builder(getSession()).build();
-        String queryDrop = format("DROP TABLE IF EXISTS %s.%s", SCHEMANAME, testName);
+        String queryDrop = format("DROP TABLE IF EXISTS %s.%s.%s", CATALOGNAME, getSchemaName(), testName);
         computeActual(session, queryDrop);
 
         // Delete table from temp directory

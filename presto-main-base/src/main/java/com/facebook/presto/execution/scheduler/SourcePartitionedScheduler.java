@@ -35,8 +35,8 @@ import com.google.common.util.concurrent.SettableFuture;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -262,7 +262,7 @@ public class SourcePartitionedScheduler
                         splitPlacementPolicy.prepareForSplits(scheduleGroup.pendingSplits);
                     }
                     else {
-                        scheduleGroup.pendingSplits = new HashSet<>(nextSplits.getSplits());
+                        scheduleGroup.pendingSplits = new LinkedHashSet<>(nextSplits.getSplits());
                     }
                     if (nextSplits.isLastBatch()) {
                         if (scheduleGroup.state == ScheduleGroupState.INITIALIZED && scheduleGroup.pendingSplits.isEmpty()) {
@@ -535,7 +535,7 @@ public class SourcePartitionedScheduler
         public final ConnectorPartitionHandle partitionHandle;
         public ListenableFuture<SplitBatch> nextSplitBatchFuture;
         public ListenableFuture<?> placementFuture = Futures.immediateFuture(null);
-        public Set<Split> pendingSplits = new HashSet<>();
+        public Set<Split> pendingSplits = new LinkedHashSet<>();
         public long collectedSplitCount;
         public ScheduleGroupState state = ScheduleGroupState.INITIALIZED;
 

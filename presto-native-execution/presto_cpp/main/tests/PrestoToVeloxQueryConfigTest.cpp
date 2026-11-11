@@ -14,8 +14,15 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <string>
+#include <folly/CppAttributes.h>
+#include <folly/ScopeGuard.h>
 
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <utility>
+
+#include <velox/common/config/Config.h>
 #include "presto_cpp/main/PrestoToVeloxQueryConfig.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/properties/session/SessionProperties.h"
@@ -690,18 +697,61 @@ TEST_F(PrestoToVeloxQueryConfigTest, rpcRateLimiterHardLimitCompatibility) {
 
 TEST_F(PrestoToVeloxQueryConfigTest, legacyTimestampWithTimezone) {
   auto session = createBasicSession();
-  EXPECT_FALSE(QueryConfig(toVeloxConfigs(session))
-                   .useSessionTimezoneForTimestampWithTimezone());
+  SystemConfig* FOLLY_NONNULL const systemConfig = SystemConfig::instance();
+  const std::unordered_map<std::string, std::string> originalConfigs =
+      systemConfig->values();
+  // NOLINTNEXTLINE(facebook-auto-specifier-overuse)
+  auto restoreConfigs = folly::makeGuard([originalConfigs] {
+    std::unordered_map<std::string, std::string> restoredConfigs =
+        originalConfigs;
+    SystemConfig* FOLLY_NONNULL const systemConfig = SystemConfig::instance();
+    systemConfig->initialize(
+        std::make_unique<facebook::velox::config::ConfigBase>(
+            std::move(restoredConfigs)));
+  });
+
+  std::unordered_map<std::string, std::string> legacyConfigs = originalConfigs;
+  legacyConfigs.insert_or_assign(
+      std::string(SystemConfig::kLegacyTimestampWithTimezone), "true");
+  systemConfig->initialize(
+      std::make_unique<facebook::velox::config::ConfigBase>(
+          std::move(legacyConfigs)));
+  EXPECT_FALSE(QueryConfig(toVeloxConfigs(session)).ignoreTimeZoneLabel());
 
   session.systemProperties[SessionProperties::kLegacyTimestampWithTimezone] =
       "false";
-  EXPECT_TRUE(QueryConfig(toVeloxConfigs(session))
-                  .useSessionTimezoneForTimestampWithTimezone());
+  EXPECT_TRUE(QueryConfig(toVeloxConfigs(session)).ignoreTimeZoneLabel());
 
   session.systemProperties[SessionProperties::kLegacyTimestampWithTimezone] =
       "true";
-  EXPECT_FALSE(QueryConfig(toVeloxConfigs(session))
-                   .useSessionTimezoneForTimestampWithTimezone());
+  EXPECT_FALSE(QueryConfig(toVeloxConfigs(session)).ignoreTimeZoneLabel());
+
+  std::unordered_map<std::string, std::string> ignoreLabelConfigs =
+      originalConfigs;
+  ignoreLabelConfigs.insert_or_assign(
+      std::string(SystemConfig::kLegacyTimestampWithTimezone), "false");
+  systemConfig->initialize(
+      std::make_unique<facebook::velox::config::ConfigBase>(
+          std::move(ignoreLabelConfigs)));
+  session.systemProperties.erase(
+      SessionProperties::kLegacyTimestampWithTimezone);
+  EXPECT_TRUE(QueryConfig(toVeloxConfigs(session)).ignoreTimeZoneLabel());
+
+  session.systemProperties.insert_or_assign(
+      SessionProperties::kLegacyTimestampWithTimezone, "true");
+  EXPECT_FALSE(QueryConfig(toVeloxConfigs(session)).ignoreTimeZoneLabel());
+
+  std::map<std::string, std::string> expressionSessionProperties{
+      {SessionProperties::kLegacyTimestampWithTimezone, "true"}};
+  std::unordered_map<std::string, std::string> expressionConfigs =
+      toVeloxConfigsFromSessionProperties(expressionSessionProperties);
+  EXPECT_FALSE(QueryConfig(expressionConfigs).ignoreTimeZoneLabel());
+
+  expressionSessionProperties.insert_or_assign(
+      SessionProperties::kLegacyTimestampWithTimezone, "false");
+  expressionConfigs =
+      toVeloxConfigsFromSessionProperties(expressionSessionProperties);
+  EXPECT_TRUE(QueryConfig(expressionConfigs).ignoreTimeZoneLabel());
 }
 
 TEST_F(PrestoToVeloxQueryConfigTest, credentialKeysNameOnlyCredentials) {
@@ -935,6 +985,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
   EXPECT_TRUE(veloxConfigs.count(core::QueryConfig::kSessionStartTime) > 0);
   EXPECT_EQ(
       "1234567890", veloxConfigs.at(core::QueryConfig::kSessionStartTime));
+  EXPECT_EQ("false", veloxConfigs.at(core::QueryConfig::kIgnoreTimeZoneLabel));
 
   // Calculate expected exact count
   size_t expectedExactConfigs = 0;
@@ -946,6 +997,7 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
   expectedExactConfigs += 1; // kDriverCpuTimeSliceLimitMs
   expectedExactConfigs += 1; // kSessionStartTime
   expectedExactConfigs += 1; // kSessionTimezone (always added)
+  expectedExactConfigs += 1; // kIgnoreTimeZoneLabel (always added)
 
   // Use exact matching to catch any config additions/removals
   EXPECT_EQ(veloxConfigs.size(), expectedExactConfigs)

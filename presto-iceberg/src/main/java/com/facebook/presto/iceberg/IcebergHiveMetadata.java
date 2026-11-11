@@ -373,7 +373,7 @@ public class IcebergHiveMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    protected ConnectorOutputTableHandle beginCreateTableForDdl(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         String schemaName = schemaTableName.getSchemaName();
@@ -416,7 +416,9 @@ public class IcebergHiveMetadata
         }
         SortOrder sortOrder = parseSortFields(schema, getSortOrder(tableMetadata.getProperties()));
         FileFormat fileFormat = tableProperties.getFileFormat(session, tableMetadata.getProperties());
-        validateGeospatialWrite(schema, parseFormatVersion(tableProperties.getFormatVersion(session, tableMetadata.getProperties())), fileFormat);
+        int formatVersion = parseFormatVersion(tableProperties.getFormatVersion(session, tableMetadata.getProperties()));
+        validateGeospatialWrite(schema, formatVersion, fileFormat);
+        validateUnknownColumnsForCreateTable(schema, formatVersion);
         TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, targetPath,
                 populateTableProperties(this, tableMetadata, tableProperties, fileFormat, session, schema));
         openCreateTableTransaction(schemaTableName, createTableTransaction(tableName, operations, metadata));

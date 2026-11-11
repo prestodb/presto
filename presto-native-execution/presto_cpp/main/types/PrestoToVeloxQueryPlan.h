@@ -352,8 +352,10 @@ class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
   /// Batch exchanges go through the shuffle interface or storage, never a
   /// worker-to-worker transport, so every edge stays in-memory.
   std::string toVeloxTransportType(
-      const std::shared_ptr<protocol::TransportType>& transportType)
-      const override;
+      const std::shared_ptr<protocol::TransportType>& /*transportType*/)
+      const override {
+    return std::string{velox::core::TransportKind::kInMemory};
+  }
 
  private:
   const std::string shuffleName_;

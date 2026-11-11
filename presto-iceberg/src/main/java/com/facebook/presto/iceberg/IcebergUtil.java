@@ -20,7 +20,9 @@ import com.facebook.presto.common.GenericInternalException;
 import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.common.predicate.Domain;
 import com.facebook.presto.common.predicate.NullableValue;
+import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
 import com.facebook.presto.common.type.DecimalType;
 import com.facebook.presto.common.type.Decimals;
 import com.facebook.presto.common.type.RealType;
@@ -69,9 +71,11 @@ import org.apache.iceberg.BaseTransaction;
 import org.apache.iceberg.ContentFile;
 import org.apache.iceberg.ContentScanTask;
 import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DataOperations;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.HistoryEntry;
+import org.apache.iceberg.ManageSnapshots;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.PartitionField;
@@ -82,19 +86,24 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.SortOrder;
+import org.apache.iceberg.StaticTableOperations;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.catalog.ViewCatalog;
 import org.apache.iceberg.expressions.Expression;
+import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.expressions.InclusiveMetricsEvaluator;
 import org.apache.iceberg.expressions.Literal;
+import org.apache.iceberg.expressions.ResidualEvaluator;
 import org.apache.iceberg.hive.HiveSchemaUtil;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.CloseableIterator;
+import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
@@ -126,7 +135,10 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
+import java.util.function.ToLongFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -149,6 +161,8 @@ import static com.facebook.presto.common.type.TimeType.TIME;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP_MICROSECONDS;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.common.type.UuidType.javaUuidToPrestoUuid;
 import static com.facebook.presto.common.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.common.type.Varchars.isVarcharType;
 import static com.facebook.presto.hive.BaseHiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -178,7 +192,9 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.DERIVED_COLUMN_
 import static com.facebook.presto.iceberg.IcebergTableProperties.getWriteDataLocation;
 import static com.facebook.presto.iceberg.IcebergTableProperties.isHiveLocksEnabled;
 import static com.facebook.presto.iceberg.TypeConverter.toIcebergType;
+import static com.facebook.presto.iceberg.UnknownUtils.isUnknownType;
 import static com.facebook.presto.iceberg.util.IcebergPrestoModelConverters.toIcebergTableIdentifier;
+import static com.facebook.presto.spi.StandardErrorCode.CONSTRAINT_VIOLATION;
 import static com.facebook.presto.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_DERIVED_COLUMN_SPEC;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
@@ -212,6 +228,7 @@ import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.hadoop.hive.serde.serdeConstants.VOID_TYPE_NAME;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
 import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_ENABLED;
@@ -221,6 +238,7 @@ import static org.apache.iceberg.CatalogProperties.IO_MANIFEST_CACHE_MAX_TOTAL_B
 import static org.apache.iceberg.LocationProviders.locationsFor;
 import static org.apache.iceberg.MetadataColumns.LAST_UPDATED_SEQUENCE_NUMBER;
 import static org.apache.iceberg.MetadataTableUtils.createMetadataTableInstance;
+import static org.apache.iceberg.SnapshotRef.MAIN_BRANCH;
 import static org.apache.iceberg.TableProperties.COMMIT_NUM_RETRIES;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
@@ -555,6 +573,12 @@ public final class IcebergUtil
             return HiveType.HIVE_STRING.toString();
         }
 
+        // Iceberg's HiveSchemaUtil cannot convert the V3 `unknown` type. Hive's `void` is
+        // its all-null type and is what Spark records for NullType, so use it here as well.
+        if (isUnknownType(icebergType)) {
+            return VOID_TYPE_NAME;
+        }
+
         if (icebergType.isPrimitiveType()) {
             return HiveSchemaUtil.convert(icebergType).getTypeName();
         }
@@ -638,6 +662,205 @@ public final class IcebergUtil
     {
         return stream(icebergTable.snapshots())
                 .anyMatch(snapshot -> snapshot.snapshotId() == id);
+    }
+
+    /**
+     * A branch moved to {@code snapshotId} is read with the current schema, so columns made required since that
+     * snapshot must hold no NULLs in it.
+     */
+    public static void verifyNoNullValuesInRequiredColumns(Table icebergTable, SchemaTableName tableName, String branchName, long snapshotId)
+    {
+        Snapshot snapshot = icebergTable.snapshot(snapshotId);
+        if (snapshot == null) {
+            return;
+        }
+        // Older Iceberg versions wrote snapshots without a schema ID, so every required field of such a snapshot is checked.
+        Optional<Schema> snapshotSchema = Optional.ofNullable(snapshot.schemaId()).map(icebergTable.schemas()::get);
+        ImmutableList.Builder<NestedField> fields = ImmutableList.builder();
+        ImmutableSet.Builder<Integer> filterFieldIds = ImmutableSet.builder();
+        for (NestedField field : icebergTable.schema().columns()) {
+            NestedField snapshotField = snapshotSchema.map(schema -> schema.findField(field.fieldId())).orElse(null);
+            // A snapshot whose schema already required the field was written under the constraint, so its files are trusted.
+            // Parquet and ORC count NULLs only for leaf columns, so a required ROW, ARRAY or MAP column cannot be checked, and SET NOT NULL never makes one.
+            if (field.isOptional() || !field.type().isPrimitiveType() || (snapshotField != null && snapshotField.isRequired())) {
+                continue;
+            }
+            fields.add(field);
+            // A snapshot from before the field was added has no column to filter on: every row reads the initial default, or NULL.
+            // Iceberg binds the filter to the current schema for the current snapshot and to the snapshot's schema otherwise,
+            // so a renamed field skips the filter and is checked by field ID.
+            if (snapshotField != null && snapshotField.name().equals(field.name())) {
+                filterFieldIds.add(field.fieldId());
+            }
+        }
+        List<NestedField> checkedFields = fields.build();
+        if (checkedFields.isEmpty()) {
+            return;
+        }
+        Optional<Map.Entry<NestedField, DataFile>> nullValues = findDataFileWithNullValues(
+                icebergTable.newScan().useSnapshot(snapshotId),
+                checkedFields,
+                filterFieldIds.build(),
+                lastSequenceNumbersWithoutFields(icebergTable, checkedFields));
+        if (nullValues.isPresent()) {
+            throw new PrestoException(CONSTRAINT_VIOLATION, format(
+                    "Cannot move branch '%s' of table '%s' to snapshot %d: data file '%s' of that snapshot can hold NULL values in NOT NULL column '%s'. " +
+                            "Drop the NOT NULL constraint first",
+                    branchName, tableName, snapshotId, nullValues.get().getValue().location(), nullValues.get().getKey().name()));
+        }
+    }
+
+    /**
+     * A write checks NOT NULL against the schema its transaction read, so the data files that {@code metadata} adds to
+     * {@code base}, and the existing snapshots it moves branches to, are checked against the columns another query set
+     * NOT NULL since.
+     */
+    public static void verifyNoNullValuesInColumnsSetNotNullConcurrently(Schema readSchema, TableMetadata base, TableMetadata metadata, FileIO io, SchemaTableName tableName)
+    {
+        List<NestedField> fields = base.schema().columns().stream()
+                .filter(field -> field.isRequired() && field.type().isPrimitiveType())
+                .filter(field -> {
+                    NestedField readField = readSchema.findField(field.fieldId());
+                    return readField == null ? field.initialDefault() == null : readField.isOptional();
+                })
+                .collect(toImmutableList());
+        if (fields.isEmpty()) {
+            return;
+        }
+        Set<Long> baseSnapshotIds = base.snapshots().stream()
+                .map(Snapshot::snapshotId)
+                .collect(toImmutableSet());
+        for (Snapshot snapshot : metadata.snapshots()) {
+            if (baseSnapshotIds.contains(snapshot.snapshotId())) {
+                continue;
+            }
+            for (DataFile file : snapshot.addedDataFiles(io)) {
+                Map<Integer, Long> nullCounts = file.nullValueCounts();
+                for (NestedField field : fields) {
+                    Long nullCount = nullCounts == null ? null : nullCounts.get(field.fieldId());
+                    if (nullCount == null || nullCount > 0) {
+                        throw new PrestoException(CONSTRAINT_VIOLATION, format(
+                                "Cannot commit to table '%s': data file '%s' can hold NULL values in column '%s', which another query set NOT NULL after this transaction read the table",
+                                tableName, file.location(), field.name()));
+                    }
+                }
+            }
+        }
+        // Iceberg reapplies a rollback or set-current-snapshot on the refreshed table when the commit retries. The move adds
+        // no data files, and a new snapshot's parent is a head of base, so only a move to an existing snapshot is checked.
+        // The check reads base, not metadata: in metadata the moved main is the current snapshot, and a scan of the current
+        // snapshot binds IS NULL to the current schema, where it folds to FALSE on a required column.
+        Table table = new BaseTable(new StaticTableOperations(base, io), tableName.toString());
+        for (Map.Entry<String, SnapshotRef> ref : metadata.refs().entrySet()) {
+            long snapshotId = ref.getValue().snapshotId();
+            SnapshotRef baseRef = base.ref(ref.getKey());
+            if (!ref.getValue().isBranch() || !baseSnapshotIds.contains(snapshotId) || (baseRef != null && baseRef.snapshotId() == snapshotId)) {
+                continue;
+            }
+            verifyNoNullValuesInRequiredColumns(table, tableName, ref.getKey(), snapshotId);
+        }
+    }
+
+    /**
+     * Moves the main branch to the snapshot that {@code targetSnapshotId} picks. The move is opened first, so the target
+     * and its NULL check read the metadata the move commits on.
+     */
+    public static void moveMainBranch(
+            Table icebergTable,
+            SchemaTableName tableName,
+            ToLongFunction<Table> targetSnapshotId,
+            BiFunction<ManageSnapshots, Long, ManageSnapshots> move)
+    {
+        ManageSnapshots manageSnapshots = icebergTable.manageSnapshots();
+        long snapshotId = targetSnapshotId.applyAsLong(icebergTable);
+        verifyNoNullValuesInRequiredColumns(icebergTable, tableName, MAIN_BRANCH, snapshotId);
+        move.apply(manageSnapshots, snapshotId).commit();
+    }
+
+    /**
+     * Returns a data file that may hold NULLs in one of {@code fields}, with that field: one with a positive NULL count,
+     * or one with no count that is not known to read the field's initial default. The fields in {@code filterFieldIds}
+     * are matched by name in the scan, which prunes files by partition and NULL count.
+     */
+    public static Optional<Map.Entry<NestedField, DataFile>> findDataFileWithNullValues(
+            TableScan scan,
+            List<NestedField> fields,
+            Set<Integer> filterFieldIds,
+            Map<Integer, Long> lastSequenceNumbersWithoutFields)
+    {
+        if (fields.stream().allMatch(field -> filterFieldIds.contains(field.fieldId()))) {
+            scan = scan.filter(fields.stream()
+                    .<Expression>map(field -> Expressions.isNull(field.name()))
+                    .reduce(Expressions::or)
+                    .orElseThrow(() -> new IllegalArgumentException("no fields to check")));
+        }
+        // Planning copies the requested stats into every data file, so only these fields' are requested, by their names in the scan's schema.
+        Schema scanSchema = scan.schema();
+        Set<String> statsColumns = fields.stream()
+                .map(field -> scanSchema.findField(field.fieldId()))
+                .filter(Objects::nonNull)
+                .map(NestedField::name)
+                .collect(toImmutableSet());
+        TableScan statsScan = statsColumns.size() < fields.size() ? scan.includeColumnStats() : scan.includeColumnStats(statsColumns);
+        // A file returned for one field's filter can still be outside another field's: its partition shows the field holds no NULLs.
+        Map<Integer, Map<Integer, ResidualEvaluator>> partitionFilters = new HashMap<>();
+        try (CloseableIterable<FileScanTask> tasks = statsScan.planFiles()) {
+            for (FileScanTask task : tasks) {
+                DataFile file = task.file();
+                Map<Integer, Long> nullCounts = file.nullValueCounts();
+                Map<Integer, ResidualEvaluator> specFilters = partitionFilters.computeIfAbsent(task.spec().specId(), specId -> new HashMap<>());
+                for (NestedField field : fields) {
+                    // The partition predicate is resolved by field ID in the spec's schema, so it holds for a renamed field that the scan filter skips.
+                    // That schema is the current one for a snapshot without a schema ID, and binding IS NULL to a required field folds it to FALSE.
+                    NestedField specField = task.spec().schema().findField(field.fieldId());
+                    if (specField != null
+                            && specField.isOptional()
+                            && specFilters.computeIfAbsent(field.fieldId(), fieldId -> ResidualEvaluator.of(task.spec(), Expressions.isNull(specField.name()), true))
+                                    .residualFor(file.partition()).op() == Expression.Operation.FALSE) {
+                        continue;
+                    }
+                    Long nullCount = nullCounts == null ? null : nullCounts.get(field.fieldId());
+                    // Data files written without the field read its initial default in every row.
+                    Long lastSequenceNumberWithoutField = lastSequenceNumbersWithoutFields.get(field.fieldId());
+                    boolean writtenWithoutField = lastSequenceNumberWithoutField != null
+                            && file.fileSequenceNumber() != null
+                            && file.fileSequenceNumber() <= lastSequenceNumberWithoutField;
+                    if (nullCount == null ? !writtenWithoutField : nullCount > 0) {
+                        return Optional.of(immutableEntry(field, file));
+                    }
+                }
+            }
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Maps each of {@code fields} that has an initial default to the last sequence number of a snapshot whose schema
+     * lacks it. Once a field of the current schema is added, every later snapshot's schema has it, so every data file
+     * up to that sequence number was written without it.
+     */
+    public static Map<Integer, Long> lastSequenceNumbersWithoutFields(Table icebergTable, List<NestedField> fields)
+    {
+        Set<Integer> fieldIds = fields.stream()
+                .filter(field -> field.initialDefault() != null)
+                .map(NestedField::fieldId)
+                .collect(toImmutableSet());
+        Map<Integer, Long> sequenceNumbers = new HashMap<>();
+        if (fieldIds.isEmpty()) {
+            return sequenceNumbers;
+        }
+        for (Snapshot snapshot : icebergTable.snapshots()) {
+            Schema schema = SnapshotUtil.schemaFor(icebergTable, snapshot.snapshotId());
+            for (int fieldId : fieldIds) {
+                if (schema.findField(fieldId) == null) {
+                    sequenceNumbers.merge(fieldId, snapshot.sequenceNumber(), Math::max);
+                }
+            }
+        }
+        return sequenceNumbers;
     }
 
     /**
@@ -799,12 +1022,13 @@ public final class IcebergUtil
     }
 
     // Row-lineage columns are stripped because Iceberg's Binder rejects field ids absent from
-    // the table schema; they are evaluated at the split level instead.
+    // the table schema. Splits are pruned on _last_updated_sequence_number only (see
+    // metadataColumnsMatchPredicates); _row_id is filtered per row.
     public static <U> TupleDomain<IcebergColumnHandle> getNonMetadataColumnConstraints(TupleDomain<U> allConstraints)
     {
         return allConstraints.transform(c -> {
             IcebergColumnHandle handle = (IcebergColumnHandle) c;
-            if (isMetadataColumnId(handle.getId()) || handle.isRowIdColumn() || handle.isLastUpdatedSequenceNumberColumn()) {
+            if (isMetadataColumnId(handle.getId()) || handle.isRowLineageColumn()) {
                 return null;
             }
             return handle;
@@ -827,7 +1051,8 @@ public final class IcebergUtil
             String path,
             long dataSequenceNumber,
             ContentFile<?> file,
-            InclusiveMetricsEvaluator lineageEvaluator)
+            InclusiveMetricsEvaluator lineageEvaluator,
+            Supplier<Set<Long>> appendSequenceNumbers)
     {
         if (constraints.isAll()) {
             return true;
@@ -845,7 +1070,7 @@ public final class IcebergUtil
                     matches &= domain.includesNullableValue(dataSequenceNumber);
                 }
                 else if (handle.isLastUpdatedSequenceNumberColumn()) {
-                    matches &= lastUpdatedSequenceNumberMatches(domain, dataSequenceNumber, file, lineageEvaluator);
+                    matches &= lastUpdatedSequenceNumberMatches(domain, dataSequenceNumber, file, lineageEvaluator, appendSequenceNumbers);
                 }
             }
         }
@@ -853,26 +1078,51 @@ public final class IcebergUtil
         return matches;
     }
 
-    // The fallback branches handle cases where InclusiveMetricsEvaluator would over-include:
-    // V2/no-row-lineage files (column always null) and V3 pre-compaction (effective value =
-    // dataSequenceNumber per Iceberg's LastUpdatedSeqReader).
+    // A row's value is its stored value, or dataSequenceNumber when that is null, so a file matches if
+    // either can match. Stored values are known only through bounds. No value exceeds the file
+    // sequence number, since the spec has writers store only values copied from rows of earlier
+    // commits. A file with no metrics for the column is assumed to store none only if a retained
+    // APPEND snapshot added it. Iceberg reports APPEND only when a commit adds data files without
+    // removing data files or adding delete files, and writers are assumed, not guaranteed by the
+    // spec, to store lineage values only when they rewrite rows.
     private static boolean lastUpdatedSequenceNumberMatches(
             Domain domain,
             long dataSequenceNumber,
             ContentFile<?> file,
-            InclusiveMetricsEvaluator evaluator)
+            InclusiveMetricsEvaluator evaluator,
+            Supplier<Set<Long>> appendSequenceNumbers)
     {
-        int fieldId = LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
-        Map<Integer, ByteBuffer> lowerBounds = file.lowerBounds();
-        Map<Integer, ByteBuffer> upperBounds = file.upperBounds();
-        if (lowerBounds != null && lowerBounds.containsKey(fieldId)
-                && upperBounds != null && upperBounds.containsKey(fieldId)) {
-            return evaluator.eval(file);
-        }
         if (file instanceof DataFile && ((DataFile) file).firstRowId() == null) {
             return domain.isNullAllowed();
         }
-        return domain.includesNullableValue(dataSequenceNumber);
+        int fieldId = LAST_UPDATED_SEQUENCE_NUMBER.fieldId();
+        Long valueCount = getColumnMetric(file.valueCounts(), fieldId);
+        Long nullCount = getColumnMetric(file.nullValueCounts(), fieldId);
+        boolean mayHaveInheritedValues = nullCount == null || nullCount > 0;
+        if (getColumnMetric(file.lowerBounds(), fieldId) != null && getColumnMetric(file.upperBounds(), fieldId) != null) {
+            return evaluator.eval(file) || (mayHaveInheritedValues && domain.includesNullableValue(dataSequenceNumber));
+        }
+        Long fileSequenceNumber = file.fileSequenceNumber();
+        if (fileSequenceNumber != null && !domain.getValues().overlaps(ValueSet.ofRanges(Range.lessThanOrEqual(domain.getType(), fileSequenceNumber)))) {
+            return false;
+        }
+        boolean mayHaveStoredValues = valueCount != null
+                ? nullCount == null || nullCount < valueCount
+                : fileSequenceNumber == null || !appendSequenceNumbers.get().contains(fileSequenceNumber);
+        return mayHaveStoredValues || domain.includesNullableValue(dataSequenceNumber);
+    }
+
+    public static Set<Long> getAppendSequenceNumbers(Table table)
+    {
+        return stream(table.snapshots())
+                .filter(snapshot -> DataOperations.APPEND.equals(snapshot.operation()))
+                .map(Snapshot::sequenceNumber)
+                .collect(toImmutableSet());
+    }
+
+    private static <T> T getColumnMetric(Map<Integer, T> metrics, int fieldId)
+    {
+        return metrics == null ? null : metrics.get(fieldId);
     }
 
     public static InclusiveMetricsEvaluator buildLastUpdatedSequenceNumberEvaluator(TupleDomain<IcebergColumnHandle> metadataColumnConstraints)
@@ -993,6 +1243,10 @@ public final class IcebergUtil
     public static Object deserializeIcebergValue(Type type, String valueString, String name)
     {
         if (valueString == null) {
+            return null;
+        }
+        if (type.equals(UNKNOWN)) {
+            // UNKNOWN columns are never stored in data files and never have a meaningful partition/default value.
             return null;
         }
 
@@ -1823,6 +2077,9 @@ public final class IcebergUtil
             }
             else if (value instanceof CharBuffer) {
                 slice = Slices.utf8Slice(((CharBuffer) value).toString());
+            }
+            else if (value instanceof UUID) {
+                slice = javaUuidToPrestoUuid((UUID) value);
             }
             else {
                 slice = (Slice) value;

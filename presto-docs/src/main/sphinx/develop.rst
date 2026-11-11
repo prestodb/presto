@@ -13,12 +13,14 @@ This guide is intended for Presto contributors and plugin developers.
     develop/delete-and-update
     develop/types
     develop/functions
+    develop/materialized-view-rollups
     develop/table-functions
     develop/procedures
     develop/system-access-control
     develop/password-authenticator
     develop/event-listener
     develop/openlineage-event-listener
+    develop/prestissimo-otel-monitoring
     develop/client-protocol
     develop/worker-protocol
     develop/serialized-page

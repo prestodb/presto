@@ -310,6 +310,65 @@ public class TestSqlTaskExecution
         }
     }
 
+    @Test(timeOut = 20_000)
+    public void testSourceOperatorAddSplitOrder()
+    {
+        ScheduledExecutorService taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
+        ScheduledExecutorService driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
+        TaskExecutor taskExecutor = new TaskExecutor(1, 1, 1, 1, TASK_FAIR, Ticker.systemTicker());
+        taskExecutor.start();
+
+        TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
+        PartitionedOutputBuffer outputBuffer = newTestingOutputBuffer(taskNotificationExecutor);
+        try {
+            TestingScanOperatorFactory testingScanOperatorFactory = new TestingScanOperatorFactory(0, TABLE_SCAN_NODE_ID, ImmutableList.of(VARCHAR));
+            TaskOutputOperatorFactory taskOutputOperatorFactory = new TaskOutputOperatorFactory(
+                    1,
+                    TABLE_SCAN_NODE_ID,
+                    outputBuffer,
+                    Function.identity(),
+                    new PagesSerdeFactory(new BlockEncodingManager(), CompressionCodec.NONE));
+            LocalExecutionPlan localExecutionPlan = new LocalExecutionPlan(
+                    ImmutableList.of(new DriverFactory(
+                            0,
+                            true,
+                            true,
+                            ImmutableList.of(testingScanOperatorFactory, taskOutputOperatorFactory),
+                            OptionalInt.empty(),
+                            UNGROUPED_EXECUTION,
+                            Optional.empty())),
+                    ImmutableList.of(TABLE_SCAN_NODE_ID),
+                    StageExecutionDescriptor.ungroupedExecution());
+            TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
+            SqlTaskExecution sqlTaskExecution = SqlTaskExecution.createSqlTaskExecution(
+                    taskStateMachine,
+                    taskContext,
+                    outputBuffer,
+                    ImmutableList.of(),
+                    localExecutionPlan,
+                    taskExecutor,
+                    taskNotificationExecutor,
+                    createTestSplitMonitor());
+
+            sqlTaskExecution.addSources(ImmutableList.of(new TaskSource(
+                    TABLE_SCAN_NODE_ID,
+                    ImmutableSet.of(
+                            newScheduledSplit(16, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 1, 1),
+                            newScheduledSplit(1, TABLE_SCAN_NODE_ID, Lifespan.taskWide(), 0, 1)),
+                    true)));
+
+            waitUntilEquals(() -> testingScanOperatorFactory.getAddedSplitSequenceIds().size(), 2, ASSERT_WAIT_TIMEOUT);
+            assertEquals(testingScanOperatorFactory.getAddedSplitSequenceIds(), ImmutableList.of(1L, 16L));
+        }
+        finally {
+            taskStateMachine.abort();
+            outputBuffer.destroy();
+            taskExecutor.stop();
+            taskNotificationExecutor.shutdownNow();
+            driverYieldExecutor.shutdownNow();
+        }
+    }
+
     @Test(dataProvider = "executionStrategies", timeOut = 20_000)
     public void testComplex(PipelineExecutionStrategy executionStrategy)
             throws Exception
@@ -775,6 +834,7 @@ public class TestSqlTaskExecution
         private final PlanNodeId sourceId;
         private final Pauser pauser = new Pauser();
 
+        private final List<Long> addedSplitSequenceIds = new ArrayList<>();
         private final Set<Lifespan> driverGroupsWithNoMoreOperators = new HashSet<>();
         private boolean overallNoMoreOperators;
 
@@ -830,6 +890,16 @@ public class TestSqlTaskExecution
             return pauser;
         }
 
+        public synchronized List<Long> getAddedSplitSequenceIds()
+        {
+            return ImmutableList.copyOf(addedSplitSequenceIds);
+        }
+
+        private synchronized void recordAddedSplit(ScheduledSplit scheduledSplit)
+        {
+            addedSplitSequenceIds.add(scheduledSplit.getSequenceId());
+        }
+
         public class TestingScanOperator
                 implements SourceOperator
         {
@@ -868,7 +938,9 @@ public class TestSqlTaskExecution
             @Override
             public Supplier<Optional<UpdatablePageSource>> addSplit(ScheduledSplit scheduledSplit)
             {
-                Split split = requireNonNull(scheduledSplit, "scheduledSplit is null").getSplit();
+                requireNonNull(scheduledSplit, "scheduledSplit is null");
+                recordAddedSplit(scheduledSplit);
+                Split split = scheduledSplit.getSplit();
                 requireNonNull(split, "split is null");
                 checkState(this.split == null, "Table scan split already set");
 

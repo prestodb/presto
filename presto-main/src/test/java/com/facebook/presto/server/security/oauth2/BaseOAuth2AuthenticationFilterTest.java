@@ -47,13 +47,16 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.facebook.airlift.testing.Assertions.assertLessThan;
 import static com.facebook.airlift.units.Duration.nanosSince;
 import static com.facebook.presto.client.OkHttpUtil.setupInsecureSsl;
 import static com.facebook.presto.server.security.oauth2.JwtUtil.newJwtBuilder;
+import static com.facebook.presto.server.security.oauth2.NonceCookie.NONCE_COOKIE;
 import static com.facebook.presto.server.security.oauth2.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static com.facebook.presto.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION;
 import static jakarta.ws.rs.core.HttpHeaders.LOCATION;
@@ -275,6 +278,74 @@ public abstract class BaseOAuth2AuthenticationFilterTest
         assertThat(oauth2Cookie).isNotEmpty();
         assertOAuth2Cookie(oauth2Cookie.get());
         assertUICallWithCookie(oauth2Cookie.get().getValue());
+    }
+
+    @Test
+    public void testSuccessfulFlowSetsSameSiteOnCookies()
+            throws Exception
+    {
+        // record the raw Set-Cookie headers of every hop (including redirects) as they are sent on the wire
+        List<String> setCookieHeaders = new CopyOnWriteArrayList<>();
+        OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();
+        setupInsecureSsl(httpClientBuilder);
+        OkHttpClient httpClient = httpClientBuilder
+                .followRedirects(true)
+                .cookieJar(new JavaNetCookieJar(new CookieManager()))
+                .addNetworkInterceptor(chain -> {
+                    Response response = chain.proceed(chain.request());
+                    setCookieHeaders.addAll(response.headers("Set-Cookie"));
+                    return response;
+                })
+                .build();
+
+        // login: UI -> IdP -> /oauth2/callback -> UI
+        try (Response response = httpClient.newCall(uiCall().build()).execute()) {
+            assertEquals(response.code(), SC_OK);
+        }
+
+        List<String> loginCookies = prestoSetCookieHeaders(setCookieHeaders);
+        setCookieHeaders.clear();
+        // the nonce is created when the challenge starts and deleted in the callback, the token is created in the callback
+        assertThat(loginCookies.stream().anyMatch(header -> header.startsWith(NONCE_COOKIE + "=") && !header.contains("Max-Age=0"))).isTrue();
+        assertThat(loginCookies.stream().anyMatch(header -> header.startsWith(NONCE_COOKIE + "=") && header.contains("Max-Age=0"))).isTrue();
+        assertThat(loginCookies.stream().anyMatch(header -> header.startsWith(OAUTH2_COOKIE + "=") && !header.contains("Max-Age=0"))).isTrue();
+        assertSameSiteLax(loginCookies);
+
+        // logout: the token cookie is deleted; do not follow the redirect so only the logout response is inspected
+        try (Response response = httpClient.newBuilder()
+                .followRedirects(false)
+                .build()
+                .newCall(new Request.Builder()
+                        .url(proxyURI.resolve("/logout").toString())
+                        .get()
+                        .build())
+                .execute()) {
+            assertThat(response.isRedirect()).isTrue();
+        }
+        List<String> logoutCookies = prestoSetCookieHeaders(setCookieHeaders);
+        assertThat(logoutCookies).hasSize(1);
+        assertThat(logoutCookies.get(0)).startsWith(OAUTH2_COOKIE + "=").contains("Max-Age=0");
+        assertSameSiteLax(logoutCookies);
+    }
+
+    private static List<String> prestoSetCookieHeaders(List<String> setCookieHeaders)
+    {
+        // ignore cookies set by the IdP
+        return setCookieHeaders.stream()
+                .filter(header -> header.startsWith(NONCE_COOKIE + "=") || header.startsWith(OAUTH2_COOKIE + "="))
+                .collect(toImmutableList());
+    }
+
+    private static void assertSameSiteLax(List<String> setCookieHeaders)
+    {
+        // attributes are matched after the ";" separator because the cookie names themselves start with "__Secure-";
+        // JAX-RS writes ";Secure" while the servlet container writes "; Secure"
+        for (String header : setCookieHeaders) {
+            assertThat(header).as("Set-Cookie header")
+                    .containsPattern(";\\s*Secure(;|$)")
+                    .containsPattern(";\\s*HttpOnly(;|$)")
+                    .containsPattern(";\\s*SameSite=Lax(;|$)");
+        }
     }
 
     @Test

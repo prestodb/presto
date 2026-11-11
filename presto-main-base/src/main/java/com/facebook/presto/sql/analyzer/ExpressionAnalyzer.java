@@ -110,6 +110,7 @@ import com.facebook.presto.sql.tree.SubscriptExpression;
 import com.facebook.presto.sql.tree.SymbolReference;
 import com.facebook.presto.sql.tree.TimeLiteral;
 import com.facebook.presto.sql.tree.TimestampLiteral;
+import com.facebook.presto.sql.tree.Trim;
 import com.facebook.presto.sql.tree.TryExpression;
 import com.facebook.presto.sql.tree.WhenClause;
 import com.facebook.presto.sql.tree.Window;
@@ -1233,6 +1234,11 @@ public class ExpressionAnalyzer
                     }
                 }
             }
+            if (expression instanceof Trim) {
+                Trim trim = (Trim) expression;
+                return expressionReferencesName(trim.getTrimSource(), name) ||
+                        trim.getTrimCharacter().map(trimCharacter -> expressionReferencesName(trimCharacter, name)).orElse(false);
+            }
             // Literals don't reference any names
             return false;
         }
@@ -1442,11 +1448,8 @@ public class ExpressionAnalyzer
             if (valueType.equals(TIME)) {
                 resultType = TIME_WITH_TIME_ZONE;
             }
-            else if (valueType.equals(TIMESTAMP)) {
-                resultType = TIMESTAMP_WITH_TIME_ZONE;
-            }
-            else if (valueType.equals(TIMESTAMP_WITH_TIME_ZONE) && !sqlFunctionProperties.isLegacyTimestampWithTimezone()) {
-                resultType = TIMESTAMP;
+            else if (valueType.equals(TIMESTAMP) || valueType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                resultType = sqlFunctionProperties.isLegacyTimestampWithTimezone() ? TIMESTAMP_WITH_TIME_ZONE : TIMESTAMP;
             }
 
             return setExpressionType(node, resultType);
@@ -1473,6 +1476,23 @@ public class ExpressionAnalyzer
 
             Type resultType = process(parameters.get(NodeRef.of(node)), context);
             return setExpressionType(node, resultType);
+        }
+
+        @Override
+        protected Type visitTrim(Trim node, StackableAstVisitorContext<Context> context)
+        {
+            ImmutableList.Builder<Expression> arguments = ImmutableList.builder();
+            arguments.add(node.getTrimSource());
+            node.getTrimCharacter().ifPresent(arguments::add);
+
+            QualifiedName functionName = QualifiedName.of(node.getSpecification().getFunctionName());
+            List<Expression> argumentList = arguments.build();
+            // Preserve the Trim node's location so that errors raised while resolving the function report line:column
+            FunctionCall functionCall = node.getLocation()
+                    .map(location -> new FunctionCall(location, functionName, argumentList))
+                    .orElseGet(() -> new FunctionCall(functionName, argumentList));
+            Type type = process(functionCall, context);
+            return setExpressionType(node, type);
         }
 
         @Override

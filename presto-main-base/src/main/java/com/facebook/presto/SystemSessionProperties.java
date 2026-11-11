@@ -391,6 +391,7 @@ public final class SystemSessionProperties
     public static final String JOIN_PREFILTER_COMPLEX_BUILD_SIDE = "join_prefilter_build_side_with_complex_probe_side";
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
+    public static final String EVALUATE_FILTER_ON_VALUES = "evaluate_filter_on_values";
     public static final String INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER = "include_values_node_in_connector_optimizer";
     public static final String ENABLE_EMPTY_CONNECTOR_OPTIMIZER = "enable_empty_connector_optimizer";
     public static final String SINGLE_NODE_EXECUTION_ENABLED = "single_node_execution_enabled";
@@ -983,8 +984,9 @@ public final class SystemSessionProperties
                         true),
                 booleanProperty(
                         LEGACY_TIMESTAMP_WITH_TIMEZONE,
-                        "When true, render TIMESTAMP WITH TIME ZONE values in their embedded zone and keep AT TIME ZONE on those values zoned; " +
-                                "when false, render them in the session zone and return their target-zone wall clock as TIMESTAMP",
+                        "When true, render TIMESTAMP WITH TIME ZONE values in their embedded zone and make AT TIME ZONE return TIMESTAMP WITH TIME ZONE; " +
+                                "when false, render them in the session zone and make AT TIME ZONE return the target-zone wall clock as TIMESTAMP. " +
+                                "The default native execution policy requires this value to match the server configuration",
                         functionsConfig.isLegacyTimestampWithTimezone(),
                         false),
                 booleanProperty(
@@ -2334,6 +2336,10 @@ public final class SystemSessionProperties
                 booleanProperty(INLINE_PROJECTIONS_ON_VALUES,
                         "Whether to evaluate project node on values node",
                         featuresConfig.getInlineProjectionsOnValues(),
+                        false),
+                booleanProperty(EVALUATE_FILTER_ON_VALUES,
+                        "Whether to evaluate a deterministic filter on each row of a values node and remove the rows that do not pass",
+                        featuresConfig.isEvaluateFilterOnValues(),
                         false),
                 booleanProperty(INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER,
                         "Include values node for connector optimizer",
@@ -4125,6 +4131,11 @@ public final class SystemSessionProperties
     public static boolean isInlineProjectionsOnValues(Session session)
     {
         return session.getSystemProperty(INLINE_PROJECTIONS_ON_VALUES, Boolean.class);
+    }
+
+    public static boolean isEvaluateFilterOnValuesEnabled(Session session)
+    {
+        return session.getSystemProperty(EVALUATE_FILTER_ON_VALUES, Boolean.class);
     }
 
     public static boolean isIncludeValuesNodeInConnectorOptimizer(Session session)

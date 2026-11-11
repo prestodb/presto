@@ -46,6 +46,7 @@ import com.facebook.presto.sql.planner.iterative.rule.DetermineJoinDistributionT
 import com.facebook.presto.sql.planner.iterative.rule.DetermineRemotePartitionedExchangeEncoding;
 import com.facebook.presto.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import com.facebook.presto.sql.planner.iterative.rule.EliminateCrossJoins;
+import com.facebook.presto.sql.planner.iterative.rule.EvaluateFilterOnValues;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroLimit;
 import com.facebook.presto.sql.planner.iterative.rule.EvaluateZeroSample;
 import com.facebook.presto.sql.planner.iterative.rule.ExtractSpatialJoins;
@@ -638,6 +639,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new InlineProjectionsOnValues(metadata.getFunctionAndTypeManager()))
+                                .add(new EvaluateFilterOnValues(metadata.getFunctionAndTypeManager(), expressionOptimizerManager))
                                 .addAll(new SimplifyRowExpressions(metadata, expressionOptimizerManager).rules())
                                 .build()),
                 new IterativeOptimizer(

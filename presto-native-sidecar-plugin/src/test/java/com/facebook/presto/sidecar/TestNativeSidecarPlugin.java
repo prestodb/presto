@@ -585,6 +585,23 @@ public class TestNativeSidecarPlugin
     }
 
     @Test
+    public void testSphericalGeographyQueries()
+    {
+        assertQuery("SELECT ST_AsText(to_spherical_geography(ST_Point(nationkey, regionkey))) FROM nation");
+        assertQuery("SELECT ST_Distance(" +
+                "to_spherical_geography(ST_Point(-122.4194, 37.7749)), " +
+                "to_spherical_geography(ST_Point(-118.2437, 34.0522)))");
+        assertQuery("SELECT ST_Area(to_spherical_geography(ST_GeometryFromText('POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0))')))");
+        assertQuery("SELECT ST_Length(to_spherical_geography(ST_GeometryFromText('LINESTRING (0 0, 10 10, 20 20)')))");
+        assertQuery(
+                "WITH places(name, location) AS (VALUES" +
+                        "        ('San Francisco', to_spherical_geography(ST_Point(-122.4194, 37.7749)))," +
+                        "        ('Oakland', to_spherical_geography(ST_Point(-122.2711, 37.8044)))," +
+                        "        ('Los Angeles', to_spherical_geography(ST_Point(-118.2437, 34.0522))))" +
+                        "SELECT name FROM places WHERE ST_Distance(location, to_spherical_geography(ST_Point(-122.4194, 37.7749))) < 50000");
+    }
+
+    @Test
     public void testRemoveMapCast()
     {
         Session enableOptimization = Session.builder(getSession())

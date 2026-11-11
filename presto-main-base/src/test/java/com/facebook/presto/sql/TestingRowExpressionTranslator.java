@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.sql;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
@@ -40,11 +41,18 @@ import static java.util.Collections.emptyMap;
 public class TestingRowExpressionTranslator
 {
     private final Metadata metadata;
+    private final Session session;
     private final LiteralEncoder literalEncoder;
 
     public TestingRowExpressionTranslator(Metadata metadata)
     {
+        this(metadata, TEST_SESSION);
+    }
+
+    public TestingRowExpressionTranslator(Metadata metadata, Session session)
+    {
         this.metadata = metadata;
+        this.session = session;
         this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
     }
 
@@ -75,14 +83,14 @@ public class TestingRowExpressionTranslator
                 getExpressionTypes(expression, typeProvider),
                 ImmutableMap.of(),
                 metadata.getFunctionAndTypeManager(),
-                TEST_SESSION);
+                session);
     }
 
     public RowExpression translateAndOptimize(Expression expression, Map<NodeRef<Expression>, Type> types)
     {
-        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager(), TEST_SESSION);
+        RowExpression rowExpression = SqlToRowExpressionTranslator.translate(expression, types, ImmutableMap.of(), metadata.getFunctionAndTypeManager(), session);
         RowExpressionOptimizer optimizer = new RowExpressionOptimizer(metadata);
-        return optimizer.optimize(rowExpression, OPTIMIZED, TEST_SESSION.toConnectorSession());
+        return optimizer.optimize(rowExpression, OPTIMIZED, session.toConnectorSession());
     }
 
     Expression simplifyExpression(Expression expression)
@@ -90,16 +98,16 @@ public class TestingRowExpressionTranslator
         // Testing simplified expressions is important, since simplification may create CASTs or function calls that cannot be simplified by the ExpressionOptimizer
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(expression, TypeProvider.empty());
-        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, TEST_SESSION, expressionTypes);
+        ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, expressionTypes);
         Object value = interpreter.optimize(NoOpVariableResolver.INSTANCE);
         return literalEncoder.toExpression(value, expressionTypes.get(NodeRef.of(expression)));
     }
 
-    private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression, TypeProvider typeProvider)
+    Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression, TypeProvider typeProvider)
     {
         ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
                 metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
-                TEST_SESSION,
+                session,
                 typeProvider,
                 emptyMap(),
                 node -> new IllegalStateException("Unexpected node: %s" + node),

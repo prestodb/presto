@@ -398,11 +398,12 @@ Default is 96MB.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
-* **Default value:** ``true`` when the worker has the cuDF UCX transport enabled; ``false`` otherwise
+* **Default value:** ``false``
 
 Native Execution only. Controls whether worker-to-worker exchanges use the cuDF UCX transport.
-When unset, uses UCX if the transport is available, otherwise uses the in-memory HTTP exchange.
-Setting this property to ``false`` uses the in-memory HTTP exchange. Explicitly setting it to
+When unset, each worker decides: it uses UCX if the transport is available, otherwise the
+in-memory HTTP exchange. Leaving the property unset is therefore not the same as setting it to
+``false``. Setting this property to ``false`` uses the in-memory HTTP exchange. Explicitly setting it to
 ``true`` requires UCX and fails the query if the transport is unavailable on a worker.
 
 UCX requires workers built with UCX exchange support and configured with ``cudf.enabled=true``

@@ -24,6 +24,8 @@ import com.facebook.presto.common.block.BlockEncodingManager;
 import com.facebook.presto.common.block.BlockEncodingSerde;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.functionNamespace.JsonBasedUdfFunctionMetadata;
+import com.facebook.presto.metadata.AtTimeZoneExecutionPolicy;
+import com.facebook.presto.metadata.DefaultAtTimeZoneExecutionPolicy;
 import com.facebook.presto.metadata.FunctionAndTypeManager;
 import com.facebook.presto.metadata.HandleResolver;
 import com.facebook.presto.metadata.TableFunctionRegistry;
@@ -45,6 +47,7 @@ import java.util.Set;
 import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
 import static com.facebook.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static com.facebook.airlift.json.JsonCodec.listJsonCodec;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 
 public class FunctionServerModule
         extends AbstractConfigurationAwareModule
@@ -53,6 +56,7 @@ public class FunctionServerModule
     protected void setup(Binder binder)
     {
         jaxrsBinder(binder).bind(FunctionResource.class);
+        newOptionalBinder(binder, AtTimeZoneExecutionPolicy.class).setDefault().to(DefaultAtTimeZoneExecutionPolicy.class).in(Scopes.SINGLETON);
         binder.bind(FunctionAndTypeManager.class).in(Scopes.SINGLETON);
         binder.bind(TableFunctionRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TransactionManager.class).to(NoOpTransactionManager.class).in(Scopes.SINGLETON);

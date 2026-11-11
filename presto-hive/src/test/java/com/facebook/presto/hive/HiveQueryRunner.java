@@ -39,6 +39,7 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Module;
 import io.airlift.tpch.TpchTable;
 import org.joda.time.DateTimeZone;
 
@@ -209,6 +210,38 @@ public final class HiveQueryRunner
             Map<String, String> tpcdsProperties)
             throws Exception
     {
+        return createQueryRunner(
+                tpchTables,
+                tpcdsTableNames,
+                extraProperties,
+                extraCoordinatorProperties,
+                security,
+                extraHiveProperties,
+                workerCount,
+                dataDirectory,
+                externalWorkerLauncher,
+                externalMetastore,
+                addJmxPlugin,
+                tpcdsProperties,
+                ImmutableList.of());
+    }
+
+    public static DistributedQueryRunner createQueryRunner(
+            Iterable<TpchTable<?>> tpchTables,
+            Iterable<String> tpcdsTableNames,
+            Map<String, String> extraProperties,
+            Map<String, String> extraCoordinatorProperties,
+            String security,
+            Map<String, String> extraHiveProperties,
+            Optional<Integer> workerCount,
+            Optional<Path> dataDirectory,
+            Optional<BiFunction<Integer, URI, Process>> externalWorkerLauncher,
+            Optional<ExtendedHiveMetastore> externalMetastore,
+            boolean addJmxPlugin,
+            Map<String, String> tpcdsProperties,
+            List<Module> extraModules)
+            throws Exception
+    {
         assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
         setupLogging();
 
@@ -227,6 +260,7 @@ public final class HiveQueryRunner
                         .setCoordinatorProperties(extraCoordinatorProperties)
                         .setDataDirectory(dataDirectory)
                         .setExternalWorkerLauncher(externalWorkerLauncher)
+                        .setExtraModules(extraModules)
                         .build();
         try {
             queryRunner.installPlugin(new TpchPlugin());

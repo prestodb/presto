@@ -13,8 +13,11 @@
  */
 #include <gtest/gtest.h>
 
+#include <string_view>
+
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/functions/FunctionMetadata.h"
+#include "presto_cpp/main/functions/ScalarFunctionRegistration.h"
 #include "presto_cpp/main/types/tests/TestUtils.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/rpc/AsyncRPCFunctionRegistry.h"
@@ -30,6 +33,7 @@ using namespace facebook::presto;
 using json = nlohmann::json;
 
 static const std::string kPrestoDefaultPrefix = "presto.default.";
+static constexpr std::string_view kSessionTimestampPrefix = "session.default.";
 
 namespace {
 
@@ -73,7 +77,10 @@ class FunctionMetadataTest : public ::testing::Test {
   static void SetUpTestSuite() {
     aggregate::prestosql::registerAllAggregateFunctions(kPrestoDefaultPrefix);
     window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
-    functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
+    facebook::presto::functions::registerPrestoScalarFunctions(
+        kPrestoDefaultPrefix, /*ignoreTimeZoneLabel=*/false);
+    facebook::presto::functions::registerPrestoScalarFunctions(
+        std::string{kSessionTimestampPrefix}, /*ignoreTimeZoneLabel=*/true);
 
     // An RPC function lives outside the scalar registry, so its declaration
     // reaches the coordinator only through AsyncRPCFunctionRegistry. The two
@@ -126,8 +133,7 @@ class FunctionMetadataTest : public ::testing::Test {
   }
 
   void SetUp() override {
-    functionMetadata_ =
-        getFunctionsMetadata(kPrestoDefaultPrefix, /*catalog=*/std::nullopt);
+    functionMetadata_ = getFunctionsMetadata(kPrestoDefaultPrefix, "presto");
   }
 
   void sortMetadataList(json::array_t& list) {
@@ -168,6 +174,22 @@ class FunctionMetadataTest : public ::testing::Test {
     for (auto i = 0; i < expectedSize; i++) {
       EXPECT_EQ(expectedList[i], metadataList[i]) << "Position: " << i;
     }
+  }
+
+  static void assertFunctionReturnType(
+      const json& functionMetadata,
+      const std::string& functionName,
+      const json& paramTypes,
+      const std::string& outputType) {
+    ASSERT_TRUE(functionMetadata.contains(functionName));
+    size_t numMatches = 0;
+    for (const auto& signature : functionMetadata.at(functionName)) {
+      if (signature["paramTypes"] == paramTypes) {
+        ++numMatches;
+        EXPECT_EQ(signature["outputType"], outputType);
+      }
+    }
+    EXPECT_EQ(numMatches, 1);
   }
 
   json functionMetadata_;
@@ -232,6 +254,34 @@ TEST_F(FunctionMetadataTest, rpcFunction) {
 
 TEST_F(FunctionMetadataTest, mixedNullBehavior) {
   testFunction("test_mixed_null_behavior", "TestMixedNullBehavior.json", 2);
+}
+
+TEST_F(FunctionMetadataTest, atTimezone) {
+  assertFunctionReturnType(
+      functionMetadata_,
+      "at_timezone",
+      json::array({"timestamp", "varchar"}),
+      "timestamp with time zone");
+  assertFunctionReturnType(
+      functionMetadata_,
+      "at_timezone",
+      json::array({"timestamp with time zone", "varchar"}),
+      "timestamp with time zone");
+
+  const json sessionTimestampMetadata =
+      getFunctionsMetadata(std::string{kSessionTimestampPrefix}, "session");
+  assertFunctionReturnType(
+      sessionTimestampMetadata,
+      "at_timezone",
+      json::array({"timestamp", "varchar"}),
+      "timestamp");
+  assertFunctionReturnType(
+      sessionTimestampMetadata,
+      "at_timezone",
+      json::array({"timestamp with time zone", "varchar"}),
+      "timestamp");
+  EXPECT_FALSE(functionMetadata_.contains("at_timezone_convert"));
+  EXPECT_FALSE(sessionTimestampMetadata.contains("at_timezone_convert"));
 }
 
 TEST_F(FunctionMetadataTest, catalog) {

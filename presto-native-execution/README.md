@@ -206,6 +206,8 @@ The make command will look like:
 
 `CUDA_ARCHITECTURES=80 CUDA_COMPILER=/usr/local/cuda/bin/nvcc PRESTO_OPTIONAL_FEATURES="cudf" make`
 
+If `CUDA_ARCHITECTURES` is not set, rapids-cmake selects the RAPIDS default list of supported architectures (about 7–8, e.g. `75-real;80-real;86-real;90a-real;100f-real;120a-real;120` with CUDA 13.0). This is also the default for the Docker images (`prestissimo-runtime.dockerfile`). Set `CUDA_ARCHITECTURES` to a single value (e.g. `80`), or to `NATIVE` to build only for the GPU on the build machine, to reduce build time and binary size. CI builds with `-DCMAKE_CUDA_ARCHITECTURES=75`.
+
 The required dependencies are bundled from the Velox setup scripts.
 
 #### Spatial type and function support

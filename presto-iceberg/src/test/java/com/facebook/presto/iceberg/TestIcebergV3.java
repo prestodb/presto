@@ -13,12 +13,21 @@
  */
 package com.facebook.presto.iceberg;
 
+import com.facebook.presto.Session;
+import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.metadata.Metadata;
+import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.TableHandle;
+import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.facebook.presto.tests.sql.TestTable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.CatalogUtil;
+import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.FileMetadata;
@@ -28,25 +37,49 @@ import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.catalog.Catalog;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.expressions.Literal;
 import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.io.CloseableIterable;
+import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.Types;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.UUID;
+import java.util.stream.Stream;
 
+import static com.facebook.presto.common.type.DateTimeEncoding.packDateTimeWithZone;
+import static com.facebook.presto.common.type.TimeZoneKey.UTC_KEY;
+import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.common.type.UuidType.javaUuidToPrestoUuid;
 import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.FileFormat.PARQUET;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.iceberg.IcebergUtil.MAX_FORMAT_VERSION_FOR_METADATA_TABLES;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.noNullCountError;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.nullValuesError;
+import static com.facebook.presto.iceberg.NotNullConstraintErrors.writerNullError;
+import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static java.util.concurrent.TimeUnit.MICROSECONDS;
+import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestIcebergV3
         extends AbstractTestQueryFramework
@@ -673,6 +706,7 @@ public class TestIcebergV3
                 {"ORC", " WITH(partitioning = 'identity')"}
         };
     }
+
     @Test(dataProvider = "withPartitioning")
     public void testInsertWithPartitionEvolution(String fileFormat, String withPartitioning)
     {
@@ -723,6 +757,23 @@ public class TestIcebergV3
         finally {
             dropTable(tableName);
         }
+    }
+
+    @Test
+    public void testInsertIntoMixedCaseWriteDefaultColumn()
+    {
+        String tableName = "test_insert_mixed_case_write_default";
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN status VARCHAR DEFAULT 'ACTIVE'");
+        // Engines such as Spark preserve the case of field names; Presto lowercases them
+        loadTable(tableName).updateSchema().renameColumn("status", "Status").commit();
+
+        assertUpdate("INSERT INTO " + tableName + " (id, \"Status\") VALUES (1, 'PAUSED'), (2, NULL)", 2);
+        assertUpdate("INSERT INTO " + tableName + " (id) VALUES (3)", 1);
+
+        assertQuery("SELECT id, status FROM " + tableName + " ORDER BY id",
+                "VALUES (1, 'PAUSED'), (2, NULL), (3, 'ACTIVE')");
+        dropTable(tableName);
     }
 
     @Test
@@ -786,6 +837,626 @@ public class TestIcebergV3
         finally {
             dropTable(tableName);
         }
+    }
+
+    /**
+     * Once the snapshot from before the column was added expires, older files are not known to read its initial
+     * default. A rewrite writes the default out with a NULL count.
+     */
+    @Test
+    public void testSetNotNullOnColumnAddedWithDefaultAfterOlderSnapshotsExpire()
+    {
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_set_not_null_default_after_older_snapshots_expire")) {
+            String tableName = table.getName();
+            long beforeColumnAdded = loadTable(tableName).currentSnapshot().snapshotId();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 7)", 1);
+            assertUpdate(format("CALL system.expire_snapshots(schema => '%s', table_name => '%s', snapshot_ids => ARRAY[%d])", TEST_SCHEMA, tableName, beforeColumnAdded));
+
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", noNullCountError("c2"));
+            assertQuerySucceeds(format("CALL system.rewrite_data_files(schema => '%s', table_name => '%s', options => map(array['rewrite-all'], array['true']))", TEST_SCHEMA, tableName));
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5), (2, 7)");
+        }
+    }
+
+    @DataProvider(name = "fileFormats")
+    public Object[][] fileFormats()
+    {
+        return new Object[][] {{"PARQUET"}, {"ORC"}};
+    }
+
+    @Test(dataProvider = "fileFormats")
+    public void testReadUnknownColumn(String fileFormat)
+    {
+        String tableName = "test_read_unknown_column_" + fileFormat.toLowerCase(ENGLISH);
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3', format = '" + fileFormat + "')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'Alice'), (2, 'Bob')", 2);
+        addUnknownColumn(tableName, "unknown_column", Types.UnknownType.get());
+
+        // An unknown column is never stored in a data file, so it always reads back as null
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'Alice', NULL), (2, 'Bob', NULL)");
+        assertQuery("SELECT unknown_column FROM " + tableName, "VALUES NULL, NULL");
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 2");
+        assertQuery("SELECT count(unknown_column) FROM " + tableName, "VALUES 0");
+        assertEquals(
+                getQueryRunner().execute("SELECT unknown_column FROM " + tableName).getTypes(),
+                ImmutableList.of(UNKNOWN));
+
+        // Iceberg binds IS NULL on an unknown column to alwaysTrue and IS NOT NULL to alwaysFalse
+        assertQuery("SELECT id FROM " + tableName + " WHERE unknown_column IS NULL", "VALUES 1, 2");
+        assertQuery("SELECT id FROM " + tableName + " WHERE unknown_column IS NOT NULL", "SELECT 1 WHERE FALSE");
+
+        // Queries that do not reference the unknown column must still plan
+        assertQuery("SELECT id FROM " + tableName + " WHERE name = 'Alice'", "VALUES 1");
+
+        assertQuery(
+                "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '" + tableName + "'",
+                "VALUES ('id', 'integer'), ('name', 'varchar'), ('unknown_column', 'unknown')");
+        dropTable(tableName);
+    }
+
+    /**
+     * Every row of a snapshot from before a column was added reads the column's initial default.
+     */
+    @Test
+    public void testRollbackToSnapshotBeforeRequiredColumnWithDefaultWasAdded()
+    {
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_rollback_before_required_column_with_default")) {
+            String tableName = table.getName();
+            long beforeColumnAdded = loadTable(tableName).currentSnapshot().snapshotId();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 7)", 1);
+            // Made required via the Iceberg API, so only the rollback's check runs
+            loadTable(tableName).updateSchema().allowIncompatibleChanges().requireColumn("c2").commit();
+
+            assertUpdate(format("CALL system.rollback_to_snapshot('%s', '%s', %d)", TEST_SCHEMA, tableName, beforeColumnAdded));
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5)");
+        }
+    }
+
+    /**
+     * Only files written before the column was added read its initial default; for later files, the NULL count decides.
+     */
+    @Test
+    public void testSetNotNullOnColumnWithDefaultChecksLaterFiles()
+    {
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_set_not_null_default_with_null")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, NULL)", 1);
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", nullValuesError("c2", "main"));
+        }
+
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_set_not_null_default_without_null_count", "\"write.metadata.metrics.max-inferred-column-defaults\" = 1")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, NULL)", 1);
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", noNullCountError("c2"));
+        }
+    }
+
+    /**
+     * A write default applies only to new writes, so files written before the column was added read NULL.
+     */
+    @Test
+    public void testSetNotNullOnColumnWithWriteDefaultOnly()
+    {
+        try (TestTable table = createV3Table("test_set_not_null_write_default_only")) {
+            String tableName = table.getName();
+            assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+            assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c2 BIGINT");
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET DEFAULT 5");
+            assertQueryFails("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL", noNullCountError("c2"));
+        }
+    }
+
+    @Test
+    public void testInsertOmittingNotNullColumnWithDefault()
+    {
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_insert_omitting_not_null_column_with_default")) {
+            String tableName = table.getName();
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
+
+            assertUpdate("INSERT INTO " + tableName + " (c1) VALUES (2)", 1);
+            assertQueryFails("INSERT INTO " + tableName + " VALUES (3, NULL)", writerNullError("c2"));
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5), (2, 5)");
+
+            assertFalse(((String) computeScalar("SHOW CREATE TABLE " + tableName)).contains("default_value"));
+            try (TestTable likeTable = new TestTable(getQueryRunner()::execute, tableName + "_like", "CREATE TABLE {TABLE_NAME} (LIKE " + tableName + ") WITH (\"format-version\" = '3')")) {
+                assertQuery(
+                        "SELECT column_name, is_nullable FROM information_schema.columns WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + likeTable.getName() + "'",
+                        "VALUES ('c1', 'YES'), ('c2', 'NO')");
+            }
+        }
+    }
+
+    @Test
+    public void testInsertOmittingNotNullPartitionColumnWithDefault()
+    {
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_insert_omitting_not_null_partition_column")) {
+            String tableName = table.getName();
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
+            loadTable(tableName).updateSpec().addField("c2").commit();
+
+            assertUpdate("INSERT INTO " + tableName + " (c1) VALUES (2)", 1);
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5), (2, 5)");
+            Table icebergTable = loadTable(tableName);
+            DataFile file = getOnlyElement(icebergTable.currentSnapshot().addedDataFiles(icebergTable.io()));
+            assertEquals(file.partition().get(0, Long.class), Long.valueOf(5));
+        }
+    }
+
+    /**
+     * Filter pushdown is only executed by the native worker, so this only checks that a table with
+     * an unknown column still plans with pushdown enabled. Planning converts the whole table schema
+     * to Hive columns, which is where an unsupported type would fail.
+     */
+    @Test
+    public void testReadUnknownColumnWithFilterPushdownPlans()
+    {
+        String tableName = "test_read_unknown_column_pushdown";
+        Session pushdownFilterEnabled = Session.builder(getSession())
+                .setCatalogSessionProperty(ICEBERG_CATALOG, PUSHDOWN_FILTER_ENABLED, "true")
+                .build();
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'Alice'), (2, 'Bob')", 2);
+        addUnknownColumn(tableName, "unknown_column", Types.UnknownType.get());
+
+        // Filtering on the unknown column itself is not covered here: with pushdown enabled,
+        // statistics are read from the snapshot's schema, which predates any column added
+        // afterwards, so a filter on such a column fails for every type, not just unknown
+        assertQuerySucceeds(pushdownFilterEnabled, "EXPLAIN SELECT * FROM " + tableName + " WHERE id = 1");
+        // Verify the Java read path actually executes correctly (pushdown is native-only; use default session)
+        assertQuery("SELECT id FROM " + tableName + " WHERE id = 1", "VALUES 1");
+        dropTable(tableName);
+    }
+
+    @Test(dataProvider = "fileFormats")
+    public void testWriteUnknownColumn(String fileFormat)
+    {
+        String tableName = "test_write_unknown_column_" + fileFormat.toLowerCase(ENGLISH);
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3', format = '" + fileFormat + "')");
+        Types.NestedField field = loadTable(tableName).schema().findField("unknown_column");
+        assertEquals(field.type(), Types.UnknownType.get());
+        // An unknown column must always be optional
+        assertTrue(field.isOptional());
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, NULL)", 1);
+        // The unknown column can be left out, like any other optional column
+        assertUpdate("INSERT INTO " + tableName + " (id) VALUES 2", 1);
+        assertUpdate("INSERT INTO " + tableName + " SELECT 3, NULL", 1);
+
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL), (2, NULL), (3, NULL)");
+        assertQuery("SELECT count(unknown_column) FROM " + tableName, "VALUES 0");
+        assertEquals(
+                getQueryRunner().execute("SELECT unknown_column FROM " + tableName).getTypes(),
+                ImmutableList.of(UNKNOWN));
+
+        // The unknown column is not stored in the data files, so the writers report no metrics
+        // for its field id, while the columns that are stored do have metrics
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\"", "VALUES 3");
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE element_at(value_counts, 2) IS NOT NULL", "VALUES 0");
+        assertQuery("SELECT count(*) FROM \"" + tableName + "$files\" WHERE element_at(value_counts, 1) IS NULL", "VALUES 0");
+        dropTable(tableName);
+    }
+
+    @Test(dataProvider = "fileFormats")
+    public void testAddUnknownColumn(String fileFormat)
+    {
+        String tableName = "test_add_unknown_column_" + fileFormat.toLowerCase(ENGLISH);
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3', format = '" + fileFormat + "')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN unknown_column UNKNOWN");
+        assertEquals(loadTable(tableName).schema().findField("unknown_column").type(), Types.UnknownType.get());
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, NULL)", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL), (2, NULL)");
+        dropTable(tableName);
+    }
+
+    /**
+     * The Java worker rejects MERGE on V3 tables, where write defaults exist. The native MERGE case is in
+     * {@code TestIcebergAlterColumnNotNull#testInsertOmittingNotNullColumnWithDefault}.
+     */
+    @Test
+    public void testMergeOmittingNotNullColumnWithDefault()
+    {
+        try (TestTable table = createV3TableWithColumnAddedWithDefault("test_merge_omitting_not_null_column_with_default")) {
+            String tableName = table.getName();
+            assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN c2 SET NOT NULL");
+
+            assertQueryFails(
+                    "MERGE INTO " + tableName + " t USING (VALUES 2) s(c1) ON t.c1 = s.c1 WHEN NOT MATCHED THEN INSERT (c1) VALUES (s.c1)",
+                    "Iceberg V3 deletion-vector writes \\(MERGE\\) require the native \\(Prestissimo\\) worker.*");
+            assertQuery("SELECT c1, c2 FROM " + tableName, "VALUES (1, 5)");
+        }
+    }
+
+    /**
+     * The unknown type was added in Iceberg format version 3, so declaring such a column in an older
+     * table is rejected by Iceberg itself.
+     */
+    @Test
+    public void testUnknownColumnRequiresV3()
+    {
+        String tableName = "test_unknown_column_requires_v3";
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '2')",
+                "(?s).*Column 'unknown_column' uses type UNKNOWN, which requires Iceberg format version 3 or higher.*");
+
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '2')");
+        assertQueryFails(
+                "ALTER TABLE " + tableName + " ADD COLUMN unknown_column UNKNOWN",
+                "(?s).*Column 'unknown_column' uses type UNKNOWN, which requires Iceberg format version 3 or higher.*");
+        dropTable(tableName);
+    }
+
+    /**
+     * An unknown column only ever holds null, so it cannot be declared NOT NULL.
+     */
+    @Test
+    public void testUnknownColumnCannotBeRequired()
+    {
+        String tableName = "test_unknown_column_not_null";
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " (id INTEGER, unknown_column UNKNOWN NOT NULL) WITH (\"format-version\" = '3')",
+                ".*Column 'unknown_column' of type unknown cannot be declared NOT NULL.*");
+        dropTable(tableName);
+    }
+
+    /**
+     * ADD COLUMN UNKNOWN NOT NULL is rejected at the Presto analysis level because the unknown type
+     * only ever holds null values: a required column that cannot hold anything but null is invalid.
+     */
+    @Test
+    public void testAddUnknownColumnNotNullRejected()
+    {
+        String tableName = "test_add_unknown_not_null";
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+        assertQueryFails(
+                "ALTER TABLE " + tableName + " ADD COLUMN unknown_column UNKNOWN NOT NULL",
+                ".*Column 'unknown_column' of type unknown cannot be declared NOT NULL.*");
+        dropTable(tableName);
+    }
+
+    /**
+     * Only null can be written to an unknown column, so a value of any other type is rejected while
+     * the insert is analyzed.
+     */
+    @Test
+    public void testWriteValueToUnknownColumnFails()
+    {
+        String tableName = "test_write_value_to_unknown_column";
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3')");
+        assertQueryFails(
+                "INSERT INTO " + tableName + " VALUES (1, 5)",
+                ".*'unknown_column' is of type unknown but expression is of type integer.*");
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testCreateTableAsSelectWithUnknownColumn()
+    {
+        String tableName = "test_ctas_unknown_column";
+        String copyName = tableName + "_copy";
+        // A column that is only ever null keeps the unknown type, instead of having to be cast
+        assertUpdate("CREATE TABLE " + tableName + " WITH (\"format-version\" = '3') AS SELECT 1 id, NULL unknown_column", 1);
+        assertEquals(loadTable(tableName).schema().findField("unknown_column").type(), Types.UnknownType.get());
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL)");
+
+        // Also with column aliases, which are analyzed separately
+        assertUpdate("CREATE TABLE " + copyName + " (id, unknown_column) WITH (\"format-version\" = '3') AS SELECT * FROM " + tableName, 1);
+        assertEquals(loadTable(copyName).schema().findField("unknown_column").type(), Types.UnknownType.get());
+        assertQuery("SELECT * FROM " + copyName, "VALUES (1, NULL)");
+        dropTable(tableName);
+        dropTable(copyName);
+    }
+
+    /**
+     * Iceberg allows an unknown column to be partitioned by identity and to be sorted on, but not to
+     * be bucketed, because no hash is defined for it.
+     */
+    @Test
+    public void testUnknownColumnPartitioningAndSorting()
+    {
+        String partitionedName = "test_unknown_column_partitioned";
+        String sortedName = "test_unknown_column_sorted";
+        String bucketedName = "test_unknown_column_bucketed";
+        assertUpdate("CREATE TABLE " + partitionedName + " (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3', partitioning = ARRAY['unknown_column'])");
+        assertUpdate("INSERT INTO " + partitionedName + " VALUES (1, NULL), (2, NULL)", 2);
+        // Every value is null, so all rows go to the same partition
+        assertQuery("SELECT count(*) FROM \"" + partitionedName + "$partitions\"", "VALUES 1");
+        assertQuery("SELECT * FROM " + partitionedName, "VALUES (1, NULL), (2, NULL)");
+
+        assertUpdate("CREATE TABLE " + sortedName + " (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3', sorted_by = ARRAY['unknown_column'])");
+        assertUpdate("INSERT INTO " + sortedName + " VALUES (1, NULL), (2, NULL)", 2);
+        assertQuery("SELECT * FROM " + sortedName, "VALUES (1, NULL), (2, NULL)");
+
+        assertQueryFails(
+                "CREATE TABLE " + bucketedName + " (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3', partitioning = ARRAY['bucket(unknown_column, 2)'])",
+                ".*Invalid source type unknown for transform: bucket\\[2\\].*");
+        dropTable(partitionedName);
+        dropTable(sortedName);
+        dropTable(bucketedName);
+    }
+
+    /**
+     * Iceberg has not implemented promotion from the unknown type to another type, so changing the
+     * type of an unknown column is rejected.
+     */
+    @Test
+    public void testPromoteUnknownColumnUnsupported()
+    {
+        String tableName = "test_promote_unknown_column";
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3')");
+        assertQueryFails(
+                "ALTER TABLE " + tableName + " ALTER COLUMN unknown_column SET DATA TYPE INTEGER",
+                ".*Cannot change column type: unknown_column: unknown -> int.*");
+        dropTable(tableName);
+    }
+
+    /**
+     * A data file needs something to store for every value, so an unknown type that is the whole of an
+     * array element, map key, map value or row is not supported. Iceberg's own writers fail on these
+     * as well.
+     */
+    @Test(dataProvider = "fileFormats")
+    public void testWriteUnknownTypeAsWholeNestedValueUnsupported(String fileFormat)
+    {
+        // Nested UNKNOWN (ARRAY, MAP, ROW containing an unknown field) is not yet supported in
+        // the read path, so CREATE TABLE rejects these column shapes immediately.
+        String suffix = "_" + fileFormat.toLowerCase(ENGLISH);
+        assertQueryFails(
+                "CREATE TABLE test_write_unknown_array" + suffix + " (id INTEGER, unknowns ARRAY(UNKNOWN)) WITH (\"format-version\" = '3', format = '" + fileFormat + "')",
+                ".*not yet supported.*");
+        assertQueryFails(
+                "CREATE TABLE test_write_unknown_map" + suffix + " (id INTEGER, unknown_by_name MAP(VARCHAR, UNKNOWN)) WITH (\"format-version\" = '3', format = '" + fileFormat + "')",
+                ".*not yet supported.*");
+        assertQueryFails(
+                "CREATE TABLE test_write_unknown_row" + suffix + " (id INTEGER, nested ROW(unknown_field UNKNOWN)) WITH (\"format-version\" = '3', format = '" + fileFormat + "')",
+                ".*not yet supported.*");
+    }
+
+    /**
+     * Iceberg allows sorting, grouping and aggregating on an unknown column, so the same operations
+     * must work here. Every value is null, so they all collapse to a single null group.
+     */
+    @Test
+    public void testUnknownColumnInSortsAndAggregations()
+    {
+        String tableName = "test_unknown_column_sort_aggregate";
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1, 2", 2);
+        addUnknownColumn(tableName, "unknown_column", Types.UnknownType.get());
+
+        assertQuery("SELECT id FROM " + tableName + " ORDER BY unknown_column", "VALUES 1, 2");
+        assertQuery("SELECT unknown_column, count(*) FROM " + tableName + " GROUP BY 1", "VALUES (NULL, 2)");
+        assertQuery("SELECT DISTINCT unknown_column FROM " + tableName, "VALUES NULL");
+        assertQuery("SELECT max(unknown_column) FROM " + tableName, "VALUES NULL");
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testColumnMetadataWithBinaryTimestampWithTimeZoneAndUuidWriteDefaults()
+    {
+        UUID uuid = UUID.fromString("f79c3e09-677c-4bbd-a479-3f349cb785e7");
+        long timestampMicros = 1_672_531_200_123_000L;
+        try (TestTable table = createV3Table("test_column_metadata_with_write_defaults")) {
+            String tableName = table.getName();
+            loadTable(tableName).updateSchema()
+                    .addColumn("c_varbinary", Types.BinaryType.get(), Literal.of(ByteBuffer.wrap(new byte[] {1, 2})))
+                    .addColumn("c_fixed", Types.FixedType.ofLength(2), Literal.of(ByteBuffer.wrap(new byte[] {3, 4})).to(Types.FixedType.ofLength(2)))
+                    .addColumn("c_timestamptz", Types.TimestampType.withZone(), Literal.of(timestampMicros).to(Types.TimestampType.withZone()))
+                    .addColumn("c_uuid", Types.UUIDType.get(), Literal.of(uuid))
+                    .commit();
+
+            assertQuerySucceeds("DESCRIBE " + tableName);
+            assertQuerySucceeds("SELECT * FROM " + tableName);
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_schema = '" + TEST_SCHEMA + "' AND table_name = '" + tableName + "'",
+                    "VALUES 'c1', 'c_varbinary', 'c_fixed', 'c_timestamptz', 'c_uuid'");
+            assertEquals(getWriteDefaults(tableName), ImmutableMap.of(
+                    "c_varbinary", wrappedBuffer(new byte[] {1, 2}),
+                    "c_fixed", wrappedBuffer(new byte[] {3, 4}),
+                    "c_timestamptz", packDateTimeWithZone(MICROSECONDS.toMillis(timestampMicros), UTC_KEY),
+                    "c_uuid", javaUuidToPrestoUuid(uuid)));
+        }
+    }
+
+    private Map<String, Object> getWriteDefaults(String tableName)
+    {
+        Metadata metadata = getQueryRunner().getMetadata();
+        return transaction(getQueryRunner().getTransactionManager(), new AllowAllAccessControl())
+                .execute(getSession(), session -> {
+                    TableHandle tableHandle = metadata.getMetadataResolver(session).getTableHandle(new QualifiedObjectName(ICEBERG_CATALOG, TEST_SCHEMA, tableName)).get();
+                    return metadata.getTableMetadata(session, tableHandle).getColumns().stream()
+                            .filter(column -> column.getDefaultValue().isPresent())
+                            .collect(toImmutableMap(ColumnMetadata::getName, column -> column.getDefaultValue().get()));
+                });
+    }
+
+    private TestTable createV3Table(String namePrefix, String... tableProperties)
+    {
+        String properties = Stream.concat(Stream.of("\"format-version\" = '3'"), Arrays.stream(tableProperties)).collect(joining(", "));
+        return new TestTable(getQueryRunner()::execute, namePrefix, "CREATE TABLE {TABLE_NAME} (c1 BIGINT) WITH (" + properties + ")");
+    }
+
+    /**
+     * Creates a V3 table with a row in {@code c1}, then adds {@code c2} with a default of 5.
+     */
+    private TestTable createV3TableWithColumnAddedWithDefault(String namePrefix, String... tableProperties)
+    {
+        TestTable table = createV3Table(namePrefix, tableProperties);
+        assertUpdate("INSERT INTO " + table.getName() + " VALUES 1", 1);
+        assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN c2 BIGINT DEFAULT 5");
+        return table;
+    }
+
+    @Test
+    public void testUnknownColumnMetadataTablesAndStatistics()
+    {
+        String tableName = "test_unknown_column_metadata";
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR) WITH (\"format-version\" = '3', partitioning = ARRAY['id'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'Alice'), (2, 'Bob')", 2);
+        addUnknownColumn(tableName, "unknown_column", Types.UnknownType.get());
+
+        // An unknown column has no bounds, so it contributes only null min/max to $partitions
+        assertQuerySucceeds("SELECT * FROM \"" + tableName + "$partitions\"");
+        assertQuerySucceeds("SELECT * FROM \"" + tableName + "$files\"");
+        assertQuerySucceeds("SELECT * FROM \"" + tableName + "$manifests\"");
+        assertQuerySucceeds("SHOW STATS FOR " + tableName);
+        assertQuerySucceeds("ANALYZE " + tableName);
+        assertQuerySucceeds("SHOW COLUMNS FROM " + tableName);
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testRenameAndDropUnknownColumn()
+    {
+        String tableName = "test_unknown_column_schema_evolution";
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER) WITH (\"format-version\" = '3')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES 1", 1);
+        addUnknownColumn(tableName, "unknown_column", Types.UnknownType.get());
+
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN unknown_column TO renamed_unknown");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL)");
+
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN renamed_unknown");
+        assertQuery("SELECT * FROM " + tableName, "VALUES 1");
+        dropTable(tableName);
+    }
+
+    /**
+     * A table whose only columns are of type unknown is valid per the Iceberg spec: unknown columns
+     * are omitted from the data file, so the file has zero data columns but the row count is still
+     * tracked in the snapshot. Every row reads back as null.
+     */
+    @Test(dataProvider = "fileFormats")
+    public void testWriteTableOfOnlyUnknownColumns(String fileFormat)
+    {
+        String tableName = "test_only_unknown_columns_" + fileFormat.toLowerCase(ENGLISH);
+        assertUpdate("CREATE TABLE " + tableName + " (unknown_column UNKNOWN) WITH (\"format-version\" = '3', format = '" + fileFormat + "')");
+        // Every column is UNKNOWN so the data file schema is empty. parquet-mr and Iceberg Java
+        // both reject writing 0-column files; Presto matches that behavior.
+        assertQueryFails(
+                "INSERT INTO " + tableName + " VALUES NULL",
+                ".*Writing to a table where every column is of type UNKNOWN is not supported.*");
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testCtasWithUnknownColumn()
+    {
+        String tableName = "test_ctas_null_literal_marker";
+        // CTAS with a NULL literal column: StatementAnalyzer.supportsUnknownColumnType and
+        // QueryPlanner.nullValueOfType must handle the UNKNOWN output column correctly.
+        assertUpdate("CREATE TABLE " + tableName + " WITH (\"format-version\" = '3') AS SELECT 1 AS id, NULL AS marker", 1);
+        assertQuery("SELECT id, marker FROM " + tableName, "VALUES (1, NULL)");
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testCtasAllUnknownColumnsRejected()
+    {
+        String tableName = "test_ctas_all_unknown";
+        // CTAS where every output column is UNKNOWN must be rejected the same way a plain INSERT is.
+        assertQueryFails(
+                "CREATE TABLE " + tableName + " WITH (\"format-version\" = '3') AS SELECT NULL AS marker",
+                ".*Writing to a table where every column is of type UNKNOWN is not supported.*");
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testUnknownColumnPredicates()
+    {
+        String tableName = "test_unknown_column_predicates";
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, NULL), (2, NULL)", 2);
+
+        // unknown is always null, so IS NULL matches every row
+        assertQuery("SELECT id FROM " + tableName + " WHERE unknown_column IS NULL ORDER BY id", "VALUES 1, 2");
+        // IS NOT NULL never matches
+        assertQuery("SELECT count(*) FROM " + tableName + " WHERE unknown_column IS NOT NULL", "VALUES 0");
+        // equality with a literal never matches (NULL = anything is NULL, not TRUE)
+        assertQuery("SELECT count(*) FROM " + tableName + " WHERE unknown_column = unknown_column", "VALUES 0");
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testUnknownColumnScalarFunctions()
+    {
+        String tableName = "test_unknown_column_scalar";
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, NULL)", 1);
+
+        // COALESCE falls through to the non-null branch since unknown is always null
+        assertQuery("SELECT coalesce(unknown_column, 42) FROM " + tableName, "VALUES 42");
+        // TRY_CAST of null returns null regardless of target type
+        assertQuery("SELECT try_cast(unknown_column AS INTEGER) FROM " + tableName, "VALUES CAST(NULL AS INTEGER)");
+        // IS DISTINCT FROM NULL is false (null IS DISTINCT FROM null → false)
+        assertQuery("SELECT unknown_column IS DISTINCT FROM NULL FROM " + tableName, "VALUES false");
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testDropLastNonUnknownColumnRejectsWrite()
+    {
+        String tableName = "test_drop_last_non_unknown";
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, NULL)", 1);
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN id");
+        // After dropping the last non-UNKNOWN column every column is UNKNOWN. The data file
+        // schema is now empty, which parquet-mr and Iceberg Java both reject.
+        assertQueryFails(
+                "INSERT INTO " + tableName + " VALUES NULL",
+                ".*Writing to a table where every column is of type UNKNOWN is not supported.*");
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 1");
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testAddColumnToAllUnknownTableRestoresWritability()
+    {
+        String tableName = "test_add_col_restores_write";
+        assertUpdate("CREATE TABLE " + tableName + " (marker UNKNOWN) WITH (\"format-version\" = '3')");
+        // All columns are UNKNOWN — INSERT is rejected upfront.
+        assertQueryFails(
+                "INSERT INTO " + tableName + " VALUES NULL",
+                ".*Writing to a table where every column is of type UNKNOWN is not supported.*");
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 0");
+        // ADD COLUMN on an all-unknown table succeeds (validateWritable is only called on write, not DDL).
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN id INTEGER");
+        // With a concrete column present the table is writable again. The schema is now (marker UNKNOWN, id INTEGER).
+        assertUpdate("INSERT INTO " + tableName + " (id, marker) VALUES (1, NULL)", 1);
+        assertQuery("SELECT id, marker FROM " + tableName, "VALUES (1, NULL)");
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testUnknownColumnWithSort()
+    {
+        String tableName = "test_unknown_column_with_sort";
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, unknown_column UNKNOWN) WITH (\"format-version\" = '3', sorted_by = ARRAY['id'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, NULL), (1, NULL), (2, NULL)", 3);
+        assertQuery("SELECT id FROM " + tableName + " ORDER BY id", "VALUES 1, 2, 3");
+        assertQuery("SELECT unknown_column FROM " + tableName, "VALUES NULL, NULL, NULL");
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testAddFieldUnknownRejected()
+    {
+        String tableName = "test_add_field_unknown_rejected";
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, info ROW(name VARCHAR)) WITH (\"format-version\" = '3')");
+        assertQueryFails(
+                "ALTER TABLE " + tableName + " ADD COLUMN info.unknown_field UNKNOWN",
+                ".*Unknown type 'UNKNOWN' for column.*|.*Unknown type nested inside a row.*not supported.*");
+        dropTable(tableName);
+    }
+
+    private void addUnknownColumn(String tableName, String columnName, Type type)
+    {
+        loadTable(tableName).updateSchema()
+                .addColumn(columnName, type)
+                .commit();
     }
 
     private Table loadTable(String tableName)

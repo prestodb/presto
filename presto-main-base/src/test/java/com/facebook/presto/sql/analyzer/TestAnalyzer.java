@@ -15,6 +15,8 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.common.function.SqlFunctionProperties;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.cost.HistoryBasedOptimizationConfig;
 import com.facebook.presto.execution.QueryManagerConfig;
 import com.facebook.presto.execution.TaskManagerConfig;
@@ -31,6 +33,9 @@ import com.facebook.presto.spi.security.AllowAllAccessControl;
 import com.facebook.presto.spiller.NodeSpillConfig;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.planner.CompilerConfig;
+import com.facebook.presto.sql.planner.TypeProvider;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.NodeRef;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.tracing.TracingConfig;
 import com.google.common.collect.ImmutableList;
@@ -43,6 +48,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 
+import static com.facebook.presto.common.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
+import static com.facebook.presto.common.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static com.facebook.presto.metadata.SessionPropertyManager.createTestingSessionPropertyManager;
 import static com.facebook.presto.spi.StandardWarningCode.PERFORMANCE_WARNING;
 import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
@@ -206,6 +214,12 @@ public class TestAnalyzer
         assertNoWarning(analyzeWithWarnings("SELECT map_filter(user_features, (k, v) -> k + v > 25) FROM (VALUES (map(ARRAY[1,2,3], ARRAY[10,20,30]))) AS t(user_features)"));
 
         assertNoWarning(analyzeWithWarnings("SELECT map_filter(user_features, (k, v) -> k > 2) FROM (VALUES (map(ARRAY[1,2,3], ARRAY[10,20,30]))) AS t(user_features)"));
+
+        // trim on the value argument references the value, so this is not a key-only filter
+        assertNoWarning(analyzeWithWarnings("SELECT map_filter(user_features, (k, v) -> trim(v) = 'x') FROM (VALUES (map(ARRAY[1,2], ARRAY['x ', ' y']))) AS t(user_features)"));
+        assertNoWarning(analyzeWithWarnings("SELECT map_filter(user_features, (k, v) -> TRIM(BOTH FROM v) = 'x') FROM (VALUES (map(ARRAY[1,2], ARRAY['x ', ' y']))) AS t(user_features)"));
+        assertNoWarning(analyzeWithWarnings("SELECT map_filter(user_features, (k, v) -> TRIM(LEADING v FROM 'xy') = 'y') FROM (VALUES (map(ARRAY[1,2], ARRAY['x', 'y']))) AS t(user_features)"));
+        assertNoWarning(analyzeWithWarnings("SELECT map_filter(user_features, (k, v) -> trim(v, ' ') IN ('x', 'y')) FROM (VALUES (map(ARRAY[1,2], ARRAY['x ', ' y']))) AS t(user_features)"));
 
         assertNoWarning(analyzeWithWarnings("SELECT transform_values(user_features, (k, v) -> v * 2) FROM (VALUES (map(ARRAY[1,2], ARRAY[2,3]))) AS t(user_features)"));
 
@@ -1549,6 +1563,23 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testGroupByWithTrim()
+    {
+        // t6.b is VARCHAR, t6.a is BIGINT
+        analyze("SELECT TRIM(BOTH FROM b) FROM t6 GROUP BY b");
+        analyze("SELECT TRIM(LEADING 'x' FROM b) FROM t6 GROUP BY b");
+        analyze("SELECT TRIM(TRAILING b FROM 'xyz') FROM t6 GROUP BY b");
+        analyze("SELECT TRIM(BOTH b FROM CAST(a AS VARCHAR)) FROM t6 GROUP BY a, b");
+        analyze("SELECT TRIM(BOTH FROM b) FROM t6 GROUP BY TRIM(BOTH FROM b)");
+        analyze("SELECT TRIM(LEADING 'x' FROM b), count(*) FROM t6 GROUP BY 1");
+
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT TRIM(BOTH FROM b) FROM t6 GROUP BY a");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT TRIM(TRAILING b FROM 'xyz') FROM t6 GROUP BY a");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT TRIM(BOTH CAST(a AS VARCHAR) FROM b) FROM t6 GROUP BY b");
+        assertFails(MUST_BE_AGGREGATE_OR_GROUP_BY, "SELECT TRIM(LEADING FROM b) FROM t6 GROUP BY TRIM(TRAILING FROM b)");
+    }
+
+    @Test
     public void testNonNumericTableSamplePercentage()
     {
         assertFails(NON_NUMERIC_SAMPLE_PERCENTAGE, "SELECT * FROM t1 TABLESAMPLE BERNOULLI ('a')");
@@ -1960,6 +1991,47 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testAtTimeZoneResultType()
+    {
+        String timestamp = "TIMESTAMP '2020-06-15 12:00:00' AT TIME ZONE 'UTC'";
+        String timestampWithTimeZone = "TIMESTAMP '2020-06-15 12:00:00 UTC' AT TIME ZONE 'UTC'";
+        assertAtTimeZoneType(true, timestamp, TIMESTAMP_WITH_TIME_ZONE);
+        assertAtTimeZoneType(true, timestampWithTimeZone, TIMESTAMP_WITH_TIME_ZONE);
+        assertAtTimeZoneType(false, timestamp, TIMESTAMP);
+        assertAtTimeZoneType(false, timestampWithTimeZone, TIMESTAMP);
+
+        String time = "TIME '10:00:00' AT TIME ZONE '+02:00'";
+        String timeWithTimeZone = "TIME '10:00:00 +00:00' AT TIME ZONE '+02:00'";
+        assertAtTimeZoneType(true, time, TIME_WITH_TIME_ZONE);
+        assertAtTimeZoneType(true, timeWithTimeZone, TIME_WITH_TIME_ZONE);
+        assertAtTimeZoneType(false, time, TIME_WITH_TIME_ZONE);
+        assertAtTimeZoneType(false, timeWithTimeZone, TIME_WITH_TIME_ZONE);
+    }
+
+    private void assertAtTimeZoneType(boolean legacyTimestampWithTimezone, String sql, Type expectedType)
+    {
+        Expression expression = SQL_PARSER.createExpression(sql);
+        SqlFunctionProperties sqlFunctionProperties = SqlFunctionProperties.builder()
+                .setTimeZoneKey(CLIENT_SESSION.getTimeZoneKey())
+                .setSessionLocale(CLIENT_SESSION.getLocale())
+                .setSessionUser(CLIENT_SESSION.getUser())
+                .setLegacyTimestampWithTimezone(legacyTimestampWithTimezone)
+                .build();
+        ExpressionAnalyzer analyzer = ExpressionAnalyzer.createWithoutSubqueries(
+                metadata.getFunctionAndTypeManager().getFunctionAndTypeResolver(),
+                Optional.of(CLIENT_SESSION.getSessionFunctions()),
+                CLIENT_SESSION.getTransactionId(),
+                sqlFunctionProperties,
+                TypeProvider.empty(),
+                ImmutableMap.of(),
+                node -> new IllegalStateException("Unexpected node: " + node),
+                WarningCollector.NOOP,
+                false);
+        analyzer.analyze(expression, Scope.create());
+        assertEquals(analyzer.getExpressionTypes().get(NodeRef.of(expression)), expectedType);
+    }
+
+    @Test
     public void testInvalidAtTimeZone()
     {
         assertFails(TYPE_MISMATCH, "SELECT 'abc' AT TIME ZONE 'America/Los_Angeles'");
@@ -2148,6 +2220,14 @@ public class TestAnalyzer
     {
         assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION sum() RETURNS INT RETURN 1");
         assertFails(INVALID_FUNCTION_NAME, "CREATE TEMPORARY FUNCTION dev.test.foo() RETURNS INT RETURN 1");
+    }
+
+    @Test
+    public void testTrimWithInvalidArgumentsReportsLocation()
+    {
+        assertFails(FUNCTION_NOT_FOUND, 1, 8, "SELECT TRIM(BOTH FROM 1)");
+        assertFails(FUNCTION_NOT_FOUND, 1, 8, "SELECT TRIM(LEADING 'x' FROM 1)");
+        assertFails(FUNCTION_NOT_FOUND, 1, 11, "SELECT 1, TRIM(TRAILING FROM 1)");
     }
 
     @Test

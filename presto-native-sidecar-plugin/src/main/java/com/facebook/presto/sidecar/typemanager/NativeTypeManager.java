@@ -63,6 +63,7 @@ import static com.facebook.presto.common.type.StandardTypes.REAL;
 import static com.facebook.presto.common.type.StandardTypes.ROW;
 import static com.facebook.presto.common.type.StandardTypes.SETDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.SMALLINT;
+import static com.facebook.presto.common.type.StandardTypes.SPHERICAL_GEOGRAPHY;
 import static com.facebook.presto.common.type.StandardTypes.TDIGEST;
 import static com.facebook.presto.common.type.StandardTypes.TIME;
 import static com.facebook.presto.common.type.StandardTypes.TIMESTAMP;
@@ -110,7 +111,8 @@ public class NativeTypeManager
                     INTERVAL_YEAR_TO_MONTH,
                     VARCHAR,
                     UNKNOWN,
-                    GEOMETRY);
+                    GEOMETRY,
+                    SPHERICAL_GEOGRAPHY);
 
     private static final Set<String> NATIVE_ENGINE_SUPPORTED_PARAMETRIC_TYPES =
             ImmutableSet.of(

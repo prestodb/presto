@@ -45,6 +45,7 @@ import com.facebook.presto.execution.ForQueryExecution;
 import com.facebook.presto.execution.ForTimeoutThread;
 import com.facebook.presto.execution.NodeResourceStatusConfig;
 import com.facebook.presto.execution.PartialResultQueryManager;
+import com.facebook.presto.execution.QueryCompletionValidator;
 import com.facebook.presto.execution.QueryExecution;
 import com.facebook.presto.execution.QueryExecutionMBean;
 import com.facebook.presto.execution.QueryIdGenerator;
@@ -136,6 +137,7 @@ import static com.facebook.presto.execution.DDLDefinitionExecution.DDLDefinition
 import static com.facebook.presto.execution.SessionDefinitionExecution.SessionDefinitionExecutionFactory;
 import static com.facebook.presto.execution.SqlQueryExecution.SqlQueryExecutionFactory;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
@@ -327,6 +329,7 @@ public class CoordinatorModule
 
         binder.bind(SplitSchedulerStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(SplitSchedulerStats.class).withGeneratedName();
+        newSetBinder(binder, QueryCompletionValidator.class);
         binder.bind(SqlQueryExecutionFactory.class).in(Scopes.SINGLETON);
         binder.bind(SectionExecutionFactory.class).in(Scopes.SINGLETON);
 

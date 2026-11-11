@@ -7,6 +7,26 @@ Overview
 
 The Iceberg connector allows querying data stored in Iceberg tables.
 
+Populating Iceberg Tables
+-------------------------
+
+Presto reads Iceberg tables but does not replicate data from external databases
+into them. Common approaches for populating Iceberg tables include:
+
+* **Batch ingestion with Spark** — Apache Spark can write Iceberg tables via
+  its DataSource V2 integration for bulk loads or periodic ETL jobs.
+
+* **INSERT from Presto** — Presto can write to Iceberg tables with
+  ``INSERT INTO ... SELECT`` or ``CREATE TABLE AS SELECT`` statements to
+  transform data already accessible through other Presto connectors.
+
+* **CDC-based ingestion** — Tools such as `OLake Go <https://olake.io/docs/>`_
+  or Debezium-based pipelines replicate databases into Iceberg tables using
+  change data capture.
+
+See the :doc:`Ecosystem </ecosystem/list>` page for a list of tools that
+produce Iceberg tables Presto can query.
+
 Metastores
 ----------
 Iceberg tables store most of the metadata in the metadata files, along with the data on the
@@ -944,11 +964,14 @@ See the `Iceberg spec — Row Lineage <https://iceberg.apache.org/spec/#row-line
 
 ``_row_id`` column
 ~~~~~~~~~~~~~~~~~~
-A globally unique, monotonically increasing ``BIGINT`` identifier for each row.
-The value is derived from the data file's ``firstRowId`` (stored in the Iceberg
-manifest) plus the row's ordinal position within that file
-(``firstRowId + position_in_file``).  Row IDs are stable across reads and are
-unique within the table at any given point in time.
+A globally unique ``BIGINT`` identifier for each row.
+If the data file stores a ``_row_id`` for the row, that value is returned.
+Otherwise the value is derived from the data file's ``firstRowId`` (stored in
+the Iceberg manifest) plus the row's ordinal position within that file
+(``firstRowId + position_in_file``).  Engines that preserve row lineage store
+each row's original ``_row_id`` when they rewrite the row, for example during
+compaction or a row-preserving ``UPDATE`` or ``MERGE``.  Row IDs are stable
+across reads and are unique within the table at any given point in time.
 
 .. code-block:: sql
 
@@ -980,7 +1003,11 @@ The Iceberg data sequence number of the snapshot in which this row was last
 written (inserted or updated).  All rows written in the same ``APPEND`` or
 ``OVERWRITE`` commit share the same sequence number.  Later commits produce
 higher sequence numbers, so you can use this column to determine the relative
-write order of rows across snapshots.
+write order of rows across snapshots.  If the data file stores a
+``_last_updated_sequence_number`` for the row, that value is returned;
+otherwise the value is the data file's data sequence number.  Engines that
+preserve row lineage store each row's original value when compaction rewrites
+the row, so compaction does not change the column.
 
 .. code-block:: sql
 
@@ -1000,6 +1027,15 @@ committed first (sequence number 1) and ``id = 2`` was committed next (sequence
 number 2).
 
 For V1/V2 tables, the column returns ``NULL``.
+
+A filter on ``_last_updated_sequence_number`` skips data files that cannot hold
+a matching value.  A data file that has no statistics for the column and was
+added by an ``APPEND`` snapshot the table still retains is assumed to store no
+values, so it is skipped when its data sequence number does not match.  A writer
+that adds files with stored values in an ``APPEND`` commit, such as a procedure
+that registers existing data files, breaks this assumption, and the filter can
+miss rows from those files.  Files that record value and null counts for the
+column are not affected.
 
 .. rubric:: Presto C++ Support
 
@@ -1865,6 +1901,14 @@ SQL Support
      - Yes
      - Yes
      -
+   * - ``ALTER TABLE ALTER COLUMN SET NOT NULL``
+     - Yes
+     - Yes
+     -
+   * - ``ALTER TABLE ALTER COLUMN DROP NOT NULL``
+     - Yes
+     - Yes
+     -
    * - ``ALTER VIEW``
      - Yes
      - Yes
@@ -2333,6 +2377,71 @@ The dotted path may traverse arbitrarily nested structs, list elements (pseudo-s
 such as ``items.element.name``), and map values (pseudo-step ``.value``, such as ``m.value.name``).
 Dropping list elements, map keys, or map value containers directly is not supported.
 
+ALTER COLUMN SET NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports adding a ``NOT NULL`` constraint to a top-level column of a
+primitive type. No data files are read or rewritten, but the coordinator reads the manifests of
+every branch head, so the statement takes longer on a table with many branches or large manifests.
+The statement is not supported on a branch. Setting ``NOT NULL`` on a column that already has the
+constraint succeeds and does not change the schema.
+
+Example — Add a ``NOT NULL`` constraint to the ``user_id`` column::
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id SET NOT NULL;
+
+Before it changes the schema, Presto reads the ``NULL`` counts that Iceberg records in the manifests
+of every branch head. The statement fails if a data file has ``NULL`` values in the column, or has
+no ``NULL`` count for it. A data file has no ``NULL`` count for a column whose metrics mode is
+``none``, for a column past the ``metrics_max_inferred_column`` limit (100 columns by default), or
+for a column added after the file was written. For a column added with ``DEFAULT`` (Iceberg V3),
+files written before the column was added are accepted until the snapshots from before the column
+was added expire.
+
+* ``NULL`` counts do not reflect row-level deletes. After ``UPDATE`` or ``DELETE`` removes the
+  ``NULL`` values, run ``rewrite_data_files`` with the ``rewrite-all`` option before retrying. The
+  rewrite also adds ``NULL`` counts for a column added after the files were written, unless the
+  column's metrics mode is ``none`` or the column is past the ``metrics_max_inferred_column``
+  limit. ``rewrite_data_files`` rewrites only the ``main`` branch, so drop or replace any other
+  branch that holds such a file.
+* Tags are not checked, because they are read with the schema of their snapshot.
+* Moving a branch to a snapshot that can hold ``NULL`` values in a ``NOT NULL`` column fails. This
+  applies to ``rollback_to_snapshot``, ``rollback_to_timestamp``, ``set_current_snapshot``,
+  ``fast_forward``, and ``CREATE [OR REPLACE] BRANCH``. Drop the constraint first.
+* After the constraint is set, an ``INSERT``, ``UPDATE``, or ``MERGE`` that stores ``NULL`` in the
+  column fails. An ``INSERT`` that omits a column with a default writes the default, but a ``MERGE``
+  whose ``INSERT`` omits the column fails.
+* A write that read the table before another query set the constraint is checked again when it
+  commits. The commit fails if a data file it adds has ``NULL`` values in the column or has no
+  ``NULL`` count for it. A ``rollback_to_snapshot``, ``rollback_to_timestamp``, or
+  ``set_current_snapshot`` call that read the table before the constraint was set fails if its
+  target snapshot can hold ``NULL`` values in the column. ``fast_forward`` and
+  ``CREATE [OR REPLACE] BRANCH`` fail with ``Table metadata refresh is required``; retry them.
+* In an explicit transaction, if another query commits a write to the table after
+  ``SET NOT NULL``, ``COMMIT`` fails with ``Table metadata refresh is required`` and discards every
+  change in the transaction, as it does after other schema changes.
+
+.. warning::
+
+    Other engines can make a column required, or move a branch to an older snapshot, without
+    checking its data. Presto treats a required column as never ``NULL``, so queries on such a
+    column can return wrong results, and a ``DELETE`` or ``rewrite_data_files`` filter with
+    ``IS NOT NULL`` on a partition column can remove the rows that hold ``NULL``.
+
+ALTER COLUMN DROP NOT NULL
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Iceberg connector supports removing a ``NOT NULL`` constraint from a top-level column of any
+type. This is a metadata-only change — no data files are read or rewritten. The statement is not
+supported on a branch.
+
+Example — Remove the ``NOT NULL`` constraint from the ``user_id`` column::
+
+     ALTER TABLE iceberg.web.page_views ALTER COLUMN user_id DROP NOT NULL;
+
+The statement fails on a column that has no ``NOT NULL`` constraint, and on an Iceberg identifier
+field, which must stay ``NOT NULL``.
+
 ALTER VIEW
 ^^^^^^^^^^
 
@@ -2581,24 +2690,41 @@ Format version 3 tables always use deletion vectors for row-level writes, regard
 the ``write.delete.mode`` / ``write.update.mode`` table properties; those modes only
 apply to format version 2 tables. The following limitations apply to version 3 tables:
 
-* A single data file split across more than one writer task fails the commit: Iceberg
-  allows at most one deletion vector per data file, and the pinned Iceberg library
-  cannot merge duplicate vectors, so the commit fails loudly instead of corrupting the
-  table. Keep data files below the target split size to avoid this.
 * The set of existing deletion vectors is enumerated from the read snapshot on every
   mutation and carried on the delete/insert handle to each writer task; on tables with
   very many files carrying deletion vectors this handle payload grows accordingly.
   Seeding writers from per-split delete files instead is a follow-up.
 
-Iceberg tables do not support running multiple :doc:`../sql/merge` statements on the same table in parallel. If two or more ``MERGE`` operations are executed concurrently on the same Iceberg table:
+Concurrent Iceberg table data modification
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* The first operation to complete will succeed.
-* Subsequent operations will fail due to conflicting writes and will return the following error:
+When two statements concurrently update or delete rows in the same Iceberg table, Iceberg rejects the commit of the
+last statement to finish. That statement writes nothing, and Presto reports the failure with the following error:
 
 .. code-block:: text
 
-    Failed to commit Iceberg update to table: <table name>
-    Found conflicting files that can contain records matching true
+    Failed to commit changes to the Iceberg table <table name> because it was concurrently modified
+
+Presto supports query retries against the new state of the Iceberg table instead of failing it.
+Query retries are disabled by default. There are two ways to enable them:
+
+- Set the ``per-query-retry-limit`` configuration property in the coordinator's ``etc/config.properties`` file:
+
+.. code-block:: properties
+
+   # coordinator/etc/config.properties
+   coordinator=true
+   per-query-retry-limit=2
+
+- Set the ``query_retry_limit`` session property by executing the following statement:
+
+.. code-block:: sql
+
+    SET SESSION query_retry_limit = 2;
+
+The value configured in these properties determines how many times Presto will re-execute a failing query.
+Query retries apply only to statements running in autocommit mode. An Iceberg commit conflict raised by the
+:doc:`/sql/commit` statement is always reported to the client.
 
 Transaction support
 ^^^^^^^^^^^^^^^^^^^
@@ -3232,6 +3358,8 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``JSON``
   * - ``GEOGRAPHY``
     - ``SphericalGeography``
+  * - ``UNKNOWN``
+    - ``UNKNOWN``
 
 
 No other types are supported.
@@ -3269,6 +3397,8 @@ with ``ALTER TABLE ... ADD COLUMN``.
   ``GEOGRAPHY`` columns.
 * A ``GEOGRAPHY`` column cannot be used as a partition column, because no Iceberg
   partition transform, including ``identity``, accepts geospatial types.
+* On Presto C++ (native execution), ``GEOGRAPHY`` columns can be read but not written.
+  Writes must go through a Java worker.
 
 PrestoDB to Iceberg type mapping
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -3319,9 +3449,64 @@ Map of PrestoDB types to the relevant Iceberg types:
     - ``STRUCT``
   * - ``SphericalGeography``
     - ``GEOGRAPHY``
+  * - ``UNKNOWN``
+    - ``UNKNOWN``
 
 
 No other types are supported.
+
+Unknown type (Iceberg V3)
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Iceberg Format Version 3 adds the ``unknown`` type, for a column whose type is not known. Such a
+column only ever holds null values: it is always optional, is not stored in the data files, and
+always reads back as ``NULL``.
+
+A column of this type can be declared in ``CREATE TABLE``, ``ALTER TABLE ADD COLUMN``, and
+``CREATE TABLE AS SELECT``::
+
+    CREATE TABLE iceberg.web.page_views (view_time TIMESTAMP, extra UNKNOWN) WITH ("format-version" = '3');
+
+    ALTER TABLE iceberg.web.page_views ADD COLUMN more UNKNOWN;
+
+    CREATE TABLE iceberg.web.page_view_copy WITH ("format-version" = '3') AS SELECT view_time, NULL AS extra FROM iceberg.web.page_views;
+
+``INSERT`` statements can write ``NULL`` to an ``unknown`` column or leave the column out entirely.
+Writing any other value is an error, because the value cannot be stored.
+
+**Restrictions:**
+
+* The table must use Iceberg format version 3 or higher.
+* An ``unknown`` column cannot be declared ``NOT NULL``.
+* An ``unknown`` column can be sorted on, but it cannot be bucketed or partitioned by ``identity``.
+  Iceberg allows identity partitioning on ``unknown`` columns, but Presto's ``DROP COLUMN``
+  rejects any column that is referenced by a partition spec (including historical ones), so a table
+  partitioned on an ``unknown`` column can never have that column dropped, making cluster rollback
+  impossible.  Avoid identity-partitioning ``unknown`` columns.
+* Only top-level ``UNKNOWN`` columns are supported.  An ``unknown`` field nested inside a
+  ``ROW``, ``ARRAY``, or ``MAP`` (for example, ``ROW(url VARCHAR, extra UNKNOWN)``) is not yet
+  supported and is rejected at ``CREATE TABLE`` and ``ADD COLUMN`` time.
+* Creating a view or materialized view over a table that contains an ``unknown`` column fails with
+  a "Column type is unknown" error.  As a workaround, exclude or cast the unknown column in the
+  view's query (for instance, ``SELECT id, CAST(NULL AS INTEGER) AS x FROM t``).
+* Promoting an ``unknown`` column to a concrete type, such as ``ALTER TABLE ... ALTER COLUMN ... SET DATA TYPE``,
+  is not yet supported in Presto, though the Iceberg spec allows it.
+* **Note:** tables that contain an ``unknown`` column cannot be read by Presto versions
+  that predate rollback.  Drop any ``unknown`` columns before rolling back a cluster.
+  Rolling back while any ``unknown``-column table exists causes ``information_schema.columns``
+  and JDBC ``getColumns`` to fail for the entire schema containing that table (and for the whole
+  catalog on unfiltered listings).  Use the following query to find all affected tables before
+  rolling back::
+
+      SELECT table_schema, table_name, column_name
+      FROM iceberg.information_schema.columns
+      WHERE data_type LIKE '%unknown%';
+
+* Avoid adding ``unknown`` columns to tables in shared Hive metastore deployments.  When using
+  the ``HIVE`` catalog type, other Iceberg engines such as Spark or Flink cannot commit to a
+  table that contains an ``unknown`` column, because Iceberg's Hive metastore schema converter
+  does not support the ``unknown`` type.  This includes ``INSERT``, ``expire_snapshots``,
+  ``rewrite_data_files``, and ``rewrite_manifests``.
 
 
 Sorted Tables

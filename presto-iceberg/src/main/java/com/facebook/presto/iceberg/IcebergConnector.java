@@ -45,7 +45,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.ALTER_COLUMN;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_UNKNOWN_COLUMN_TYPE;
 import static com.facebook.presto.spi.connector.EmptyConnectorCommitHandle.INSTANCE;
 import static com.facebook.presto.spi.transaction.IsolationLevel.REPEATABLE_READ;
 import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
@@ -117,7 +119,7 @@ public class IcebergConnector
     @Override
     public Set<ConnectorCapabilities> getCapabilities()
     {
-        return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT);
+        return immutableEnumSet(NOT_NULL_COLUMN_CONSTRAINT, ALTER_COLUMN, SUPPORTS_UNKNOWN_COLUMN_TYPE);
     }
 
     @Override
