@@ -24,6 +24,7 @@ import com.facebook.presto.spi.ConnectorTableLayout;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
+import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.SchemaTableName;
@@ -289,5 +290,65 @@ public class JdbcMetadata
     public Optional<Object> getInfo(ConnectorTableLayoutHandle tableHandle)
     {
         return Optional.of(new JdbcInputInfo(url));
+    }
+
+    @Override
+    public List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
+    {
+        return jdbcClient.listViews(session, schemaName);
+    }
+
+    @Override
+    public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return jdbcClient.getViews(session, prefix);
+    }
+
+    @Override
+    public void createView(ConnectorSession session, ConnectorTableMetadata viewMetadata, String viewData, boolean replace)
+    {
+        // a replaced view can expose different columns than the one it replaced
+        Optional<JdbcTableHandle> replacedView = replace ? getViewTableHandle(session, viewMetadata.getTable()) : Optional.empty();
+        jdbcClient.createView(session, viewMetadata, viewData, replace);
+        invalidateView(session, viewMetadata.getTable(), replacedView);
+    }
+
+    @Override
+    public void renameView(ConnectorSession session, SchemaTableName viewName, SchemaTableName newViewName)
+    {
+        Optional<JdbcTableHandle> view = getViewTableHandle(session, viewName);
+        jdbcClient.renameView(session, viewName, newViewName);
+        invalidateView(session, viewName, view);
+        jdbcMetadataCache.invalidateTableHandle(session, newViewName);
+    }
+
+    @Override
+    public void dropView(ConnectorSession session, SchemaTableName viewName)
+    {
+        Optional<JdbcTableHandle> view = getViewTableHandle(session, viewName);
+        jdbcClient.dropView(session, viewName);
+        invalidateView(session, viewName, view);
+    }
+
+    /**
+     * Returns the table handle a client that reports views as tables gives for a view, so view
+     * DDL can invalidate its cached handle and columns the way table DDL does. It has to be read
+     * before the DDL runs, since a dropped or renamed view no longer resolves. Handles compare by
+     * connector and name only, so the one read here matches every cached column entry for the view,
+     * even one cached under a handle loaded earlier.
+     */
+    private Optional<JdbcTableHandle> getViewTableHandle(ConnectorSession session, SchemaTableName viewName)
+    {
+        return Optional.ofNullable(jdbcMetadataCache.getTableHandle(session, viewName));
+    }
+
+    private void invalidateView(ConnectorSession session, SchemaTableName viewName, Optional<JdbcTableHandle> view)
+    {
+        if (view.isPresent()) {
+            jdbcMetadataCache.invalidateTable(session, view.get());
+        }
+        else {
+            jdbcMetadataCache.invalidateTableHandle(session, viewName);
+        }
     }
 }
