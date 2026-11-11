@@ -7,6 +7,26 @@ Overview
 
 The Iceberg connector allows querying data stored in Iceberg tables.
 
+Populating Iceberg Tables
+-------------------------
+
+Presto reads Iceberg tables but does not replicate data from external databases
+into them. Common approaches for populating Iceberg tables include:
+
+* **CDC-based ingestion** — Tools such as `OLake Go <https://olake.io/docs/>`_
+  or Debezium-based pipelines replicate databases into Iceberg tables using
+  change data capture.
+
+* **Batch ingestion with Spark** — Apache Spark can write Iceberg tables via
+  its DataSource V2 integration for bulk loads or periodic ETL jobs.
+
+* **INSERT from Presto** — Presto can write to Iceberg tables with
+  ``INSERT INTO ... SELECT`` or ``CREATE TABLE AS SELECT`` statements to
+  transform data already accessible through other Presto connectors.
+
+See the :doc:`Ecosystem </ecosystem/list>` page for a list of tools that
+produce Iceberg tables Presto can query.
+
 Metastores
 ----------
 Iceberg tables store most of the metadata in the metadata files, along with the data on the
