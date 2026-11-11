@@ -14,6 +14,8 @@
 package com.facebook.presto.delta;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.units.MaxDataSize;
+import com.facebook.airlift.units.MinDataSize;
 import jakarta.validation.constraints.NotNull;
 
 public class DeltaConfig
@@ -21,6 +23,8 @@ public class DeltaConfig
     private int maxSplitsBatchSize = 200;
     private boolean parquetDereferencePushdownEnabled = true;
     private boolean caseSensitivePartitionsEnabled = true;
+    private boolean deletionVectorsEnabled;
+    private int deletionVectorsMaxSize = 104857600; // 100MB
 
     @NotNull
     public boolean isParquetDereferencePushdownEnabled()
@@ -56,6 +60,33 @@ public class DeltaConfig
     public DeltaConfig setCaseSensitivePartitionsEnabled(boolean caseSensitivePartitionsEnabled)
     {
         this.caseSensitivePartitionsEnabled = caseSensitivePartitionsEnabled;
+        return this;
+    }
+
+    public boolean isDeletionVectorsEnabled()
+    {
+        return this.deletionVectorsEnabled;
+    }
+
+    @Config("delta.deletion-vectors-enabled")
+    public DeltaConfig setDeletionVectorsEnabled(boolean deletionVectorsEnabled)
+    {
+        this.deletionVectorsEnabled = deletionVectorsEnabled;
+        return this;
+    }
+
+    public int getDeletionVectorsMaxSize()
+    {
+        return this.deletionVectorsMaxSize;
+    }
+
+    // there is no "minimum" defined size for deletion vectors, so we use 0MB as the minimum
+    @MaxDataSize("100MB")
+    @MinDataSize("0MB")
+    @Config("delta.deletion-vectors-max-size")
+    public DeltaConfig setDeletionVectorsMaxSize(int deletionVectorsMaxSize)
+    {
+        this.deletionVectorsMaxSize = deletionVectorsMaxSize;
         return this;
     }
 }
