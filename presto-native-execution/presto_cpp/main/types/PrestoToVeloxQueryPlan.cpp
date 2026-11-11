@@ -2412,6 +2412,7 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
       sortOrders,
       rowNumberColumnName,
       node->maxRowCountPerPartition,
+      node->partial,
       toVeloxQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
