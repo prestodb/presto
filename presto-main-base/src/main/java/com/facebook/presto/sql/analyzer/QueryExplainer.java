@@ -147,7 +147,8 @@ public class QueryExplainer
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector, query, viewDefinitionReferences);
                 return PlanPrinter.textDistributedPlan(subPlan, metadata.getFunctionAndTypeManager(), session, verbose);
             case IO:
-                return IOPlanPrinter.textIOPlan(getLogicalPlan(session, statement, parameters, warningCollector, query, viewDefinitionReferences).getRoot(), metadata, session);
+                Plan ioPlan = getLogicalPlan(session, statement, parameters, warningCollector, query, viewDefinitionReferences);
+                return IOPlanPrinter.textIOPlan(ioPlan.getRoot(), ioPlan.getStatsAndCosts(), metadata, session);
         }
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
@@ -188,7 +189,7 @@ public class QueryExplainer
         switch (planType) {
             case IO:
                 plan = getLogicalPlan(session, statement, parameters, warningCollector, query, viewDefinitionReferences);
-                return textIOPlan(plan.getRoot(), metadata, session);
+                return textIOPlan(plan.getRoot(), plan.getStatsAndCosts(), metadata, session);
             case LOGICAL:
                 plan = getLogicalPlan(session, statement, parameters, warningCollector, query, viewDefinitionReferences);
                 return jsonLogicalPlan(plan.getRoot(), plan.getTypes(), metadata.getFunctionAndTypeManager(), plan.getStatsAndCosts(), session);

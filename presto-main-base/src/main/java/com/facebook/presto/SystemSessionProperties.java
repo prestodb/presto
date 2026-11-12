@@ -214,6 +214,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_STATS_COLLECTION_FOR_TEMPORARY_TABLE = "enable_stats_collection_for_temporary_table";
     public static final String IGNORE_STATS_CALCULATOR_FAILURES = "ignore_stats_calculator_failures";
     public static final String PRINT_STATS_FOR_NON_JOIN_QUERY = "print_stats_for_non_join_query";
+    public static final String EXPLAIN_IO_INCLUDE_ESTIMATES = "explain_io_include_estimates";
     public static final String MAX_DRIVERS_PER_TASK = "max_drivers_per_task";
     public static final String MAX_TASKS_PER_STAGE = "max_tasks_per_stage";
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
@@ -1189,6 +1190,11 @@ public final class SystemSessionProperties
                         PRINT_STATS_FOR_NON_JOIN_QUERY,
                         "Print stats and cost for non-join-query in plan",
                         featuresConfig.isPrintStatsForNonJoinQuery(),
+                        false),
+                booleanProperty(
+                        EXPLAIN_IO_INCLUDE_ESTIMATES,
+                        "Include the planner's row count and size estimates for each input table in EXPLAIN (TYPE IO) output",
+                        false,
                         false),
                 booleanProperty(
                         DEFAULT_FILTER_FACTOR_ENABLED,
@@ -3292,6 +3298,11 @@ public final class SystemSessionProperties
     public static boolean isPrintStatsForNonJoinQuery(Session session)
     {
         return session.getSystemProperty(PRINT_STATS_FOR_NON_JOIN_QUERY, Boolean.class);
+    }
+
+    public static boolean isExplainIoIncludeEstimates(Session session)
+    {
+        return session.getSystemProperty(EXPLAIN_IO_INCLUDE_ESTIMATES, Boolean.class);
     }
 
     public static boolean isDefaultFilterFactorEnabled(Session session)
