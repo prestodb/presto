@@ -23,6 +23,7 @@ public enum ConnectorCapabilities
     ENFORCE_CONSTRAINTS,
     ALTER_COLUMN,
     SUPPORTS_JOIN_PUSHDOWN,
+    SUPPORTS_MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW,
     /**
      * The connector supports columns of the unknown type. Such columns are never written to data
      * files and always read back as NULL.

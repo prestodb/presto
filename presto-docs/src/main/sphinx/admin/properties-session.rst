@@ -1178,6 +1178,43 @@ in the server configuration.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`experimental.legacy-materialized-views\`\``.
 
+``materialized_view_on_materialized_view_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Allows ``CREATE MATERIALIZED VIEW`` to read from an existing materialized
+view. Every materialized view in the dependency chain must use the destination
+catalog, which must advertise ``SUPPORTS_MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW``.
+Enabling this property does not override connector capability checks.
+
+The corresponding configuration property is
+:ref:`admin/properties:\`\`materialized-view-on-materialized-view-enabled\`\``.
+
+See :ref:`materialized-views-over-materialized-views` for supported query
+shapes, validation rules, and connector limitations.
+
+``materialized_view_aggregation_merge_strategy_validation_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Validates during ``CREATE MATERIALIZED VIEW`` that an aggregate over an
+aggregate column of a source materialized view uses its registered merge
+strategy. Set to ``false`` only when the creator has independently verified
+that the aggregate is decomposable and that the outer aggregate correctly
+merges its partial results. Presto emits a warning when the validation is
+disabled.
+
+This property does not disable other materialized-view-over-materialized-view
+validation, and it has no effect when refreshing an existing materialized
+view.
+
+The corresponding configuration property is
+:ref:`admin/properties:\`\`materialized-view-aggregation-merge-strategy-validation-enabled\`\``.
+
 ``materialized_view_query_rewrite_cost_based_selection_enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

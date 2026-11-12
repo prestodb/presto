@@ -251,6 +251,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -262,12 +263,15 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.facebook.presto.SystemSessionProperties.LEGACY_TIMESTAMP_WITH_TIMEZONE;
+import static com.facebook.presto.SystemSessionProperties.MATERIALIZED_VIEW_AGGREGATION_MERGE_STRATEGY_VALIDATION_ENABLED;
 import static com.facebook.presto.SystemSessionProperties.getMaxGroupingSets;
 import static com.facebook.presto.SystemSessionProperties.isAllowWindowOrderByLiterals;
 import static com.facebook.presto.SystemSessionProperties.isAlwaysAnalyzeCreateTableQueryEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLegacyMaterializedViews;
 import static com.facebook.presto.SystemSessionProperties.isLegacyTimestampWithTimezone;
+import static com.facebook.presto.SystemSessionProperties.isMaterializedViewAggregationMergeStrategyValidationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewDataConsistencyEnabled;
+import static com.facebook.presto.SystemSessionProperties.isMaterializedViewOnMaterializedViewEnabled;
 import static com.facebook.presto.SystemSessionProperties.isMaterializedViewPartitionFilteringEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.SKIP_READING_FROM_MATERIALIZED_VIEW_COUNT;
 import static com.facebook.presto.common.RuntimeUnit.NONE;
@@ -293,6 +297,7 @@ import static com.facebook.presto.spi.StandardWarningCode.SEMANTIC_WARNING;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_CREATE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_DELETE;
 import static com.facebook.presto.spi.analyzer.AccessControlRole.TABLE_INSERT;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW;
 import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_UNKNOWN_COLUMN_TYPE;
 import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionOperator;
 import static com.facebook.presto.spi.connector.ConnectorTableVersion.VersionType;
@@ -438,6 +443,7 @@ class StatementAnalyzer
             QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "current_time"),
             QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "localtime"),
             QualifiedObjectName.valueOf(JAVA_BUILTIN_NAMESPACE, "localtimestamp"));
+    private static final int MAX_MATERIALIZED_VIEW_SOURCE_DEPTH = 4;
     private final Analysis analysis;
     private final Metadata metadata;
     private final FunctionAndTypeResolver functionAndTypeResolver;
@@ -1670,20 +1676,168 @@ class StatementAnalyzer
             }
         }
 
-        private void validateBaseTables(List<Table> baseTables, Node node)
+        private void validateBaseTables(List<Table> baseTables, CreateMaterializedView node)
         {
+            boolean allowMaterializedViewSources = isMaterializedViewOnMaterializedViewEnabled(session);
+            boolean hasMaterializedViewSource = false;
+            QualifiedObjectName targetName = createQualifiedObjectName(session, node, node.getName(), metadata);
+
             for (Table baseTable : baseTables) {
                 QualifiedObjectName baseName = createQualifiedObjectName(session, baseTable, baseTable.getName(), metadata);
 
-                Optional<MaterializedViewDefinition> optionalMaterializedView = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), baseName);
-                if (optionalMaterializedView.isPresent()) {
+                Optional<MaterializedViewDefinition> sourceMaterializedView = getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), baseName);
+                if (!sourceMaterializedView.isPresent()) {
+                    continue;
+                }
+                hasMaterializedViewSource = true;
+                if (!allowMaterializedViewSources) {
                     throw new SemanticException(
                             NOT_SUPPORTED,
                             baseTable,
                             "%s on a materialized view %s is not supported.",
                             node.getClass().getSimpleName(), baseName);
                 }
+                validateMaterializedViewOnMaterializedViewConnector(targetName, baseTable);
+                validateMaterializedViewSourceChain(baseName, sourceMaterializedView, baseTable, targetName, new LinkedHashSet<>(), 1);
             }
+            if (hasMaterializedViewSource) {
+                validateMaterializedViewSourceGroupingElements(targetName, node.getQuery(), node);
+            }
+            if (hasMaterializedViewSource && !isMaterializedViewAggregationMergeStrategyValidationEnabled(session)) {
+                warningCollector.add(new PrestoWarning(
+                        SEMANTIC_WARNING,
+                        format("Materialized view aggregation merge strategy validation is disabled by session property %s; the creator is responsible for using decomposable aggregates and correct merge functions", MATERIALIZED_VIEW_AGGREGATION_MERGE_STRATEGY_VALIDATION_ENABLED)));
+            }
+        }
+
+        private void validateMaterializedViewOnMaterializedViewConnector(QualifiedObjectName tableName, Node node)
+        {
+            ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, tableName.getCatalogName());
+            if (!metadata.getConnectorCapabilities(session, connectorId).contains(SUPPORTS_MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW)) {
+                throw new SemanticException(
+                        NOT_SUPPORTED,
+                        node,
+                        "Catalog %s does not support materialized views over materialized views",
+                        tableName.getCatalogName());
+            }
+        }
+
+        /**
+         * Walks the materialized view chain below a source view. Every materialized view must use
+         * the target catalog and advertise connector support. Cycles and chains deeper than
+         * {@link #MAX_MATERIALIZED_VIEW_SOURCE_DEPTH} are rejected because a cycle has no valid
+         * refresh order and each additional level compounds staleness.
+         */
+        private void validateMaterializedViewSourceChain(
+                QualifiedObjectName sourceName,
+                Optional<MaterializedViewDefinition> sourceMaterializedView,
+                Table baseTable,
+                QualifiedObjectName targetName,
+                LinkedHashSet<QualifiedObjectName> pathSoFar,
+                int depth)
+        {
+            if (targetName.equals(sourceName)) {
+                throw new SemanticException(
+                        NOT_SUPPORTED,
+                        baseTable,
+                        "Materialized view %s cannot depend on itself", sourceName);
+            }
+            if (!pathSoFar.add(sourceName)) {
+                throw new SemanticException(
+                        NOT_SUPPORTED,
+                        baseTable,
+                        "Materialized view %s participates in a dependency cycle: %s", sourceName, pathSoFar);
+            }
+            if (depth > MAX_MATERIALIZED_VIEW_SOURCE_DEPTH) {
+                throw new SemanticException(
+                        NOT_SUPPORTED,
+                        baseTable,
+                        "Materialized view source chain %s exceeds the maximum supported depth of %s",
+                        pathSoFar,
+                        MAX_MATERIALIZED_VIEW_SOURCE_DEPTH);
+            }
+
+            if (sourceMaterializedView.isPresent()) {
+                Statement sourceStatement = sqlParser.createStatement(
+                        sourceMaterializedView.get().getOriginalSql(),
+                        createParsingOptions(session, warningCollector));
+                if (sourceStatement instanceof Query) {
+                    validateMaterializedViewSourceGroupingElements(sourceName, (Query) sourceStatement, baseTable);
+                }
+                validateMaterializedViewOnMaterializedViewConnector(sourceName, baseTable);
+                if (!targetName.getCatalogName().equals(sourceName.getCatalogName())) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            baseTable,
+                            "Materialized view %s cannot depend on materialized view %s in a different catalog",
+                            targetName,
+                            sourceName);
+                }
+
+                List<SchemaTableName> sources = sourceMaterializedView.get().getBaseTables();
+                Optional<List<String>> sourceCatalogs = sourceMaterializedView.get().getBaseTableCatalogs();
+                if (!sourceCatalogs.isPresent() && !sources.isEmpty()) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            baseTable,
+                            "Materialized view %s has no base-table catalog metadata",
+                            sourceName);
+                }
+                if (sourceCatalogs.isPresent() && sourceCatalogs.get().size() != sources.size()) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            baseTable,
+                            "Materialized view %s has %s base tables but %s base-table catalogs",
+                            sourceName,
+                            sources.size(),
+                            sourceCatalogs.get().size());
+                }
+                for (int i = 0; i < sources.size(); i++) {
+                    String catalog = sourceCatalogs.get().get(i);
+                    QualifiedObjectName childSourceName = new QualifiedObjectName(catalog, sources.get(i).getSchemaName(), sources.get(i).getTableName());
+                    validateMaterializedViewSourceChain(
+                            childSourceName,
+                            getMaterializedViewDefinition(session, metadataResolver, analysis.getMetadataHandle(), childSourceName),
+                            baseTable,
+                            targetName,
+                            pathSoFar,
+                            depth + 1);
+                }
+            }
+            pathSoFar.remove(sourceName);
+        }
+
+        private void validateMaterializedViewSourceGroupingElements(QualifiedObjectName viewName, Query query, Node errorNode)
+        {
+            new DefaultTraversalVisitor<Void, Void>()
+            {
+                private Void rejectComplexGroupingElement()
+                {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            errorNode,
+                            "Materialized view %s uses GROUPING SETS, ROLLUP, or CUBE, which are not supported in a materialized view source chain",
+                            viewName);
+                }
+
+                @Override
+                protected Void visitCube(Cube node, Void context)
+                {
+                    return rejectComplexGroupingElement();
+                }
+
+                @Override
+                protected Void visitRollup(Rollup node, Void context)
+                {
+                    return rejectComplexGroupingElement();
+                }
+
+                @Override
+                protected Void visitGroupingSets(GroupingSets node, Void context)
+                {
+                    return rejectComplexGroupingElement();
+                }
+            }.process(query, null);
         }
 
         @Override

@@ -25,6 +25,48 @@ subsets of large tables.
     is set in the server configuration. The toggle option should only be used in non-production environments
     for testing and migration purposes.
 
+.. _materialized-views-over-materialized-views:
+
+Materialized Views over Materialized Views
+------------------------------------------
+
+The ``materialized_view_on_materialized_view_enabled`` session property allows
+``CREATE MATERIALIZED VIEW`` to read from an existing materialized view. It is
+disabled by default. The cluster default is configured with
+:ref:`admin/properties:\`\`materialized-view-on-materialized-view-enabled\`\``.
+
+Every materialized view in the dependency chain must use the destination catalog,
+and that catalog must advertise support for storing the additional materialized-view
+definition metadata. Enabling the session property does not override a connector
+that does not support this capability.
+
+Materialized-view source chains do not support ``GROUPING SETS``, ``ROLLUP``, or
+``CUBE`` because they produce overlapping aggregation levels.
+
+The OSS Hive connector does not advertise this capability because its materialized-view
+data-consistency checks do not support chained materialized views.
+
+Validation is conservative for joins: duplicate-sensitive rollups are rejected whenever
+the defining query contains a join, even when external constraints make that join one-to-one.
+
+By default, Presto also verifies that an aggregate over an aggregate column of a source
+materialized view uses the merge strategy registered for the source aggregate. For example,
+partial ``count`` results must be combined with ``sum`` rather than ``count``. An expert user
+can set ``materialized_view_aggregation_merge_strategy_validation_enabled`` to ``false`` for
+the ``CREATE MATERIALIZED VIEW`` statement when the aggregate is known to be decomposable and
+the outer aggregate correctly merges its partial results. Presto emits a warning when this
+validation is disabled. Other query-shape, lineage, connector, and structural rollup checks
+remain enabled.
+
+The cluster default for this validation is configured with
+:ref:`admin/properties:\`\`materialized-view-aggregation-merge-strategy-validation-enabled\`\``.
+
+.. warning::
+
+    Disabling aggregate merge-strategy validation can create a materialized view that
+    refreshes successfully but stores silently incorrect results. The setting affects only
+    creation; refreshes continue to execute the stored defining query.
+
 Security Modes
 --------------
 
