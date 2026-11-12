@@ -102,9 +102,13 @@ import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.TableScanUtil;
 import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.apache.parquet.example.data.Group;
+import org.apache.parquet.example.data.simple.SimpleGroup;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.hadoop.example.ExampleParquetWriter;
 import org.apache.parquet.hadoop.example.GroupReadSupport;
+import org.apache.parquet.hadoop.example.GroupWriteSupport;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.MessageType;
 import org.intellij.lang.annotations.Language;
@@ -117,6 +121,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -165,6 +170,7 @@ import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirec
 import static com.facebook.presto.iceberg.IcebergSessionProperties.COMPRESSION_CODEC;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.DELETE_AS_JOIN_REWRITE_MAX_DELETE_COLUMNS;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.PUSHDOWN_FILTER_ENABLED;
 import static com.facebook.presto.iceberg.IcebergSessionProperties.STATISTIC_SNAPSHOT_RECORD_DIFFERENCE_WEIGHT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -198,6 +204,9 @@ import static org.apache.iceberg.SnapshotSummary.TOTAL_DELETE_FILES_PROP;
 import static org.apache.iceberg.types.Type.TypeID.TIME;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0;
 import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.stringType;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -5380,6 +5389,84 @@ public abstract class IcebergDistributedTestBase
         }
         finally {
             dropTable(session, tableName);
+        }
+    }
+
+    @Test
+    public void testReadParquetWithPhysicalNamesDifferentFromIcebergSchema()
+            throws IOException
+    {
+        // Parquet files may use physical column names that differ from the Iceberg schema names
+        // (e.g. Delta UniForm with column mapping writes "col-N"). Columns and nested struct fields
+        // must be matched by field ID and the physical name must be used as-is for the lookup,
+        // including characters such as '-'.
+        String tableName = "test_physical_names_by_field_id";
+        File dataFile = new File(getDistributedQueryRunner().getCoordinator().getDataDirectory().toFile(), tableName + "_" + randomUUID() + ".parquet");
+        try {
+            assertUpdate(format("CREATE TABLE %s (device_id INT, model VARCHAR, region VARCHAR, address ROW(city VARCHAR, zip VARCHAR)) WITH (\"write.format.default\" = 'PARQUET')", tableName));
+            Table icebergTable = loadTable(tableName);
+            Schema schema = icebergTable.schema();
+
+            MessageType parquetSchema = org.apache.parquet.schema.Types.buildMessage()
+                    .optional(INT32).id(schema.findField("device_id").fieldId()).named("col-1")
+                    .optional(BINARY).as(stringType()).id(schema.findField("model").fieldId()).named("col-2")
+                    .optional(BINARY).as(stringType()).id(schema.findField("region").fieldId()).named("col-3")
+                    .optionalGroup().id(schema.findField("address").fieldId())
+                        .optional(BINARY).as(stringType()).id(schema.findField("address.city").fieldId()).named("col-5")
+                        .optional(BINARY).as(stringType()).id(schema.findField("address.zip").fieldId()).named("col-6")
+                        .named("col-4")
+                    .named("spark_schema");
+
+            Configuration conf = new Configuration();
+            GroupWriteSupport.setSchema(parquetSchema, conf);
+            Object[][] rows = {
+                    {1, "AP-535", "US-East", "Boston", "02101"},
+                    {2, "AP-635", "US-West", "Seattle", "98101"},
+                    {3, "AP-735", "EU-Central", "Berlin", "10115"}};
+            try (ParquetWriter<Group> writer = ExampleParquetWriter.builder(new Path(dataFile.toURI())).withConf(conf).build()) {
+                for (Object[] row : rows) {
+                    SimpleGroup group = new SimpleGroup(parquetSchema);
+                    group.add("col-1", (int) row[0]);
+                    group.add("col-2", (String) row[1]);
+                    group.add("col-3", (String) row[2]);
+                    Group address = group.addGroup("col-4");
+                    address.add("col-5", (String) row[3]);
+                    address.add("col-6", (String) row[4]);
+                    writer.write(group);
+                }
+            }
+
+            icebergTable.newAppend()
+                    .appendFile(DataFiles.builder(icebergTable.spec())
+                            .withPath(dataFile.toURI().toString())
+                            .withFormat("PARQUET")
+                            .withFileSizeInBytes(dataFile.length())
+                            .withRecordCount(rows.length)
+                            .build())
+                    .commit();
+
+            assertQuery("SELECT device_id, model, region FROM " + tableName,
+                    "VALUES (1, 'AP-535', 'US-East'), (2, 'AP-635', 'US-West'), (3, 'AP-735', 'EU-Central')");
+            assertQuery("SELECT model, region FROM " + tableName + " WHERE device_id = 2", "VALUES ('AP-635', 'US-West')");
+            assertQuery("SELECT count(*) FROM " + tableName + " WHERE device_id IS NULL OR model IS NULL OR region IS NULL", "VALUES 0");
+            assertQuery("SELECT json_format(CAST(address AS JSON)) FROM " + tableName + " WHERE device_id = 2",
+                    "VALUES '{\"city\":\"Seattle\",\"zip\":\"98101\"}'");
+
+            // With dereference pushdown enabled, "address.city" is read as a SYNTHESIZED subfield column whose
+            // root and nested steps must also be resolved by field ID. With it disabled, the whole struct is read.
+            for (boolean dereferencePushdownEnabled : new boolean[] {true, false}) {
+                Session session = Session.builder(getSession())
+                        .setCatalogSessionProperty(ICEBERG_CATALOG, PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, String.valueOf(dereferencePushdownEnabled))
+                        .build();
+                assertQuery(session, "SELECT device_id, address.city, address.zip FROM " + tableName,
+                        "VALUES (1, 'Boston', '02101'), (2, 'Seattle', '98101'), (3, 'Berlin', '10115')");
+                assertQuery(session, "SELECT address.zip FROM " + tableName + " WHERE address.city = 'Berlin'", "VALUES '10115'");
+                assertQuery(session, "SELECT count(*) FROM " + tableName + " WHERE address.city IS NULL OR address.zip IS NULL", "VALUES 0");
+            }
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName);
+            Files.deleteIfExists(dataFile.toPath());
         }
     }
 
