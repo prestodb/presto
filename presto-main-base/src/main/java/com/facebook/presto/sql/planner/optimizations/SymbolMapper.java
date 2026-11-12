@@ -501,7 +501,8 @@ public class SymbolMapper
                 node.getSourceLocation(),
                 newNodeId,
                 source,
-                map(node.getPredicate()));
+                map(node.getPredicate()),
+                node.isDoNotMerge());
     }
 
     public ProjectNode map(ProjectNode node, PlanNode source, PlanNodeId newNodeId)
