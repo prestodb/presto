@@ -683,7 +683,7 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.of(
-                        new RewriteFilterWithExternalFunctionToProject(metadata.getFunctionAndTypeManager()),
+                        new RewriteFilterWithExternalFunctionToProject(metadata.getFunctionAndTypeManager(), rpcFunctionNames),
                         new PlanRemoteProjections(metadata.getFunctionAndTypeManager()))));
 
         builder.add(new IterativeOptimizer(metadata, ruleStats, statsCalculator, estimatedExchangesCostCalculator,
@@ -945,6 +945,7 @@ public class PlanOptimizers
                 statsCalculator,
                 costCalculator,
                 ImmutableSet.of(
+                        // Runs after RpcFunctionOptimizer, so a remote call it rewrites could not be lifted.
                         new RewriteFilterWithExternalFunctionToProject(metadata.getFunctionAndTypeManager()),
                         new PlanRemoteProjections(metadata.getFunctionAndTypeManager()))));
 
