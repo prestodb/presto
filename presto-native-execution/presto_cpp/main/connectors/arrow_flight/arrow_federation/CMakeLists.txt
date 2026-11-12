@@ -21,6 +21,7 @@ target_compile_definitions(presto_federation_connector PUBLIC PRESTO_ENABLE_ARRO
 target_link_libraries(
   presto_federation_connector
   velox_connector
+  presto_jdbc_thrift
   ArrowFlight::arrow_flight_shared
   presto_flight_connector_utils
   presto_flight_connector_auth

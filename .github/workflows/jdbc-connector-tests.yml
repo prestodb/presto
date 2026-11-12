@@ -66,7 +66,7 @@ jobs:
         if: needs.changes.outputs.codechange == 'true'
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :presto-mysql,:presto-postgresql
+          ${RETRY} ./mvnw -U install ${MAVEN_FAST_INSTALL} -am -pl :presto-mysql,:presto-postgresql
       - name: Run MySQL and PostgreSQL Tests
         if: needs.changes.outputs.codechange == 'true'
         run: ./mvnw test ${MAVEN_TEST} -P ci -pl :presto-mysql,:presto-postgresql
