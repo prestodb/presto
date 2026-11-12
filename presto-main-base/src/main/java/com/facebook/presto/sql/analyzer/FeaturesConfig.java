@@ -254,6 +254,8 @@ public class FeaturesConfig
     private boolean materializedViewPartitionFilteringEnabled = true;
     private boolean queryOptimizationWithMaterializedViewEnabled;
     private boolean materializedViewQueryRewriteCostBasedSelectionEnabled;
+    private boolean materializedViewOnMaterializedViewEnabled;
+    private boolean materializedViewAggregationMergeStrategyValidationEnabled = true;
     private boolean legacyMaterializedViewRefresh = true;
     private boolean allowLegacyMaterializedViewsToggle;
     private boolean materializedViewAllowFullRefreshEnabled;
@@ -2555,6 +2557,32 @@ public class FeaturesConfig
     public FeaturesConfig setMaterializedViewQueryRewriteCostBasedSelectionEnabled(boolean value)
     {
         this.materializedViewQueryRewriteCostBasedSelectionEnabled = value;
+        return this;
+    }
+
+    public boolean isMaterializedViewOnMaterializedViewEnabled()
+    {
+        return materializedViewOnMaterializedViewEnabled;
+    }
+
+    @Config("materialized-view-on-materialized-view-enabled")
+    @ConfigDescription("Allow creating a materialized view from another materialized view in the same catalog when the connector supports it")
+    public FeaturesConfig setMaterializedViewOnMaterializedViewEnabled(boolean value)
+    {
+        this.materializedViewOnMaterializedViewEnabled = value;
+        return this;
+    }
+
+    public boolean isMaterializedViewAggregationMergeStrategyValidationEnabled()
+    {
+        return materializedViewAggregationMergeStrategyValidationEnabled;
+    }
+
+    @Config("materialized-view-aggregation-merge-strategy-validation-enabled")
+    @ConfigDescription("Validate registered aggregate merge strategies when creating a materialized view from another materialized view")
+    public FeaturesConfig setMaterializedViewAggregationMergeStrategyValidationEnabled(boolean value)
+    {
+        this.materializedViewAggregationMergeStrategyValidationEnabled = value;
         return this;
     }
 

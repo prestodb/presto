@@ -23,6 +23,7 @@ import com.facebook.presto.spi.security.AccessControl;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.rewrite.MaterializedViewRewriteResult;
 import com.facebook.presto.sql.rewrite.StatementRewrite;
+import com.facebook.presto.sql.tree.CreateMaterializedView;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.GroupingOperation;
@@ -125,13 +126,48 @@ public class Analyzer
         if (rewriteResult.isMaterializedViewOptimizationApplied() && !isMaterializedViewQueryRewriteCostBasedSelectionEnabled(session)) {
             analysis.setMaterializedViewRewrittenQuery(formatSql(rewrittenStatement, Optional.empty()));
         }
+        return analyze(rewrittenStatement, rewrittenStatement, analysis, procedureName);
+    }
 
+    /**
+     * Analyzes the defining query of an existing materialized view without re-running validation
+     * for creating its target. The outer statement is retained in {@link Analysis} because column
+     * mapping extraction operates on a {@link CreateMaterializedView} statement.
+     */
+    Analysis analyzeStoredMaterializedViewDefinition(CreateMaterializedView statement)
+    {
+        MaterializedViewRewriteResult rewriteResult = StatementRewrite.rewrite(
+                session,
+                metadata,
+                sqlParser,
+                queryExplainer,
+                statement,
+                parameters,
+                parameterLookup,
+                accessControl,
+                warningCollector,
+                query,
+                viewDefinitionReferences);
+        CreateMaterializedView rewrittenStatement = (CreateMaterializedView) rewriteResult.getStatement();
+        Analysis analysis = new Analysis(rewrittenStatement, parameterLookup, false, viewDefinitionReferences);
+        return analyze(rewrittenStatement, rewrittenStatement.getQuery(), analysis, Optional.empty());
+    }
+
+    private Analysis analyze(
+            Statement rewrittenStatement,
+            Statement statementToAnalyze,
+            Analysis analysis,
+            Optional<QualifiedObjectName> procedureName)
+    {
         metadataExtractor.populateMetadataHandle(session, rewrittenStatement, analysis.getMetadataHandle());
         analysis.setProcedureName(procedureName);
         StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, accessControl, session, warningCollector);
-        analyzer.analyze(rewrittenStatement, Optional.empty());
-        analyzeForUtilizedColumns(analysis, analysis.getStatement(), warningCollector);
-        analysis.populateTableColumnAndSubfieldReferencesForAccessControl(isCheckAccessControlOnUtilizedColumnsOnly(session), isCheckAccessControlWithSubfields(session), isLegacyMaterializedViews(session));
+        analyzer.analyze(statementToAnalyze, Optional.empty());
+        analyzeForUtilizedColumns(analysis, statementToAnalyze, warningCollector);
+        analysis.populateTableColumnAndSubfieldReferencesForAccessControl(
+                isCheckAccessControlOnUtilizedColumnsOnly(session),
+                isCheckAccessControlWithSubfields(session),
+                isLegacyMaterializedViews(session));
         return analysis;
     }
 

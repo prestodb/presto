@@ -1745,6 +1745,32 @@ migration purposes only.
 
     This should only be enabled in non-production environments.
 
+``materialized-view-on-materialized-view-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Allow ``CREATE MATERIALIZED VIEW`` to read from an existing materialized view in the
+same catalog when the connector advertises
+``SUPPORTS_MATERIALIZED_VIEW_ON_MATERIALIZED_VIEW``.
+
+The corresponding session property is
+:ref:`admin/properties-session:\`\`materialized_view_on_materialized_view_enabled\`\``.
+
+``materialized-view-aggregation-merge-strategy-validation-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Validate that aggregates over materialized-view aggregate columns use their registered
+merge strategies. Disabling this validation can allow creation of a materialized view
+that produces incorrect results.
+
+The corresponding session property is
+:ref:`admin/properties-session:\`\`materialized_view_aggregation_merge_strategy_validation_enabled\`\``.
+
 ``materialized-view-query-rewrite-cost-based-selection-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
