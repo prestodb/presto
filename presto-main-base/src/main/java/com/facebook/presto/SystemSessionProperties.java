@@ -440,6 +440,7 @@ public final class SystemSessionProperties
     public static final String OPTIMIZE_ROW_IN_PREDICATE = "optimize_row_in_predicate";
     public static final String ALWAYS_ANALYZE_CREATE_TABLE_QUERY_ENABLED = "always_analyze_create_table_query_enabled";
     public static final String LEGACY_ST_EQUALS = "legacy_st_equals";
+    public static final String EXPERIMENTAL_LOGICAL_DATASET_REWRITE_ENABLED = "experimental_logical_dataset_rewrite_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -2529,6 +2530,11 @@ public final class SystemSessionProperties
                         featuresConfig.isAlwaysAnalyzeCreateTableQueryEnabled(),
                         false),
                 booleanProperty(
+                        EXPERIMENTAL_LOGICAL_DATASET_REWRITE_ENABLED,
+                        "Experimental: rewrite logical dataset references to their corresponding physical datasets",
+                        false,
+                        false),
+                booleanProperty(
                         OPTIMIZE_TOP_N_USING_ROW_ID,
                         "Use $row_id late materialization for TopN over wide tables: first sort narrow keys, then semi-join to fetch full rows",
                         false,
@@ -4317,5 +4323,10 @@ public final class SystemSessionProperties
     public static boolean isAlwaysAnalyzeCreateTableQueryEnabled(Session session)
     {
         return session.getSystemProperty(ALWAYS_ANALYZE_CREATE_TABLE_QUERY_ENABLED, Boolean.class);
+    }
+
+    public static boolean isExperimentalLogicalDatasetRewriteEnabled(Session session)
+    {
+        return session.getSystemProperty(EXPERIMENTAL_LOGICAL_DATASET_REWRITE_ENABLED, Boolean.class);
     }
 }
