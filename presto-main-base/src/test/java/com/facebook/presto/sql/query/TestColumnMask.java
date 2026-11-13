@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.facebook.presto.SystemSessionProperties.LEGACY_ROW_FIELD_ORDINAL_ACCESS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
@@ -117,6 +118,25 @@ public class TestColumnMask
                     USER,
                     new ViewExpression(USER, Optional.empty(), Optional.empty(), "NULL"));
             assertions.assertQuery("SELECT custkey FROM orders WHERE orderkey = 1", "VALUES CAST(NULL AS BIGINT)");
+        });
+    }
+
+    @Test
+    public void testCallerSystemPropertiesDoNotAffectMask()
+    {
+        assertions.executeExclusively(() -> {
+            accessControl.reset();
+            accessControl.columnMask(
+                    new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                    "custkey",
+                    USER,
+                    new ViewExpression(USER, Optional.empty(), Optional.empty(), "IF(row(TRUE).field0, custkey, -custkey)"));
+
+            Session session = Session.builder(SESSION)
+                    .setSystemProperty(LEGACY_ROW_FIELD_ORDINAL_ACCESS, "true")
+                    .build();
+
+            assertions.assertFails(session, "SELECT custkey FROM orders", ".*Column 'row \\(true\\)\\.field0' cannot be resolved.*");
         });
     }
 

@@ -5600,6 +5600,16 @@ class StatementAnalyzer
 
         private Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity)
         {
+            return createViewSession(catalog, schema, identity, identity.getUser().equals(session.getIdentity().getUser()));
+        }
+
+        private Session createSecurityExpressionSession(Optional<String> catalog, Optional<String> schema, Identity identity)
+        {
+            return createViewSession(catalog, schema, identity, false);
+        }
+
+        private Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity, boolean inheritSystemProperties)
+        {
             Session.SessionBuilder viewSessionBuilder = Session.builder(metadata.getSessionPropertyManager())
                     .setQueryId(session.getQueryId())
                     .setRuntimeStats(session.getRuntimeStats())
@@ -5615,6 +5625,9 @@ class StatementAnalyzer
                     .setUserAgent(session.getUserAgent().orElse(null))
                     .setClientInfo(session.getClientInfo().orElse(null))
                     .setStartTime(session.getStartTime());
+            if (inheritSystemProperties) {
+                session.getSystemProperties().forEach(viewSessionBuilder::setSystemProperty);
+            }
             session.getConnectorProperties().forEach((connectorId, properties) -> properties.forEach((k, v) -> viewSessionBuilder.setConnectionProperty(connectorId, k, v)));
             return viewSessionBuilder.build();
         }
@@ -5748,7 +5761,7 @@ class StatementAnalyzer
             ExpressionAnalysis expressionAnalysis;
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(filter.getCatalog(), filter.getSchema(), new Identity(filter.getIdentity(), Optional.empty())), // TODO: path should be included in row filter
+                        createSecurityExpressionSession(filter.getCatalog(), filter.getSchema(), new Identity(filter.getIdentity(), Optional.empty())), // TODO: path should be included in row filter
                         metadata,
                         accessControl,
                         sqlParser,
@@ -5799,7 +5812,7 @@ class StatementAnalyzer
             analysis.registerTableForColumnMasking(tableName, column, currentIdentity);
             try {
                 expressionAnalysis = ExpressionAnalyzer.analyzeExpression(
-                        createViewSession(mask.getCatalog(), mask.getSchema(), new Identity(mask.getIdentity(), Optional.empty())), // TODO: path should be included in row filter
+                        createSecurityExpressionSession(mask.getCatalog(), mask.getSchema(), new Identity(mask.getIdentity(), Optional.empty())), // TODO: path should be included in row filter
                         metadata,
                         accessControl,
                         sqlParser,
