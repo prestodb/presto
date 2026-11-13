@@ -15,10 +15,19 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.QualifiedObjectName;
+import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.metadata.MaterializedViewPartitionTransformRegistry;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.MaterializedViewDefinition;
 import com.facebook.presto.spi.MaterializedViewNotFoundException;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.materializedview.MaterializedViewPartitionMapping;
+import com.facebook.presto.spi.materializedview.MaterializedViewPartitionRange;
+import com.facebook.presto.spi.materializedview.MaterializedViewPartitionTransform;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.sql.planner.LiteralEncoder;
+import com.facebook.presto.sql.planner.LiteralInterpreter;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.DefaultTraversalVisitor;
 import com.facebook.presto.sql.tree.DereferenceExpression;
@@ -31,14 +40,21 @@ import com.facebook.presto.sql.tree.LogicalBinaryExpression;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NullLiteral;
 import com.facebook.presto.sql.tree.QualifiedName;
+import com.facebook.presto.sql.tree.StringLiteral;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
+import io.airlift.slice.Slice;
 import jakarta.annotation.Nullable;
 
+import java.util.AbstractMap;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.facebook.presto.metadata.MetadataUtil.toSchemaTableName;
+import static com.facebook.presto.spi.materializedview.MaterializedViewPartitionMapping.Kind.SINGLE_VALUE;
+import static com.facebook.presto.spi.materializedview.MaterializedViewPartitionTransform.TRANSFORM_PROPERTY;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static java.util.Collections.emptyList;
@@ -47,7 +63,8 @@ import static java.util.Objects.requireNonNull;
 /**
  * Map predicates on view columns in the RefreshMaterializedView where clause to predicates on base table columns,
  * which could be used for predicate push-down afterwards. Mapped predicates are connected by AND or OR.
- * For view columns that do not have a direct mapping to a base table column, keep the predicate with the view.
+ * For view columns that do not map to a base table column, keep the predicate with the view. A derived partition
+ * column maps through its registered single-source transform.
  */
 public class RefreshMaterializedViewPredicateAnalyzer
 {
@@ -63,7 +80,7 @@ public class RefreshMaterializedViewPredicateAnalyzer
         MaterializedViewDefinition viewDefinition = metadata.getMetadataResolver(session).getMaterializedView(viewName)
                 .orElseThrow(() -> new MaterializedViewNotFoundException(toSchemaTableName(viewName)));
 
-        Visitor visitor = new Visitor(viewDefinition, viewScope);
+        Visitor visitor = new Visitor(viewDefinition, viewScope, metadata, session, originalPredicate);
         visitor.process(originalPredicate);
 
         return visitor.getTablePredicates();
@@ -79,23 +96,68 @@ public class RefreshMaterializedViewPredicateAnalyzer
 
         private final MaterializedViewDefinition viewDefinition;
         private final Scope viewScope;
+        private final Metadata metadata;
+        private final Session session;
+        private final LiteralEncoder literalEncoder;
         private final boolean extractPredicates;
+        private final Map<String, MaterializedViewPartitionTransform> partitionTransforms;
+        private final Map<String, Map<SchemaTableName, String>> transformedColumnMappings;
 
         private Visitor(
                 MaterializedViewDefinition viewDefinition,
-                Scope viewScope)
+                Scope viewScope,
+                Metadata metadata,
+                Session session,
+                Node errorNode)
         {
-            this(viewDefinition, viewScope, true);
+            this(viewDefinition, viewScope, metadata, session, true, errorNode);
         }
 
         private Visitor(
                 MaterializedViewDefinition viewDefinition,
                 Scope viewScope,
-                boolean extractPredicates)
+                Metadata metadata,
+                Session session,
+                boolean extractPredicates,
+                Node errorNode)
         {
             this.viewDefinition = requireNonNull(viewDefinition, "viewDefinition is null");
             this.viewScope = requireNonNull(viewScope, "viewScope is null");
+            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.session = requireNonNull(session, "session is null");
+            this.literalEncoder = new LiteralEncoder(metadata.getBlockEncodingSerde());
             this.extractPredicates = extractPredicates;
+
+            MaterializedViewPartitionTransformRegistry registry = metadata.getFunctionAndTypeManager().getMaterializedViewPartitionTransformRegistry();
+            Map<String, MaterializedViewPartitionTransform> transforms = new HashMap<>();
+            Map<String, Map<SchemaTableName, String>> mappings = new HashMap<>();
+            for (MaterializedViewDefinition.ColumnMapping mapping : viewDefinition.getColumnMappings()) {
+                if (!mapping.isDerived() || mapping.getBaseTableColumns().size() != 1) {
+                    continue;
+                }
+                MaterializedViewDefinition.TableColumn sourceColumn = mapping.getBaseTableColumns().get(0);
+                if (!sourceColumn.getColumnMappingInfo().containsKey(TRANSFORM_PROPERTY)) {
+                    continue;
+                }
+                MaterializedViewPartitionTransform transform;
+                try {
+                    transform = registry.decode(sourceColumn.getColumnMappingInfo());
+                }
+                catch (IllegalArgumentException | NullPointerException e) {
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            errorNode,
+                            "Invalid materialized view partition transform metadata for column %s: %s",
+                            mapping.getViewColumn().getColumnName(),
+                            errorMessage(e, "transform provider rejected the persisted metadata"));
+                }
+                transforms.put(mapping.getViewColumn().getColumnName(), transform);
+                mappings.put(
+                        mapping.getViewColumn().getColumnName(),
+                        ImmutableMap.of(sourceColumn.getTableName(), sourceColumn.getColumnName()));
+            }
+            this.partitionTransforms = ImmutableMap.copyOf(transforms);
+            this.transformedColumnMappings = ImmutableMap.copyOf(mappings);
         }
 
         public Map<SchemaTableName, Expression> getTablePredicates()
@@ -112,11 +174,20 @@ public class RefreshMaterializedViewPredicateAnalyzer
             return tableConjuncts.build();
         }
 
+        private Map<SchemaTableName, String> resolveBaseTableColumns(String column)
+        {
+            Map<SchemaTableName, String> directColumns = viewDefinition.getColumnMappingsAsMap().get(column);
+            if (directColumns != null) {
+                return directColumns;
+            }
+            return transformedColumnMappings.get(column);
+        }
+
         @Override
         public Void process(Node node, @Nullable Void context)
         {
             if (!(node instanceof ComparisonExpression || node instanceof LogicalBinaryExpression || node instanceof InPredicate)) {
-                throw new SemanticException(NOT_SUPPORTED, node, "Only column specifications connected by logical AND are supported in WHERE clause.");
+                throw new SemanticException(NOT_SUPPORTED, node, "Only column specifications connected by logical AND or OR are supported in WHERE clause.");
             }
 
             return super.process(node, null);
@@ -125,24 +196,30 @@ public class RefreshMaterializedViewPredicateAnalyzer
         @Override
         protected Void visitExpression(Expression node, Void context)
         {
-            throw new SemanticException(NOT_SUPPORTED, node, "Only column specifications connected by logical AND are supported in WHERE clause.");
+            throw new SemanticException(NOT_SUPPORTED, node, "Only column specifications connected by logical AND or OR are supported in WHERE clause.");
         }
 
         @Override
         protected Void visitLogicalBinaryExpression(LogicalBinaryExpression node, Void context)
         {
             if (LogicalBinaryExpression.Operator.OR.equals(node.getOperator()) && extractPredicates) {
-                new Visitor(viewDefinition, viewScope, false).process(node);
-                SchemaTableName viewName = new SchemaTableName(viewDefinition.getSchema(), viewDefinition.getTable());
-                tablePredicatesBuilder.put(viewName, node);
+                new Visitor(viewDefinition, viewScope, metadata, session, false, node).process(node);
+                Optional<Map.Entry<SchemaTableName, Expression>> pushed = tryPushDisjunction(node);
+                if (pushed.isPresent()) {
+                    tablePredicatesBuilder.put(pushed.get().getKey(), pushed.get().getValue());
+                }
+                else {
+                    SchemaTableName viewName = new SchemaTableName(viewDefinition.getSchema(), viewDefinition.getTable());
+                    tablePredicatesBuilder.put(viewName, node);
+                }
                 return null;
             }
 
             if (!(node.getLeft() instanceof ComparisonExpression || node.getLeft() instanceof LogicalBinaryExpression || node.getLeft() instanceof InPredicate)) {
-                throw new SemanticException(NOT_SUPPORTED, node.getLeft(), "Only column specifications connected by logical AND are supported in WHERE clause.");
+                throw new SemanticException(NOT_SUPPORTED, node.getLeft(), "Only column specifications connected by logical AND or OR are supported in WHERE clause.");
             }
             if (!(node.getRight() instanceof ComparisonExpression || node.getRight() instanceof LogicalBinaryExpression || node.getRight() instanceof InPredicate)) {
-                throw new SemanticException(NOT_SUPPORTED, node.getRight(), "Only column specifications connected by logical AND are supported in WHERE clause.");
+                throw new SemanticException(NOT_SUPPORTED, node.getRight(), "Only column specifications connected by logical AND or OR are supported in WHERE clause.");
             }
 
             return super.visitLogicalBinaryExpression(node, null);
@@ -174,6 +251,7 @@ public class RefreshMaterializedViewPredicateAnalyzer
 
             ResolvedField resolvedField = viewScope.tryResolveField(value).orElseThrow(() -> missingAttributeException(value, qualifiedName));
             String column = resolvedField.getField().getOriginColumnName().orElseThrow(() -> missingAttributeException(value, qualifiedName));
+            Type columnType = resolvedField.getField().getType();
 
             if (!viewDefinition.getValidRefreshColumns().orElse(emptyList()).contains(column)) {
                 throw new SemanticException(NOT_SUPPORTED, value, "Refresh materialized view by column %s is not supported.", value.toString());
@@ -183,7 +261,7 @@ public class RefreshMaterializedViewPredicateAnalyzer
                 return null;
             }
 
-            Map<SchemaTableName, String> baseTableColumns = viewDefinition.getColumnMappingsAsMap().get(column);
+            Map<SchemaTableName, String> baseTableColumns = resolveBaseTableColumns(column);
 
             // Convert IN predicate to OR'd equality comparisons
             boolean mappedToSingleBaseTablePartition = true;
@@ -200,10 +278,13 @@ public class RefreshMaterializedViewPredicateAnalyzer
                 for (SchemaTableName baseTable : baseTableColumns.keySet()) {
                     Expression orExpression = null;
                     for (Expression inValue : inListExpression.getValues()) {
-                        ComparisonExpression comparison = new ComparisonExpression(
+                        Expression comparison = pushComparison(
+                                column,
+                                baseTableColumns.get(baseTable),
                                 ComparisonExpression.Operator.EQUAL,
-                                new Identifier(baseTableColumns.get(baseTable)),
-                                inValue);
+                                inValue,
+                                columnType,
+                                node);
                         if (orExpression == null) {
                             orExpression = comparison;
                         }
@@ -247,6 +328,7 @@ public class RefreshMaterializedViewPredicateAnalyzer
 
             ResolvedField resolvedField = viewScope.tryResolveField(node.getLeft()).orElseThrow(() -> missingAttributeException(node.getLeft(), qualifiedName));
             String column = resolvedField.getField().getOriginColumnName().orElseThrow(() -> missingAttributeException(node.getLeft(), qualifiedName));
+            Type columnType = resolvedField.getField().getType();
 
             if (!viewDefinition.getValidRefreshColumns().orElse(emptyList()).contains(column)) {
                 throw new SemanticException(NOT_SUPPORTED, node.getLeft(), "Refresh materialized view by column %s is not supported.", node.getLeft().toString());
@@ -256,7 +338,7 @@ public class RefreshMaterializedViewPredicateAnalyzer
                 return null;
             }
 
-            Map<SchemaTableName, String> baseTableColumns = viewDefinition.getColumnMappingsAsMap().get(column);
+            Map<SchemaTableName, String> baseTableColumns = resolveBaseTableColumns(column);
 
             // Check if refresh condition can be mapped to a particular base table partition column. This can always be done unless base table
             // is part of an outer join. If that is so, we leave it to filter pushdowns to find correct base table partitions.
@@ -271,7 +353,7 @@ public class RefreshMaterializedViewPredicateAnalyzer
                 for (SchemaTableName baseTable : baseTableColumns.keySet()) {
                     tablePredicatesBuilder.put(
                             baseTable,
-                            new ComparisonExpression(node.getOperator(), new Identifier(baseTableColumns.get(baseTable)), node.getRight()));
+                            pushComparison(column, baseTableColumns.get(baseTable), node.getOperator(), node.getRight(), columnType, node));
                 }
             }
             else {
@@ -280,6 +362,269 @@ public class RefreshMaterializedViewPredicateAnalyzer
             }
 
             return null;
+        }
+
+        private Expression pushComparison(
+                String column,
+                String baseColumnName,
+                ComparisonExpression.Operator operator,
+                Expression literal,
+                Type columnType,
+                Node errorNode)
+        {
+            MaterializedViewPartitionTransform transform = partitionTransforms.get(column);
+            if (literal instanceof NullLiteral || transform == null) {
+                return new ComparisonExpression(operator, new Identifier(baseColumnName), literal);
+            }
+            ConstantExpression targetValue;
+            try {
+                Object value = LiteralInterpreter.evaluate(metadata, session.toConnectorSession(), (Literal) literal);
+                targetValue = new ConstantExpression(Optional.empty(), value, columnType);
+            }
+            catch (RuntimeException e) {
+                throw new SemanticException(
+                        NOT_SUPPORTED,
+                        errorNode,
+                        "Invalid partition value %s for transformed column %s: %s",
+                        literal,
+                        column,
+                        e.getMessage());
+            }
+            MaterializedViewPartitionMapping sourceMapping = getSourceMapping(column, transform, targetValue, errorNode);
+            return expandSourceMappingComparison(column, sourceMapping, baseColumnName, operator, literalEncoder, errorNode);
+        }
+
+        private static Expression expandSourceMappingComparison(
+                String column,
+                MaterializedViewPartitionMapping sourceMapping,
+                String baseColumnName,
+                ComparisonExpression.Operator operator,
+                LiteralEncoder literalEncoder,
+                Node errorNode)
+        {
+            if (sourceMapping.getKind() == SINGLE_VALUE) {
+                return new ComparisonExpression(
+                        operator,
+                        new Identifier(baseColumnName),
+                        toExpression(sourceMapping.getSingleValue(), literalEncoder));
+            }
+            return expandOntoSourceRange(column, sourceMapping.getRange(), baseColumnName, operator, literalEncoder, errorNode);
+        }
+
+        private static Expression expandOntoSourceRange(
+                String column,
+                MaterializedViewPartitionRange sourceRange,
+                String baseColumnName,
+                ComparisonExpression.Operator operator,
+                LiteralEncoder literalEncoder,
+                Node errorNode)
+        {
+            Identifier baseColumn = new Identifier(baseColumnName);
+            Expression rangeStart = toExpression(sourceRange.getLowerBound(), literalEncoder);
+            Expression rangeEnd = toExpression(sourceRange.getUpperBound(), literalEncoder);
+
+            switch (operator) {
+                case EQUAL:
+                    return and(atLeast(baseColumn, rangeStart), below(baseColumn, rangeEnd));
+                case NOT_EQUAL:
+                    return or(below(baseColumn, rangeStart), atLeast(baseColumn, rangeEnd));
+                case GREATER_THAN_OR_EQUAL:
+                    return atLeast(baseColumn, rangeStart);
+                case LESS_THAN:
+                    return below(baseColumn, rangeStart);
+                case GREATER_THAN:
+                    return atLeast(baseColumn, rangeEnd);
+                case LESS_THAN_OR_EQUAL:
+                    return below(baseColumn, rangeEnd);
+                default:
+                    throw new SemanticException(
+                            NOT_SUPPORTED,
+                            errorNode,
+                            "Operator %s is not supported on transformed partition column %s. A many-to-one transform maps each target value "
+                                    + "to a half-open interval of source partitions, so only =, <>, <, <=, > and >= "
+                                    + "can be expanded onto that interval.",
+                            operator,
+                            column);
+            }
+        }
+
+        private static MaterializedViewPartitionMapping getSourceMapping(
+                String column,
+                MaterializedViewPartitionTransform transform,
+                ConstantExpression targetValue,
+                Node errorNode)
+        {
+            try {
+                return transform.getSourceMapping(targetValue);
+            }
+            catch (RuntimeException e) {
+                throw new SemanticException(
+                        NOT_SUPPORTED,
+                        errorNode,
+                        "Cannot map partition value for transformed column %s to an exact source mapping: %s",
+                        column,
+                        errorMessage(e, "transform provider rejected the target value"));
+            }
+        }
+
+        private static String errorMessage(RuntimeException exception, String fallback)
+        {
+            return exception.getMessage() == null ? fallback : exception.getMessage();
+        }
+
+        private static Expression toExpression(ConstantExpression value, LiteralEncoder literalEncoder)
+        {
+            if (value.getType() instanceof VarcharType && value.getValue() instanceof Slice) {
+                return new StringLiteral(((Slice) value.getValue()).toStringUtf8());
+            }
+            return literalEncoder.toExpression(value.getValue(), value.getType());
+        }
+
+        private Optional<Map.Entry<SchemaTableName, Expression>> tryPushDisjunction(Expression node)
+        {
+            if (node instanceof LogicalBinaryExpression) {
+                LogicalBinaryExpression binary = (LogicalBinaryExpression) node;
+                Optional<Map.Entry<SchemaTableName, Expression>> left = tryPushDisjunction(binary.getLeft());
+                Optional<Map.Entry<SchemaTableName, Expression>> right = tryPushDisjunction(binary.getRight());
+                if (!left.isPresent() || !right.isPresent() || !left.get().getKey().equals(right.get().getKey())) {
+                    return Optional.empty();
+                }
+                return Optional.of(new AbstractMap.SimpleEntry<>(
+                        left.get().getKey(),
+                        new LogicalBinaryExpression(binary.getOperator(), left.get().getValue(), right.get().getValue())));
+            }
+
+            if (node instanceof ComparisonExpression) {
+                ComparisonExpression comparison = (ComparisonExpression) node;
+                if (!(comparison.getLeft() instanceof Identifier || comparison.getLeft() instanceof DereferenceExpression)
+                        || !(comparison.getRight() instanceof Literal)) {
+                    return Optional.empty();
+                }
+                Optional<MappedColumn> target = singleBaseTableColumn(comparison.getLeft());
+                if (!target.isPresent()) {
+                    return Optional.empty();
+                }
+                return Optional.of(new AbstractMap.SimpleEntry<>(
+                        target.get().getBaseTable(),
+                        pushComparison(
+                                target.get().getViewColumn(),
+                                target.get().getBaseColumn(),
+                                comparison.getOperator(),
+                                comparison.getRight(),
+                                target.get().getType(),
+                                comparison)));
+            }
+
+            if (node instanceof InPredicate) {
+                InPredicate inPredicate = (InPredicate) node;
+                if (!(inPredicate.getValueList() instanceof InListExpression)) {
+                    return Optional.empty();
+                }
+                List<Expression> values = ((InListExpression) inPredicate.getValueList()).getValues();
+                if (values.isEmpty() || values.stream().anyMatch(value -> !(value instanceof Literal))) {
+                    return Optional.empty();
+                }
+                Optional<MappedColumn> target = singleBaseTableColumn(inPredicate.getValue());
+                if (!target.isPresent()) {
+                    return Optional.empty();
+                }
+                return Optional.of(new AbstractMap.SimpleEntry<>(
+                        target.get().getBaseTable(),
+                        values.stream()
+                                .map(value -> pushComparison(
+                                        target.get().getViewColumn(),
+                                        target.get().getBaseColumn(),
+                                        ComparisonExpression.Operator.EQUAL,
+                                        value,
+                                        target.get().getType(),
+                                        inPredicate))
+                                .reduce(Visitor::or)
+                                .orElseThrow(() -> new IllegalStateException("empty IN list"))));
+            }
+
+            return Optional.empty();
+        }
+
+        private Optional<MappedColumn> singleBaseTableColumn(Expression columnRef)
+        {
+            Optional<ResolvedField> resolvedField = viewScope.tryResolveField(columnRef);
+            if (!resolvedField.isPresent()) {
+                return Optional.empty();
+            }
+            Optional<String> columnName = resolvedField.get().getField().getOriginColumnName();
+            if (!columnName.isPresent()
+                    || !viewDefinition.getValidRefreshColumns().orElse(emptyList()).contains(columnName.get())) {
+                return Optional.empty();
+            }
+            Map<SchemaTableName, String> baseTableColumns = resolveBaseTableColumns(columnName.get());
+            if (baseTableColumns == null || baseTableColumns.size() != 1) {
+                return Optional.empty();
+            }
+            SchemaTableName baseTable = baseTableColumns.keySet().iterator().next();
+            if (viewDefinition.getBaseTablesOnOuterJoinSide().contains(baseTable)) {
+                return Optional.empty();
+            }
+            return Optional.of(new MappedColumn(
+                    baseTable,
+                    columnName.get(),
+                    baseTableColumns.get(baseTable),
+                    resolvedField.get().getField().getType()));
+        }
+
+        private static final class MappedColumn
+        {
+            private final SchemaTableName baseTable;
+            private final String viewColumn;
+            private final String baseColumn;
+            private final Type type;
+
+            private MappedColumn(SchemaTableName baseTable, String viewColumn, String baseColumn, Type type)
+            {
+                this.baseTable = requireNonNull(baseTable, "baseTable is null");
+                this.viewColumn = requireNonNull(viewColumn, "viewColumn is null");
+                this.baseColumn = requireNonNull(baseColumn, "baseColumn is null");
+                this.type = requireNonNull(type, "type is null");
+            }
+
+            private SchemaTableName getBaseTable()
+            {
+                return baseTable;
+            }
+
+            private String getViewColumn()
+            {
+                return viewColumn;
+            }
+
+            private String getBaseColumn()
+            {
+                return baseColumn;
+            }
+
+            private Type getType()
+            {
+                return type;
+            }
+        }
+
+        private static Expression atLeast(Expression left, Expression right)
+        {
+            return new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL, left, right);
+        }
+
+        private static Expression below(Expression left, Expression right)
+        {
+            return new ComparisonExpression(ComparisonExpression.Operator.LESS_THAN, left, right);
+        }
+
+        private static Expression and(Expression left, Expression right)
+        {
+            return new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND, left, right);
+        }
+
+        private static Expression or(Expression left, Expression right)
+        {
+            return new LogicalBinaryExpression(LogicalBinaryExpression.Operator.OR, left, right);
         }
     }
 }
