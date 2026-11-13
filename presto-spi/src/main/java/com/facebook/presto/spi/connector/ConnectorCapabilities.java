@@ -28,5 +28,6 @@ public enum ConnectorCapabilities
      * The connector supports columns of the unknown type. Such columns are never written to data
      * files and always read back as NULL.
      */
-    SUPPORTS_UNKNOWN_COLUMN_TYPE
+    SUPPORTS_UNKNOWN_COLUMN_TYPE,
+    SUPPORTS_LEGACY_MATERIALIZED_VIEW_SET_PROPERTIES
 }

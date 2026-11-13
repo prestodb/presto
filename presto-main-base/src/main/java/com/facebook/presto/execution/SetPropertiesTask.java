@@ -18,6 +18,7 @@ import com.facebook.presto.SystemSessionProperties;
 import com.facebook.presto.common.QualifiedObjectName;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataUtil;
+import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
@@ -34,6 +35,7 @@ import java.util.Optional;
 import static com.facebook.presto.metadata.MetadataUtil.getConnectorIdOrThrow;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_FOUND;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_LEGACY_MATERIALIZED_VIEW_SET_PROPERTIES;
 import static com.facebook.presto.sql.NodeUtils.mapFromProperties;
 import static com.facebook.presto.sql.analyzer.utils.ParameterUtils.parameterExtractor;
 import static com.facebook.presto.sql.tree.SetProperties.Type.MATERIALIZED_VIEW;
@@ -67,11 +69,13 @@ public class SetPropertiesTask
             setTableProperties(statement, tableName, metadata, accessControl, session, properties);
         }
         else if (statement.getType() == MATERIALIZED_VIEW) {
-            if (SystemSessionProperties.isLegacyMaterializedViews(session)) {
+            ConnectorId connectorId = getConnectorIdOrThrow(session, metadata, tableName.getCatalogName());
+            if (SystemSessionProperties.isLegacyMaterializedViews(session)
+                    && !metadata.getConnectorCapabilities(session, connectorId).contains(SUPPORTS_LEGACY_MATERIALIZED_VIEW_SET_PROPERTIES)) {
                 throw new PrestoException(NOT_SUPPORTED, "ALTER MATERIALIZED VIEW ... SET PROPERTIES is not supported when legacy_materialized_views=true");
             }
             Map<String, Object> properties = metadata.getMaterializedViewPropertyManager().getUserSpecifiedProperties(
-                    getConnectorIdOrThrow(session, metadata, tableName.getCatalogName()),
+                    connectorId,
                     tableName.getCatalogName(),
                     sqlProperties,
                     session,
@@ -117,7 +121,7 @@ public class SetPropertiesTask
             return;
         }
 
-        accessControl.checkCanSetTableProperties(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName, properties);
+        accessControl.checkCanSetMaterializedViewProperties(session.getRequiredTransactionId(), session.getIdentity(), session.getAccessControlContext(), viewName, properties);
         metadata.setMaterializedViewProperties(session, viewName, properties);
     }
 }

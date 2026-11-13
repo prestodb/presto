@@ -76,6 +76,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName materializedViewName, Map<String, Object> properties)
+    {
+    }
+
+    @Override
     public void checkCanDropTable(ConnectorTransactionHandle transaction, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName)
     {
     }

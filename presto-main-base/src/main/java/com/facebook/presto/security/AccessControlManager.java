@@ -374,6 +374,19 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanSetMaterializedViewProperties(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(materializedViewName, "materializedViewName is null");
+        authenticationCheck(() -> checkCanAccessCatalog(identity, context, materializedViewName.getCatalogName()));
+        authorizationCheck(() -> systemAccessControl.checkCanSetMaterializedViewProperties(identity, context, toCatalogSchemaTableName(materializedViewName)));
+        CatalogAccessControlEntry entry = getConnectorAccessControl(transactionId, materializedViewName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanSetMaterializedViewProperties(entry.getTransactionHandle(transactionId), identity.toConnectorIdentity(materializedViewName.getCatalogName()), context, toSchemaTableName(materializedViewName), properties));
+        }
+    }
+
+    @Override
     public void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaName schema)
     {
         requireNonNull(identity, "identity is null");
@@ -1202,6 +1215,12 @@ public class AccessControlManager
 
         @Override
         public void checkCanSetTableProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+        {
+            throw notInitializedError();
+        }
+
+        @Override
+        public void checkCanSetMaterializedViewProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName materializedView)
         {
             throw notInitializedError();
         }

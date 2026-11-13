@@ -157,6 +157,17 @@ public interface ConnectorAccessControl
     }
 
     /**
+     * Check if identity is allowed to set properties to the specified materialized view.
+     * By default, this applies the same rule as {@link #checkCanSetTableProperties}.
+     *
+     * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSetMaterializedViewProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName materializedViewName, Map<String, Object> properties)
+    {
+        checkCanSetTableProperties(transactionHandle, identity, context, materializedViewName, properties);
+    }
+
+    /**
      * Check if identity is allowed to drop the specified table in this catalog.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed

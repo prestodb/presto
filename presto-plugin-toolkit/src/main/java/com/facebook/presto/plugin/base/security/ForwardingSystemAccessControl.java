@@ -147,6 +147,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName materializedView)
+    {
+        delegate().checkCanSetMaterializedViewProperties(identity, context, materializedView);
+    }
+
+    @Override
     public void checkCanDropTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanDropTable(identity, context, table);

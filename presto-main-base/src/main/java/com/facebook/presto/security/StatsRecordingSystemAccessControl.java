@@ -315,6 +315,24 @@ public final class StatsRecordingSystemAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName materializedView)
+    {
+        long start = System.nanoTime();
+        try {
+            delegate.get().checkCanSetMaterializedViewProperties(identity, context, materializedView);
+        }
+        catch (RuntimeException e) {
+            stats.checkCanSetMaterializedViewProperties.recordFailure();
+            throw e;
+        }
+        finally {
+            long duration = System.nanoTime() - start;
+            context.getRuntimeStats().addMetricValue("systemAccessControl.checkCanSetMaterializedViewProperties", RuntimeUnit.NANO, duration);
+            stats.checkCanSetMaterializedViewProperties.record(duration);
+        }
+    }
+
+    @Override
     public void checkCanDropTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
         long start = System.nanoTime();
@@ -888,6 +906,7 @@ public final class StatsRecordingSystemAccessControl
         final SystemAccessControlStats checkCanShowCreateTable = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanCreateTable = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanSetTableProperties = new SystemAccessControlStats();
+        final SystemAccessControlStats checkCanSetMaterializedViewProperties = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanDropTable = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanRenameTable = new SystemAccessControlStats();
         final SystemAccessControlStats checkCanShowTablesMetadata = new SystemAccessControlStats();
@@ -1023,6 +1042,13 @@ public final class StatsRecordingSystemAccessControl
         public SystemAccessControlStats getCheckCanSetTableProperties()
         {
             return checkCanSetTableProperties;
+        }
+
+        @Managed
+        @Nested
+        public SystemAccessControlStats getCheckCanSetMaterializedViewProperties()
+        {
+            return checkCanSetMaterializedViewProperties;
         }
 
         @Managed

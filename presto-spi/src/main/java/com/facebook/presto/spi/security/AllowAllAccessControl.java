@@ -104,6 +104,11 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewProperties(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties)
+    {
+    }
+
+    @Override
     public void checkCanShowTablesMetadata(TransactionId transactionId, Identity identity, AccessControlContext context, CatalogSchemaName schema)
     {
     }

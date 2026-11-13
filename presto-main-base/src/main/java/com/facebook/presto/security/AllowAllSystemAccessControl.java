@@ -144,6 +144,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName materializedView)
+    {
+    }
+
+    @Override
     public void checkCanDropTable(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
     {
     }

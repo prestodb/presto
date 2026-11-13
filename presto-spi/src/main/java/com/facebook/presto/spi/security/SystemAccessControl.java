@@ -203,6 +203,17 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to alter properties to the specified materialized view in a catalog.
+     * By default, this applies the same rule as {@link #checkCanSetTableProperties}.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetMaterializedViewProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName materializedView)
+    {
+        checkCanSetTableProperties(identity, context, materializedView);
+    }
+
+    /**
      * Check if identity is allowed to drop the specified table in a catalog.
      *
      * @throws com.facebook.presto.spi.security.AccessDeniedException if not allowed

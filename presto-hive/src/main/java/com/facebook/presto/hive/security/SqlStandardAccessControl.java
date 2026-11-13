@@ -85,6 +85,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeR
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowColumnsMetadata;
@@ -183,6 +184,15 @@ public class SqlStandardAccessControl
         MetastoreContext metastoreContext = createMetastoreContext(identity, context);
         if (!isTableOwner(transactionHandle, identity, metastoreContext, tableName)) {
             denySetTableProperties(tableName.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName materializedViewName, Map<String, Object> properties)
+    {
+        MetastoreContext metastoreContext = createMetastoreContext(identity, context);
+        if (!isTableOwner(transactionHandle, identity, metastoreContext, materializedViewName)) {
+            denySetMaterializedViewProperties(materializedViewName.toString());
         }
     }
 
