@@ -127,6 +127,7 @@ public class ParametricAggregation
                 outputType,
                 details.isDecomposable(),
                 details.isOrderSensitive(),
+                details.isDistinctSensitive(),
                 metadata,
                 accumulatorClass,
                 groupedAccumulatorClass);
