@@ -141,6 +141,17 @@ public class TestClientOptions
     }
 
     @Test
+    public void testTrustedRedirectHosts()
+    {
+        assertTrue(singleCommand(Console.class).parse().clientOptions.trustedRedirectHosts.isEmpty());
+
+        Console console = singleCommand(Console.class).parse(
+                "--trusted-redirect-host", "engine-1.example.com",
+                "--trusted-redirect-host", "engine-2.example.com:8443");
+        assertEquals(console.clientOptions.trustedRedirectHosts, ImmutableList.of("engine-1.example.com", "engine-2.example.com:8443"));
+    }
+
+    @Test
     public void testRunTimeStat()
     {
         Console console = singleCommand(Console.class).parse("--runtime-stats");

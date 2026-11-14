@@ -136,4 +136,12 @@ Name                              Description
                                   with value ``testHeaderValue``. Values should be percent encoded.
 ``validateNextUriSource``         Validates that host and port in next URI does not change during query execution.
 ``followRedirects``               Disable Presto client to follow a redirect as a security measure.
+``trustedRedirectHosts``          Comma separated list of HTTPS hosts (``host`` for any port, or ``host:port``)
+                                  that may receive the configured ``password`` or ``accessToken`` when the
+                                  server redirects the client to a different host, for example from a
+                                  router to a cluster. By default credentials are only sent to the host
+                                  and port that the client connected to. Hosts that are not listed and
+                                  redirects to plain HTTP never receive credentials. Wildcards are not
+                                  supported. Example:
+                                  ``trustedRedirectHosts=engine-1.example.com,engine-2.example.com:8443``.
 ================================= =======================================================================
