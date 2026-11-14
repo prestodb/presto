@@ -152,6 +152,30 @@ IO:
        }
      }
 
+When the session property ``explain_io_include_estimates`` is ``true``, the output also
+includes the planner's estimates. Each entry in ``inputTableColumnInfos`` gains an
+``estimate``, the sum over every scan of that table with those constraints, and the plan gains
+a ``totalEstimate``, the sum over every table scan. Each estimate holds the statistics the
+planner uses for the scans:
+
+* ``outputRowCount``: the number of rows the scans produce, after any filters pushed into them.
+* ``outputSizeInBytes``: the size of the data the scans produce, as ``EXPLAIN`` shows it. It is
+  estimated from the statistics of the columns produced; columns without size statistics count
+  at a default width.
+* ``totalSizeInBytes``: the connector's total size statistic for the data the scans read. Its
+  meaning is defined by the connector.
+* ``confidence``: ``LOW``, ``HIGH``, or ``FACT``, depending on where the statistics behind the
+  estimates came from. A sum has the lowest confidence of its parts.
+
+Unknown values are ``NaN``.
+
+With :doc:`/optimizer/history-based-optimization`, the planner replaces a scan's statistics
+with those recorded for it in earlier runs, when it finds them. ``outputRowCount`` is then the
+number of rows the scan produced, and ``totalSizeInBytes`` is the size of the data it produced,
+not a connector statistic. So is ``outputSizeInBytes`` when that size was recorded, unless
+``history_based_optimizer_estimate_size_using_variables`` is ``true``. A ``totalEstimate`` that
+sums scans with and without recorded statistics adds the two kinds of size together.
+
 DDL Statements
 ^^^^^^^^^^^^^^
 

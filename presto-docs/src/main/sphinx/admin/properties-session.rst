@@ -114,6 +114,16 @@ To enable the ``OFFSET`` clause in SQL query expressions, set this property to `
 
 The corresponding configuration property is :ref:`admin/properties:\`\`offset-clause-enabled\`\``.
 
+``explain_io_include_estimates``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When ``true``, ``EXPLAIN (TYPE IO)`` includes the planner's row count and size
+estimates: an ``estimate`` for each input table, and a ``totalEstimate`` that sums
+every table scan in the plan. See :doc:`/sql/explain`.
+
 ``check_access_control_on_utilized_columns_only``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
