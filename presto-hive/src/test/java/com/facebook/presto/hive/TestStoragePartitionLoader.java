@@ -15,6 +15,7 @@ package com.facebook.presto.hive;
 
 import com.facebook.airlift.units.DataSize;
 import com.facebook.airlift.units.Duration;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.TestBackgroundHiveSplitLoader.TestingHdfsEnvironment;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.testing.TestingConnectorSession;
@@ -143,6 +144,7 @@ public class TestStoragePartitionLoader
         return new StoragePartitionLoader(
                 SIMPLE_TABLE,
                 ImmutableMap.of(),
+                TupleDomain.all(),
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,
                 new TestingHdfsEnvironment(files),

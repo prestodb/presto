@@ -94,6 +94,13 @@ public class RuntimeMetricName
     public static final String DIRECTORY_LISTING_CACHE_MISS = "directoryListingCacheMiss";
     public static final String DIRECTORY_LISTING_TIME_NANOS = "directoryListingTimeNanos";
     public static final String FILES_READ_COUNT = "filesReadCount";
+    // Coordinator-side Hudi metrics also consumed by the query event listener.
+    public static final String HUDI_MDT_DATA_SKIPPING_CANDIDATE_FILES = "hudiDataSkippingCandidateFiles";
+    public static final String HUDI_MDT_DATA_SKIPPING_CANDIDATE_BYTES = "hudiDataSkippingCandidateBytes";
+    public static final String HUDI_MDT_DATA_SKIPPING_SKIPPED_FILES = "hudiDataSkippingSkippedFiles";
+    public static final String HUDI_MDT_DATA_SKIPPING_SKIPPED_BYTES = "hudiDataSkippingSkippedBytes";
+    public static final String HUDI_MDT_DATA_SKIPPING_LOOKUP_TIME = "hudiDataSkippingLookupTime";
+    public static final String HUDI_MDT_DATA_SKIPPING_FALLBACKS = "hudiDataSkippingFallbacks";
     public static final String METASTORE_ADD_PARTITIONS_TIME_NANOS = "metastoreAddPartitionsTimeNanos";
     public static final String METASTORE_ALTER_PARTITION_TIME_NANOS = "metastoreAlterPartitionTimeNanos";
     public static final String METASTORE_ALTER_PARTITIONS_TIME_NANOS = "metastoreAlterPartitionsTimeNanos";

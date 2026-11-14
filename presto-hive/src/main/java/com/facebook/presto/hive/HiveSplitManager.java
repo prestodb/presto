@@ -321,6 +321,7 @@ public class HiveSplitManager
                 table,
                 hivePartitions,
                 getInfoColumnConstraints(layout.getDomainPredicate(), layout.getPredicateColumns()),
+                getHudiDataColumnPredicate(layout.getDomainPredicate(), layout.getPredicateColumns()),
                 createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,
                 hdfsEnvironment,
@@ -486,6 +487,14 @@ public class HiveSplitManager
         }
 
         return splitSource;
+    }
+
+    static TupleDomain<String> getHudiDataColumnPredicate(TupleDomain<Subfield> domainPredicate, Map<String, HiveColumnHandle> predicateColumns)
+    {
+        return domainPredicate.transform(subfield -> {
+            HiveColumnHandle column = predicateColumns.get(subfield.getRootName());
+            return subfield.getPath().isEmpty() && column != null && column.getColumnType() == REGULAR ? column.getName() : null;
+        });
     }
 
     private static Map<Integer, Domain> getInfoColumnConstraints(TupleDomain<Subfield> domainPredicate, Map<String, HiveColumnHandle> predicateColumns)
