@@ -14,9 +14,12 @@
 
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
+#include <cstdint>
+#include <optional>
 #include <thread>
 
 #include "presto_cpp/main/operators/MaterializedOutputBuffer.h"
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/memory/Memory.h"
 
 using namespace facebook::velox;
@@ -53,6 +56,39 @@ class NoOpShuffleFactory : public ShuffleInterfaceFactory {
       velox::memory::MemoryPool*) override {
     return std::make_shared<NoOpShuffleWriter>();
   }
+};
+
+// Asks the root pool for its reclaimable bytes from createWriter(), which
+// runs while the buffer is being built, as memory arbitration on behalf of
+// another task of the query can.
+class ArbitratingShuffleFactory : public NoOpShuffleFactory {
+ public:
+  explicit ArbitratingShuffleFactory(
+      memory::MemoryPool* const rootPool) noexcept
+      : rootPool_(rootPool) {}
+
+  std::shared_ptr<ShuffleWriter> createWriter(
+      const std::string& serializedShuffleInfo,
+      velox::memory::MemoryPool* const pool) override {
+    VELOX_CHECK_NOT_NULL(pool);
+    VELOX_CHECK_NOT_NULL(rootPool_);
+    leafHadReclaimer_ = pool->reclaimer() != nullptr;
+    rootReclaimableBytes_ = rootPool_->reclaimableBytes();
+    return NoOpShuffleFactory::createWriter(serializedShuffleInfo, pool);
+  }
+
+  bool leafHadReclaimer() const noexcept {
+    return leafHadReclaimer_;
+  }
+
+  std::optional<uint64_t> rootReclaimableBytes() const noexcept {
+    return rootReclaimableBytes_;
+  }
+
+ private:
+  memory::MemoryPool* rootPool_;
+  bool leafHadReclaimer_{false};
+  std::optional<uint64_t> rootReclaimableBytes_;
 };
 
 } // namespace
@@ -106,6 +142,30 @@ TEST_F(ReclaimerTest, reclaimableReportsBufferedBytes) {
   uint64_t reclaimableBytes = 0;
   EXPECT_TRUE(reclaimer.reclaimableBytes(*buffer.pool(), reclaimableBytes));
   EXPECT_GT(reclaimableBytes, 0);
+}
+
+TEST_F(ReclaimerTest, arbitrationDuringConstructionSkipsTheBuffer) {
+  ArbitratingShuffleFactory factory(rootPool_.get());
+  MaterializedOutputBuffer buffer(
+      /*numPartitions=*/1,
+      /*shuffleWriterInfo=*/"",
+      &factory,
+      "test.0.0.0.0",
+      rootPool_.get());
+
+  EXPECT_FALSE(factory.leafHadReclaimer());
+  EXPECT_FALSE(factory.rootReclaimableBytes().has_value());
+  const memory::MemoryPool* const leafPool = buffer.pool();
+  ASSERT_NE(leafPool, nullptr);
+  ASSERT_NE(leafPool->reclaimer(), nullptr);
+
+  // Once built, the buffer's bytes reach memory arbitration through the root.
+  auto iobuf = buffer.allocateTrackedIOBuf(100 * kKB);
+  ASSERT_NE(iobuf, nullptr);
+  iobuf->append(100 * kKB);
+  buffer.enqueue(0, std::move(iobuf));
+  ASSERT_NE(rootPool_, nullptr);
+  EXPECT_GT(rootPool_->reclaimableBytes().value_or(0), 0);
 }
 
 TEST_F(ReclaimerTest, reclaimFlushesBufferedData) {
