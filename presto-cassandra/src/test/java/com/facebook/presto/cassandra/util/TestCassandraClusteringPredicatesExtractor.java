@@ -19,15 +19,26 @@ import com.facebook.presto.cassandra.CassandraTable;
 import com.facebook.presto.cassandra.CassandraTableHandle;
 import com.facebook.presto.cassandra.CassandraType;
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
+import com.facebook.presto.common.predicate.ValueSet;
+import com.facebook.presto.common.type.Type;
 import com.facebook.presto.spi.ColumnHandle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import java.time.LocalDate;
+
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.DateType.DATE;
+import static com.facebook.presto.common.type.RealType.REAL;
+import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.floatToRawIntBits;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestCassandraClusteringPredicatesExtractor
 {
@@ -93,6 +104,52 @@ public class TestCassandraClusteringPredicatesExtractor
         // Regression: a lexicographic string comparison would treat "2.10" as older than "2.2" and skip
         // the pushdown. Version-based comparison correctly recognizes 2.10 as newer than 2.2.
         assertEquals(predicates(tupleDomain, "2.10.0"), "\"clusteringKey1\" IN (34,35)");
+    }
+
+    @Test
+    public void testDateClusteringPredicate()
+    {
+        long sep6 = LocalDate.parse("2026-09-06").toEpochDay();
+        long sep8 = LocalDate.parse("2026-09-08").toEpochDay();
+        assertEquals(singleClusteringColumnPredicate(CassandraType.DATE, DATE, Domain.singleValue(DATE, sep6)), "\"ck\" = '2026-09-06'");
+        Domain onOrAfterSep6 = Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(DATE, sep6)), false);
+        assertEquals(singleClusteringColumnPredicate(CassandraType.DATE, DATE, onOrAfterSep6), "\"ck\" >= '2026-09-06'");
+        assertEquals(singleClusteringColumnPredicate(CassandraType.DATE, DATE, Domain.multipleValues(DATE, ImmutableList.of(sep6, sep8))), "\"ck\" IN ('2026-09-06','2026-09-08')");
+    }
+
+    @Test
+    public void testFloatClusteringPredicate()
+    {
+        long bits = floatToRawIntBits(6.5f);
+        assertEquals(singleClusteringColumnPredicate(CassandraType.FLOAT, REAL, Domain.singleValue(REAL, bits)), "\"ck\" = 6.5");
+        assertEquals(singleClusteringColumnPredicate(CassandraType.FLOAT, REAL, Domain.create(ValueSet.ofRanges(Range.lessThan(REAL, bits)), false)), "\"ck\" < 6.5");
+    }
+
+    @Test
+    public void testInetClusteringPredicate()
+    {
+        Type inet = createVarcharType(45);
+        assertEquals(singleClusteringColumnPredicate(CassandraType.INET, inet, Domain.singleValue(inet, utf8Slice("10.0.0.6"))), "\"ck\" = '10.0.0.6'");
+
+        // inet ranges are not pushed down
+        CassandraColumnHandle ck = clusteringColumn(CassandraType.INET);
+        TupleDomain<ColumnHandle> range = TupleDomain.withColumnDomains(ImmutableMap.of(
+                ck, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(inet, utf8Slice("10.0.0.2"))), false)));
+        CassandraClusteringPredicatesExtractor extractor = new CassandraClusteringPredicatesExtractor(ImmutableList.of(ck), range, "3.11.0");
+        assertEquals(extractor.getClusteringKeyPredicates(), "");
+        assertTrue(extractor.getUnenforcedConstraints().getDomains().get().containsKey(ck));
+    }
+
+    private static CassandraColumnHandle clusteringColumn(CassandraType type)
+    {
+        return new CassandraColumnHandle("cassandra", "ck", 1, type, null, false, true, false, false);
+    }
+
+    private static String singleClusteringColumnPredicate(CassandraType cassandraType, Type type, Domain domain)
+    {
+        CassandraColumnHandle ck = clusteringColumn(cassandraType);
+        return new CassandraClusteringPredicatesExtractor(ImmutableList.of(ck), TupleDomain.withColumnDomains(ImmutableMap.of(ck, domain)), "3.11.0")
+                .getClusteringKeyPredicates();
     }
 
     private String predicates(TupleDomain<ColumnHandle> tupleDomain, String version)
