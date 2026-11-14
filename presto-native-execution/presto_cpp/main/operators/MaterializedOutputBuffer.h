@@ -171,7 +171,12 @@ class MaterializedOutputBuffer {
   /// and calls writer->noMoreData(true).
   void noMoreData();
 
-  /// Abort — clears buffers and calls writer->noMoreData(false).
+  /// Abort: stops sending data and calls writer->noMoreData(false). With a
+  /// drain inside the writer's collect() on another thread, it calls
+  /// writer->stopCollecting() instead and returns; noMoreData(false) follows
+  /// once the last such collect() has returned, and the drains drop what they
+  /// still hold. A failure of either writer call is logged, not thrown. Data
+  /// still queued stays until the buffer is destroyed.
   void abort();
 
   State state() const {
@@ -318,9 +323,24 @@ class MaterializedOutputBuffer {
   /// Send a partition's drained RowGroups to the ShuffleWriter. Coalesces into
   /// a contiguous pool-tracked buffer by default. When useZeroCopyCollect_ is
   /// set, links them into a chain and hands it to the owned-buffer collect.
+  /// Once abort() has run, drops the RowGroups instead, and a collect() that
+  /// fails then is logged and drops them too.
   void flushToWriter(
       int32_t partition,
       std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups);
+
+  // Counts a writer collect() in. Once abort() has run, returns false; the
+  // count it took and released can still make this thread the one that
+  // aborts the writer.
+  bool enterCollect() noexcept;
+
+  // Counts a writer collect() out. The last one out after abort() aborts the
+  // writer.
+  void exitCollect() noexcept;
+
+  // writer->noMoreData(false) for the last of abort() and the collect() calls
+  // in progress to count out, unless done already. Logs what it throws.
+  void abortWriterAfterCollects() noexcept;
 
   /// Wake parked producers after crossing the low watermark.
   void maybeWakeBlockedDrivers();
@@ -352,6 +372,13 @@ class MaterializedOutputBuffer {
   const std::shared_ptr<ShuffleWriter> writer_;
 
   std::atomic<State> state_{State::kActive};
+
+  // The writer collect() calls in progress, plus kAbortRequested once abort()
+  // has run. Lets abort() leave noMoreData(false) to the last of them.
+  std::atomic<uint64_t> collectState_{0};
+  static constexpr uint64_t kAbortRequested = uint64_t{1} << 62U;
+  // Set by whichever thread calls writer noMoreData(false) for abort().
+  std::atomic_bool writerAborted_{false};
 
   // Buffer-wide total across partitions; drives the backpressure watermarks.
   std::atomic_int64_t bufferedBytes_{0};

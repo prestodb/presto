@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <exception>
 #include <memory>
 #include <numeric>
 #include <thread>
@@ -28,6 +29,7 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "velox/common/Casts.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/testutil/TestValue.h"
 
 #define MATERIALIZED_BUFFER_LOG(logEvent, pool, fmt_str, ...)           \
   LOG(INFO) << fmt::format(                                             \
@@ -436,26 +438,85 @@ std::unique_ptr<folly::IOBuf> chainRowGroups(
 void MaterializedOutputBuffer::flushToWriter(
     int32_t partition,
     std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups) {
+  if (!enterCollect()) {
+    return;
+  }
+  SCOPE_EXIT {
+    exitCollect();
+  };
+  velox::common::testutil::TestValue::adjust(
+      "facebook::presto::operators::MaterializedOutputBuffer::flushToWriter",
+      this);
   auto* writer = velox::checkedNotNull(writer_.get());
-  if (useZeroCopyCollect_) {
-    std::unique_ptr<folly::IOBuf> chain = chainRowGroups(rowGroups);
-    VELOX_CHECK_NOT_NULL(chain);
-    writer->collect(partition, /*key=*/"", std::move(chain));
-    ++zeroCopyCollectCount_;
-  } else {
-    std::unique_ptr<folly::IOBuf> coalesced = coalesceRowGroups(rowGroups);
-    auto* coalescedBuffer = velox::checkedNotNull(coalesced.get());
-    const size_t dataSize = coalescedBuffer->computeChainDataLength();
-    if (dataSize == 0) {
+  try {
+    // abort() can run while the RowGroups are chained or coalesced.
+    if (useZeroCopyCollect_) {
+      std::unique_ptr<folly::IOBuf> chain = chainRowGroups(rowGroups);
+      VELOX_CHECK_NOT_NULL(chain);
+      if (state_ == State::kAborted) {
+        return;
+      }
+      writer->collect(partition, /*key=*/"", std::move(chain));
+      ++zeroCopyCollectCount_;
+    } else {
+      const std::unique_ptr<folly::IOBuf> coalesced =
+          coalesceRowGroups(rowGroups);
+      auto* coalescedBuffer = velox::checkedNotNull(coalesced.get());
+      const size_t dataSize = coalescedBuffer->computeChainDataLength();
+      if (dataSize == 0 || state_ == State::kAborted) {
+        return;
+      }
+      writer->collect(
+          partition,
+          /*key=*/"",
+          std::string_view(
+              reinterpret_cast<const char*>(coalescedBuffer->data()),
+              dataSize));
+    }
+  } catch (...) {
+    // Once aborted, a failed collect() is dropped with its RowGroups: abort()
+    // asked the writer to stop collecting.
+    if (state_ == State::kAborted) {
+      // @lint-ignore CLANGTIDY facebook-mcp-logging-check
+      LOG(WARNING) << "MaterializedOutputBuffer: dropping a collect() that "
+                      "failed after abort: "
+                   << folly::exceptionStr(std::current_exception());
       return;
     }
-    writer->collect(
-        partition,
-        /*key=*/"",
-        std::string_view(
-            reinterpret_cast<const char*>(coalescedBuffer->data()), dataSize));
+    throw;
   }
   ++collectCountPerPartition_[partition];
+}
+
+bool MaterializedOutputBuffer::enterCollect() noexcept {
+  if ((collectState_.fetch_add(1) & kAbortRequested) != 0) {
+    exitCollect();
+    return false;
+  }
+  return true;
+}
+
+void MaterializedOutputBuffer::exitCollect() noexcept {
+  if (collectState_.fetch_sub(1) - 1 == kAbortRequested) {
+    abortWriterAfterCollects();
+  }
+}
+
+void MaterializedOutputBuffer::abortWriterAfterCollects() noexcept {
+  if (writerAborted_.exchange(true)) {
+    return;
+  }
+  // @lint-ignore CLANGTIDY facebook-mcp-logging-check
+  LOG(INFO)
+      << "MaterializedOutputBuffer: calling writer noMoreData(false) [abort]";
+  try {
+    VELOX_CHECK_NOT_NULL(writer_);
+    writer_->noMoreData(/*success=*/false);
+  } catch (...) {
+    // @lint-ignore CLANGTIDY facebook-mcp-logging-check
+    LOG(ERROR) << "MaterializedOutputBuffer: writer noMoreData(false) failed: "
+               << folly::exceptionStr(std::current_exception());
+  }
 }
 
 void MaterializedOutputBuffer::updateDrainStats(int64_t drainedBytes) {
@@ -592,9 +653,31 @@ void MaterializedOutputBuffer::abort() {
   // Unpark any producers blocked on backpressure so they observe kAborted.
   maybeWakeBlockedDrivers();
 
-  LOG(INFO)
-      << "MaterializedOutputBuffer: calling writer noMoreData(false) [abort]";
-  writer_->noMoreData(/*success=*/false);
+  // Only the first abort() gets past the state change above, so the flag is
+  // added once. Waiting here for the collects could deadlock: this can run on
+  // a memory arbitration's thread that a collect's allocation is queued
+  // behind. The count this takes keeps the last collect out from aborting the
+  // writer before stopCollecting() has run; with no collect in progress, its
+  // release aborts the writer.
+  const uint64_t numCollects =
+      collectState_.fetch_add(kAbortRequested + 1) & ~kAbortRequested;
+  SCOPE_EXIT {
+    exitCollect();
+  };
+  if (numCollects == 0) {
+    return;
+  }
+  // @lint-ignore CLANGTIDY facebook-mcp-logging-check
+  LOG(INFO) << "MaterializedOutputBuffer: calling writer stopCollecting() "
+            << "[abort, " << numCollects << " collects in progress]";
+  try {
+    VELOX_CHECK_NOT_NULL(writer_);
+    writer_->stopCollecting();
+  } catch (...) {
+    // @lint-ignore CLANGTIDY facebook-mcp-logging-check
+    LOG(ERROR) << "MaterializedOutputBuffer: writer stopCollecting() failed: "
+               << folly::exceptionStr(std::current_exception());
+  }
 }
 
 folly::F14FastMap<std::string, velox::RuntimeMetric>

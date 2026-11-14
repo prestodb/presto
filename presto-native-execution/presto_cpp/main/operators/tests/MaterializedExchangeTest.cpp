@@ -15,12 +15,16 @@
 #include <folly/Uri.h>
 #include <folly/init/Init.h>
 #include <folly/synchronization/Baton.h>
+#include <gtest/gtest.h>
 
 #include <boost/range/algorithm/find_if.hpp>
 
 #include <chrono>
 #include <cstring>
+#include <exception>
+#include <memory>
 #include <thread>
+#include <utility>
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/tests/MutableConfigs.h"
@@ -31,6 +35,7 @@
 #include "presto_cpp/main/operators/ShuffleExchangeSource.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 
+#include "velox/common/base/Exceptions.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Exchange.h"
@@ -314,6 +319,182 @@ class BlockingCollectShuffleFactory : public ShuffleInterfaceFactory {
   folly::Baton<>* const collectReached_;
   folly::Baton<>* const releaseCollect_;
   std::weak_ptr<BlockingCollectShuffleWriter> writer_;
+};
+
+// Holds the first collect() until released, and records what reaches the
+// writer around noMoreData(false). With 'failAfterStop', that collect() fails
+// once stopCollecting() has run, as a writer whose collect() waits for memory
+// does. With 'releaseOnStop', stopCollecting() releases that collect() and
+// waits up to a second for noMoreData() before it returns.
+class AbortObservingShuffleWriter : public ShuffleWriter {
+ public:
+  AbortObservingShuffleWriter(
+      // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+      folly::Baton<>* collectReached,
+      // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+      folly::Baton<>* releaseCollect,
+      const bool failAfterStop,
+      const bool releaseOnStop = false) noexcept
+      : collectReached_(collectReached),
+        releaseCollect_(releaseCollect),
+        failAfterStop_(failAfterStop),
+        releaseOnStop_(releaseOnStop) {}
+
+  void collect(
+      int32_t /*partition*/,
+      std::string_view /*key*/,
+      std::string_view /*data*/) override {
+    ++activeCollects_;
+    SCOPE_EXIT {
+      --activeCollects_;
+    };
+    ++numCollects_;
+    if (numNoMoreData_ > 0) {
+      ++collectsAfterNoMoreData_;
+    }
+    if (!blockedOnce_.exchange(true)) {
+      VELOX_CHECK_NOT_NULL(collectReached_);
+      VELOX_CHECK_NOT_NULL(releaseCollect_);
+      collectReached_->post();
+      releaseCollect_->wait();
+      if (failAfterStop_ && numStops_ > 0) {
+        VELOX_FAIL("collect() stopped");
+      }
+    }
+  }
+
+  void noMoreData(const bool success) override {
+    if (activeCollects_ > 0) {
+      ++noMoreDataDuringCollect_;
+    }
+    if (stopping_) {
+      ++noMoreDataDuringStop_;
+    }
+    success_ = success;
+    noMoreDataThread_ = std::this_thread::get_id();
+    ++numNoMoreData_;
+    if (releaseOnStop_) {
+      noMoreDataCalled_.post();
+    }
+  }
+
+  void stopCollecting() override {
+    ++numStops_;
+    if (releaseOnStop_) {
+      VELOX_CHECK_NOT_NULL(releaseCollect_);
+      stopping_ = true;
+      releaseCollect_->post();
+      noMoreDataCalled_.try_wait_for(std::chrono::seconds(1));
+      stopping_ = false;
+    }
+  }
+
+  folly::F14FastMap<std::string, int64_t> stats() const noexcept override {
+    return {};
+  }
+
+  int numCollects() const noexcept {
+    return numCollects_;
+  }
+
+  int collectsAfterNoMoreData() const noexcept {
+    return collectsAfterNoMoreData_;
+  }
+
+  int numNoMoreData() const noexcept {
+    return numNoMoreData_;
+  }
+
+  int noMoreDataDuringCollect() const noexcept {
+    return noMoreDataDuringCollect_;
+  }
+
+  int numStops() const noexcept {
+    return numStops_;
+  }
+
+  int noMoreDataDuringStop() const noexcept {
+    return noMoreDataDuringStop_;
+  }
+
+  bool success() const noexcept {
+    return success_;
+  }
+
+  // Read only after the calling thread has been joined.
+  std::thread::id noMoreDataThread() const noexcept {
+    return noMoreDataThread_;
+  }
+
+ private:
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  folly::Baton<>* const collectReached_;
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  folly::Baton<>* const releaseCollect_;
+  const bool failAfterStop_;
+  const bool releaseOnStop_;
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  folly::Baton<> noMoreDataCalled_;
+  std::atomic<bool> stopping_{false};
+  std::atomic<bool> blockedOnce_{false};
+  std::atomic<int> activeCollects_{0};
+  std::atomic<int> numCollects_{0};
+  std::atomic<int> collectsAfterNoMoreData_{0};
+  std::atomic<int> numNoMoreData_{0};
+  std::atomic<int> noMoreDataDuringCollect_{0};
+  std::atomic<int> numStops_{0};
+  std::atomic<int> noMoreDataDuringStop_{0};
+  std::atomic<bool> success_{true};
+  std::thread::id noMoreDataThread_;
+};
+
+// stopCollecting() throws once it has done what the base writer does.
+class ThrowingStopShuffleWriter : public AbortObservingShuffleWriter {
+ public:
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  using AbortObservingShuffleWriter::AbortObservingShuffleWriter;
+
+  void stopCollecting() override {
+    AbortObservingShuffleWriter::stopCollecting();
+    VELOX_FAIL("stopCollecting() failed");
+  }
+};
+
+// noMoreData(false) throws once it has done what the base writer does.
+class FailingAbortShuffleWriter : public AbortObservingShuffleWriter {
+ public:
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  using AbortObservingShuffleWriter::AbortObservingShuffleWriter;
+
+  void noMoreData(const bool success) override {
+    AbortObservingShuffleWriter::noMoreData(success);
+    if (!success) {
+      VELOX_FAIL("noMoreData(false) failed");
+    }
+  }
+};
+
+class AbortObservingShuffleFactory : public ShuffleInterfaceFactory {
+ public:
+  explicit AbortObservingShuffleFactory(
+      std::shared_ptr<AbortObservingShuffleWriter> writer) noexcept
+      : writer_(std::move(writer)) {}
+
+  std::shared_ptr<ShuffleReader> createReader(
+      const std::string& /*serializedShuffleInfo*/,
+      int32_t /*partition*/,
+      velox::memory::MemoryPool* /*pool*/) override {
+    VELOX_UNREACHABLE();
+  }
+
+  std::shared_ptr<ShuffleWriter> createWriter(
+      const std::string& /*serializedShuffleInfo*/,
+      velox::memory::MemoryPool* /*pool*/) noexcept override {
+    return writer_;
+  }
+
+ private:
+  std::shared_ptr<AbortObservingShuffleWriter> writer_;
 };
 
 } // namespace
@@ -1379,6 +1560,362 @@ TEST_F(
   EXPECT_EQ(rootPool->usedBytes(), 0);
 
   cleanupDirectory(shuffleDir->getPath());
+}
+
+// With no collect() in progress, abort() aborts the writer itself.
+TEST_F(MaterializedExchangeTest, abortWithoutCollectAbortsWriterAtOnce) {
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "abortWithoutCollect",
+      64L * 1024 * 1024,
+      memory::MemoryReclaimer::create());
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  folly::Baton<> collectReached;
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  folly::Baton<> releaseCollect;
+  auto writer = std::make_shared<AbortObservingShuffleWriter>(
+      &collectReached, &releaseCollect, /*failAfterStop=*/false);
+  AbortObservingShuffleFactory factory(writer);
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      /*numPartitions=*/1,
+      /*shuffleWriterInfo=*/"",
+      &factory,
+      "abort-without-collect.0.0.0.0",
+      rootPool.get());
+
+  buffer->abort();
+  EXPECT_EQ(writer->numNoMoreData(), 1);
+  EXPECT_FALSE(writer->success());
+  EXPECT_EQ(writer->numStops(), 0);
+  EXPECT_EQ(writer->noMoreDataThread(), std::this_thread::get_id());
+}
+
+// A driver closing the task aborts the buffer while another driver is inside
+// the writer's collect(). The writer must not get noMoreData(false) until that
+// collect() returns, nor any collect() after it.
+TEST_F(MaterializedExchangeTest, abortDuringCollectAbortsWriterAfterIt) {
+  constexpr int32_t numPartitions = 1;
+  constexpr int64_t kDrainThreshold = 16L * 1024;
+  constexpr int64_t kRowGroupBytes = 8L * 1024;
+
+  facebook::presto::test::setupMutableSystemConfig();
+  SystemConfig::instance()->setValue(
+      std::string(
+          SystemConfig::
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes),
+      std::to_string(kDrainThreshold));
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaterializationOutputBufferMaxBytes),
+      std::to_string(64L * 1024 * 1024));
+
+  for (const bool failAfterStop : {false, true}) {
+    SCOPED_TRACE(failAfterStop);
+    auto rootPool = memory::memoryManager()->addRootPool(
+        "abortDuringCollect",
+        64L * 1024 * 1024,
+        memory::MemoryReclaimer::create());
+    ASSERT_NE(rootPool, nullptr);
+    // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+    folly::Baton<> collectReached;
+    // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+    folly::Baton<> releaseCollect;
+    auto writer = std::make_shared<AbortObservingShuffleWriter>(
+        &collectReached, &releaseCollect, failAfterStop);
+    AbortObservingShuffleFactory factory(writer);
+    auto buffer = std::make_shared<MaterializedOutputBuffer>(
+        numPartitions,
+        /*shuffleWriterInfo=*/"",
+        &factory,
+        "abort-during-collect.0.0.0.0",
+        rootPool.get());
+
+    auto makeRowGroup = [&]() {
+      auto iobuf = buffer->allocateTrackedIOBuf(kRowGroupBytes);
+      std::memset(iobuf->writableData(), 'x', kRowGroupBytes);
+      iobuf->append(kRowGroupBytes);
+      return iobuf;
+    };
+
+    std::thread::id producerId;
+    std::atomic<bool> enqueueFailed{false};
+    std::thread producer([&]() {
+      producerId = std::this_thread::get_id();
+      try {
+        buffer->enqueue(0, makeRowGroup());
+        // Reaches the drain threshold, so this drains and blocks in collect().
+        buffer->enqueue(0, makeRowGroup());
+      } catch (const std::exception&) {
+        enqueueFailed = true;
+      }
+    });
+    collectReached.wait();
+    // Queued behind the drain in progress.
+    buffer->enqueue(0, makeRowGroup());
+    buffer->enqueue(0, makeRowGroup());
+
+    buffer->abort();
+    EXPECT_EQ(buffer->state(), MaterializedOutputBuffer::State::kAborted);
+    EXPECT_EQ(writer->numStops(), 1);
+    EXPECT_EQ(writer->numNoMoreData(), 0);
+
+    releaseCollect.post();
+    producer.join();
+    // A collect() that fails after the abort is the stop it asked for.
+    EXPECT_FALSE(enqueueFailed.load());
+    EXPECT_EQ(writer->numNoMoreData(), 1);
+    EXPECT_FALSE(writer->success());
+    EXPECT_EQ(writer->noMoreDataDuringCollect(), 0);
+    // The drain in progress dropped the queued RowGroups.
+    EXPECT_EQ(writer->numCollects(), 1);
+    EXPECT_EQ(writer->collectsAfterNoMoreData(), 0);
+    EXPECT_EQ(writer->noMoreDataThread(), producerId);
+    EXPECT_EQ(buffer->bufferedBytes(), 0);
+
+    buffer.reset();
+    EXPECT_EQ(rootPool->usedBytes(), 0);
+  }
+}
+
+// The collect() in progress returns while abort() is still inside the
+// writer's stopCollecting(). The writer must not get noMoreData(false) before
+// stopCollecting() has returned.
+TEST_F(MaterializedExchangeTest, abortStopsCollectingBeforeAbortingTheWriter) {
+  constexpr int64_t kDrainThreshold = 16L * 1024;
+  constexpr int64_t kRowGroupBytes = 8L * 1024;
+
+  facebook::presto::test::setupMutableSystemConfig();
+  SystemConfig::instance()->setValue(
+      std::string(
+          SystemConfig::
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes),
+      std::to_string(kDrainThreshold));
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaterializationOutputBufferMaxBytes),
+      std::to_string(64L * 1024 * 1024));
+
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "abortStopsCollecting",
+      64L * 1024 * 1024,
+      memory::MemoryReclaimer::create());
+  ASSERT_NE(rootPool, nullptr);
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  folly::Baton<> collectReached;
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  folly::Baton<> releaseCollect;
+  auto writer = std::make_shared<AbortObservingShuffleWriter>(
+      &collectReached,
+      &releaseCollect,
+      /*failAfterStop=*/false,
+      /*releaseOnStop=*/true);
+  AbortObservingShuffleFactory factory(writer);
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      /*numPartitions=*/1,
+      /*shuffleWriterInfo=*/"",
+      &factory,
+      "abort-stops-collecting.0.0.0.0",
+      rootPool.get());
+
+  auto makeRowGroup = [&]() {
+    auto iobuf = buffer->allocateTrackedIOBuf(kRowGroupBytes);
+    std::memset(iobuf->writableData(), 'x', kRowGroupBytes);
+    iobuf->append(kRowGroupBytes);
+    return iobuf;
+  };
+
+  std::atomic<bool> enqueueFailed{false};
+  std::thread producer([&]() {
+    try {
+      buffer->enqueue(0, makeRowGroup());
+      // Reaches the drain threshold, so this drains and blocks in collect().
+      buffer->enqueue(0, makeRowGroup());
+    } catch (const std::exception&) {
+      enqueueFailed = true;
+    }
+  });
+  collectReached.wait();
+
+  buffer->abort();
+  if (writer->numStops() == 0) {
+    // Nothing else releases the collect() when abort() did not stop it.
+    releaseCollect.post();
+  }
+  producer.join();
+  EXPECT_FALSE(enqueueFailed.load());
+  EXPECT_EQ(writer->numStops(), 1);
+  EXPECT_EQ(writer->noMoreDataDuringStop(), 0);
+  EXPECT_EQ(writer->numNoMoreData(), 1);
+  EXPECT_FALSE(writer->success());
+  EXPECT_EQ(writer->noMoreDataDuringCollect(), 0);
+  EXPECT_EQ(writer->numCollects(), 1);
+
+  buffer.reset();
+  EXPECT_EQ(rootPool->usedBytes(), 0);
+}
+
+// abort() runs while a drain is counted in but has not called collect() yet.
+// The drain must drop its RowGroups instead of sending them.
+DEBUG_ONLY_TEST_F(MaterializedExchangeTest, abortBeforeCollectDropsTheDrain) {
+  constexpr int64_t kDrainThreshold = 16L * 1024;
+  constexpr int64_t kRowGroupBytes = 8L * 1024;
+
+  facebook::presto::test::setupMutableSystemConfig();
+  SystemConfig::instance()->setValue(
+      std::string(
+          SystemConfig::
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes),
+      std::to_string(kDrainThreshold));
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaterializationOutputBufferMaxBytes),
+      std::to_string(64L * 1024 * 1024));
+
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "abortBeforeCollect",
+      64L * 1024 * 1024,
+      memory::MemoryReclaimer::create());
+  ASSERT_NE(rootPool, nullptr);
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  folly::Baton<> collectReached;
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  folly::Baton<> releaseCollect;
+  // A collect() that should not happen returns instead of waiting.
+  releaseCollect.post();
+  auto writer = std::make_shared<AbortObservingShuffleWriter>(
+      &collectReached, &releaseCollect, /*failAfterStop=*/false);
+  AbortObservingShuffleFactory factory(writer);
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      /*numPartitions=*/1,
+      /*shuffleWriterInfo=*/"",
+      &factory,
+      "abort-before-collect.0.0.0.0",
+      rootPool.get());
+
+  SCOPED_TESTVALUE_SET(
+      "facebook::presto::operators::MaterializedOutputBuffer::flushToWriter",
+      std::function<void(MaterializedOutputBuffer*)>(
+          [](MaterializedOutputBuffer* drainingBuffer) {
+            ASSERT_NE(drainingBuffer, nullptr);
+            drainingBuffer->abort();
+          }));
+  auto makeRowGroup = [&]() {
+    auto iobuf = buffer->allocateTrackedIOBuf(kRowGroupBytes);
+    std::memset(iobuf->writableData(), 'x', kRowGroupBytes);
+    iobuf->append(kRowGroupBytes);
+    return iobuf;
+  };
+  buffer->enqueue(0, makeRowGroup());
+  // Reaches the drain threshold, so this drains, and the drain aborts.
+  buffer->enqueue(0, makeRowGroup());
+
+  EXPECT_EQ(buffer->state(), MaterializedOutputBuffer::State::kAborted);
+  EXPECT_EQ(writer->numStops(), 1);
+  EXPECT_EQ(writer->numCollects(), 0);
+  EXPECT_EQ(writer->numNoMoreData(), 1);
+  EXPECT_FALSE(writer->success());
+
+  buffer.reset();
+  EXPECT_EQ(rootPool->usedBytes(), 0);
+}
+
+// abort() runs during a collect() and the writer's stopCollecting() throws.
+// abort() must still return, and the writer must still get noMoreData(false)
+// once the collect() returns.
+TEST_F(MaterializedExchangeTest, abortLogsAThrowingStopCollecting) {
+  constexpr int64_t kDrainThreshold = 16L * 1024;
+  constexpr int64_t kRowGroupBytes = 8L * 1024;
+
+  facebook::presto::test::setupMutableSystemConfig();
+  SystemConfig::instance()->setValue(
+      std::string(
+          SystemConfig::
+              kExchangeMaterializationOutputBufferPerPartitionMaxBytes),
+      std::to_string(kDrainThreshold));
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeMaterializationOutputBufferMaxBytes),
+      std::to_string(64L * 1024 * 1024));
+
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "abortThrowingStop",
+      64L * 1024 * 1024,
+      memory::MemoryReclaimer::create());
+  ASSERT_NE(rootPool, nullptr);
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  folly::Baton<> collectReached;
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  folly::Baton<> releaseCollect;
+  auto writer = std::make_shared<ThrowingStopShuffleWriter>(
+      &collectReached, &releaseCollect, /*failAfterStop=*/false);
+  AbortObservingShuffleFactory factory(writer);
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      /*numPartitions=*/1,
+      /*shuffleWriterInfo=*/"",
+      &factory,
+      "abort-throwing-stop.0.0.0.0",
+      rootPool.get());
+
+  auto makeRowGroup = [&]() {
+    auto iobuf = buffer->allocateTrackedIOBuf(kRowGroupBytes);
+    std::memset(iobuf->writableData(), 'x', kRowGroupBytes);
+    iobuf->append(kRowGroupBytes);
+    return iobuf;
+  };
+
+  std::thread::id producerId;
+  std::atomic<bool> enqueueFailed{false};
+  std::thread producer([&]() {
+    producerId = std::this_thread::get_id();
+    try {
+      buffer->enqueue(0, makeRowGroup());
+      // Reaches the drain threshold, so this drains and blocks in collect().
+      buffer->enqueue(0, makeRowGroup());
+    } catch (const std::exception&) {
+      enqueueFailed = true;
+    }
+  });
+  collectReached.wait();
+
+  EXPECT_NO_THROW(buffer->abort());
+  EXPECT_EQ(writer->numStops(), 1);
+  EXPECT_EQ(writer->numNoMoreData(), 0);
+
+  releaseCollect.post();
+  producer.join();
+  EXPECT_FALSE(enqueueFailed.load());
+  EXPECT_EQ(writer->numNoMoreData(), 1);
+  EXPECT_FALSE(writer->success());
+  EXPECT_EQ(writer->noMoreDataThread(), producerId);
+
+  buffer.reset();
+  EXPECT_EQ(rootPool->usedBytes(), 0);
+}
+
+// With no collect() in progress, the writer's noMoreData(false) throws.
+// abort() must log it, as it does when the last collect() aborts the writer.
+TEST_F(MaterializedExchangeTest, abortLogsAFailedWriterAbort) {
+  auto rootPool = memory::memoryManager()->addRootPool(
+      "abortFailedWriterAbort",
+      64L * 1024 * 1024,
+      memory::MemoryReclaimer::create());
+  ASSERT_NE(rootPool, nullptr);
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  folly::Baton<> collectReached;
+  // @lint-ignore CLANGTIDY facebook-hsr-turbo-module-baton-check
+  folly::Baton<> releaseCollect;
+  auto writer = std::make_shared<FailingAbortShuffleWriter>(
+      &collectReached, &releaseCollect, /*failAfterStop=*/false);
+  AbortObservingShuffleFactory factory(writer);
+  auto buffer = std::make_shared<MaterializedOutputBuffer>(
+      /*numPartitions=*/1,
+      /*shuffleWriterInfo=*/"",
+      &factory,
+      "abort-failed-writer-abort.0.0.0.0",
+      rootPool.get());
+
+  EXPECT_NO_THROW(buffer->abort());
+  EXPECT_EQ(buffer->state(), MaterializedOutputBuffer::State::kAborted);
+  EXPECT_EQ(writer->numNoMoreData(), 1);
+  EXPECT_FALSE(writer->success());
+
+  buffer.reset();
+  EXPECT_EQ(rootPool->usedBytes(), 0);
 }
 
 } // namespace facebook::presto::operators::test

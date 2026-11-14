@@ -49,6 +49,12 @@ class ShuffleWriter {
   /// @param success set to false to indicate aborted client.
   virtual void noMoreData(bool success) = 0;
 
+  /// Asks collect() calls in progress on other threads to return soon, and
+  /// later ones to fail. noMoreData(false) follows once they have returned. A
+  /// writer whose collect() can wait for long, as one waiting for memory does,
+  /// should end that wait. The default does nothing.
+  virtual void stopCollecting() {}
+
   /// Runtime statistics.
   virtual folly::F14FastMap<std::string, int64_t> stats() const = 0;
 
