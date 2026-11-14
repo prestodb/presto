@@ -83,6 +83,13 @@ ARG OSNAME=centos
 ENV BUILD_BASE_DIR=_build
 ENV BUILD_DIR=""
 
+RUN if command -v apt-get > /dev/null 2>&1; then \
+        apt-get update \
+        && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            tzdata \
+        && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 # Copy scripts and CUDA version from build stage
 COPY --from=prestissimo-image /prestissimo/velox/scripts/ /tmp/scripts/
 COPY --from=prestissimo-image /cuda_version /tmp/
