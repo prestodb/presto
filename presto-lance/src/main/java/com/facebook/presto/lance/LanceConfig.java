@@ -60,6 +60,7 @@ public class LanceConfig
     private DataSize metadataCacheSize = new DataSize(128, MEGABYTE);
     private int datasetCacheMaxEntries = 100;
     private Duration datasetCacheTtl = new Duration(60, MINUTES);
+    private String gcsJsonKeyFilePath;
 
     @NotNull
     public String getImpl()
@@ -210,6 +211,24 @@ public class LanceConfig
     public LanceConfig setDatasetCacheTtl(Duration datasetCacheTtl)
     {
         this.datasetCacheTtl = datasetCacheTtl;
+        return this;
+    }
+
+    public String getGcsJsonKeyFilePath()
+    {
+        return gcsJsonKeyFilePath;
+    }
+
+    /**
+     * Mirrors hive.gcs.json-key-file-path. Note the lance.gcs.* prefix also keeps this
+     * out of the lance.storage.&lt;key&gt; properties that LanceNamespaceHolder harvests
+     * directly into the storage options map.
+     */
+    @Config("lance.gcs.json-key-file-path")
+    @ConfigDescription("JSON key file used to access Google Cloud Storage, used when the namespace supplies no storage options")
+    public LanceConfig setGcsJsonKeyFilePath(String gcsJsonKeyFilePath)
+    {
+        this.gcsJsonKeyFilePath = gcsJsonKeyFilePath;
         return this;
     }
 }

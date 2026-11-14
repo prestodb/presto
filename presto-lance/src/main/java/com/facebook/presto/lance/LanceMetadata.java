@@ -16,6 +16,7 @@ package com.facebook.presto.lance;
 import com.facebook.airlift.json.JsonCodec;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -31,22 +32,29 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.connector.ConnectorOutputMetadata;
+import com.facebook.presto.spi.connector.TableFunctionApplicationResult;
+import com.facebook.presto.spi.function.table.ConnectorTableFunctionHandle;
 import com.facebook.presto.spi.statistics.ComputedStatistics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.lance.FragmentMetadata;
 
 import javax.inject.Inject;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
@@ -56,14 +64,17 @@ public class LanceMetadata
 {
     private final LanceNamespaceHolder namespaceHolder;
     private final JsonCodec<LanceCommitTaskData> commitTaskDataCodec;
+    private final JsonCodec<LanceMergeCommitData> mergeCommitDataCodec;
 
     @Inject
     public LanceMetadata(
             LanceNamespaceHolder namespaceHolder,
-            JsonCodec<LanceCommitTaskData> commitTaskDataCodec)
+            JsonCodec<LanceCommitTaskData> commitTaskDataCodec,
+            JsonCodec<LanceMergeCommitData> mergeCommitDataCodec)
     {
         this.namespaceHolder = requireNonNull(namespaceHolder, "namespaceHolder is null");
         this.commitTaskDataCodec = requireNonNull(commitTaskDataCodec, "commitTaskDataCodec is null");
+        this.mergeCommitDataCodec = requireNonNull(mergeCommitDataCodec, "mergeCommitDataCodec is null");
     }
 
     @Override
@@ -90,7 +101,10 @@ public class LanceMetadata
         }
         List<String> tableId = namespaceHolder.getTableId(tableName.getSchemaName(), tableName.getTableName());
         long datasetVersion = namespaceHolder.getLatestVersion(tablePath);
-        return new LanceTableHandle(tableName.getSchemaName(), tableName.getTableName(), tablePath, tableId, Optional.of(datasetVersion));
+        // Resolved here rather than on the worker: the coordinator is the only node
+        // that talks to the namespace or can read a locally provisioned key file.
+        Map<String, String> storageOptions = namespaceHolder.getStorageOptionsForTable(tableId);
+        return new LanceTableHandle(tableName.getSchemaName(), tableName.getTableName(), tablePath, tableId, Optional.of(datasetVersion), storageOptions);
     }
 
     @Override
@@ -227,6 +241,18 @@ public class LanceMetadata
     }
 
     @Override
+    public Optional<TableFunctionApplicationResult<ConnectorTableHandle>> applyTableFunction(ConnectorSession session, ConnectorTableFunctionHandle handle)
+    {
+        if (!(handle instanceof LanceVectorSearchFunctionHandle)) {
+            return Optional.empty();
+        }
+        LanceVectorSearchFunctionHandle functionHandle = (LanceVectorSearchFunctionHandle) handle;
+        return Optional.of(new TableFunctionApplicationResult<>(
+                functionHandle.getTableHandle(),
+                ImmutableList.copyOf(functionHandle.getColumns())));
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(
             ConnectorSession session,
             ConnectorTableMetadata tableMetadata,
@@ -312,6 +338,131 @@ public class LanceMetadata
     {
         LanceTableHandle lanceTable = (LanceTableHandle) tableHandle;
         namespaceHolder.dropTable(lanceTable.getTableId());
+    }
+
+    @Override
+    public Optional<ColumnHandle> getDeleteRowIdColumn(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.of(LanceColumnHandle.rowAddressColumn());
+    }
+
+    @Override
+    public ConnectorDeleteTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return (LanceTableHandle) tableHandle;
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishDeleteWithOutput(
+            ConnectorSession session,
+            ConnectorDeleteTableHandle tableHandle,
+            Collection<Slice> fragments)
+    {
+        LanceTableHandle handle = (LanceTableHandle) tableHandle;
+        List<LanceMergeCommitData> commitData = deserializeMergeCommitData(fragments);
+        if (commitData.isEmpty()) {
+            return Optional.empty();
+        }
+        long readVersion = resolveReadVersion(handle, commitData);
+        Map<Integer, List<Integer>> deletionsByFragment = mergeDeletions(commitData);
+        namespaceHolder.commitDeletions(handle.getTablePath(), readVersion, deletionsByFragment);
+        return Optional.empty();
+    }
+
+    @Override
+    public boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<ConnectorTableLayoutHandle> tableLayoutHandle)
+    {
+        // Only the whole-table delete (no predicate) is handled as a metadata-only fast path;
+        // predicate deletes fall through to the row-level merge-on-read path.
+        if (!tableLayoutHandle.isPresent()) {
+            return true;
+        }
+        LanceTableLayoutHandle layoutHandle = (LanceTableLayoutHandle) tableLayoutHandle.get();
+        return layoutHandle.getTupleDomain().isAll();
+    }
+
+    @Override
+    public OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
+    {
+        LanceTableHandle handle = (LanceTableHandle) tableHandle;
+        return OptionalLong.of(namespaceHolder.deleteAll(handle.getTablePath()));
+    }
+
+    @Override
+    public Optional<ColumnHandle> getUpdateRowIdColumn(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    {
+        LanceTableHandle handle = (LanceTableHandle) tableHandle;
+        Set<String> updatedColumnNames = updatedColumns.stream()
+                .map(column -> ((LanceColumnHandle) column).getColumnName())
+                .collect(toImmutableSet());
+        List<LanceColumnHandle> unmodifiedColumns = tableColumns(handle).stream()
+                .filter(column -> !updatedColumnNames.contains(column.getColumnName()))
+                .collect(toImmutableList());
+        return Optional.of(LanceColumnHandle.updateRowIdColumn(unmodifiedColumns));
+    }
+
+    @Override
+    public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+    {
+        LanceTableHandle handle = (LanceTableHandle) tableHandle;
+        List<LanceColumnHandle> updated = updatedColumns.stream()
+                .map(LanceColumnHandle.class::cast)
+                .collect(toImmutableList());
+        return handle.withUpdatedColumns(updated);
+    }
+
+    @Override
+    public void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        LanceTableHandle handle = (LanceTableHandle) tableHandle;
+        List<LanceMergeCommitData> commitData = deserializeMergeCommitData(fragments);
+        if (commitData.isEmpty()) {
+            return;
+        }
+        long readVersion = resolveReadVersion(handle, commitData);
+        Map<Integer, List<Integer>> deletionsByFragment = mergeDeletions(commitData);
+        List<FragmentMetadata> newFragments = new ArrayList<>();
+        for (LanceMergeCommitData data : commitData) {
+            newFragments.addAll(LanceFragmentData.deserializeFragments(data.getNewFragmentsJson()));
+        }
+        namespaceHolder.commitUpdate(handle.getTablePath(), readVersion, deletionsByFragment, newFragments);
+    }
+
+    private List<LanceColumnHandle> tableColumns(LanceTableHandle handle)
+    {
+        Schema arrowSchema = namespaceHolder.describeTable(handle.getTablePath(), handle.getDatasetVersion());
+        return arrowSchema.getFields().stream()
+                .map(field -> new LanceColumnHandle(field.getName(), LanceColumnHandle.toPrestoType(field), field.isNullable()))
+                .collect(toImmutableList());
+    }
+
+    private List<LanceMergeCommitData> deserializeMergeCommitData(Collection<Slice> fragments)
+    {
+        return fragments.stream()
+                .map(slice -> mergeCommitDataCodec.fromJson(slice.getBytes()))
+                .collect(toImmutableList());
+    }
+
+    private static long resolveReadVersion(LanceTableHandle handle, List<LanceMergeCommitData> commitData)
+    {
+        return commitData.stream()
+                .mapToLong(LanceMergeCommitData::getReadVersion)
+                .findFirst()
+                .orElseGet(() -> handle.getDatasetVersion().orElseThrow(() ->
+                        new PrestoException(LanceErrorCode.LANCE_ERROR, "No read version available for delete")));
+    }
+
+    private static Map<Integer, List<Integer>> mergeDeletions(List<LanceMergeCommitData> commitData)
+    {
+        Map<Integer, List<Integer>> deletionsByFragment = new HashMap<>();
+        for (LanceMergeCommitData data : commitData) {
+            for (FragmentDeletion deletion : data.getDeletions()) {
+                deletionsByFragment
+                        .computeIfAbsent(deletion.getFragmentId(), key -> new ArrayList<>())
+                        .addAll(deletion.getRowIndexes());
+            }
+        }
+        return deletionsByFragment;
     }
 
     private List<org.lance.FragmentMetadata> collectFragments(Collection<Slice> fragments)

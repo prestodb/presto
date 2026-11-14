@@ -25,7 +25,7 @@ public class LanceConnectorPlanOptimizerProvider
     @Override
     public Set<ConnectorPlanOptimizer> getLogicalPlanOptimizers()
     {
-        return ImmutableSet.of(new LanceLimitPushdown());
+        return ImmutableSet.of(new LanceLimitPushdown(), new LanceVectorSearchPushdown(), new LanceVectorSearchTopNRewriter());
     }
 
     @Override

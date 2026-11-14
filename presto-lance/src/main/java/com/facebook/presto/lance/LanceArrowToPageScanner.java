@@ -38,6 +38,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class LanceArrowToPageScanner
         implements AutoCloseable
@@ -112,6 +113,14 @@ public class LanceArrowToPageScanner
             for (int col = 0; col < columns.size(); col++) {
                 LanceColumnHandle column = columns.get(col);
                 FieldVector vector = root.getVector(column.getColumnName());
+                if (vector == null) {
+                    throw new PrestoException(LanceErrorCode.LANCE_ERROR,
+                            String.format("Column '%s' not found in Arrow batch. Available columns: %s",
+                                    column.getColumnName(),
+                                    root.getSchema().getFields().stream()
+                                            .map(f -> f.getName())
+                                            .collect(joining(", "))));
+                }
                 Type type = column.getColumnType();
                 vector = coerceVector(vector, coercedVectors);
                 blocks[col] = arrowBlockBuilder.buildBlockFromFieldVector(vector, type, null);
