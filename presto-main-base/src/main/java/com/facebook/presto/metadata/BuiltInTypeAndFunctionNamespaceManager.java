@@ -236,6 +236,8 @@ import com.facebook.presto.spi.function.SqlInvokedFunction;
 import com.facebook.presto.spi.function.SqlInvokedScalarFunctionImplementation;
 import com.facebook.presto.spi.type.UnknownTypeException;
 import com.facebook.presto.sql.analyzer.FunctionsConfig;
+import com.facebook.presto.statistics.GaussianConstructor;
+import com.facebook.presto.statistics.GaussianOperators;
 import com.facebook.presto.type.BigintOperators;
 import com.facebook.presto.type.BooleanOperators;
 import com.facebook.presto.type.CharOperators;
@@ -454,6 +456,7 @@ import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
 import static com.facebook.presto.spi.function.FunctionKind.WINDOW;
 import static com.facebook.presto.spi.function.SqlFunctionVisibility.HIDDEN;
 import static com.facebook.presto.sql.planner.LiteralEncoder.MAGIC_LITERAL_FUNCTION_PREFIX;
+import static com.facebook.presto.statistics.GaussianType.GAUSSIAN;
 import static com.facebook.presto.type.ArrayParametricType.ARRAY;
 import static com.facebook.presto.type.CodePointsType.CODE_POINTS;
 import static com.facebook.presto.type.ColorType.COLOR;
@@ -644,6 +647,7 @@ public class BuiltInTypeAndFunctionNamespaceManager
         addType(K_HYPER_LOG_LOG);
         addType(P4_HYPER_LOG_LOG);
         addType(SFM_SKETCH);
+        addType(GAUSSIAN);
         addType(JONI_REGEXP);
         addType(RE2J_REGEXP);
         addType(LIKE_PATTERN);
@@ -829,6 +833,8 @@ public class BuiltInTypeAndFunctionNamespaceManager
                 .scalars(DateTimeOperators.class)
                 .scalars(HyperLogLogOperators.class)
                 .scalars(SfmSketchOperators.class)
+                .scalars(GaussianOperators.class)
+                .scalars(GaussianConstructor.class)
                 .scalars(QuantileDigestOperators.class)
                 .scalars(IpAddressOperators.class)
                 .scalar(IpAddressOperators.IpAddressDistinctFromOperator.class)
