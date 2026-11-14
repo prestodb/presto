@@ -25,6 +25,8 @@ static constexpr int64_t FLOAT_EXP_BIT_MASK = 0x7F800000;
 static constexpr int64_t FLOAT_SIGNIF_BIT_MASK = 0x007FFFFF;
 
 static constexpr size_t kNullByteSize = 1;
+// Seconds as int64, then nanos as int32.
+static constexpr size_t kTimestampSize = sizeof(int64_t) + sizeof(int32_t);
 
 // This is to implement the java's Double.doubleToLongBits(double value)
 FOLLY_ALWAYS_INLINE int64_t doubleToLong(double value) {
@@ -311,14 +313,16 @@ void serializeTimestamp(
     writeBool(out, isNullLast);
   } else {
     writeBool(out, !isNullLast);
-    const int64_t value =
+    const auto value =
         vector
             .asUnchecked<velox::SimpleVector<
                 velox::TypeTraits<velox::TypeKind::TIMESTAMP>::NativeType>>()
-            ->valueAt(index)
-            .toNanos();
+            ->valueAt(index);
 
-    writeLong(out, value, isDescending);
+    // Writing seconds, then nanos, keeps Timestamp order, which compares
+    // seconds first. Nanos are in [0, 999'999'999] and fit in an int32.
+    writeLong(out, value.getSeconds(), isDescending);
+    writeInteger(out, static_cast<int32_t>(value.getNanos()), isDescending);
   }
 }
 
@@ -643,7 +647,7 @@ size_t serializedSizeSwitch(
     case velox::TypeKind::INTEGER:
       return kNullByteSize + source.type()->cppSizeInBytes();
     case velox::TypeKind::TIMESTAMP:
-      return kNullByteSize + sizeof(int64_t);
+      return kNullByteSize + kTimestampSize;
     case velox::TypeKind::VARCHAR: {
       const auto varchar =
           source
@@ -743,7 +747,7 @@ void serializedSizeSwitchBatch(
     case velox::TypeKind::TIMESTAMP: {
       // Timestamp
       for (auto i = 0; i < nonNullRows.size(); ++i) {
-        *nonNullSizes[i] += (kNullByteSize + sizeof(int64_t));
+        *nonNullSizes[i] += (kNullByteSize + kTimestampSize);
       }
       break;
     }
