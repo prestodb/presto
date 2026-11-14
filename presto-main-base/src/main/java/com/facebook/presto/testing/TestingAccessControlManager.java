@@ -60,6 +60,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameT
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
@@ -86,6 +87,7 @@ import static com.facebook.presto.testing.TestingAccessControlManager.TestingPri
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_TABLE;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.RENAME_VIEW;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_MATERIALIZED_VIEW_PROPERTIES;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_SESSION;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_TABLE_PROPERTIES;
 import static com.facebook.presto.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
@@ -247,6 +249,18 @@ public class TestingAccessControlManager
 
         if (denyPrivileges.isEmpty()) {
             super.checkCanSetTableProperties(transactionId, identity, context, tableName, properties);
+        }
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties)
+    {
+        if (shouldDenyPrivilege(identity.getUser(), materializedViewName.getObjectName(), SET_MATERIALIZED_VIEW_PROPERTIES)) {
+            denySetMaterializedViewProperties(materializedViewName.toString());
+        }
+
+        if (denyPrivileges.isEmpty()) {
+            super.checkCanSetMaterializedViewProperties(transactionId, identity, context, materializedViewName, properties);
         }
     }
 
@@ -483,6 +497,7 @@ public class TestingAccessControlManager
         DROP_BRANCH, DROP_TAG,
         ADD_CONSTRAINT, DROP_CONSTRAINT,
         CREATE_VIEW, RENAME_VIEW, DROP_VIEW, CREATE_VIEW_WITH_SELECT_COLUMNS, SET_TABLE_PROPERTIES,
+        SET_MATERIALIZED_VIEW_PROPERTIES,
         SET_SESSION,
         EXECUTE
     }

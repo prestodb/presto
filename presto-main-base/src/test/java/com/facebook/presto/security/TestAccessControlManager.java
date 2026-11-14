@@ -59,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.ConnectorId.createInformationSchemaConnectorId;
@@ -67,6 +68,7 @@ import static com.facebook.presto.spi.StandardErrorCode.INVALID_COLUMN_MASK;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyQueryIntegrityCheck;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static com.facebook.presto.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
@@ -74,6 +76,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
@@ -283,6 +286,118 @@ public class TestAccessControlManager
     }
 
     @Test
+    public void testSetMaterializedViewPropertiesUsesMaterializedViewCheck()
+    {
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        AtomicBoolean systemChecked = new AtomicBoolean();
+        AtomicBoolean connectorChecked = new AtomicBoolean();
+        setSystemAccessControl(accessControlManager, new AllowCatalogSystemAccessControl()
+        {
+            @Override
+            public void checkCanSetMaterializedViewProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName materializedView)
+            {
+                systemChecked.set(true);
+            }
+        });
+        ConnectorId connectorId = registerBogusConnector(catalogManager, transactionManager, accessControlManager, "catalog");
+        accessControlManager.addCatalogAccessControl(connectorId, new ConnectorAccessControl()
+        {
+            @Override
+            public void checkCanSetMaterializedViewProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName materializedViewName, Map<String, Object> properties)
+            {
+                connectorChecked.set(true);
+            }
+        });
+        Identity identity = new Identity(USER_NAME, Optional.of(PRINCIPAL));
+        AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty());
+        QualifiedObjectName name = new QualifiedObjectName("catalog", "schema", "mv");
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanSetMaterializedViewProperties(transactionId, identity, context, name, ImmutableMap.of());
+                });
+        assertTrue(systemChecked.get());
+        assertTrue(connectorChecked.get());
+        AccessDeniedException e = expectThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanSetTableProperties(transactionId, identity, context, name, ImmutableMap.of());
+                }));
+        assertEquals(e.getMessage(), "Access Denied: Cannot set table properties to catalog.schema.mv");
+    }
+
+    @Test
+    public void testSetMaterializedViewPropertiesDefaultsToTableCheck()
+    {
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        setSystemAccessControl(accessControlManager, new AllowCatalogSystemAccessControl()
+        {
+            @Override
+            public void checkCanSetTableProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+            {
+            }
+        });
+        ConnectorId connectorId = registerBogusConnector(catalogManager, transactionManager, accessControlManager, "catalog");
+        accessControlManager.addCatalogAccessControl(connectorId, new ConnectorAccessControl()
+        {
+            @Override
+            public void checkCanSetTableProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Map<String, Object> properties)
+            {
+                if (tableName.getTableName().equals("denied")) {
+                    denySetTableProperties(tableName.toString());
+                }
+            }
+        });
+        Identity identity = new Identity(USER_NAME, Optional.of(PRINCIPAL));
+        AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty());
+
+        transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanSetMaterializedViewProperties(transactionId, identity, context, new QualifiedObjectName("catalog", "schema", "allowed"), ImmutableMap.of());
+                });
+        AccessDeniedException e = expectThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanSetMaterializedViewProperties(transactionId, identity, context, new QualifiedObjectName("catalog", "schema", "denied"), ImmutableMap.of());
+                }));
+        assertEquals(e.getMessage(), "Access Denied: Cannot set table properties to schema.denied");
+    }
+
+    @Test
+    public void testSetMaterializedViewPropertiesDefaultsToSystemTableCheck()
+    {
+        CatalogManager catalogManager = new CatalogManager();
+        TransactionManager transactionManager = createTestTransactionManager(catalogManager);
+        AccessControlManager accessControlManager = new AccessControlManager(transactionManager);
+        setSystemAccessControl(accessControlManager, new AllowCatalogSystemAccessControl()
+        {
+            @Override
+            public void checkCanSetTableProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName table)
+            {
+                denySetTableProperties(table.toString());
+            }
+        });
+        ConnectorId connectorId = registerBogusConnector(catalogManager, transactionManager, accessControlManager, "catalog");
+        accessControlManager.addCatalogAccessControl(connectorId, new ConnectorAccessControl()
+        {
+            @Override
+            public void checkCanSetTableProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName tableName, Map<String, Object> properties)
+            {
+            }
+        });
+        Identity identity = new Identity(USER_NAME, Optional.of(PRINCIPAL));
+        AccessControlContext context = new AccessControlContext(new QueryId(QUERY_ID), Optional.empty(), Collections.emptySet(), Optional.empty(), WarningCollector.NOOP, new RuntimeStats(), Optional.empty(), Optional.empty(), Optional.empty());
+
+        AccessDeniedException e = expectThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager)
+                .execute(transactionId -> {
+                    accessControlManager.checkCanSetMaterializedViewProperties(transactionId, identity, context, new QualifiedObjectName("catalog", "schema", "mv"), ImmutableMap.of());
+                }));
+        assertEquals(e.getMessage(), "Access Denied: Cannot set table properties to catalog.schema.mv");
+    }
+
+    @Test
     public void testColumnMaskOrdering()
     {
         CatalogManager catalogManager = new CatalogManager();
@@ -376,6 +491,49 @@ public class TestAccessControlManager
                         transactionId -> transactionManager.getConnectorTransaction(transactionId, connectorId))));
 
         return connectorId;
+    }
+
+    private static void setSystemAccessControl(AccessControlManager accessControlManager, SystemAccessControl systemAccessControl)
+    {
+        accessControlManager.addSystemAccessControlFactory(new SystemAccessControlFactory()
+        {
+            @Override
+            public String getName()
+            {
+                return "test";
+            }
+
+            @Override
+            public SystemAccessControl create(Map<String, String> config)
+            {
+                return systemAccessControl;
+            }
+        });
+        accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
+    }
+
+    private static class AllowCatalogSystemAccessControl
+            implements SystemAccessControl
+    {
+        @Override
+        public void checkCanSetUser(Identity identity, AccessControlContext context, Optional<Principal> principal, String userName)
+        {
+        }
+
+        @Override
+        public void checkQueryIntegrity(Identity identity, AccessControlContext context, String query, Map<String, String> preparedStatements, Map<QualifiedObjectName, ViewDefinition> viewDefinitions, Map<QualifiedObjectName, MaterializedViewDefinition> materializedViewDefinitions)
+        {
+        }
+
+        @Override
+        public void checkCanSetSystemSessionProperty(Identity identity, AccessControlContext context, String propertyName)
+        {
+        }
+
+        @Override
+        public void checkCanAccessCatalog(Identity identity, AccessControlContext context, String catalogName)
+        {
+        }
     }
 
     private static class TestSystemAccessControlFactory

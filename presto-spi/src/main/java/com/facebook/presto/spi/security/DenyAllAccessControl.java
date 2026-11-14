@@ -62,6 +62,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeR
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectColumns;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetRole;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
@@ -153,6 +154,12 @@ public class DenyAllAccessControl
     public void checkCanSetTableProperties(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Map<String, Object> properties)
     {
         denySetTableProperties(tableName.toString());
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties)
+    {
+        denySetMaterializedViewProperties(materializedViewName.toString());
     }
 
     @Override

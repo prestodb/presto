@@ -79,6 +79,7 @@ import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameS
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
+import static com.facebook.presto.spi.security.AccessDeniedException.denySetMaterializedViewProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetTableProperties;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetUser;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyShowColumnsMetadata;
@@ -316,6 +317,14 @@ public class FileBasedSystemAccessControl
     {
         if (!canAccessCatalog(identity, table.getCatalogName(), ALL)) {
             denySetTableProperties(table.toString());
+        }
+    }
+
+    @Override
+    public void checkCanSetMaterializedViewProperties(Identity identity, AccessControlContext context, CatalogSchemaTableName materializedView)
+    {
+        if (!canAccessCatalog(identity, materializedView.getCatalogName(), ALL)) {
+            denySetMaterializedViewProperties(materializedView.toString());
         }
     }
 

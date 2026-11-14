@@ -133,6 +133,13 @@ public interface AccessControl
     void checkCanSetTableProperties(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName tableName, Map<String, Object> properties);
 
     /**
+     * Check if identity is allowed to set properties to the specified materialized view.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    void checkCanSetMaterializedViewProperties(TransactionId transactionId, Identity identity, AccessControlContext context, QualifiedObjectName materializedViewName, Map<String, Object> properties);
+
+    /**
      * Check if identity is allowed to show metadata of tables by executing SHOW TABLES, SHOW GRANTS etc. in a catalog.
      * <p>
      * NOTE: This method is only present to give users an error message when listing is not allowed.

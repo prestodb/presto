@@ -127,6 +127,16 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot set table properties to %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denySetMaterializedViewProperties(String materializedViewName)
+    {
+        denySetMaterializedViewProperties(materializedViewName, null);
+    }
+
+    public static void denySetMaterializedViewProperties(String materializedViewName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot set materialized view properties to %s%s", materializedViewName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyDropTable(String tableName)
     {
         denyDropTable(tableName, null);

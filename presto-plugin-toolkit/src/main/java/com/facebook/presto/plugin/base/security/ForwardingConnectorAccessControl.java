@@ -117,6 +117,12 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
+    public void checkCanSetMaterializedViewProperties(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, SchemaTableName materializedViewName, Map<String, Object> properties)
+    {
+        delegate().checkCanSetMaterializedViewProperties(transactionHandle, identity, context, materializedViewName, properties);
+    }
+
+    @Override
     public void checkCanShowTablesMetadata(ConnectorTransactionHandle transactionHandle, ConnectorIdentity identity, AccessControlContext context, String schemaName)
     {
         delegate().checkCanShowTablesMetadata(transactionHandle, identity, context, schemaName);

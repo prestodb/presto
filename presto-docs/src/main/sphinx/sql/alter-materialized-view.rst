@@ -6,9 +6,10 @@ ALTER MATERIALIZED VIEW
 
     Materialized views are experimental. The SPI and behavior may change in future releases.
 
-    To enable, set :ref:`admin/properties:\`\`experimental.legacy-materialized-views\`\`` = ``false``
-    in configuration properties. ``ALTER MATERIALIZED VIEW ... SET PROPERTIES`` is not supported
-    when ``legacy_materialized_views=true``.
+    When ``legacy_materialized_views=true``, ``ALTER MATERIALIZED VIEW ... SET PROPERTIES`` is
+    supported only for connectors whose materialized views use the legacy framework and advertise
+    support for it. For the non-legacy materialized view framework, set
+    ``legacy_materialized_views=false``.
 
 Synopsis
 --------
