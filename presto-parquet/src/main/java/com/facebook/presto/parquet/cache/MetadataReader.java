@@ -18,6 +18,7 @@ import com.facebook.presto.parquet.ParquetDataSource;
 import com.facebook.presto.parquet.ParquetDataSourceId;
 import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.Slice;
+import org.apache.parquet.CorruptStatistics;
 import org.apache.parquet.crypto.AesCipher;
 import org.apache.parquet.crypto.AesGcmEncryptor;
 import org.apache.parquet.crypto.HiddenColumnChunkMetaData;
@@ -55,6 +56,7 @@ import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.internal.hadoop.metadata.IndexReference;
+import org.apache.parquet.schema.ColumnOrder;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.OriginalType;
@@ -254,7 +256,7 @@ public final class MetadataReader
                             }
                         }
                     }
-                    ColumnChunkMetaData column = buildColumnChunkMetaData(metaData, columnPath, messageType.getType(columnPath.toArray()).asPrimitiveType());
+                    ColumnChunkMetaData column = buildColumnChunkMetaData(metaData, columnPath, messageType.getType(columnPath.toArray()).asPrimitiveType(), fileMetaData.getCreated_by());
                     column.setColumnIndexReference(toColumnIndexReference(columnChunk));
                     column.setOffsetIndexReference(toOffsetIndexReference(columnChunk));
                     blockMetaData.addColumn(column);
@@ -296,7 +298,7 @@ public final class MetadataReader
         }
     }
 
-    public static ColumnChunkMetaData buildColumnChunkMetaData(ColumnMetaData metaData, ColumnPath columnPath, PrimitiveType type)
+    public static ColumnChunkMetaData buildColumnChunkMetaData(ColumnMetaData metaData, ColumnPath columnPath, PrimitiveType type, String createdBy)
     {
         return ColumnChunkMetaData.get(
                 columnPath,
@@ -304,7 +306,7 @@ public final class MetadataReader
                 CompressionCodecName.fromParquet(metaData.codec),
                 PARQUET_METADATA_CONVERTER.convertEncodingStats(metaData.encoding_stats),
                 readEncodings(metaData.encodings),
-                readStats(metaData.statistics, type.getPrimitiveTypeName()),
+                readStats(metaData.statistics, type, createdBy),
                 metaData.data_page_offset,
                 metaData.dictionary_page_offset,
                 metaData.num_values,
@@ -448,19 +450,75 @@ public final class MetadataReader
         return LogicalTypeAnnotation.TimeUnit.MICROS;
     }
 
-    public static org.apache.parquet.column.statistics.Statistics<?> readStats(Statistics statistics, PrimitiveTypeName type)
+    public static org.apache.parquet.column.statistics.Statistics<?> readStats(Statistics statistics, PrimitiveType type)
     {
-        org.apache.parquet.column.statistics.Statistics<?> stats = org.apache.parquet.column.statistics.Statistics.getStatsBasedOnType(type);
-        stats.setNumNulls(-1);
+        // Without created_by, binary stats from the deprecated min/max fields cannot be trusted
+        return readStats(statistics, type, null);
+    }
+
+    /**
+     * Mirrors the reference logic in parquet-java's ParquetMetadataConverter#fromParquetStatisticsInternal.
+     *
+     * @param createdBy the created_by field of the file footer, or null if unknown
+     */
+    public static org.apache.parquet.column.statistics.Statistics<?> readStats(Statistics statistics, PrimitiveType type, String createdBy)
+    {
+        org.apache.parquet.column.statistics.Statistics.Builder stats = org.apache.parquet.column.statistics.Statistics.getBuilderForReading(type);
         if (statistics != null) {
-            if (statistics.isSetMax() && statistics.isSetMin()) {
-                stats.setMinMaxFromBytes(statistics.min.array(), statistics.max.array());
+            if (statistics.isSetMax_value() && statistics.isSetMin_value()) {
+                byte[] min = statistics.getMin_value();
+                byte[] max = statistics.getMax_value();
+                if (hasDefinedColumnOrder(type) || Arrays.equals(min, max)) {
+                    stats.withMin(min);
+                    stats.withMax(max);
+                }
+            }
+            else if (statistics.isSetMax() && statistics.isSetMin()) {
+                // Older writers aggregated the deprecated fields with a signed byte-wise ordering, which is only
+                // valid for types with a signed sort order. See PARQUET-686 and PARQUET-251
+                byte[] min = statistics.getMin();
+                byte[] max = statistics.getMax();
+                if (!CorruptStatistics.shouldIgnoreStatistics(createdBy, type.getPrimitiveTypeName()) && (hasSignedSortOrder(type) || Arrays.equals(min, max))) {
+                    stats.withMin(min);
+                    stats.withMax(max);
+                }
             }
             if (statistics.isSetNull_count()) {
-                stats.setNumNulls(statistics.null_count);
+                stats.withNumNulls(statistics.null_count);
             }
         }
-        return stats;
+        return stats.build();
+    }
+
+    // e.g. INT96 has an undefined column order, so its min/max cannot be used
+    private static boolean hasDefinedColumnOrder(PrimitiveType type)
+    {
+        return type.columnOrder().getColumnOrderName() != ColumnOrder.ColumnOrderName.UNDEFINED;
+    }
+
+    // Mirrors ParquetMetadataConverter#sortOrder in parquet-java
+    private static boolean hasSignedSortOrder(PrimitiveType type)
+    {
+        LogicalTypeAnnotation logicalType = type.getLogicalTypeAnnotation();
+        if (logicalType instanceof LogicalTypeAnnotation.IntLogicalTypeAnnotation) {
+            return ((LogicalTypeAnnotation.IntLogicalTypeAnnotation) logicalType).isSigned();
+        }
+        if (logicalType != null) {
+            return logicalType instanceof LogicalTypeAnnotation.DateLogicalTypeAnnotation
+                    || logicalType instanceof LogicalTypeAnnotation.TimeLogicalTypeAnnotation
+                    || logicalType instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation
+                    || logicalType instanceof LogicalTypeAnnotation.Float16LogicalTypeAnnotation;
+        }
+        switch (type.getPrimitiveTypeName()) {
+            case BOOLEAN:
+            case INT32:
+            case INT64:
+            case FLOAT:
+            case DOUBLE:
+                return true;
+            default:
+                return false;
+        }
     }
 
     private static Set<org.apache.parquet.column.Encoding> readEncodings(List<Encoding> encodings)
