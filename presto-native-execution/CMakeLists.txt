@@ -136,6 +136,8 @@ option(PRESTO_ENABLE_JWT "Enable JWT (JSON Web Token) authentication" OFF)
 
 option(PRESTO_ENABLE_ARROW_FLIGHT_CONNECTOR "Enable Arrow Flight connector" OFF)
 
+option(PRESTO_ENABLE_LANCE "Enable Lance connector" OFF)
+
 option(PRESTO_ENABLE_SPATIAL "Enable spatial support" ON)
 
 # Turn on folly int128 support.

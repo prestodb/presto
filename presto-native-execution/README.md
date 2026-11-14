@@ -194,6 +194,17 @@ by running the following script from the `presto/presto-native-execution` direct
 
 `./scripts/setup-adapters.sh arrow_flight`
 
+#### Lance Connector
+To enable [Lance](https://github.com/lance-format/lance) connector support, add to the `EXTRA_CMAKE_FLAGS` environment variable:
+`export EXTRA_CMAKE_FLAGS="${EXTRA_CMAKE_FLAGS} -DPRESTO_ENABLE_LANCE=ON"`
+
+This registers the `LancePrestoToVeloxConnector` and links against `velox_lance_connector`.
+Velox must be built with `-DVELOX_ENABLE_LANCE_CONNECTOR=ON`, which needs lance-c installed
+(`BUILD_LANCE=true` in Velox's `scripts/setup-*.sh`). The Lance protocol classes are pre-generated and checked in under
+`presto_cpp/presto_protocol/connector/lance/`; see
+[`presto_cpp/presto_protocol/README.md`](presto_cpp/presto_protocol/README.md)
+for how to regenerate them.
+
 #### NVIDIA cuDF GPU Support
 
 To enable support with [cuDF](https://github.com/facebookincubator/velox/tree/main/velox/experimental/cudf),

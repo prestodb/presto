@@ -21,6 +21,7 @@ add_executable(
   DeleteTest.cpp
   DomainTest.cpp
   DurationTest.cpp
+  LanceProtocolTest.cpp
   LifespanTest.cpp
   MapWithIntegerKeysTest.cpp
   MemoryInfoTest.cpp

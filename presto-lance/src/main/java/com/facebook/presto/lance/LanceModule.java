@@ -42,5 +42,6 @@ public class LanceModule
         binder.bind(ConnectorPageSinkProvider.class).to(LancePageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorPlanOptimizerProvider.class).to(LanceConnectorPlanOptimizerProvider.class).in(Scopes.SINGLETON);
         jsonCodecBinder(binder).bindJsonCodec(LanceCommitTaskData.class);
+        jsonCodecBinder(binder).bindJsonCodec(LanceMergeCommitData.class);
     }
 }

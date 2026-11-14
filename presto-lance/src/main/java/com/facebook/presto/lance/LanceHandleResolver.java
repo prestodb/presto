@@ -14,6 +14,7 @@
 package com.facebook.presto.lance;
 
 import com.facebook.presto.spi.ColumnHandle;
+import com.facebook.presto.spi.ConnectorDeleteTableHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
@@ -27,6 +28,12 @@ public class LanceHandleResolver
 {
     @Override
     public Class<? extends ConnectorTableHandle> getTableHandleClass()
+    {
+        return LanceTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorDeleteTableHandle> getDeleteTableHandleClass()
     {
         return LanceTableHandle.class;
     }
