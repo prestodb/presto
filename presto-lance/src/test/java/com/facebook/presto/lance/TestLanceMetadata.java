@@ -69,7 +69,7 @@ public class TestLanceMetadata
         LanceNamespaceHolder namespaceHolder = new LanceNamespaceHolder(config, namespaceProperties);
         this.namespaceHolder = namespaceHolder;
         JsonCodec<LanceCommitTaskData> commitTaskDataCodec = jsonCodec(LanceCommitTaskData.class);
-        metadata = new LanceMetadata(namespaceHolder, commitTaskDataCodec);
+        metadata = new LanceMetadata(namespaceHolder, commitTaskDataCodec, jsonCodec(LanceMergeCommitData.class));
     }
 
     @AfterMethod
@@ -211,7 +211,7 @@ public class TestLanceMetadata
 
     private static LanceMetadata metadataFor(LanceNamespaceHolder holder)
     {
-        return new LanceMetadata(holder, jsonCodec(LanceCommitTaskData.class));
+        return new LanceMetadata(holder, jsonCodec(LanceCommitTaskData.class), jsonCodec(LanceMergeCommitData.class));
     }
 
     /**

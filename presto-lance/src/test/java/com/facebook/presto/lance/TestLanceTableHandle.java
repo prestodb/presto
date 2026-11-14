@@ -88,4 +88,51 @@ public class TestLanceTableHandle
         assertEquals(copy, withLimit);
         assertEquals(copy.getLimit(), OptionalLong.of(25));
     }
+
+    @Test
+    public void testDefaultHasNoVectorSearch()
+    {
+        assertFalse(tableHandle.hasVectorSearch());
+        assertFalse(tableHandle.getVectorSearch().isPresent());
+    }
+
+    @Test
+    public void testWithVectorSearch()
+    {
+        LanceVectorSearch search = new LanceVectorSearch(
+                "embedding",
+                ImmutableList.of(0.1, 0.2, 0.3),
+                10,
+                LanceVectorSearch.METRIC_COSINE,
+                Optional.of(8),
+                Optional.empty(),
+                Optional.empty());
+        LanceTableHandle withSearch = tableHandle.withVectorSearch(search);
+        assertTrue(withSearch.hasVectorSearch());
+        assertEquals(withSearch.getVectorSearch().orElseThrow(AssertionError::new), search);
+        assertFalse(tableHandle.hasVectorSearch());
+    }
+
+    @Test
+    public void testJsonRoundTripWithVectorSearch()
+    {
+        JsonCodec<LanceTableHandle> codec = jsonCodec(LanceTableHandle.class);
+        LanceVectorSearch search = new LanceVectorSearch(
+                "embedding",
+                ImmutableList.of(0.1, 0.2, 0.3),
+                10,
+                LanceVectorSearch.METRIC_L2,
+                Optional.of(8),
+                Optional.of(64),
+                Optional.of(2));
+        LanceTableHandle withSearch = tableHandle.withVectorSearch(search);
+        LanceTableHandle copy = codec.fromJson(codec.toJson(withSearch));
+        assertEquals(copy, withSearch);
+        LanceVectorSearch copiedSearch = copy.getVectorSearch().orElseThrow(AssertionError::new);
+        assertEquals(copiedSearch.getColumn(), "embedding");
+        assertEquals(copiedSearch.getQueryVector(), ImmutableList.of(0.1, 0.2, 0.3));
+        assertEquals(copiedSearch.getK(), 10);
+        assertEquals(copiedSearch.getMetric(), LanceVectorSearch.METRIC_L2);
+        assertEquals(copiedSearch.getQueryVectorAsFloats().length, 3);
+    }
 }

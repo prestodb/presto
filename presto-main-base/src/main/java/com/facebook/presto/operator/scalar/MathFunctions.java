@@ -1805,6 +1805,59 @@ public final class MathFunctions
         return sum;
     }
 
+    @Description("Euclidean (L2) distance between the given identical sized vectors represented as arrays")
+    @ScalarFunction("l2_distance")
+    @SqlType(StandardTypes.REAL)
+    public static long arrayL2Distance(@SqlType("array(real)") Block leftArray, @SqlType("array(real)") Block rightArray)
+    {
+        checkCondition(
+                leftArray.getPositionCount() == rightArray.getPositionCount(),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both array arguments need to have identical size");
+
+        checkCondition(
+                !(leftArray.mayHaveNull() || rightArray.mayHaveNull()),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both arrays must not have nulls");
+
+        double sum = 0.0;
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            double left = intBitsToFloat((int) leftArray.getInt(i));
+            double right = intBitsToFloat((int) rightArray.getInt(i));
+            double diff = left - right;
+            sum += diff * diff;
+        }
+
+        return floatToRawIntBits((float) Math.sqrt(sum));
+    }
+
+    @Description("Euclidean (L2) distance between the given identical sized vectors represented as arrays")
+    @ScalarFunction("l2_distance")
+    @SqlType(StandardTypes.DOUBLE)
+    public static double arrayL2DistanceDouble(
+            @SqlType("array(double)") Block leftArray,
+            @SqlType("array(double)") Block rightArray)
+    {
+        checkCondition(
+                leftArray.getPositionCount() == rightArray.getPositionCount(),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both array arguments need to have identical size");
+
+        checkCondition(
+                !(leftArray.mayHaveNull() || rightArray.mayHaveNull()),
+                INVALID_FUNCTION_ARGUMENT,
+                "Both arrays must not have nulls");
+
+        double sum = 0.0;
+        for (int i = 0; i < leftArray.getPositionCount(); i++) {
+            double left = DOUBLE.getDouble(leftArray, i);
+            double right = DOUBLE.getDouble(rightArray, i);
+            double diff = left - right;
+            sum += diff * diff;
+        }
+        return Math.sqrt(sum);
+    }
+
     @Description("Dot Product distance between the given identical sized vectors represented as DOUBLE arrays")
     @ScalarFunction("dot_product")
     @SqlNullable

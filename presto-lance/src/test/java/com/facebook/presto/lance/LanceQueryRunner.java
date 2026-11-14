@@ -40,8 +40,14 @@ public class LanceQueryRunner
     public static DistributedQueryRunner createLanceQueryRunner(Map<String, String> connectorProperties)
             throws Exception
     {
+        return createLanceQueryRunner(connectorProperties, ImmutableMap.of());
+    }
+
+    public static DistributedQueryRunner createLanceQueryRunner(Map<String, String> connectorProperties, Map<String, String> extraProperties)
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
-                .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
+                .setExtraProperties(extraProperties)
                 .build();
         try {
             queryRunner.installPlugin(new LancePlugin());
@@ -72,7 +78,7 @@ public class LanceQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createLanceQueryRunner(ImmutableMap.of());
+        DistributedQueryRunner queryRunner = createLanceQueryRunner(ImmutableMap.of(), ImmutableMap.of("http-server.http.port", "8080"));
         log.info(format("Presto server started: %s", queryRunner.getCoordinator().getBaseUrl()));
     }
 }

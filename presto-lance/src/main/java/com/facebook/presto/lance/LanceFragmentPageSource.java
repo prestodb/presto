@@ -18,13 +18,16 @@ import com.facebook.plugin.arrow.ArrowBlockBuilder;
 import com.google.common.collect.ImmutableList;
 import org.apache.arrow.memory.BufferAllocator;
 import org.lance.Dataset;
+import org.lance.index.DistanceType;
 import org.lance.ipc.LanceScanner;
+import org.lance.ipc.Query;
 import org.lance.ipc.ScanOptions;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public class LanceFragmentPageSource
@@ -45,7 +48,24 @@ public class LanceFragmentPageSource
             Optional<String> filter,
             List<String> filterProjectionColumns)
     {
-        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize, namespaceHolder, datasetVersion, filterProjectionColumns, tableHandle.getLimit()), arrowBlockBuilder, parentAllocator, filter);
+        this(tableHandle, columns, fragments, tablePath, readBatchSize, namespaceHolder, datasetVersion, arrowBlockBuilder, parentAllocator, filter, filterProjectionColumns, false);
+    }
+
+    public LanceFragmentPageSource(
+            LanceTableHandle tableHandle,
+            List<LanceColumnHandle> columns,
+            List<Integer> fragments,
+            String tablePath,
+            int readBatchSize,
+            LanceNamespaceHolder namespaceHolder,
+            Optional<Long> datasetVersion,
+            ArrowBlockBuilder arrowBlockBuilder,
+            BufferAllocator parentAllocator,
+            Optional<String> filter,
+            List<String> filterProjectionColumns,
+            boolean includeRowAddress)
+    {
+        super(tableHandle, columns, new FragmentScannerFactory(fragments, tablePath, readBatchSize, namespaceHolder, datasetVersion, filterProjectionColumns, tableHandle.getLimit(), includeRowAddress, tableHandle.getVectorSearch()), arrowBlockBuilder, parentAllocator, filter);
     }
 
     private static class FragmentScannerFactory
@@ -58,9 +78,11 @@ public class LanceFragmentPageSource
         private final Optional<Long> datasetVersion;
         private final List<String> filterProjectionColumns;
         private final OptionalLong limit;
+        private final boolean includeRowAddress;
+        private final Optional<LanceVectorSearch> vectorSearch;
         private LanceScanner scanner;
 
-        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, LanceNamespaceHolder namespaceHolder, Optional<Long> datasetVersion, List<String> filterProjectionColumns, OptionalLong limit)
+        FragmentScannerFactory(List<Integer> fragmentIds, String tablePath, int readBatchSize, LanceNamespaceHolder namespaceHolder, Optional<Long> datasetVersion, List<String> filterProjectionColumns, OptionalLong limit, boolean includeRowAddress, Optional<LanceVectorSearch> vectorSearch)
         {
             this.fragmentIds = ImmutableList.copyOf(fragmentIds);
             this.tablePath = requireNonNull(tablePath, "tablePath is null");
@@ -69,6 +91,8 @@ public class LanceFragmentPageSource
             this.datasetVersion = requireNonNull(datasetVersion, "datasetVersion is null");
             this.filterProjectionColumns = ImmutableList.copyOf(filterProjectionColumns);
             this.limit = limit;
+            this.includeRowAddress = includeRowAddress;
+            this.vectorSearch = requireNonNull(vectorSearch, "vectorSearch is null");
         }
 
         @Override
@@ -76,23 +100,61 @@ public class LanceFragmentPageSource
         {
             ScanOptions.Builder optionsBuilder = new ScanOptions.Builder();
 
-            // Combine output columns with filter projection columns
+            // Combine output columns with filter projection columns. The _rowaddr metadata
+            // column is produced via withRowAddress(true), not via the column projection list,
+            // so it must be excluded from columns().
             List<String> allColumns = ImmutableList.<String>builder()
                     .addAll(columns)
                     .addAll(filterProjectionColumns)
-                    .build();
+                    .build()
+                    .stream()
+                    .filter(name -> !RowAddress.ROW_ADDRESS_COLUMN_NAME.equals(name))
+                    .distinct()
+                    .collect(toImmutableList());
 
             if (!allColumns.isEmpty()) {
                 optionsBuilder.columns(allColumns);
             }
             optionsBuilder.batchSize(readBatchSize);
             optionsBuilder.fragmentIds(fragmentIds);
+            if (includeRowAddress) {
+                optionsBuilder.withRowAddress(true);
+            }
             filter.ifPresent(optionsBuilder::filter);
             limit.ifPresent(optionsBuilder::limit);
+            vectorSearch.ifPresent(search -> optionsBuilder.nearest(buildNearestQuery(search)));
 
             Dataset dataset = namespaceHolder.getCachedDataset(tablePath, datasetVersion);
             this.scanner = dataset.newScan(optionsBuilder.build());
             return scanner;
+        }
+
+        private static Query buildNearestQuery(LanceVectorSearch search)
+        {
+            Query.Builder queryBuilder = new Query.Builder()
+                    .setColumn(search.getColumn())
+                    .setKey(search.getQueryVectorAsFloats())
+                    .setK(search.getK())
+                    .setDistanceType(toDistanceType(search.getMetric()))
+                    .setUseIndex(true);
+            search.getNprobes().ifPresent(queryBuilder::setNprobes);
+            search.getEf().ifPresent(queryBuilder::setEf);
+            search.getRefineFactor().ifPresent(queryBuilder::setRefineFactor);
+            return queryBuilder.build();
+        }
+
+        private static DistanceType toDistanceType(String metric)
+        {
+            switch (metric) {
+                case LanceVectorSearch.METRIC_L2:
+                    return DistanceType.L2;
+                case LanceVectorSearch.METRIC_COSINE:
+                    return DistanceType.Cosine;
+                case LanceVectorSearch.METRIC_DOT:
+                    return DistanceType.Dot;
+                default:
+                    throw new IllegalArgumentException("Unsupported Lance vector distance metric: " + metric);
+            }
         }
 
         @Override

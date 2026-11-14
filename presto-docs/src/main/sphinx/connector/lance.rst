@@ -271,6 +271,38 @@ Append data to an existing Lance table:
     INSERT INTO lance.default.my_table
     SELECT * FROM tpch.tiny.nation;
 
+DELETE
+^^^^^^
+
+Delete rows from a Lance table:
+
+.. code-block:: sql
+
+    DELETE FROM lance.default.my_table
+    WHERE score < 0.5;
+
+Deleted rows are recorded in Lance deletion files, so the data files
+themselves are not rewritten. A ``DELETE`` without a ``WHERE`` clause is a
+metadata-only operation that removes every row in a single commit.
+
+UPDATE
+^^^^^^
+
+Update rows in a Lance table:
+
+.. code-block:: sql
+
+    UPDATE lance.default.my_table
+    SET score = score * 2
+    WHERE name = 'ALGERIA';
+
+An ``UPDATE`` deletes the matched rows and writes their new values to new
+fragments in a single commit.
+
+``DELETE`` and ``UPDATE`` commit against the dataset version the query read.
+If another writer commits a conflicting change first, the statement fails
+instead of overwriting that change.
+
 SELECT
 ^^^^^^
 
@@ -333,6 +365,44 @@ Presto Type               Lance Filter Literal
     Correctness is always guaranteed because Presto re-evaluates all
     predicates regardless of pushdown.
 
+Vector Search Pushdown
+^^^^^^^^^^^^^^^^^^^^^^
+
+A query that orders a Lance table by the distance between a vector column and
+a constant query vector, and keeps the first ``k`` rows, is pushed into Lance
+as a nearest-neighbor search. If the column has a vector index, Lance answers
+the query from the index instead of scanning and sorting every row:
+
+.. code-block:: sql
+
+    SELECT id, title
+    FROM lance.default.documents
+    ORDER BY l2_distance(embedding, ARRAY[0.1, 0.2, 0.3, 0.4])
+    LIMIT 10;
+
+The following distance functions are recognized. The sort direction must put
+the nearest rows first:
+
+============================= ================ ===============
+Function                      Lance metric     Sort order
+============================= ================ ===============
+``l2_distance``               ``l2``           ``ASC``
+``cosine_similarity``         ``cosine``       ``DESC``
+``dot_product``               ``dot``          ``DESC``
+============================= ================ ===============
+
+The query vector must be a constant array and the limit must be a positive
+constant. Queries that don't match this shape are run normally. Index search
+behavior can be tuned with the ``vector_search_nprobes``,
+``vector_search_ef``, and ``vector_search_refine_factor`` session properties,
+and the pushdown can be turned off with ``vector_search_pushdown_enabled``.
+
+.. note::
+
+    An approximate (ANN) index can return different rows than an exact
+    search. Set ``vector_search_pushdown_enabled`` to ``false`` to get exact
+    results from a full scan.
+
 DROP TABLE
 ^^^^^^^^^^
 
@@ -374,6 +444,13 @@ Property Name                                     Description                   
 ================================================= ================================================================ =========
 ``filter_pushdown_enabled``                        Enable SQL predicate pushdown to the Lance scanner. Disable     ``true``
                                                    to fall back to executor-level filtering only.
+``vector_search_pushdown_enabled``                 Push ``ORDER BY <distance> LIMIT k`` queries into a Lance       ``true``
+                                                   nearest-neighbor search. See `Vector Search Pushdown`_.
+``vector_search_nprobes``                          Number of IVF partitions to probe per search. ``0`` uses the     ``0``
+                                                   Lance default.
+``vector_search_ef``                               HNSW ``ef`` search parameter. ``0`` uses the Lance default.      ``0``
+``vector_search_refine_factor``                    Re-rank ``k * refine_factor`` candidates with exact distances.   ``0``
+                                                   ``0`` uses the Lance default.
 ================================================= ================================================================ =========
 
 Limitations
@@ -381,11 +458,7 @@ Limitations
 
 * Only a single schema (``default``) is supported when ``lance.single-level-ns``
   is ``true``.
-* The following SQL statements are not supported:
-
-  * :doc:`/sql/alter-table`
-  * :doc:`/sql/delete`
-  * :doc:`/sql/update`
+* :doc:`/sql/alter-table` is not supported.
 
 * Predicate pushdown is not supported for ``VARBINARY`` and ``ARRAY`` types.
   Only column projection is pushed down for these types.

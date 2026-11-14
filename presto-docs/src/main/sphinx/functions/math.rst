@@ -61,6 +61,20 @@ Mathematical Functions
 
         SELECT l2_squared(ARRAY[1.0], ARRAY[2.0]); -- 1.0
 
+.. function:: l2_distance(array[real], array[real]) -> real
+
+    Returns the `Euclidean distance <https://en.wikipedia.org/wiki/Euclidean_distance>`_ between the vectors represented as array[real].
+    If the input arrays have different sizes or if the input arrays contain a null, the function throws user error::
+
+        SELECT l2_distance(ARRAY[REAL '0.0', REAL '0.0'], ARRAY[REAL '3.0', REAL '4.0']); -- 5.0
+
+.. function:: l2_distance(array[double], array[double]) -> double
+
+    Returns the `Euclidean distance <https://en.wikipedia.org/wiki/Euclidean_distance>`_ between the vectors represented as array[double].
+    If the input arrays have different sizes or if the input arrays contain a null, the function throws user error::
+
+        SELECT l2_distance(ARRAY[0.0, 0.0], ARRAY[3.0, 4.0]); -- 5.0
+
 .. function:: dot_product(array[real], array[real]) -> real
 
     Returns the dot product of two vectors represented as array[real].
