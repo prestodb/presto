@@ -14,13 +14,22 @@
 package com.facebook.presto.delta;
 
 import com.facebook.airlift.configuration.Config;
+import com.facebook.airlift.configuration.ConfigDescription;
+import com.facebook.airlift.units.Duration;
+import com.facebook.airlift.units.MinDuration;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+
+import java.util.concurrent.TimeUnit;
 
 public class DeltaConfig
 {
     private int maxSplitsBatchSize = 200;
     private boolean parquetDereferencePushdownEnabled = true;
     private boolean caseSensitivePartitionsEnabled = true;
+    private boolean tableStatisticsEnabled;
+    private int tableStatisticsCacheMaxEntries = 1_000_000;
+    private Duration tableStatisticsCacheTtl = new Duration(1, TimeUnit.HOURS);
 
     @NotNull
     public boolean isParquetDereferencePushdownEnabled()
@@ -56,6 +65,48 @@ public class DeltaConfig
     public DeltaConfig setCaseSensitivePartitionsEnabled(boolean caseSensitivePartitionsEnabled)
     {
         this.caseSensitivePartitionsEnabled = caseSensitivePartitionsEnabled;
+        return this;
+    }
+
+    public boolean isTableStatisticsEnabled()
+    {
+        return tableStatisticsEnabled;
+    }
+
+    @Config("delta.table-statistics-enabled")
+    @ConfigDescription("Enable table statistics derived from the Delta transaction log")
+    public DeltaConfig setTableStatisticsEnabled(boolean tableStatisticsEnabled)
+    {
+        this.tableStatisticsEnabled = tableStatisticsEnabled;
+        return this;
+    }
+
+    @Min(0)
+    public int getTableStatisticsCacheMaxEntries()
+    {
+        return tableStatisticsCacheMaxEntries;
+    }
+
+    @Config("delta.table-statistics-cache-max-entries")
+    @ConfigDescription("Maximum number of cached table statistics results (keyed by table snapshot and partition predicate)")
+    public DeltaConfig setTableStatisticsCacheMaxEntries(int tableStatisticsCacheMaxEntries)
+    {
+        this.tableStatisticsCacheMaxEntries = tableStatisticsCacheMaxEntries;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1s")
+    public Duration getTableStatisticsCacheTtl()
+    {
+        return tableStatisticsCacheTtl;
+    }
+
+    @Config("delta.table-statistics-cache-ttl")
+    @ConfigDescription("Time after last access when a cached table statistics entry is evicted")
+    public DeltaConfig setTableStatisticsCacheTtl(Duration tableStatisticsCacheTtl)
+    {
+        this.tableStatisticsCacheTtl = tableStatisticsCacheTtl;
         return this;
     }
 }
