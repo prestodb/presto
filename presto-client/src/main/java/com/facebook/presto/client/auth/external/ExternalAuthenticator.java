@@ -40,6 +40,9 @@ public class ExternalAuthenticator
     public static final String TOKEN_URI_FIELD = "x_token_server";
     public static final String REDIRECT_URI_FIELD = "x_redirect_server";
 
+    private static final String HTTP_SCHEME = "http";
+    private static final String HTTPS_SCHEME = "https";
+
     private final TokenPoller tokenPoller;
     private final RedirectHandler redirectHandler;
     private final Duration timeout;
@@ -109,12 +112,18 @@ public class ExternalAuthenticator
     private static Optional<URI> parseField(Map<String, String> fields, String key)
     {
         return Optional.ofNullable(fields.get(key)).map(value -> {
+            URI uri;
             try {
-                return new URI(value);
+                uri = new URI(value);
             }
             catch (URISyntaxException e) {
                 throw new ClientException(format("Failed to parse URI for field '%s'", key), e);
             }
+            // the URI is supplied by the server and may be passed to an OS handler (open, xdg-open, rundll32)
+            if (!HTTP_SCHEME.equalsIgnoreCase(uri.getScheme()) && !HTTPS_SCHEME.equalsIgnoreCase(uri.getScheme())) {
+                throw new ClientException(format("Unsupported URI scheme for field '%s': %s", key, uri.getScheme()));
+            }
+            return uri;
         });
     }
 }
