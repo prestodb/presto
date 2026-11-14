@@ -159,7 +159,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     folly::dynamic obj = folly::dynamic::object;
     obj["taskId"] = taskId_;
     obj["destination"] = destination_;
-    obj["sequence"] = sequence_;
+    // Cast rather than load(), for the same reason as atEnd_ below.
+    obj["sequence"] = static_cast<int64_t>(sequence_);
     obj["requestPending"] = requestPending_.load();
     obj["basePath"] = basePath_;
     obj["host"] = host_;
@@ -167,7 +168,10 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     obj["pageSize"] = pageSize_;
     obj["closed"] = std::to_string(closed_);
     obj["abortResultsIssued"] = std::to_string(abortResultsIssued_);
-    obj["atEnd"] = atEnd_;
+    // Cast rather than load(): this file's upstream is prestodb/presto, which
+    // builds against its own pinned velox submodule where atEnd_ is still a
+    // plain bool. The cast compiles against either type.
+    obj["atEnd"] = static_cast<bool>(atEnd_);
     return obj;
   }
 
