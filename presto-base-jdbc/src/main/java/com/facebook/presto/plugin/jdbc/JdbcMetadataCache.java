@@ -140,6 +140,21 @@ public class JdbcMetadataCache
         }
     }
 
+    /**
+     * Invalidates the handle and the columns cached for a table or view by name. Unlike
+     * {@link #invalidateTable}, it needs no handle, so it also clears columns that outlive their
+     * handle: the two caches expire independently, and column entries are keyed by a handle that
+     * compares by connector and name only.
+     */
+    public void invalidateTableByName(ConnectorSession session, SchemaTableName tableName)
+    {
+        tableHandleCache.invalidate(new KeyAndSession<>(session, tableName));
+        columnHandlesCache.asMap().keySet().removeIf(key -> key.getKey().getSchemaTableName().equals(tableName));
+        if (delegate != null) {
+            delegate.invalidateTableByName(session, tableName);
+        }
+    }
+
     public void invalidateTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         tableHandleCache.invalidate(new KeyAndSession<>(session, tableName));

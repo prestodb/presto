@@ -264,6 +264,38 @@ public class TestJdbcMetadata
     }
 
     @Test
+    public void testInvalidateTableByNameClearsColumnsWithoutCachedHandle()
+    {
+        JdbcMetadataCacheStats globalCacheStats = new JdbcMetadataCacheStats();
+        JdbcMetadataCache globalCache = new JdbcMetadataCache(
+                newDirectExecutorService(),
+                database.getJdbcClient(),
+                globalCacheStats,
+                OptionalLong.empty(),
+                OptionalLong.empty(),
+                100);
+        JdbcMetadataCache transactionCache = JdbcMetadataCache.createTransactionCache(globalCache, 100);
+        SchemaTableName tableName = tableHandle.getSchemaTableName();
+
+        globalCache.getColumns(SESSION, tableHandle);
+        assertEquals(globalCacheStats.getColumnHandlesCacheMiss(), 1);
+
+        // the handle was never cached, as when it expired before the columns did
+        transactionCache.invalidateTableByName(SESSION, tableName);
+
+        globalCache.getColumns(SESSION, tableHandle);
+        assertEquals(globalCacheStats.getColumnHandlesCacheMiss(), 2);
+
+        // columns of another table are kept
+        JdbcTableHandle otherTable = metadata.getTableHandle(SESSION, new SchemaTableName("example", "view_source"));
+        globalCache.getColumns(SESSION, otherTable);
+        transactionCache.invalidateTableByName(SESSION, tableName);
+        globalCache.getColumns(SESSION, otherTable);
+        assertEquals(globalCacheStats.getColumnHandlesCacheMiss(), 3);
+        assertEquals(globalCacheStats.getColumnHandlesCacheHit(), 1);
+    }
+
+    @Test
     public void testSchemaChangeInvalidatesTransactionAndGlobalCaches()
     {
         ListeningExecutorService executor = newDirectExecutorService();
@@ -571,13 +603,13 @@ public class TestJdbcMetadata
         loadAsTable(viewMetadata, viewName);
         assertCacheMisses(globalCacheStats, 4);
 
-        // only the handle leaves the shared cache, so its column entry outlives it; the handle view
-        // DDL reloads compares equal to the one the columns were cached under and still clears them
+        // only the handle leaves the shared cache, so its column entry outlives it; view DDL clears
+        // the columns by name and so does not need the handle
         globalCache.invalidateTableHandle(SESSION, viewName);
         JdbcMetadata nextTransaction = newViewMetadata(JdbcMetadataCache.createTransactionCache(globalCache, 100));
         nextTransaction.dropView(SESSION, viewName);
         loadAsTable(nextTransaction, viewName);
-        assertEquals(globalCacheStats.getTableHandleCacheMiss(), 6);
+        assertEquals(globalCacheStats.getTableHandleCacheMiss(), 5);
         assertEquals(globalCacheStats.getColumnHandlesCacheMiss(), 5);
     }
 

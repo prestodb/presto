@@ -21,11 +21,15 @@ import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.sql.tree.Identifier;
 import com.facebook.presto.sql.tree.Node;
 import com.facebook.presto.sql.tree.NodeLocation;
+import com.facebook.presto.sql.tree.Query;
 import com.facebook.presto.sql.tree.Table;
+import com.facebook.presto.sql.tree.With;
 import com.facebook.presto.sql.tree.WithQuery;
 import com.google.common.collect.ImmutableList;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -35,6 +39,7 @@ import java.util.regex.Pattern;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.sql.ExpressionFormatter.formatQualifiedName;
 import static com.facebook.presto.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Comparator.comparingInt;
 import static java.util.Locale.ENGLISH;
@@ -88,9 +93,6 @@ final class MySqlViewQuery
         boolean hasUnqualified = false;
         for (Table table : names.getTables()) {
             List<String> parts = table.getName().getParts();
-            if (parts.size() == 1 && names.getWithQueryNames().contains(parts.get(0))) {
-                continue;
-            }
             // the analyzer resolved a name missing its catalog against the session catalog
             String tableCatalog = parts.size() == 3 ? parts.get(0) : sessionCatalog.map(name -> name.toLowerCase(ENGLISH)).orElse(null);
             if (!catalog.equals(tableCatalog)) {
@@ -169,7 +171,7 @@ final class MySqlViewQuery
                         end++;
                     }
                 }
-                end = Math.min(end + 1, length);
+                end = min(end + 1, length);
                 sql.append(mySqlDefinition, position, end);
                 position = end;
             }
@@ -242,16 +244,22 @@ final class MySqlViewQuery
         return delimiter + identifier.getValue().replace("\"", "\"\"") + delimiter;
     }
 
-    private static class NameCollector
+    private static final class NameCollector
             extends DefaultTraversalVisitor<Void, Void>
     {
         private final ImmutableList.Builder<Table> tables = ImmutableList.builder();
         private final ImmutableList.Builder<FunctionCall> functions = ImmutableList.builder();
-        private final Set<String> withQueryNames = new HashSet<>();
+        // the WITH query names visible at the node being visited, innermost scope first
+        private final Deque<Set<String>> withQueryScopes = new ArrayDeque<>();
 
+        // a one-part name that resolves to a WITH query is not a table, so it is not collected
         @Override
         protected Void visitTable(Table node, Void context)
         {
+            List<String> parts = node.getName().getParts();
+            if (parts.size() == 1 && withQueryScopes.stream().anyMatch(scope -> scope.contains(parts.get(0)))) {
+                return null;
+            }
             tables.add(node);
             return null;
         }
@@ -263,23 +271,35 @@ final class MySqlViewQuery
             return super.visitFunctionCall(node, context);
         }
 
-        // a WITH query name is matched anywhere in the statement rather than only within its
-        // scope, so a table of the same name outside that scope is not checked
+        // A WITH query name is visible to the later WITH queries of its clause, to itself when the
+        // clause is recursive, and to the body of the query the clause belongs to, but not outside
+        // that query, where the same name is an ordinary table.
         @Override
-        protected Void visitWithQuery(WithQuery node, Void context)
+        protected Void visitQuery(Query node, Void context)
         {
-            withQueryNames.add(node.getName().getValue().toLowerCase(ENGLISH));
-            return super.visitWithQuery(node, context);
+            if (!node.getWith().isPresent()) {
+                return super.visitQuery(node, context);
+            }
+            With with = node.getWith().get();
+            Set<String> scope = new HashSet<>();
+            withQueryScopes.push(scope);
+            for (WithQuery withQuery : with.getQueries()) {
+                String name = withQuery.getName().getValue().toLowerCase(ENGLISH);
+                if (with.isRecursive()) {
+                    scope.add(name);
+                }
+                process(withQuery.getQuery(), context);
+                scope.add(name);
+            }
+            process(node.getQueryBody(), context);
+            node.getOrderBy().ifPresent(orderBy -> process(orderBy, context));
+            withQueryScopes.pop();
+            return null;
         }
 
         List<Table> getTables()
         {
             return tables.build();
-        }
-
-        Set<String> getWithQueryNames()
-        {
-            return withQueryNames;
         }
 
         List<FunctionCall> getFunctions()
@@ -288,7 +308,7 @@ final class MySqlViewQuery
         }
     }
 
-    private static class Splice
+    private static final class Splice
     {
         private final int start;
         private final int length;

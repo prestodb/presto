@@ -148,9 +148,8 @@ name, since MySQL does not know Presto catalogs, and resolves a table named
 without a schema against the session schema, the same way Presto does. It also
 removes the double quotes Presto puts around function names, so a query such
 as ``SELECT upper(name), count(*) FROM mysql.web.orders GROUP BY name`` reaches
-MySQL as written. Every
-table the query reads must be in the catalog of the view, because a MySQL view
-cannot read from another catalog. Do not quote identifiers with double quotes,
+MySQL as written. Every table the query reads must be in the catalog of the
+view, because a MySQL view cannot read from another catalog. Do not quote identifiers with double quotes,
 which MySQL reads as string literals. For example,
 ``CREATE VIEW mysql.web.recent_orders AS SELECT * FROM mysql.web.orders`` works,
 with or without a session catalog, but the same view selecting from

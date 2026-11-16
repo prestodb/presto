@@ -117,6 +117,25 @@ public class TestMySqlViewQuery
     }
 
     @Test
+    public void testWithQueryNameOutOfScopeIsATable()
+    {
+        // the nested WITH query t is not visible to the outer t, which resolves against the
+        // session catalog like any other table and so is rejected
+        assertNotSupported(
+                "SELECT x.orderkey FROM (WITH t AS (SELECT orderkey FROM mysql.tpch.orders) SELECT orderkey FROM t) x JOIN t ON x.orderkey = t.orderkey",
+                Optional.of("tpch"));
+        // a WITH query is visible to the later ones of its clause and to nested queries
+        assertRewrite(
+                "WITH a AS (SELECT orderkey FROM mysql.tpch.orders), b AS (SELECT orderkey FROM a) " +
+                        "SELECT orderkey FROM b WHERE orderkey IN (SELECT orderkey FROM a)",
+                Optional.of("tpch"),
+                Optional.empty(),
+                "WITH a AS (SELECT orderkey FROM tpch.orders), b AS (SELECT orderkey FROM a) " +
+                        "SELECT orderkey FROM b WHERE orderkey IN (SELECT orderkey FROM a)",
+                Optional.empty());
+    }
+
+    @Test
     public void testFunctionNamesUnquoted()
     {
         // SqlFormatter double-quotes every function name, which MySQL would read as a string literal
