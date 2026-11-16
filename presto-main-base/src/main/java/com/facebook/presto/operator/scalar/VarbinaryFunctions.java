@@ -38,6 +38,8 @@ import static io.airlift.slice.Slices.EMPTY_SLICE;
 
 public final class VarbinaryFunctions
 {
+    private static final int PAD_MAX_SIZE = 1024 * 1024;
+
     private VarbinaryFunctions() {}
 
     @Description("length of the given binary")
@@ -522,9 +524,9 @@ public final class VarbinaryFunctions
     private static Slice pad(Slice inputSlice, long targetLength, Slice padSlice, int paddingOffset)
     {
         checkCondition(
-                0 <= targetLength && targetLength <= Integer.MAX_VALUE,
+                0 <= targetLength && targetLength <= PAD_MAX_SIZE,
                 INVALID_FUNCTION_ARGUMENT,
-                "Target length must be in the range [0.." + Integer.MAX_VALUE + "]");
+                "Target length must be in the range [0.." + PAD_MAX_SIZE + "]");
         checkCondition(padSlice.length() > 0, INVALID_FUNCTION_ARGUMENT, "Padding bytes must not be empty");
 
         int inputLength = inputSlice.length();

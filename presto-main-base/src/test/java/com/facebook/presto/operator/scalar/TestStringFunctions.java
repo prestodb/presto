@@ -1068,6 +1068,11 @@ public class TestStringFunctions
         assertFunction("LPAD('', 3, 'a')", VARCHAR, "aaa");
         assertFunction("LPAD('abc', 0, 'e')", VARCHAR, "");
 
+        // inclusive upper bound (characters), including truncation and a multi-byte pad
+        assertFunction("length(LPAD('a', 1048576, 'b'))", BIGINT, 1048576L);
+        assertFunction("length(LPAD(RPAD('a', 1048576, 'a') || 'zz', 1048576, 'x'))", BIGINT, 1048576L);
+        assertFunction("length(LPAD('a', 1048576, '\u554A'))", BIGINT, 1048576L);
+
         // truncation
         assertFunction("LPAD('text', 3, 'xy')", VARCHAR, "tex");
         assertFunction("LPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 5, '\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 ");
@@ -1076,9 +1081,12 @@ public class TestStringFunctions
         assertInvalidFunction("LPAD('abc', 3, '')", "Padding string must not be empty");
 
         // invalid target lengths
-        long maxSize = Integer.MAX_VALUE;
+        long maxSize = 1048576;
         assertInvalidFunction("LPAD('abc', -1, 'foo')", "Target length must be in the range [0.." + maxSize + "]");
         assertInvalidFunction("LPAD('abc', " + (maxSize + 1) + ", '')", "Target length must be in the range [0.." + maxSize + "]");
+        assertInvalidFunction("LPAD('abc', 1048577, 'x')", "Target length must be in the range [0.." + maxSize + "]");
+        assertInvalidFunction("LPAD(RPAD('a', 1048576, 'a') || 'zz', 1048577, 'x')", "Target length must be in the range [0.." + maxSize + "]");
+        assertInvalidFunction("LPAD('a', 1048577, '\u554A')", "Target length must be in the range [0.." + maxSize + "]");
     }
 
     @Test
@@ -1099,6 +1107,9 @@ public class TestStringFunctions
         assertFunction("RPAD('', 3, 'a')", VARCHAR, "aaa");
         assertFunction("RPAD('abc', 0, 'e')", VARCHAR, "");
 
+        // inclusive upper bound (characters)
+        assertFunction("length(RPAD('a', 1048576, 'b'))", BIGINT, 1048576L);
+
         // truncation
         assertFunction("RPAD('text', 3, 'xy')", VARCHAR, "tex");
         assertFunction("RPAD('\u4FE1\u5FF5 \u7231 \u5E0C\u671B  ', 5, '\u671B')", VARCHAR, "\u4FE1\u5FF5 \u7231 ");
@@ -1107,9 +1118,10 @@ public class TestStringFunctions
         assertInvalidFunction("RPAD('abc', 3, '')", "Padding string must not be empty");
 
         // invalid target lengths
-        long maxSize = Integer.MAX_VALUE;
+        long maxSize = 1048576;
         assertInvalidFunction("RPAD('abc', -1, 'foo')", "Target length must be in the range [0.." + maxSize + "]");
         assertInvalidFunction("RPAD('abc', " + (maxSize + 1) + ", '')", "Target length must be in the range [0.." + maxSize + "]");
+        assertInvalidFunction("RPAD('abc', 1048577, 'x')", "Target length must be in the range [0.." + maxSize + "]");
     }
 
     @Test

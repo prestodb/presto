@@ -61,6 +61,8 @@ import static java.lang.Math.toIntExact;
  */
 public final class StringFunctions
 {
+    private static final int PAD_MAX_SIZE = 1024 * 1024;
+
     private StringFunctions() {}
 
     @Description("convert Unicode code point to a string")
@@ -688,9 +690,9 @@ public final class StringFunctions
     private static Slice pad(Slice text, long targetLength, Slice padString, int paddingOffset)
     {
         checkCondition(
-                0 <= targetLength && targetLength <= Integer.MAX_VALUE,
+                0 <= targetLength && targetLength <= PAD_MAX_SIZE,
                 INVALID_FUNCTION_ARGUMENT,
-                "Target length must be in the range [0.." + Integer.MAX_VALUE + "]");
+                "Target length must be in the range [0.." + PAD_MAX_SIZE + "]");
         checkCondition(padString.length() > 0, INVALID_FUNCTION_ARGUMENT, "Padding string must not be empty");
 
         int textLength = countCodePoints(text);
