@@ -36,6 +36,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Hudi's shaded Avro classes use unshaded Jackson to parse schemas. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-testng-services</artifactId>

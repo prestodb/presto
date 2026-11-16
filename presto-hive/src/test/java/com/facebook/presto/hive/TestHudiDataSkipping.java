@@ -303,7 +303,7 @@ public class TestHudiDataSkipping
                         "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe",
                         "org.apache.hudi.hadoop.HoodieParquetInputFormat",
                         "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat");
-                table = new Table("schema", "data", "user", EXTERNAL_TABLE,
+                table = new Table(Optional.of("catalogName"), "schema", "data", "user", EXTERNAL_TABLE,
                         new Storage(format, location, Optional.empty(), false, ImmutableMap.of(), ImmutableMap.of()),
                         ImmutableList.of(
                                 new Column("x", HIVE_LONG, Optional.empty(), Optional.empty()),

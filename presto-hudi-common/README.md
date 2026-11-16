@@ -1,7 +1,8 @@
 # presto-hudi-common
 
 Connector-independent Hudi helpers for pruning files with metadata table (MDT)
-column statistics. The module depends on the Hudi bundle and Presto types only.
+column statistics. The module depends on the Hudi bundle and Presto types, with
+runtime dependencies on Jackson for Avro schema parsing and LZ4 for MDT key hashing.
 
 - `HudiColumnStatsReader` reads per-file column statistics as Presto domains.
   `LatestHudiColumnStatsReader` reads the latest MDT state; it opens and closes

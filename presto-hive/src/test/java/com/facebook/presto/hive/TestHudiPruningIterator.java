@@ -23,6 +23,7 @@ import org.apache.hadoop.fs.BlockLocation;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.security.AccessControlException;
 import org.apache.hudi.common.util.collection.Pair;
 import org.testng.annotations.Test;
 
@@ -113,7 +114,7 @@ public class TestHudiPruningIterator
     {
         HiveFileInfo file = file("file:/table/file.parquet");
         HudiColumnStatsPruner denied = new HudiColumnStatsPruner(predicate(), (files, columns) -> {
-            throw new IOException("permission denied");
+            throw new IOException("metadata lookup failed", new AccessControlException("permission denied"));
         });
         HudiPruningIterator iterator = new HudiPruningIterator(List.of(file).iterator(), denied, "file:/table", new AtomicBoolean(), new RuntimeStats());
         assertEquals(expectThrows(PrestoException.class, iterator::hasNext).getErrorCode(), PERMISSION_DENIED.toErrorCode());

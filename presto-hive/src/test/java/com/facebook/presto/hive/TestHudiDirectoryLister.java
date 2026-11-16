@@ -64,7 +64,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestHudiDirectoryLister
 {
-    private Configuration getHadoopConfWithCopyOnFirstWriteDisabled()
+    public static Configuration getHadoopConfWithCopyOnFirstWriteDisabled()
     {
         Configuration hadoopConf = new Configuration();
         hadoopConf.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
