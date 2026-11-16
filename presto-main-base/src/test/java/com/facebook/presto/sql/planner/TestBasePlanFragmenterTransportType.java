@@ -192,6 +192,31 @@ public class TestBasePlanFragmenterTransportType
         assertEquals(props.getOutputTransportType(), TransportType.ANY);
     }
 
+    @Test
+    public void testHasCoordinatorOnlyDistribution()
+    {
+        BasePlanFragmenter.FragmentProperties props = new BasePlanFragmenter.FragmentProperties(
+                new com.facebook.presto.spi.plan.PartitioningScheme(
+                        com.facebook.presto.spi.plan.Partitioning.create(
+                                SystemPartitioningHandle.SINGLE_DISTRIBUTION,
+                                ImmutableList.of()),
+                        ImmutableList.of(col)));
+        // Default is not coordinator-only
+        assertFalse(props.hasCoordinatorOnlyDistribution());
+
+        // After setting coordinator-only distribution via a coordinator-only node, it returns true
+        ValuesNode source = planBuilder.values(col);
+        ExplainAnalyzeNode explainAnalyze = new ExplainAnalyzeNode(
+                Optional.empty(),
+                idAllocator.getNextId(),
+                source,
+                col,
+                false,
+                ExplainFormat.Type.TEXT);
+        props.setCoordinatorOnlyDistribution(explainAnalyze);
+        assertTrue(props.hasCoordinatorOnlyDistribution());
+    }
+
     // -----------------------------------------------------------------------
     // Tests for PlanFragment transport type serialization
     // -----------------------------------------------------------------------
