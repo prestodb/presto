@@ -49,6 +49,9 @@ public class NativeSidecarFunctionRegistryTool
     private final HttpClient httpClient;
     private static final String FUNCTION_SIGNATURES_ENDPOINT = "/v1/functions";
     private volatile UdfFunctionSignatureMap cachedSignatureMap;
+    // Derived from cachedSignatureMap with it. The planner asks for these names whenever it
+    // applies a rule that looks for RPC calls, so they are not recomputed per call.
+    private volatile Set<String> cachedRpcFunctionNames;
 
     public NativeSidecarFunctionRegistryTool(
             HttpClient httpClient,
@@ -80,21 +83,33 @@ public class NativeSidecarFunctionRegistryTool
     @Override
     public Set<String> getRpcFunctionNames()
     {
-        return getCachedSignatureMap()
+        Set<String> names = cachedRpcFunctionNames;
+        if (names == null) {
+            getCachedSignatureMap();
+            names = cachedRpcFunctionNames;
+        }
+        return names;
+    }
+
+    private synchronized UdfFunctionSignatureMap getCachedSignatureMap()
+    {
+        if (cachedSignatureMap == null) {
+            UdfFunctionSignatureMap signatureMap = getNativeFunctionSignatureMap();
+            cachedRpcFunctionNames = rpcFunctionNames(signatureMap);
+            cachedSignatureMap = signatureMap;
+        }
+        return cachedSignatureMap;
+    }
+
+    private static Set<String> rpcFunctionNames(UdfFunctionSignatureMap signatureMap)
+    {
+        return signatureMap
                 .getUDFSignatureMap().entrySet().stream()
                 .filter(entry -> entry.getValue().stream()
                         .anyMatch(m -> m.getIsRpcFunction()))
                 .map(Map.Entry::getKey)
                 .map(name -> name.toLowerCase(Locale.ENGLISH))
                 .collect(toImmutableSet());
-    }
-
-    private synchronized UdfFunctionSignatureMap getCachedSignatureMap()
-    {
-        if (cachedSignatureMap == null) {
-            cachedSignatureMap = getNativeFunctionSignatureMap();
-        }
-        return cachedSignatureMap;
     }
 
     private UdfFunctionSignatureMap getNativeFunctionSignatureMap()

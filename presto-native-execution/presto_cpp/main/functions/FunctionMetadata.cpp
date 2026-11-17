@@ -369,6 +369,29 @@ json getFunctionsMetadata(
     }
     const auto schema = parts[1];
     const auto function = parts[2];
+    // A scalar that shares its name with an RPC function evaluates the calls
+    // the planner does not move into an RPC node. The name is published once,
+    // as the RPC function, or the coordinator would never move any call. So
+    // the coordinator resolves only the signatures the RPC function declares:
+    // a scalar signature it does not declare cannot be called.
+    if (j.contains(function)) {
+      if (const auto rpcFunction =
+              velox::exec::rpc::AsyncRPCFunctionRegistry::find(function)) {
+        for (const auto* signature : entry.second) {
+          const bool declared = std::any_of(
+              rpcFunction->signatures.begin(),
+              rpcFunction->signatures.end(),
+              [&](const auto& rpcSignature) {
+                return *rpcSignature == *signature;
+              });
+          LOG_IF(WARNING, !declared)
+              << "Scalar function " << name << " has a signature its RPC "
+              << "function does not declare, and which cannot be called: "
+              << signature->toString();
+        }
+        continue;
+      }
+    }
     j[function] = buildScalarMetadata(name, schema, entry.second);
   }
 

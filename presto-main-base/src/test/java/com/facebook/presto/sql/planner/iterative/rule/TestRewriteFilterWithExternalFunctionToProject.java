@@ -112,4 +112,28 @@ public class TestRewriteFilterWithExternalFunctionToProject
                                                         "x", PlanMatchPattern.expression("x")),
                                                 values(ImmutableMap.of("x", 0))))));
     }
+
+    @Test
+    public void testLocalConjunctStaysBelowTheProjection()
+    {
+        tester().assertThat(new RewriteFilterWithExternalFunctionToProject(getFunctionManager()))
+                .on(p -> {
+                    p.variable("x", INTEGER);
+                    return p.filter(
+                            p.rowExpression("unittest.memory.remote_foo(x) > 1 AND x < 10"),
+                            p.values(p.variable("x", INTEGER)));
+                })
+                .matches(
+                        project(
+                                ImmutableMap.of("x", PlanMatchPattern.expression("x")),
+                                filter(
+                                        "greater_than",
+                                        project(
+                                                ImmutableMap.of(
+                                                        "greater_than", PlanMatchPattern.expression("unittest.memory.remote_foo(x) > 1"),
+                                                        "x", PlanMatchPattern.expression("x")),
+                                                filter(
+                                                        "x < 10",
+                                                        values(ImmutableMap.of("x", 0)))))));
+    }
 }
