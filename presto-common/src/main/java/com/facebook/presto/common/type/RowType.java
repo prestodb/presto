@@ -226,7 +226,8 @@ public class RowType
             this(name, type, false);
         }
 
-        public Field(Optional<String> name, Type type, boolean delimited)
+        @JsonCreator
+        public Field(@JsonProperty("name") Optional<String> name, @JsonProperty("type") Type type, @JsonProperty("delimited") boolean delimited)
         {
             this.type = requireNonNull(type, "type is null");
             this.name = requireNonNull(name, "name is null");
