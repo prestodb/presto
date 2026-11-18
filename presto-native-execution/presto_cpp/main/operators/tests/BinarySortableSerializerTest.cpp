@@ -353,6 +353,42 @@ TEST_F(BinarySortableSerializerFuzzerTest, fuzzerTestString) {
   runFuzzerTest(rowType);
 }
 
+TEST_F(BinarySortableSerializerFuzzerTest, fuzzerTestTimestamp) {
+  const auto rowType = velox::ROW(
+      {"c1", "c2", "c3"},
+      {velox::TIMESTAMP(),
+       velox::ARRAY(velox::TIMESTAMP()),
+       velox::ROW({velox::TIMESTAMP(), velox::BIGINT()})});
+  runFuzzerTest(rowType);
+}
+
+TEST_F(BinarySortableSerializerFuzzerTest, timestampExtremeValuesSize) {
+  const velox::Timestamp minDate(-62'135'596'800, 0);
+  const velox::Timestamp maxDate(253'402'300'799, 0);
+  const auto timestamps = makeNullableFlatVector<velox::Timestamp>(
+      {velox::Timestamp::min(),
+       minDate,
+       maxDate,
+       velox::Timestamp::max(),
+       std::nullopt});
+  const auto input = makeRowVector(
+      {"c1", "c2", "c3"},
+      {timestamps,
+       makeArrayVector<velox::Timestamp>(
+           {{velox::Timestamp::min()},
+            {minDate, maxDate},
+            {},
+            {velox::Timestamp::max()},
+            {maxDate}}),
+       makeRowVector({timestamps, makeFlatVector<int64_t>({1, 2, 3, 4, 5})})});
+  const auto fields = getFields(velox::asRowType(input->type()));
+  const std::vector<velox::core::SortOrder> ordering(
+      fields.size(), velox::core::kDescNullsLast);
+
+  checkSizeCalculation(input, fields, ordering);
+  checkBatchedSizeCalculation(input, 0, input->size(), fields, ordering);
+}
+
 TEST_F(BinarySortableSerializerFuzzerTest, fuzzerTestArray) {
   const auto rowType = velox::ROW(
       {"c1", "c2", "c3"},
@@ -989,6 +1025,56 @@ TEST_F(BinarySortableSerializerTest, TimestampTypeSingleFieldTests) {
       singlePrimitiveFieldCompare<velox::Timestamp>(
           {std::nullopt, velox::Timestamp::fromMicros(1)},
           velox::core::kAscNullsFirst) < 0);
+}
+
+TEST_F(BinarySortableSerializerTest, TimestampExtremeValues) {
+  // 0001-01-01 00:00:00 and 9999-12-31 23:59:59 UTC.
+  const velox::Timestamp minDate(-62'135'596'800, 0);
+  const velox::Timestamp maxDate(253'402'300'799, 0);
+  const velox::Timestamp epoch(0, 0);
+
+  EXPECT_LT(
+      singlePrimitiveFieldCompare<velox::Timestamp>(
+          {velox::Timestamp::min(), minDate}, velox::core::kAscNullsFirst),
+      0);
+  EXPECT_LT(
+      singlePrimitiveFieldCompare<velox::Timestamp>(
+          {minDate, epoch}, velox::core::kAscNullsFirst),
+      0);
+  EXPECT_LT(
+      singlePrimitiveFieldCompare<velox::Timestamp>(
+          {epoch, maxDate}, velox::core::kAscNullsFirst),
+      0);
+  EXPECT_LT(
+      singlePrimitiveFieldCompare<velox::Timestamp>(
+          {maxDate, velox::Timestamp::max()}, velox::core::kAscNullsFirst),
+      0);
+  EXPECT_GT(
+      singlePrimitiveFieldCompare<velox::Timestamp>(
+          {minDate, maxDate}, velox::core::kDescNullsLast),
+      0);
+  EXPECT_LT(
+      singlePrimitiveFieldCompare<velox::Timestamp>(
+          {velox::Timestamp(-1, 999'999'999), epoch},
+          velox::core::kAscNullsFirst),
+      0);
+  EXPECT_EQ(
+      singlePrimitiveFieldCompare<velox::Timestamp>(
+          {velox::Timestamp::max(), velox::Timestamp::max()},
+          velox::core::kAscNullsFirst),
+      0);
+
+  // Nested in ROW and ARRAY keys.
+  EXPECT_GT(
+      (singleRowFieldCompare<velox::Timestamp, int64_t>(
+          {minDate, maxDate}, {1, 1}, velox::core::kDescNullsFirst)),
+      0);
+  EXPECT_GT(
+      singleArrayFieldCompare<velox::Timestamp>(
+          {std::vector<std::optional<velox::Timestamp>>{minDate},
+           std::vector<std::optional<velox::Timestamp>>{maxDate}},
+          velox::core::kDescNullsFirst),
+      0);
 }
 
 TEST_F(BinarySortableSerializerTest, StringTypeSingleFieldTests) {
