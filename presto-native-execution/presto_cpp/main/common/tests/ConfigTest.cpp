@@ -201,6 +201,25 @@ TEST_F(ConfigTest, optionalSystemConfigs) {
   ASSERT_EQ(config.discoveryUri(), "my uri");
 }
 
+TEST_F(ConfigTest, planDumpDir) {
+  SystemConfig config;
+  init(config, {});
+  ASSERT_EQ(folly::none, config.planDumpDir());
+
+  init(config, {{std::string(SystemConfig::kPlanDumpDir), "/tmp/plans"}});
+  ASSERT_EQ(config.planDumpDir(), "/tmp/plans");
+
+  // setValue() only accepts registered properties.
+  writeDefaultConfigFile(true);
+  auto systemConfig = SystemConfig::instance();
+  systemConfig->initialize(configFilePath_);
+  ASSERT_FALSE(
+      systemConfig
+          ->setValue(std::string(SystemConfig::kPlanDumpDir), "/tmp/updated")
+          .has_value());
+  ASSERT_EQ(systemConfig->planDumpDir(), "/tmp/updated");
+}
+
 TEST_F(ConfigTest, optionalNodeConfigs) {
   NodeConfig config;
   init(config, {});
