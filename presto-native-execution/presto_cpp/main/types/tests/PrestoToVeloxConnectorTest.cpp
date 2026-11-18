@@ -771,6 +771,30 @@ TEST_F(PrestoToVeloxConnectorTest, hiveInsertTableHandleTableParameters) {
   EXPECT_EQ(storageParams.at("param2"), "value2");
 }
 
+TEST_F(PrestoToVeloxConnectorTest, adjacentBigintRanges) {
+  auto boundary = serializeToBlock(
+      BaseVector::createConstant(BIGINT(), variant(int64_t{25}), 1, pool_.get()),
+      pool_.get());
+  auto rangeSet = std::make_shared<protocol::SortedRangeSet>();
+  rangeSet->type = "bigint";
+  rangeSet->ranges = {
+      {{"bigint", nullptr, protocol::Bound::ABOVE},
+       {"bigint", boundary, protocol::Bound::EXACTLY}},
+      {{"bigint", boundary, protocol::Bound::ABOVE},
+       {"bigint", nullptr, protocol::Bound::BELOW}},
+  };
+
+  for (const bool nullAllowed : {false, true}) {
+    auto filter = toFilter(
+        protocol::Domain{rangeSet, nullAllowed}, *exprConverter_, *typeParser_);
+    EXPECT_TRUE(filter->testInt64(std::numeric_limits<int64_t>::min()));
+    EXPECT_TRUE(filter->testInt64(25));
+    EXPECT_TRUE(filter->testInt64(26));
+    EXPECT_TRUE(filter->testInt64(std::numeric_limits<int64_t>::max()));
+    EXPECT_EQ(filter->testNull(), nullAllowed);
+  }
+}
+
 TEST_F(PrestoToVeloxConnectorTest, bigintOverflowLowAboveMax) {
   auto lowBlock = serializeToBlock(
       BaseVector::createConstant(

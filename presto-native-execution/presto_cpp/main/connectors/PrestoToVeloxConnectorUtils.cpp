@@ -438,12 +438,16 @@ std::unique_ptr<common::Filter> combineIntegerRanges(
   if (bigintFilters.size() == 2 &&
       bigintFilters[0]->lower() == std::numeric_limits<int64_t>::min() &&
       bigintFilters[1]->upper() == std::numeric_limits<int64_t>::max()) {
-    VELOX_CHECK_LE(
-        bigintFilters[0]->upper() + 1, bigintFilters[1]->lower() - 1);
+    const auto leftUpper = bigintFilters[0]->upper();
+    const auto rightLower = bigintFilters[1]->lower();
+    if (leftUpper >= rightLower || leftUpper + 1 == rightLower) {
+      if (nullAllowed) {
+        return std::make_unique<common::AlwaysTrue>();
+      }
+      return std::make_unique<common::IsNotNull>();
+    }
     return std::make_unique<common::NegatedBigintRange>(
-        bigintFilters[0]->upper() + 1,
-        bigintFilters[1]->lower() - 1,
-        nullAllowed);
+        leftUpper + 1, rightLower - 1, nullAllowed);
   }
 
   bool allNegatedValues = true;
