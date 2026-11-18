@@ -377,6 +377,88 @@ public abstract class AbstractTestNativeAggregations
         assertQuery("SELECT reduce(map_values(numeric_histogram(3, v)), 0.0, (s, x) -> s + x, s -> s) FROM (VALUES (1.0), (2.0), (1000.0), (1001.0), (2000.0)) AS t(v)");
     }
 
+    @Test
+    public void testDifferentialEntropyNative()
+    {
+        // Deterministic fixed histogram cross-engine checks on lineitem:
+        // quantity is in [1, 50], so [1.0E0, 51.0E0] covers all samples.
+        assertQuery("SELECT differential_entropy(10, CAST(quantity AS DOUBLE), 1.0E0, 'fixed_histogram_mle', 1.0E0, 51.0E0) FROM lineitem");
+        assertQuery("SELECT differential_entropy(10, CAST(quantity AS DOUBLE), 1.0E0, 'fixed_histogram_jacknife', 1.0E0, 51.0E0) FROM lineitem");
+
+        // Deterministic reservoir cross-engine checks against Java:
+        // When max_samples >= row count (lineitem has ~60k rows), no samples are evicted.
+        // We use extendedprice because it has distinct values, avoiding ties that can make sIPlusM - sIMinusM == 0.
+        assertQuery("SELECT differential_entropy(1000000, extendedprice) FROM lineitem");
+        assertQuery("SELECT linenumber, differential_entropy(1000000, extendedprice) FROM lineitem GROUP BY 1");
+        assertQuery("SELECT differential_entropy(1000000, extendedprice, CAST(discount + 0.1E0 AS DOUBLE)) FROM lineitem");
+        assertQuery("SELECT linenumber, differential_entropy(1000000, extendedprice, CAST(discount + 0.1E0 AS DOUBLE)) FROM lineitem GROUP BY 1");
+
+        // Reservoir sampling with eviction (smaller capacity): check that execution succeeds.
+        assertQuerySucceeds("SELECT differential_entropy(500, extendedprice) FROM lineitem");
+        assertQuerySucceeds("SELECT linenumber, differential_entropy(500, extendedprice) FROM lineitem GROUP BY 1");
+        assertQuerySucceeds("SELECT differential_entropy(500, extendedprice, CAST(discount + 0.1E0 AS DOUBLE)) FROM lineitem");
+        assertQuerySucceeds("SELECT linenumber, differential_entropy(500, extendedprice, CAST(discount + 0.1E0 AS DOUBLE)) FROM lineitem GROUP BY 1");
+
+        // In Velox, sample == max is accepted and placed in the last bucket, whereas Java rejects it.
+        assertQuery(
+                "SELECT differential_entropy(5, x, 1.0E0, 'fixed_histogram_mle', 0.0E0, 5.0E0) " +
+                        "FROM (VALUES (5.0E0)) t(x)",
+                "SELECT 0.0E0");
+    }
+
+    @Test
+    public void testDifferentialEntropyJacknifeSingleRow()
+    {
+        // Native-only. The jacknife estimator removes one observation at a time, so with a single
+        // observation the hold-out histogram is empty. The Java engine fails a verify() on that
+        // input; Velox returns NaN, as it does for any other group without enough data.
+        assertQuery(
+                "SELECT is_nan(differential_entropy(5, x, 1.0E0, 'fixed_histogram_jacknife', 0.0E0, 5.0E0)) " +
+                        "FROM (VALUES (1.0E0)) t(x)",
+                "SELECT true");
+        assertQuery(
+                "SELECT is_nan(differential_entropy(5, x, 2.5E0, 'fixed_histogram_jacknife', 0.0E0, 5.0E0)) " +
+                        "FROM (VALUES (1.0E0)) t(x)",
+                "SELECT true");
+
+        // Per group: a single-row group is NaN, a group with two rows is a real number.
+        assertQuery(
+                "SELECT g, is_nan(differential_entropy(5, x, 1.0E0, 'fixed_histogram_jacknife', 0.0E0, 5.0E0)) " +
+                        "FROM (VALUES (1, 1.0E0), (2, 1.0E0), (2, 3.0E0)) t(g, x) GROUP BY g",
+                "VALUES (1, true), (2, false)");
+    }
+
+    @Test
+    public void testDifferentialEntropyNegativeWeight()
+    {
+        // Weighted reservoir sampling (native-only: Java throws "Weight %s cannot be negative" via checkArgument).
+        assertQueryFails(
+                "SELECT differential_entropy(5, x, -1.0E0) FROM (VALUES (1.0E0)) t(x)",
+                "(?s).*weight must be non-negative.*");
+        assertQueryFails(
+                "SELECT differential_entropy(5, CAST(quantity AS DOUBLE), CAST(discount - 1.0E0 AS DOUBLE)) FROM lineitem",
+                "(?s).*weight must be non-negative.*");
+    }
+
+    @Test
+    public void testDifferentialEntropyInconsistentMethod()
+    {
+        // Native-only: the message differs from the Java engine's "strategy class is not compatible
+        // with entropy method", so only the Velox wording is asserted. Both queries mix methods
+        // within one group; the message is the same whether the mismatch is detected while adding
+        // input or while combining partial results.
+        assertQueryFails(
+                "SELECT differential_entropy(5, x, 1.0E0, " +
+                        "CASE WHEN x > 2.0E0 THEN 'fixed_histogram_mle' ELSE 'fixed_histogram_jacknife' END, 0.0E0, 5.0E0) " +
+                        "FROM (VALUES (1.0E0), (3.0E0)) t(x)",
+                "(?s).*method must be consistent within a single aggregation.*");
+        assertQueryFails(
+                "SELECT g, differential_entropy(5, x, 1.0E0, " +
+                        "CASE WHEN x > 2.0E0 THEN 'fixed_histogram_mle' ELSE 'fixed_histogram_jacknife' END, 0.0E0, 5.0E0) " +
+                        "FROM (VALUES (1, 1.0E0), (1, 3.0E0), (2, 1.0E0)) t(g, x) GROUP BY g",
+                "(?s).*method must be consistent within a single aggregation.*");
+    }
+
     @Test(dataProvider = "exchangeEncodingProvider")
     public void testMarkDistinct(String exchangeEncoding)
     {
