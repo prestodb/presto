@@ -140,24 +140,54 @@ public class KafkaRecordSet
         public boolean advanceNextPosition()
         {
             while (true) {
-                if (cursorOffset >= split.getEnd()) {
+                /*
+                Consider a case where the split is generated to only contain the first message in a particular partition. endOfData() is reached only when cursorOffset
+                crosses split endOffset since both will be equal in this case.
+                Also, this check is needed to break the loop in case we reached the end of split already.
+                 */
+                if (cursorOffset > split.getEnd()) {
                     return endOfData();
                 }
                 // Create a fetch request
                 openFetchRequest();
 
-                while (messageAndOffsetIterator.hasNext()) {
+                /*
+                Consider a case where split is generated till the end of the topic partition. In such cases, split end offset points to a position
+                where the next incoming record will be published and currently the position is empty. This condition is needed to take care of
+                such scenarios.
+                 */
+                if (!messageAndOffsetIterator.hasNext() && cursorOffset >= split.getEnd()) {
+                    return endOfData();
+                }
+
+                if (messageAndOffsetIterator.hasNext()) {
                     ConsumerRecord<ByteBuffer, ByteBuffer> currentMessageAndOffset = messageAndOffsetIterator.next();
                     long messageOffset = currentMessageAndOffset.offset();
 
-                    if (messageOffset >= split.getEnd()) {
+                    /*
+                    This helps ensure we do not cross split boundary in case the message is absent due to reasons like topic compaction.
+                    Suppose a split is generated for offsets 100 to 110 and the consumer polls to fetch records till positions well
+                    beyond 110, since the partition has more records at offsets beyond 110. If the message at position 110 is deleted,
+                    messageAndOffsetIterator.hasNext will emit message at offset 111. Below check ensures we do not read such messages which are
+                    beyond the split end.
+                     */
+                    if (messageOffset > split.getEnd()) {
                         return endOfData();
                     }
 
+                    /*
+                    This check is not needed with current kafka version. consumer.seek(partition, offset) points to a segment on broker
+                    with starting offset <= intended offset. SimpleConsumer was not able to skip the unwanted records on its own,
+                    and hence below check was necessary to reach split start. Latest KafkaConsumer is able to handle that on its own,
+                    and we are just keeping below check for conservative purposes to prevent breaking due to any unwanted changes in
+                    KafkaConsumer contract in the described scenario.
+                     */
                     if (messageOffset >= cursorOffset) {
                         return nextRow(currentMessageAndOffset);
                     }
                 }
+
+                //setting this to null ensures that the next call to openFetchRequest() enables consumer polling for more records.
                 messageAndOffsetIterator = null;
             }
         }
@@ -169,6 +199,7 @@ public class KafkaRecordSet
                         totalMessages, totalBytes, split.getEnd() - split.getStart(),
                         cursorOffset, split.getStart(), split.getEnd());
             }
+            messageAndOffsetIterator = null;
             return false;
         }
 
@@ -311,7 +342,7 @@ public class KafkaRecordSet
                     String threadName = Thread.currentThread().getName();
 
                     if (consumer == null) {
-                        consumer = consumerManager.createConsumer(threadName, split.getLeader());
+                        consumer = consumerManager.createConsumer(threadName, split.getNodes());
                     }
 
                     TopicPartition topicPartition = new TopicPartition(split.getTopicName(), split.getPartitionId());
@@ -328,12 +359,12 @@ public class KafkaRecordSet
                 throw new PrestoException(
                         KAFKA_SPLIT_ERROR,
                         format(
-                                "Cannot read data from topic '%s', partition '%s', startOffset %s, endOffset %s, leader %s ",
+                                "Cannot read data from topic '%s', partition '%s', startOffset %s, endOffset %s, bootstrap servers %s ",
                                 split.getTopicName(),
                                 split.getPartitionId(),
                                 split.getStart(),
                                 split.getEnd(),
-                                split.getLeader()),
+                                split.getNodes()),
                         e);
             }
         }
