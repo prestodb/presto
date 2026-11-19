@@ -29,7 +29,7 @@
 #include "presto_cpp/main/functions/remote/tests/server/examples/RemoteRemoveCharHandler.h"
 #include "presto_cpp/main/functions/remote/tests/server/examples/RemoteStrLenHandler.h"
 #include "velox/common/base/tests/GTestUtils.h"
-#include "velox/exec/tests/utils/PortUtil.h"
+#include "velox/exec/tests/utils/Ports.h"
 #include "velox/functions/prestosql/tests/utils/FunctionBaseTest.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
@@ -43,10 +43,10 @@ class RemoteFunctionRestTest
       public testing::WithParamInterface<velox::functions::remote::PageFormat> {
  public:
   void SetUp() override {
-    auto servicePort = exec::test::getFreePort();
+    auto servicePort = exec::test::Ports::findFreePort();
     location_ = fmt::format(kHostAddressTemplate_, servicePort);
     wrongLocation_ =
-        fmt::format(kHostAddressTemplate_, exec::test::getFreePort());
+        fmt::format(kHostAddressTemplate_, exec::test::Ports::findFreePort());
 
     restClient_ = std::make_shared<RestRemoteClient>(location_);
     wrongRestClient_ = std::make_shared<RestRemoteClient>(wrongLocation_);

@@ -23,7 +23,7 @@
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/config/Config.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
-#include "velox/exec/tests/utils/PortUtil.h"
+#include "velox/exec/tests/utils/Ports.h"
 
 using namespace arrow;
 using namespace facebook::velox;
@@ -239,7 +239,7 @@ class ArrowFlightConnectorTestDefaultServer
                 std::unordered_map<std::string, std::string>{
                     {ArrowFlightConfig::kDefaultServerHost, kConnectHost},
                     {ArrowFlightConfig::kDefaultServerPort,
-                     std::to_string(getFreePort())}})) {}
+                     std::to_string(Ports::findFreePort())}})) {}
 };
 
 TEST_F(ArrowFlightConnectorTestDefaultServer, dataSource) {
