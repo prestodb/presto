@@ -81,3 +81,22 @@ TEST_F(TypeParserTest, materializedLogicalTypesAliasToVarchar) {
         << "type: " << name;
   }
 }
+
+// The coordinator quotes row field names that are not simple identifiers
+// (e.g. Hive/Delta struct fields starting with a digit) in type signatures.
+TEST_F(TypeParserTest, parseRowWithQuotedFieldNamesStartingWithDigit) {
+  TypeParser typeParser = TypeParser();
+
+  ASSERT_EQ(
+      *typeParser.parse("row(\"2021isda\" bigint,b varchar)"),
+      *ROW({"2021isda", "b"}, {BIGINT(), VARCHAR()}));
+
+  ASSERT_EQ(
+      *typeParser.parse(
+          "row(\"2021isda_definitions\" row(\"1st\" integer,name varchar),"
+          "\"2nd\" array(row(\"3rd\" double)))"),
+      *ROW(
+          {"2021isda_definitions", "2nd"},
+          {ROW({"1st", "name"}, {INTEGER(), VARCHAR()}),
+           ARRAY(ROW({"3rd"}, {DOUBLE()}))}));
+}
