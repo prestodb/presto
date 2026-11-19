@@ -56,7 +56,6 @@ public class TypeSignature
     private final List<TypeSignatureParameter> parameters;
     private final boolean calculated;
 
-    private static final Pattern IDENTIFIER_PATTERN = Pattern.compile("[a-zA-Z_]([a-zA-Z0-9_:@])*");
     private static final Map<String, String> BASE_NAME_ALIAS_TO_CANONICAL =
             new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     private static final Set<String> SIMPLE_TYPE_WITH_SPACES =
@@ -548,7 +547,7 @@ public class TypeSignature
                         else {
                             // Remove quotes around the delimited column name
                             verify(tokenStart >= 0, "Expect tokenStart to be non-negative");
-                            delimitedColumnName = signature.substring(tokenStart + 1, i);
+                            delimitedColumnName = signature.substring(tokenStart + 1, i).replace("\"\"", "\"");
                             tokenStart = i + 1;
                             state = RowTypeSignatureParsingState.TYPE;
                         }
@@ -649,7 +648,7 @@ public class TypeSignature
         // Assume the first part of a structured type always has non-alphabetical character.
         // If the first part is a valid identifier, parameter is a named field.
         String firstPart = typeOrNamedType.substring(0, split);
-        if (IDENTIFIER_PATTERN.matcher(firstPart).matches()) {
+        if (isSimpleIdentifier(firstPart)) {
             return TypeSignatureParameter.of(new NamedTypeSignature(
                     Optional.of(new RowFieldName(firstPart, false)),
                     parseTypeSignature(typeOrNamedType.substring(split + 1).trim(), literalParameters)));
@@ -700,6 +699,31 @@ public class TypeSignature
         return (c >= 'a' && c <= 'z') ||
                 (c >= 'A' && c <= 'Z') ||
                 c == '_';
+    }
+
+    private static boolean isValidPartOfIdentifier(char c)
+    {
+        return isValidStartOfIdentifier(c) ||
+                (c >= '0' && c <= '9') ||
+                c == ':' ||
+                c == '@';
+    }
+
+    /**
+     * Returns true if the name can appear unquoted as a row field name in a type signature,
+     * i.e. it matches {@code [a-zA-Z_][a-zA-Z0-9_:@]*}.
+     */
+    static boolean isSimpleIdentifier(String name)
+    {
+        if (name.isEmpty() || !isValidStartOfIdentifier(name.charAt(0))) {
+            return false;
+        }
+        for (int i = 1; i < name.length(); i++) {
+            if (!isValidPartOfIdentifier(name.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
