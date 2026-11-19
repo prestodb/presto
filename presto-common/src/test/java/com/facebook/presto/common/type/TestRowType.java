@@ -20,6 +20,7 @@ import java.util.List;
 import static com.facebook.presto.common.block.MethodHandleUtil.methodHandle;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
@@ -80,6 +81,21 @@ public class TestRowType
         assertEquals(
                 row.getDisplayName(),
                 "row(boolean, \"double_col\" double, array(varchar), \"map_col\" map(boolean, double))");
+    }
+
+    @Test
+    public void testFieldNamesStartingWithDigitRoundTrip()
+    {
+        RowType inner = RowType.from(asList(RowType.field("adId", VARCHAR)));
+        RowType row = RowType.from(asList(
+                RowType.field("region", VARCHAR),
+                RowType.field("2021IDefinitions", inner),
+                RowType.field("a b", VARCHAR)));
+
+        TypeSignature signature = row.getTypeSignature();
+
+        assertEquals(signature.toString(), "row(region varchar,\"2021IDefinitions\" row(adId varchar),\"a b\" varchar)");
+        assertEquals(parseTypeSignature(signature.toString()), signature);
     }
 
     public static void throwUnsupportedOperation()

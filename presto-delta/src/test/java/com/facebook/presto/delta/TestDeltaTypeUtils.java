@@ -14,8 +14,12 @@
 package com.facebook.presto.delta;
 
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.SchemaTableName;
 import io.airlift.slice.Slices;
+import io.delta.kernel.types.StringType;
+import io.delta.kernel.types.StructType;
 import org.testng.annotations.Test;
 
 import java.math.BigInteger;
@@ -31,8 +35,10 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.SmallintType.SMALLINT;
 import static com.facebook.presto.common.type.TimestampType.TIMESTAMP;
 import static com.facebook.presto.common.type.TinyintType.TINYINT;
+import static com.facebook.presto.common.type.TypeSignature.parseTypeSignature;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.delta.DeltaErrorCode.DELTA_INVALID_PARTITION_VALUE;
+import static com.facebook.presto.delta.DeltaTypeUtils.convertDeltaDataTypePrestoDataType;
 import static com.facebook.presto.delta.DeltaTypeUtils.convertPartitionValue;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -61,6 +67,22 @@ public class TestDeltaTypeUtils
         invalidPartitionValue("sdfsdf", DATE);
         invalidPartitionValue("sdfsdf", TIMESTAMP);
         invalidPartitionValue("1234567890.5", createDecimalType(1, 1)); // invalid precision in value
+    }
+
+    @Test
+    public void structFieldNamesStartingWithDigitRoundTrip()
+    {
+        StructType inner = new StructType()
+                .add("adId", StringType.STRING)
+                .add("incStatus", StringType.STRING);
+        StructType struct = new StructType()
+                .add("region", StringType.STRING)
+                .add("2021IDefinitions", inner);
+
+        TypeSignature signature = convertDeltaDataTypePrestoDataType(new SchemaTableName("s", "t"), "c", struct);
+
+        assertEquals(signature.toString(), "row(region varchar,\"2021idefinitions\" row(adid varchar,incstatus varchar))");
+        assertEquals(parseTypeSignature(signature.toString()), signature);
     }
 
     private void assertPartitionValue(String value, Type type, Object expected)

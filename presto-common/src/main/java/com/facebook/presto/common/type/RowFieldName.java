@@ -36,7 +36,9 @@ public class RowFieldName
             @JsonProperty("delimited") boolean delimited)
     {
         this.name = requireNonNull(name, "name is null");
-        this.delimited = delimited;
+        // Names that are not simple identifiers (e.g. starting with a digit) cannot be parsed back
+        // from a type signature unless they are quoted, so they are always treated as delimited.
+        this.delimited = delimited || !TypeSignature.isSimpleIdentifier(name);
     }
 
     @ThriftField(1)

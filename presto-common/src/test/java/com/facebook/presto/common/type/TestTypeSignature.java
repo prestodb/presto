@@ -74,6 +74,9 @@ public class TestTypeSignature
                 "row(a bigint,b varchar)",
                 rowSignature(namedParameter("a", false, signature("bigint")), namedParameter("b", false, varchar())));
         assertRowSignature(
+                "row(\"a\"\"b\" bigint)",
+                rowSignature(namedParameter("a\"b", true, signature("bigint"))));
+        assertRowSignature(
                 "row(__a__ bigint,_b@_: _varchar)",
                 rowSignature(namedParameter("__a__", false, signature("bigint")), namedParameter("_b@_:", false, signature("_varchar"))));
         assertRowSignature(
@@ -300,6 +303,17 @@ public class TestTypeSignature
         assertEquals(createUnboundedVarcharType().getTypeSignature(), parseTypeSignature("varchar"));
         assertEquals(parseTypeSignature("varchar").hashCode(), createUnboundedVarcharType().getTypeSignature().hashCode());
         assertNotEquals(createUnboundedVarcharType().getTypeSignature(), parseTypeSignature("varchar(10)"));
+    }
+
+    @Test
+    public void testIsSimpleIdentifier()
+    {
+        for (String name : ImmutableList.of("a", "A", "_", "abc", "a1", "_1", "a_b", "a:b", "a@b", "Abc123:@_")) {
+            assertTrue(TypeSignature.isSimpleIdentifier(name), name);
+        }
+        for (String name : ImmutableList.of("", "1", "1a", "2021isda", ":a", "@a", "a b", "a-b", "a.b", "a\"b", "é", "aé", " a")) {
+            assertFalse(TypeSignature.isSimpleIdentifier(name), name);
+        }
     }
 
     @Test
