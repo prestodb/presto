@@ -19,12 +19,16 @@
 #include "presto_cpp/main/functions/FunctionMetadata.h"
 #include "presto_cpp/main/functions/ScalarFunctionRegistration.h"
 #include "presto_cpp/main/types/tests/TestUtils.h"
+#include "velox/expression/FunctionCallToSpecialForm.h"
+#include "velox/expression/SpecialFormRegistry.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/expression/rpc/AsyncRPCFunctionRegistry.h"
 #include "velox/functions/Macros.h"
 #include "velox/functions/Registerer.h"
 #include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
 #include "velox/functions/prestosql/registration/RegistrationFunctions.h"
+#include "velox/functions/prestosql/types/TimeWithTimezoneType.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 #include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
 
 using namespace facebook::velox;
@@ -60,6 +64,37 @@ class MixedNullBehaviorVectorFunction : public exec::VectorFunction {
       VectorPtr& /*result*/) const override {
     VELOX_UNREACHABLE();
   }
+};
+
+// Stands in for Velox's AT TIME ZONE special form, which has no scalar
+// registration. Result types follow 'ignoreTimeZoneLabel'. Publishing a
+// function never evaluates it.
+class AtTimezoneSpecialForm : public exec::FunctionCallToSpecialForm {
+ public:
+  explicit AtTimezoneSpecialForm(bool ignoreTimeZoneLabel)
+      : ignoreTimeZoneLabel_{ignoreTimeZoneLabel} {}
+
+  TypePtr resolveType(const std::vector<TypePtr>& argTypes) override {
+    VELOX_CHECK_EQ(argTypes.size(), 2);
+    if (isTimeWithTimeZone(argTypes[0])) {
+      return argTypes[0];
+    }
+    if (ignoreTimeZoneLabel_) {
+      return TIMESTAMP();
+    }
+    return TIMESTAMP_WITH_TIME_ZONE();
+  }
+
+  exec::ExprPtr constructSpecialForm(
+      const TypePtr& /*type*/,
+      std::vector<exec::ExprPtr>&& /*compiledChildren*/,
+      bool /*trackCpuUsage*/,
+      const core::QueryConfig& /*config*/) override {
+    VELOX_UNREACHABLE();
+  }
+
+ private:
+  const bool ignoreTimeZoneLabel_;
 };
 
 } // namespace
@@ -126,6 +161,15 @@ class FunctionMetadataTest : public ::testing::Test {
         exec::VectorFunctionMetadataBuilder()
             .defaultNullBehavior(false)
             .build());
+
+    // AT TIME ZONE registered only as a special form, one catalog per mode.
+    exec::registerFunctionCallToSpecialForm(
+        "legacy_form.default.at_timezone",
+        std::make_unique<AtTimezoneSpecialForm>(
+            /*ignoreTimeZoneLabel=*/false));
+    exec::registerFunctionCallToSpecialForm(
+        "new_form.default.at_timezone",
+        std::make_unique<AtTimezoneSpecialForm>(/*ignoreTimeZoneLabel=*/true));
   }
 
   static void TearDownTestSuite() {
@@ -282,6 +326,41 @@ TEST_F(FunctionMetadataTest, atTimezone) {
       "timestamp");
   EXPECT_FALSE(functionMetadata_.contains("at_timezone_convert"));
   EXPECT_FALSE(sessionTimestampMetadata.contains("at_timezone_convert"));
+}
+
+TEST_F(FunctionMetadataTest, atTimezoneSpecialForm) {
+  for (const auto& [catalog, timestampResult] :
+       std::vector<std::pair<std::string, std::string>>{
+           {"legacy_form", "timestamp with time zone"},
+           {"new_form", "timestamp"}}) {
+    SCOPED_TRACE(catalog);
+    const json metadata = getFunctionsMetadata(kPrestoDefaultPrefix, catalog);
+    ASSERT_TRUE(metadata.contains("at_timezone"));
+    ASSERT_EQ(metadata.at("at_timezone").size(), 3);
+    assertFunctionReturnType(
+        metadata,
+        "at_timezone",
+        json::array({"timestamp with time zone", "varchar"}),
+        timestampResult);
+    assertFunctionReturnType(
+        metadata,
+        "at_timezone",
+        json::array({"timestamp", "varchar"}),
+        timestampResult);
+    assertFunctionReturnType(
+        metadata,
+        "at_timezone",
+        json::array({"time with time zone", "varchar"}),
+        "time with time zone");
+    for (const auto& signature : metadata.at("at_timezone")) {
+      EXPECT_EQ(signature["schema"], "default");
+      EXPECT_EQ(
+          signature["routineCharacteristics"]["determinism"], "DETERMINISTIC");
+      EXPECT_EQ(
+          signature["routineCharacteristics"]["nullCallClause"],
+          "RETURNS_NULL_ON_NULL_INPUT");
+    }
+  }
 }
 
 TEST_F(FunctionMetadataTest, catalog) {

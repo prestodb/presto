@@ -12,13 +12,20 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/functions/FunctionMetadata.h"
+
+#include <string_view>
+
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/exec/Aggregate.h"
 #include "velox/exec/WindowFunction.h"
+#include "velox/expression/FunctionCallToSpecialForm.h"
 #include "velox/expression/SimpleFunctionRegistry.h"
+#include "velox/expression/SpecialFormRegistry.h"
 #include "velox/expression/rpc/AsyncRPCFunctionRegistry.h"
 #include "velox/functions/FunctionRegistry.h"
+#include "velox/functions/prestosql/types/TimeWithTimezoneType.h"
+#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -333,6 +340,52 @@ void addRpcFunctionsMetadata(
   }
 }
 
+// Adds 'at_timezone' registered as a special form, which the scalar registry
+// walk misses. The form decides each result type from its mode.
+void addAtTimezoneSpecialFormMetadata(
+    json& j,
+    const std::optional<std::string>& catalog) {
+  constexpr std::string_view kSuffix = ".at_timezone";
+  // Value types AT TIME ZONE accepts, each with a VARCHAR zone.
+  const std::vector<std::vector<TypePtr>> argTypesList = {
+      {TIMESTAMP_WITH_TIME_ZONE(), VARCHAR()},
+      {TIMESTAMP(), VARCHAR()},
+      {TIME_WITH_TIME_ZONE(), VARCHAR()}};
+  for (const auto& name : specialFormRegistry().getSpecialFormNames()) {
+    if (!name.ends_with(kSuffix)) {
+      continue;
+    }
+    const auto parts = util::getFunctionNameParts(name);
+    if (catalog.has_value() && parts[0] != catalog.value()) {
+      continue;
+    }
+    std::vector<FunctionSignaturePtr> signatures;
+    signatures.reserve(argTypesList.size());
+    for (const auto& argTypes : argTypesList) {
+      FunctionSignatureBuilder builder;
+      builder.returnType(
+          boost::algorithm::to_lower_copy(
+              resolveTypeForSpecialForm(name, argTypes)->toString()));
+      for (const auto& argType : argTypes) {
+        builder.argumentType(
+            boost::algorithm::to_lower_copy(argType->toString()));
+      }
+      signatures.push_back(builder.build());
+    }
+    std::vector<const FunctionSignature*> rawSignatures;
+    rawSignatures.reserve(signatures.size());
+    for (const auto& signature : signatures) {
+      rawSignatures.push_back(signature.get());
+    }
+    j[parts[2]] = buildScalarMetadata(
+        name,
+        parts[1],
+        rawSignatures,
+        /*isRpcFunction=*/false,
+        VectorFunctionMetadata{});
+  }
+}
+
 } // namespace
 
 json getFunctionsMetadata(
@@ -371,6 +424,8 @@ json getFunctionsMetadata(
     const auto function = parts[2];
     j[function] = buildScalarMetadata(name, schema, entry.second);
   }
+
+  addAtTimezoneSpecialFormMetadata(j, catalog);
 
   // Get metadata for all registered aggregate functions in velox.
   for (const auto& entry : aggregateFunctions) {
