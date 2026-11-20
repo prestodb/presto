@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.operator.aggregation.differentialentropy;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
@@ -21,6 +22,8 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.IntUnaryOperator;
+import java.util.function.LongUnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
@@ -98,17 +101,29 @@ public class UnweightedDoubleReservoirSample
             return;
         }
 
-        shuffleArray(samples);
-        shuffleArray(other.samples);
+        mergeFullReservoirs(other,
+                bound -> ThreadLocalRandom.current().nextInt(bound),
+                bound -> ThreadLocalRandom.current().nextLong(bound));
+    }
+
+    @VisibleForTesting
+    void mergeFullReservoirs(UnweightedDoubleReservoirSample other, IntUnaryOperator nextInt, LongUnaryOperator nextLong)
+    {
+        shuffleArray(samples, nextInt);
+        shuffleArray(other.samples, nextInt);
+        int remainingCount = seenCount;
+        int otherRemainingCount = other.seenCount;
         int nextIndex = 0;
         int otherNextIndex = 0;
         double[] merged = new double[samples.length];
         for (int i = 0; i < samples.length; i++) {
-            if (ThreadLocalRandom.current().nextLong(0, seenCount + other.seenCount) < seenCount) {
+            if (nextLong.applyAsLong(remainingCount + otherRemainingCount) < remainingCount) {
                 merged[i] = samples[nextIndex++];
+                remainingCount--;
             }
             else {
                 merged[i] = other.samples[otherNextIndex++];
+                otherRemainingCount--;
             }
         }
         seenCount += other.seenCount;
@@ -131,10 +146,10 @@ public class UnweightedDoubleReservoirSample
         return Arrays.copyOf(samples, Math.min(seenCount, samples.length));
     }
 
-    private static void shuffleArray(double[] samples)
+    private static void shuffleArray(double[] samples, IntUnaryOperator nextInt)
     {
         for (int i = samples.length - 1; i > 0; i--) {
-            int index = ThreadLocalRandom.current().nextInt(0, i + 1);
+            int index = nextInt.applyAsInt(i + 1);
             double sample = samples[index];
             samples[index] = samples[i];
             samples[i] = sample;
