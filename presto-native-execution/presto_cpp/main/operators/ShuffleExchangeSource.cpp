@@ -16,6 +16,7 @@
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/operators/ShuffleExchangeSource.h"
+#include "velox/common/base/VeloxException.h"
 #include "velox/serializers/RowSerializer.h"
 
 namespace facebook::presto::operators {
@@ -61,6 +62,11 @@ ShuffleExchangeSource::request(
         .deferError(
             [](folly::exception_wrapper e) mutable
                 -> ShuffleExchangeSource::Response {
+              // Keeps a Velox error, such as a memory pool's, as CALL_SHUFFLE
+              // does for a reader that fails before returning its future.
+              if (e.is_compatible_with<velox::VeloxException>()) {
+                e.throw_exception();
+              }
               VELOX_FAIL("ShuffleReader::{} failed: {}", "next", e.what());
             });
   };
