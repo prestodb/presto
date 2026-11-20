@@ -1142,6 +1142,16 @@ Use to configure how long a query can be queued before it is terminated.
 
 The corresponding configuration property is :ref:`admin/properties:\`\`query.max-queued-time\`\``.
 
+``report_interrupted_planning_as_timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Report a failure caused by the ``query_analyzer_timeout`` interrupt as ``QUERY_PLANNING_TIMEOUT``.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`planner.report-interrupted-planning-as-timeout\`\``.
+
 View and Materialized View Properties
 --------------------------------------
 

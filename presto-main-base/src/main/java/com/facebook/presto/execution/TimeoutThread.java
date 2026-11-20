@@ -17,6 +17,7 @@ import com.facebook.airlift.units.Duration;
 
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -28,6 +29,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class TimeoutThread
         implements AutoCloseable
 {
+    private final AtomicBoolean expired = new AtomicBoolean();
     private final Future<?> future;
 
     /**
@@ -41,7 +43,18 @@ public class TimeoutThread
         requireNonNull(executor, "executor is null");
         requireNonNull(timeout, "timeout is null");
 
-        this.future = executor.schedule(thread::interrupt, timeout.roundTo(NANOSECONDS), NANOSECONDS);
+        this.future = executor.schedule(() -> {
+            expired.set(true);
+            thread.interrupt();
+        }, timeout.roundTo(NANOSECONDS), NANOSECONDS);
+    }
+
+    /**
+     * Returns true once the timeout has expired and the thread is being interrupted.
+     */
+    public boolean hasExpired()
+    {
+        return expired.get();
     }
 
     @Override
