@@ -98,6 +98,7 @@ import static com.facebook.presto.spi.statistics.ColumnStatisticType.NUMBER_OF_D
 import static com.facebook.presto.spi.statistics.ColumnStatisticType.TOTAL_SIZE_IN_BYTES;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -529,6 +530,41 @@ public class TestIcebergHiveStatistics
         }
     }
 
+    /**
+     * An unconstrained statistics request that selects no columns can only use the row count, so it
+     * is answered from the snapshot summary without planning a scan. Both paths return the same count,
+     * so the test tells them apart by the scan metrics Iceberg reports into the session's runtime
+     * stats, which only a scan produces. Asking for one column is the control: it must scan.
+     */
+    @Test
+    public void testRowCountFromSnapshotSummaryWhenNothingIsProjected()
+    {
+        String tableName = "test_row_count_from_snapshot_summary";
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 15000);
+
+            Session nothingProjected = Session.builder(getSession())
+                    // runtime stats must be reset manually when using the builder
+                    .setRuntimeStats(new RuntimeStats())
+                    .build();
+            TableStatistics statistics = getTableStatisticsForColumns(getQueryRunner(), nothingProjected, tableName, ImmutableList.of());
+            assertEquals(statistics.getRowCount(), Estimate.of(15000));
+            assertFalse(hasIcebergScanMetrics(nothingProjected.getRuntimeStats()),
+                    "a request that selects no columns should not scan: " + nothingProjected.getRuntimeStats().getMetrics().keySet());
+
+            Session oneColumnProjected = Session.builder(getSession())
+                    .setRuntimeStats(new RuntimeStats())
+                    .build();
+            statistics = getTableStatisticsForColumns(getQueryRunner(), oneColumnProjected, tableName, ImmutableList.of("orderkey"));
+            assertEquals(statistics.getRowCount(), Estimate.of(15000));
+            assertTrue(hasIcebergScanMetrics(oneColumnProjected.getRuntimeStats()),
+                    "a request that selects a column should scan: " + oneColumnProjected.getRuntimeStats().getMetrics().keySet());
+        }
+        finally {
+            assertQuerySucceeds("DROP TABLE IF EXISTS " + tableName);
+        }
+    }
+
     @Test
     public void testShowStatsWithTimestampWithTimeZone()
     {
@@ -587,6 +623,28 @@ public class TestIcebergHiveStatistics
     private TableStatistics getTableStatistics(Session session, String table)
     {
         return getTableStatistics(getQueryRunner(), session, table);
+    }
+
+    /**
+     * Like {@link #getTableStatistics(QueryRunner, Session, String)}, but asks for statistics on only
+     * the named columns rather than on every column of the table.
+     */
+    private static TableStatistics getTableStatisticsForColumns(QueryRunner queryRunner, Session session, String table, List<String> columnNames)
+    {
+        Metadata meta = queryRunner.getMetadata();
+        TransactionId txid = queryRunner.getTransactionManager().beginTransaction(false);
+        Session txnSession = session.beginTransactionId(txid, queryRunner.getTransactionManager(), new AllowAllAccessControl());
+        Map<String, ColumnHandle> columnHandles = getColumnHandles(queryRunner, table, txnSession);
+        List<ColumnHandle> columnHandleList = columnNames.stream().map(columnHandles::get).collect(toImmutableList());
+        TableStatistics tableStatistics = meta.getTableStatistics(txnSession, getAnalyzeTableHandle(queryRunner, table, txnSession), columnHandleList, Constraint.alwaysTrue());
+
+        queryRunner.getTransactionManager().asyncAbort(txid);
+        return tableStatistics;
+    }
+
+    private static boolean hasIcebergScanMetrics(RuntimeStats runtimeStats)
+    {
+        return runtimeStats.getMetrics().keySet().stream().anyMatch(name -> name.contains(".scan."));
     }
 
     private void columnStatsEqual(Map<ColumnHandle, ColumnStatistics> actualStats, Map<ColumnHandle, ColumnStatistics> expectedStats)
