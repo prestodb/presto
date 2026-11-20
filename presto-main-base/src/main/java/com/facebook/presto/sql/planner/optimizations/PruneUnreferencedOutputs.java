@@ -554,6 +554,7 @@ public class PruneUnreferencedOutputs
         {
             ImmutableSet.Builder<VariableReferenceExpression> expectedInputs = ImmutableSet.builder();
             expectedInputs.addAll(context.get());
+            node.getInputGroupingExpressions().forEach(expression -> expectedInputs.addAll(VariablesExtractor.extractUnique(expression)));
 
             Set<String> argColumnNames = ImmutableSet.copyOf(node.getArgumentColumns());
             for (VariableReferenceExpression var : node.getSource().getOutputVariables()) {
@@ -564,17 +565,7 @@ public class PruneUnreferencedOutputs
 
             PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
 
-            return new RPCNode(
-                    node.getSourceLocation(),
-                    node.getId(),
-                    source,
-                    node.getFunctionName(),
-                    node.getArguments(),
-                    node.getArgumentColumns(),
-                    node.getOutputVariable(),
-                    node.getStreamingMode(),
-                    node.getDispatchBatchSize(),
-                    node.getRecommendedTaskCount());
+            return node.rewrite(source, node.getArguments(), node.getArgumentColumns(), node.getOutputVariable());
         }
 
         @Override

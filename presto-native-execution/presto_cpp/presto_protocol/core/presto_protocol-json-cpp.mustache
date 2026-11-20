@@ -129,7 +129,13 @@ namespace facebook::presto::protocol {
         p._type = j["@type"];
         {{/super_class}}
         {{#fields}}
+        {{#json_optional}}
+        if (j.count("{{&field_name}}")) {
+        {{/json_optional}}
         from_json_key(j, "{{&field_name}}", p.{{field_name}}, "{{&class_name}}", "{{&field_text}}", "{{&field_name}}");
+        {{#json_optional}}
+        }
+        {{/json_optional}}
         {{/fields}}
     }
 }

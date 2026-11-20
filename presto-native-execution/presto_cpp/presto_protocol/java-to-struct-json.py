@@ -153,6 +153,16 @@ def add_extra(class_name, fileroot, config, lang, classes, depends):
         for type, name in config.UpdateFields[class_name].items():
             update_field(class_name, name, type, classes)
 
+    excluded_fields = config.get("ExcludeFields", {}).get(class_name, [])
+    optional_json_fields = config.get("OptionalJsonFields", {}).get(class_name, [])
+    classes[class_name].fields = [
+        field
+        for field in classes[class_name].fields
+        if field.field_name not in excluded_fields
+    ]
+    for field in classes[class_name].fields:
+        field.json_optional = field.field_name in optional_json_fields
+
 
 def update_field(class_name, name, type, classes):
     # Find the existing field and replace its type

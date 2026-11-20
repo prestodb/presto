@@ -28,7 +28,6 @@ namespace {
 // Create a minimal ValuesNode as source for RPCNode.
 std::shared_ptr<protocol::ValuesNode> makeValuesNode() {
   auto node = std::make_shared<protocol::ValuesNode>();
-  node->_type = "com.facebook.presto.sql.planner.plan.ValuesNode";
   node->id = "0";
 
   // Add a single output variable (the "comment" field from the query).
@@ -44,12 +43,11 @@ std::shared_ptr<protocol::ValuesNode> makeValuesNode() {
 std::shared_ptr<protocol::RPCNode> makeRPCNode(
     std::shared_ptr<protocol::PlanNode> source) {
   auto node = std::make_shared<protocol::RPCNode>();
-  node->_type = "com.facebook.presto.sql.planner.plan.RPCNode";
   node->id = "8";
   node->source = source;
 
   // Function name for the RPC call
-  node->functionName = "fb_llm_inference";
+  node->functionName = "test_rpc_function";
 
   // Add arguments: just the variable reference (comment column).
   // We only use a VariableReferenceExpression to avoid needing properly
@@ -75,13 +73,35 @@ std::shared_ptr<protocol::RPCNode> makeRPCNode(
 }
 
 // The registry requires a signature at registration. The RPCNode built above
-// calls fb_llm_inference with one varchar column and produces varchar.
+// calls test_rpc_function with one varchar column and produces varchar.
 exec_rpc::AsyncRPCFunctionRegistry::Signatures signatures() {
   return {exec::FunctionSignatureBuilder()
               .returnType("varchar")
               .argumentType("varchar")
               .build()};
 }
+
+class LegacyRpcNode final : public core::RPCNode {
+ public:
+  LegacyRpcNode(
+      const core::PlanNodeId& id,
+      core::PlanNodePtr source,
+      core::CallTypedExprPtr call,
+      std::string outputColumn,
+      RowTypePtr outputType,
+      rpc::RPCStreamingMode streamingMode,
+      int32_t dispatchBatchSize)
+      : core::RPCNode(
+            id,
+            std::move(source),
+            std::move(call),
+            std::move(outputColumn),
+            std::move(outputType),
+            streamingMode,
+            dispatchBatchSize) {}
+};
+
+static_assert(!facebook::presto::detail::kSupportsRpcExecutionPhases<LegacyRpcNode>);
 
 } // namespace
 
@@ -100,11 +120,25 @@ class RPCPlanConverterTest : public ::testing::Test {
     exec_rpc::AsyncRPCFunctionRegistry::testingClear();
   }
 
+  void assertUnsupportedExecutionPhase(
+      const std::shared_ptr<const protocol::PlanNode>& node) {
+    VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+    try {
+      converter.toVeloxQueryPlan(
+          node, nullptr, "20261103_000000_00000_test.1.0.0.0");
+      FAIL() << "expected unsupported execution phase to be rejected";
+    } catch (const VeloxException& error) {
+      EXPECT_NE(
+          std::string(error.what()).find("unsupported by this Velox version"),
+          std::string::npos);
+    }
+  }
+
   std::shared_ptr<memory::MemoryPool> pool_;
   std::shared_ptr<core::QueryCtx> queryCtx_;
 };
 
-// Test that converting an RPCNode fails if fb_llm_inference is not
+// Test that converting an RPCNode fails if test_rpc_function is not
 // registered. This simulates the production bug where the function library
 // was not linked into the binary.
 TEST_F(RPCPlanConverterTest, rpcNodeWithoutRegisteredFunction) {
@@ -129,10 +163,10 @@ TEST_F(RPCPlanConverterTest, rpcNodeWithoutRegisteredFunction) {
 
   auto* rpcPlanNode = dynamic_cast<const core::RPCNode*>(plan.get());
   ASSERT_NE(rpcPlanNode, nullptr);
-  EXPECT_EQ(rpcPlanNode->functionName(), "fb_llm_inference");
+  EXPECT_EQ(rpcPlanNode->functionName(), "test_rpc_function");
 }
 
-// Test that converting an RPCNode succeeds when fb_llm_inference
+// Test that converting an RPCNode succeeds when test_rpc_function
 // is properly registered. With name-based resolution, the plan converter
 // only checks isRegistered() — actual function instantiation is deferred
 // to RPCOperator::initialize().
@@ -142,7 +176,7 @@ TEST_F(RPCPlanConverterTest, rpcNodeWithRegisteredFunction) {
 
   // Register a mock function for testing.
   exec_rpc::AsyncRPCFunctionRegistry::registerFunction(
-      "fb_llm_inference",
+      "test_rpc_function",
       []() {
         // Return nullptr — the factory is not called during plan conversion
         // (only during operator initialization).
@@ -168,7 +202,7 @@ TEST_F(RPCPlanConverterTest, rpcNodeWithRegisteredFunction) {
   ASSERT_NE(veloxPlan, nullptr);
   auto veloxRpcNode = std::dynamic_pointer_cast<const core::RPCNode>(veloxPlan);
   ASSERT_NE(veloxRpcNode, nullptr);
-  EXPECT_EQ(veloxRpcNode->functionName(), "fb_llm_inference");
+  EXPECT_EQ(veloxRpcNode->functionName(), "test_rpc_function");
   EXPECT_EQ(veloxRpcNode->outputColumn(), "__rpc_result");
 
   // Verify the call argument: a single column reference to "comment", typed
@@ -182,6 +216,146 @@ TEST_F(RPCPlanConverterTest, rpcNodeWithRegisteredFunction) {
   EXPECT_EQ(field->type()->kind(), TypeKind::VARCHAR);
 }
 
+TEST_F(RPCPlanConverterTest, legacyConstructorPreservesInlineAndRejectsPhases) {
+  VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+  auto source = converter.toVeloxQueryPlan(
+      std::dynamic_pointer_cast<protocol::PlanNode>(makeValuesNode()),
+      nullptr,
+      "20261103_000000_00000_test.1.0.0.0");
+  auto call = std::make_shared<core::CallTypedExpr>(
+      VARCHAR(),
+      std::vector<core::TypedExprPtr>{
+          std::make_shared<core::FieldAccessTypedExpr>(VARCHAR(), "comment")},
+      "test_rpc_function");
+  auto outputType = ROW({"comment", "result"}, {VARCHAR(), VARCHAR()});
+  auto plan = facebook::presto::detail::makeRpcPlanNode<LegacyRpcNode>(
+      "legacy",
+      source,
+      call,
+      "result",
+      outputType,
+      rpc::RPCStreamingMode::kBatch,
+      128,
+      "INLINE");
+  EXPECT_EQ(plan->name(), "RPC");
+  EXPECT_EQ(plan->source(), source);
+  EXPECT_EQ(plan->call(), call);
+  EXPECT_EQ(plan->outputColumn(), "result");
+  EXPECT_TRUE(plan->outputType()->equivalent(*outputType));
+  EXPECT_EQ(plan->streamingMode(), rpc::RPCStreamingMode::kBatch);
+  EXPECT_EQ(plan->dispatchBatchSize(), 128);
+
+  for (const auto* phase : {"SUBMIT", "POLL", "COLLECT"}) {
+    SCOPED_TRACE(phase);
+    try {
+      facebook::presto::detail::makeRpcPlanNode<LegacyRpcNode>(
+          "legacy",
+          source,
+          call,
+          "result",
+          outputType,
+          rpc::RPCStreamingMode::kBatch,
+          128,
+          phase);
+      FAIL() << "expected legacy constructor to reject deferred execution";
+    } catch (const VeloxException& error) {
+      const std::string message{error.what()};
+      EXPECT_NE(
+          message.find("unsupported by this Velox version"), std::string::npos);
+      EXPECT_NE(message.find(phase), std::string::npos);
+    }
+  }
+}
+
+TEST_F(RPCPlanConverterTest, lifecyclePhasesSurviveProtocolAndNativeSerde) {
+  exec_rpc::AsyncRPCFunctionRegistry::registerFunction(
+      "test_rpc_function", []() { return nullptr; }, signatures());
+  const std::vector<std::pair<protocol::RPCNodeExecutionPhase, std::string>>
+      phases{
+          {protocol::RPCNodeExecutionPhase::INLINE, "RPC"},
+          {protocol::RPCNodeExecutionPhase::SUBMIT, "RpcSubmit"},
+          {protocol::RPCNodeExecutionPhase::POLL, "RpcPoll"},
+          {protocol::RPCNodeExecutionPhase::COLLECT, "RpcCollect"}};
+  Type::registerSerDe();
+  core::ITypedExpr::registerSerDe();
+  core::PlanNode::registerSerDe();
+  for (const auto& [phase, name] : phases) {
+    auto node = makeRPCNode(makeValuesNode());
+    node->executionPhase =
+        std::make_shared<protocol::RPCNodeExecutionPhase>(phase);
+    node->streamingMode = protocol::RPCNodeStreamingMode::BATCH;
+    nlohmann::json wire = *node;
+    auto restored =
+        std::make_shared<protocol::RPCNode>(wire.get<protocol::RPCNode>());
+    ASSERT_NE(restored->executionPhase, nullptr);
+    EXPECT_EQ(*restored->executionPhase, phase);
+    if (!facebook::presto::detail::kSupportsRpcExecutionPhases<> &&
+        phase != protocol::RPCNodeExecutionPhase::INLINE) {
+      assertUnsupportedExecutionPhase(restored);
+      continue;
+    }
+    VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+    auto plan = converter.toVeloxQueryPlan(
+        std::dynamic_pointer_cast<protocol::PlanNode>(restored),
+        nullptr,
+        "20261103_000000_00000_test.1.0.0.0");
+    EXPECT_EQ(plan->name(), name);
+    auto again = core::RPCNode::create(plan->serialize(), pool_.get());
+    EXPECT_EQ(again->name(), name);
+    EXPECT_EQ(
+        std::dynamic_pointer_cast<const core::RPCNode>(again)->streamingMode(),
+        rpc::RPCStreamingMode::kBatch);
+  }
+}
+
+TEST_F(RPCPlanConverterTest, oldProtocolDefaultsToInlineExecution) {
+  exec_rpc::AsyncRPCFunctionRegistry::registerFunction(
+      "test_rpc_function", []() { return nullptr; }, signatures());
+  nlohmann::json wire = *makeRPCNode(makeValuesNode());
+  wire.erase("executionPhase");
+  wire.erase("inputGroupingExpressions");
+  auto restored =
+      std::make_shared<protocol::RPCNode>(wire.get<protocol::RPCNode>());
+  EXPECT_EQ(restored->executionPhase, nullptr);
+  EXPECT_TRUE(restored->inputGroupingExpressions.empty());
+  VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+  auto plan = converter.toVeloxQueryPlan(
+      std::dynamic_pointer_cast<protocol::PlanNode>(restored),
+      nullptr,
+      "20261103_000000_00000_test.1.0.0.0");
+  EXPECT_EQ(plan->name(), "RPC");
+}
+
+TEST_F(RPCPlanConverterTest, typedGroupingExpressionsSurviveProtocol) {
+  auto node = makeRPCNode(makeValuesNode());
+  node->executionPhase = std::make_shared<protocol::RPCNodeExecutionPhase>(
+      protocol::RPCNodeExecutionPhase::POLL);
+  node->streamingMode = protocol::RPCNodeStreamingMode::BATCH;
+  node->inputGroupingExpressions = {node->arguments.front()};
+
+  nlohmann::json wire = *node;
+  auto restored =
+      std::make_shared<protocol::RPCNode>(wire.get<protocol::RPCNode>());
+  ASSERT_EQ(restored->inputGroupingExpressions.size(), 1);
+  auto grouping =
+      std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
+          restored->inputGroupingExpressions.front());
+  ASSERT_NE(grouping, nullptr);
+  EXPECT_EQ(grouping->name, "comment");
+  EXPECT_EQ(grouping->type, "varchar");
+
+  if (!facebook::presto::detail::kSupportsRpcExecutionPhases<>) {
+    assertUnsupportedExecutionPhase(restored);
+    return;
+  }
+  VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+  auto plan = converter.toVeloxQueryPlan(
+      std::dynamic_pointer_cast<protocol::PlanNode>(restored),
+      nullptr,
+      "20261103_000000_00000_test.1.0.0.0");
+  EXPECT_EQ(plan->name(), "RpcPoll");
+}
+
 // A column argument's FieldAccess must carry the SOURCE column's actual type,
 // not the argument expression's declared type. In production the Java planner
 // hoists the argument expression (e.g. a CAST) into the source column, so the
@@ -193,7 +367,7 @@ TEST_F(RPCPlanConverterTest, rpcNodeWithRegisteredFunction) {
 TEST_F(RPCPlanConverterTest, columnArgUsesSourceColumnType) {
   exec_rpc::AsyncRPCFunctionRegistry::testingClear();
   exec_rpc::AsyncRPCFunctionRegistry::registerFunction(
-      "fb_llm_inference", []() { return nullptr; }, signatures());
+      "test_rpc_function", []() { return nullptr; }, signatures());
 
   // Source produces column "num" of type BIGINT.
   auto valuesNode = std::make_shared<protocol::ValuesNode>();
@@ -211,7 +385,7 @@ TEST_F(RPCPlanConverterTest, columnArgUsesSourceColumnType) {
   rpcNode->_type = "com.facebook.presto.sql.planner.plan.RPCNode";
   rpcNode->id = "8";
   rpcNode->source = valuesNode;
-  rpcNode->functionName = "fb_llm_inference";
+  rpcNode->functionName = "test_rpc_function";
   auto arg = std::make_shared<protocol::VariableReferenceExpression>();
   arg->_type = "variable";
   arg->name = "num";
@@ -248,7 +422,7 @@ TEST_F(RPCPlanConverterTest, columnArgUsesSourceColumnType) {
 TEST_F(RPCPlanConverterTest, columnArgNotInSourceThrows) {
   exec_rpc::AsyncRPCFunctionRegistry::testingClear();
   exec_rpc::AsyncRPCFunctionRegistry::registerFunction(
-      "fb_llm_inference", []() { return nullptr; }, signatures());
+      "test_rpc_function", []() { return nullptr; }, signatures());
 
   // Source produces column "comment"; the RPC column argument names a column
   // that does not exist in the source schema.
@@ -267,5 +441,89 @@ TEST_F(RPCPlanConverterTest, columnArgNotInSourceThrows) {
     EXPECT_NE(
         std::string(e.what()).find("not found in source schema"),
         std::string::npos);
+  }
+}
+
+TEST_F(RPCPlanConverterTest, deferredBatchSizeUsesTheBoundedPlannerValue) {
+  exec_rpc::AsyncRPCFunctionRegistry::registerFunction(
+      "test_rpc_function", []() { return nullptr; }, signatures());
+  for (const auto phase :
+       {protocol::RPCNodeExecutionPhase::INLINE,
+        protocol::RPCNodeExecutionPhase::SUBMIT}) {
+    auto node = makeRPCNode(makeValuesNode());
+    node->executionPhase =
+        std::make_shared<protocol::RPCNodeExecutionPhase>(phase);
+    node->streamingMode = protocol::RPCNodeStreamingMode::BATCH;
+    node->dispatchBatchSize = 128;
+    auto options = std::make_shared<protocol::ConstantExpression>();
+    options->_type = "constant";
+    options->type = "varchar";
+    options->valueBlock.data =
+        "DgAAAFZBUklBQkxFX1dJRFRIAQAAADIAAAAAMgAAAHsic3RyZWFtaW5nX21vZGUiOiJCQVRDSCIsImRpc3BhdGNoX2JhdGNoX3NpemUiOjB9";
+    node->arguments = {
+        node->arguments[0], node->arguments[0], node->arguments[0], options};
+    node->argumentColumns = {
+        "comment", "comment", "comment", "constant_options"};
+    if (!facebook::presto::detail::kSupportsRpcExecutionPhases<> &&
+        phase != protocol::RPCNodeExecutionPhase::INLINE) {
+      assertUnsupportedExecutionPhase(node);
+      continue;
+    }
+    VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+    auto plan = converter.toVeloxQueryPlan(
+        std::dynamic_pointer_cast<protocol::PlanNode>(node),
+        nullptr,
+        "20261103_000000_00000_test.1.0.0.0");
+    const auto converted = std::dynamic_pointer_cast<const core::RPCNode>(plan);
+    ASSERT_NE(converted, nullptr);
+    EXPECT_EQ(
+        converted->dispatchBatchSize(),
+        phase == protocol::RPCNodeExecutionPhase::INLINE ? 0 : 128);
+  }
+}
+
+TEST_F(RPCPlanConverterTest, requestModesMustBeResolvedBeforeNativeConversion) {
+  for (const auto mode :
+       {protocol::RPCNodeStreamingMode::AUTOMATIC,
+        protocol::RPCNodeStreamingMode::BATCH_DEFERRED}) {
+    auto node = makeRPCNode(makeValuesNode());
+    node->streamingMode = mode;
+    VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+    try {
+      converter.toVeloxQueryPlan(
+          std::dynamic_pointer_cast<protocol::PlanNode>(node),
+          nullptr,
+          "20261103_000000_00000_test.1.0.0.0");
+      FAIL() << "expected request-only mode to be rejected";
+    } catch (const VeloxException& error) {
+      EXPECT_NE(
+          std::string(error.what()).find("concrete PER_ROW or BATCH"),
+          std::string::npos);
+    }
+  }
+}
+
+TEST_F(RPCPlanConverterTest, requestModesAreRejectedByNativePlanSerde) {
+  Type::registerSerDe();
+  core::ITypedExpr::registerSerDe();
+  core::PlanNode::registerSerDe();
+  auto node = makeRPCNode(makeValuesNode());
+  VeloxInteractiveQueryPlanConverter converter(queryCtx_.get(), pool_.get());
+  auto plan = converter.toVeloxQueryPlan(
+      std::dynamic_pointer_cast<protocol::PlanNode>(node),
+      nullptr,
+      "20261103_000000_00000_test.1.0.0.0");
+  for (const auto* mode : {"AUTOMATIC", "BATCH_DEFERRED"}) {
+    auto serialized = plan->serialize();
+    serialized["streamingMode"] = mode;
+    try {
+      core::RPCNode::create(serialized, pool_.get());
+      FAIL() << "expected request-only mode to be rejected by native serde";
+    } catch (const VeloxException& error) {
+      EXPECT_NE(
+          std::string(error.what())
+              .find("streaming mode must be PER_ROW or BATCH"),
+          std::string::npos);
+    }
   }
 }

@@ -7533,7 +7533,7 @@ void to_json(json& j, const MemoryInfo& p) {
       "systemMemoryBytes",
       p.systemMemoryBytes,
       "MemoryInfo",
-      "Long",
+      "int64_t",
       "systemMemoryBytes");
   to_json_key(
       j,
@@ -7557,7 +7557,7 @@ void from_json(const json& j, MemoryInfo& p) {
       "systemMemoryBytes",
       p.systemMemoryBytes,
       "MemoryInfo",
-      "Long",
+      "int64_t",
       "systemMemoryBytes");
   from_json_key(
       j,
@@ -9887,12 +9887,56 @@ namespace facebook::presto::protocol {
 // Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
-static const std::pair<RPCNodeStreamingMode, json>
-    RPCNodeStreamingMode_enum_table[] =
+static const std::pair<RPCNodeExecutionPhase, json>
+    RPCNodeExecutionPhase_enum_table[] =
         { // NOLINT: cert-err58-cpp
-            {RPCNodeStreamingMode::PER_ROW, "PER_ROW"},
-            {RPCNodeStreamingMode::BATCH, "BATCH"},
-            {RPCNodeStreamingMode::AUTOMATIC, "AUTOMATIC"}};
+            {RPCNodeExecutionPhase::INLINE, "INLINE"},
+            {RPCNodeExecutionPhase::SUBMIT, "SUBMIT"},
+            {RPCNodeExecutionPhase::POLL, "POLL"},
+            {RPCNodeExecutionPhase::COLLECT, "COLLECT"}};
+void to_json(json& j, const RPCNodeExecutionPhase& e) {
+  static_assert(
+      std::is_enum<RPCNodeExecutionPhase>::value,
+      "RPCNodeExecutionPhase must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(RPCNodeExecutionPhase_enum_table),
+      std::end(RPCNodeExecutionPhase_enum_table),
+      [e](const std::pair<RPCNodeExecutionPhase, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(RPCNodeExecutionPhase_enum_table))
+           ? it
+           : std::begin(RPCNodeExecutionPhase_enum_table))
+          ->second;
+}
+void from_json(const json& j, RPCNodeExecutionPhase& e) {
+  static_assert(
+      std::is_enum<RPCNodeExecutionPhase>::value,
+      "RPCNodeExecutionPhase must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(RPCNodeExecutionPhase_enum_table),
+      std::end(RPCNodeExecutionPhase_enum_table),
+      [&j](const std::pair<RPCNodeExecutionPhase, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(RPCNodeExecutionPhase_enum_table))
+           ? it
+           : std::begin(RPCNodeExecutionPhase_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+// Loosely copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<RPCNodeStreamingMode, json>
+    RPCNodeStreamingMode_enum_table[] = {
+        // NOLINT: cert-err58-cpp
+        {RPCNodeStreamingMode::PER_ROW, "PER_ROW"},
+        {RPCNodeStreamingMode::BATCH, "BATCH"},
+        {RPCNodeStreamingMode::BATCH_DEFERRED, "BATCH_DEFERRED"},
+        {RPCNodeStreamingMode::AUTOMATIC, "AUTOMATIC"},
+};
 void to_json(json& j, const RPCNodeStreamingMode& e) {
   static_assert(
       std::is_enum<RPCNodeStreamingMode>::value,
@@ -9971,6 +10015,20 @@ void to_json(json& j, const RPCNode& p) {
       "RPCNode",
       "Integer",
       "dispatchBatchSize");
+  to_json_key(
+      j,
+      "executionPhase",
+      p.executionPhase,
+      "RPCNode",
+      "std::shared_ptr<RPCNodeExecutionPhase>",
+      "executionPhase");
+  to_json_key(
+      j,
+      "inputGroupingExpressions",
+      p.inputGroupingExpressions,
+      "RPCNode",
+      "List<std::shared_ptr<RowExpression>>",
+      "inputGroupingExpressions");
 }
 
 void from_json(const json& j, RPCNode& p) {
@@ -10014,6 +10072,22 @@ void from_json(const json& j, RPCNode& p) {
       "RPCNode",
       "Integer",
       "dispatchBatchSize");
+  from_json_key(
+      j,
+      "executionPhase",
+      p.executionPhase,
+      "RPCNode",
+      "std::shared_ptr<RPCNodeExecutionPhase>",
+      "executionPhase");
+  if (j.count("inputGroupingExpressions")) {
+    from_json_key(
+        j,
+        "inputGroupingExpressions",
+        p.inputGroupingExpressions,
+        "RPCNode",
+        "List<std::shared_ptr<RowExpression>>",
+        "inputGroupingExpressions");
+  }
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

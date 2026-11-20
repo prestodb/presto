@@ -65,6 +65,7 @@ import jakarta.inject.Inject;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
@@ -255,6 +256,8 @@ public final class SystemSessionProperties
     public static final String INLINE_SQL_FUNCTIONS = "inline_sql_functions";
     public static final String REMOTE_FUNCTIONS_ENABLED = "remote_functions_enabled";
     public static final String RPC_FUNCTION_OPTIMIZER_ENABLED = "rpc_function_optimizer_enabled";
+    public static final String RPC_DEFERRED_POLL_TASK_COUNT = "rpc_deferred_poll_task_count";
+    public static final String RPC_DEFERRED_COLLECT_TASK_COUNT = "rpc_deferred_collect_task_count";
     public static final String RPC_STREAMING_MODE = "rpc_streaming_mode";
     public static final String RPC_DISPATCH_BATCH_SIZE = "rpc_dispatch_batch_size";
     // Coordinator-only: consumed at plan time by RpcExecutionPolicy. Only the resolved mode and
@@ -1460,10 +1463,20 @@ public final class SystemSessionProperties
                         "Enable the RPC function optimizer that rewrites RPC function calls to use async RPCNode execution",
                         true,
                         false),
+                new PropertyMetadata<>(RPC_DEFERRED_POLL_TASK_COUNT,
+                        "Task count for the deferred RPC polling stage", INTEGER, Integer.class, 1, false,
+                        value -> validateIntegerValue(value, RPC_DEFERRED_POLL_TASK_COUNT, 1, false),
+                        value -> value),
+                new PropertyMetadata<>(RPC_DEFERRED_COLLECT_TASK_COUNT,
+                        "Task count for the deferred RPC collection stage; 0 uses the query's final hash partition count",
+                        INTEGER, Integer.class, 0, false,
+                        value -> validateIntegerValue(value, RPC_DEFERRED_COLLECT_TASK_COUNT, 0, false),
+                        value -> value),
                 new PropertyMetadata<>(
                         RPC_STREAMING_MODE,
                         format("Streaming mode for RPC function execution. Options are %s. "
                                         + "PER_ROW dispatches each row individually, BATCH accumulates rows and dispatches in batches, "
+                                        + "BATCH_DEFERRED uses separate submit, poll and collect stages for supported native Presto-on-Spark batch RPCs, "
                                         + "AUTOMATIC picks PER_ROW or BATCH from the estimated input row count (see rpc_batch_min_rows).",
                                 Stream.of(RPCNode.StreamingMode.values())
                                         .map(RPCNode.StreamingMode::name)
@@ -1472,7 +1485,7 @@ public final class SystemSessionProperties
                         RPCNode.StreamingMode.class,
                         RPCNode.StreamingMode.PER_ROW,
                         false,
-                        value -> RPCNode.StreamingMode.valueOf(((String) value).toUpperCase()),
+                        value -> RPCNode.StreamingMode.valueOf(((String) value).toUpperCase(Locale.ENGLISH)),
                         RPCNode.StreamingMode::name),
                 integerProperty(
                         RPC_DISPATCH_BATCH_SIZE,
@@ -3494,6 +3507,16 @@ public final class SystemSessionProperties
     public static boolean isRpcFunctionOptimizerEnabled(Session session)
     {
         return session.getSystemProperty(RPC_FUNCTION_OPTIMIZER_ENABLED, Boolean.class);
+    }
+
+    public static int getRpcDeferredPollTaskCount(Session session)
+    {
+        return validateIntegerValue(session.getSystemProperty(RPC_DEFERRED_POLL_TASK_COUNT, Integer.class), RPC_DEFERRED_POLL_TASK_COUNT, 1, false);
+    }
+
+    public static int getRpcDeferredCollectTaskCount(Session session)
+    {
+        return validateIntegerValue(session.getSystemProperty(RPC_DEFERRED_COLLECT_TASK_COUNT, Integer.class), RPC_DEFERRED_COLLECT_TASK_COUNT, 0, false);
     }
 
     public static RPCNode.StreamingMode getRpcStreamingMode(Session session)
