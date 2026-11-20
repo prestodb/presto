@@ -1330,6 +1330,19 @@ being collected by ``ANALYZE``, and also prevents the existing histograms from b
 during query optimization. This behavior can be controlled on a per-query basis using the
 ``optimizer_use_histograms`` session property.
 
+``optimizer.disjoint-string-or-estimation-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default Value:** ``true``
+
+Estimates the row count of an ``OR`` as the sum of its branches when the branches cannot
+both be true because they require different literal values of the same string column,
+such as ``(name = 'a' AND kind = 'x') OR (name = 'b' AND kind = 'y')``. When set to ``false``,
+such an ``OR`` is estimated as large as one branch.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`disjoint_string_or_estimation_enabled\`\``.
+
 ``optimizer.skip-pushdown-through-exchange-for-remote-projection``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

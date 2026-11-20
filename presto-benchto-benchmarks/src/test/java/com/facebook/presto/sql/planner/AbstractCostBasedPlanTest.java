@@ -96,7 +96,7 @@ public abstract class AbstractCostBasedPlanTest
         }
     }
 
-    private String getQueryPlanResourcePath(String queryResourcePath)
+    protected static String getQueryPlanResourcePath(String queryResourcePath)
     {
         return queryResourcePath.replaceAll("\\.sql$", ".plan.txt");
     }
@@ -154,7 +154,7 @@ public abstract class AbstractCostBasedPlanTest
         }
     }
 
-    private static String read(String resource)
+    protected static String read(String resource)
     {
         try {
             return Resources.toString(getResource(AbstractCostBasedPlanTest.class, resource), UTF_8);
@@ -169,7 +169,7 @@ public abstract class AbstractCostBasedPlanTest
         return generateQueryPlan(query, getQueryRunner().getDefaultSession());
     }
 
-    private String generateQueryPlan(String query, Session session)
+    protected String generateQueryPlan(String query, Session session)
     {
         String sql = query.replaceAll("\\s+;\\s+$", "")
                 .replace("${database}.${schema}.", "")
@@ -181,7 +181,7 @@ public abstract class AbstractCostBasedPlanTest
         return joinOrderPrinter.result();
     }
 
-    private static Path getSourcePath()
+    protected static Path getSourcePath()
     {
         Path workingDir = Paths.get(System.getProperty("user.dir"));
         verify(isDirectory(workingDir), "Working directory is not a directory");
