@@ -15,6 +15,7 @@ package com.facebook.presto.verifier.framework;
 
 import com.facebook.airlift.event.client.EventClient;
 import com.facebook.airlift.log.Logger;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.sql.parser.ParsingException;
 import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.AstVisitor;
@@ -67,6 +68,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
+import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.FAILED_RESOLVED;
 import static com.facebook.presto.verifier.event.VerifierQueryEvent.EventStatus.RESUBMITTED;
@@ -279,6 +281,13 @@ public class VerificationManager
                 else {
                     selected.add(sourceQuery);
                 }
+            }
+            catch (PrestoException e) {
+                if (!e.getErrorCode().equals(INVALID_FUNCTION_ARGUMENT.toErrorCode())) {
+                    throw e;
+                }
+                log.warn("Failed to parse query: %s", sourceQuery.getName());
+                postEvent(VerifierQueryEvent.skipped(sourceQuery.getSuite(), testId, sourceQuery, SYNTAX_ERROR, skipControl));
             }
             catch (ParsingException e) {
                 log.warn("Failed to parse query: %s", sourceQuery.getName());
