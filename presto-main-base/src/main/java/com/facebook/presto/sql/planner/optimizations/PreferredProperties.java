@@ -90,6 +90,13 @@ class PreferredProperties
                 .build();
     }
 
+    public static PreferredProperties partitionedForTableWrite(Partitioning partitioning)
+    {
+        return builder()
+                .global(Global.distributed(PartitioningProperties.partitionedForTableWrite(partitioning)))
+                .build();
+    }
+
     public static PreferredProperties partitionedWithNullsAndAnyReplicated(Partitioning partitioning)
     {
         return builder()
@@ -307,29 +314,41 @@ class PreferredProperties
         private final Set<VariableReferenceExpression> partitioningColumns;
         private final Optional<Partitioning> partitioning; // Specific partitioning requested
         private final boolean nullsAndAnyReplicated;
+        private final boolean tableWritePartitioning;
 
-        private PartitioningProperties(Set<VariableReferenceExpression> partitioningColumns, Optional<Partitioning> partitioning, boolean nullsAndAnyReplicated)
+        private PartitioningProperties(
+                Set<VariableReferenceExpression> partitioningColumns,
+                Optional<Partitioning> partitioning,
+                boolean nullsAndAnyReplicated,
+                boolean tableWritePartitioning)
         {
             this.partitioningColumns = ImmutableSet.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
             this.partitioning = requireNonNull(partitioning, "function is null");
             this.nullsAndAnyReplicated = nullsAndAnyReplicated;
+            this.tableWritePartitioning = tableWritePartitioning;
 
             checkArgument(!partitioning.isPresent() || partitioning.get().getVariableReferences().equals(partitioningColumns), "Partitioning input must match partitioningColumns");
+            checkArgument(!tableWritePartitioning || partitioning.isPresent(), "Table write partitioning must specify an exact partitioning");
         }
 
         public PartitioningProperties withNullsAndAnyReplicated(boolean nullsAndAnyReplicated)
         {
-            return new PartitioningProperties(partitioningColumns, partitioning, nullsAndAnyReplicated);
+            return new PartitioningProperties(partitioningColumns, partitioning, nullsAndAnyReplicated, tableWritePartitioning);
         }
 
         public static PartitioningProperties partitioned(Partitioning partitioning)
         {
-            return new PartitioningProperties(partitioning.getVariableReferences(), Optional.of(partitioning), false);
+            return new PartitioningProperties(partitioning.getVariableReferences(), Optional.of(partitioning), false, false);
+        }
+
+        public static PartitioningProperties partitionedForTableWrite(Partitioning partitioning)
+        {
+            return new PartitioningProperties(partitioning.getVariableReferences(), Optional.of(partitioning), false, true);
         }
 
         public static PartitioningProperties partitioned(Set<VariableReferenceExpression> columns)
         {
-            return new PartitioningProperties(columns, Optional.empty(), false);
+            return new PartitioningProperties(columns, Optional.empty(), false, false);
         }
 
         public static PartitioningProperties singlePartition()
@@ -352,6 +371,11 @@ class PreferredProperties
             return nullsAndAnyReplicated;
         }
 
+        public boolean isTableWritePartitioning()
+        {
+            return tableWritePartitioning;
+        }
+
         public Optional<PartitioningProperties> translateVariable(Function<VariableReferenceExpression, Optional<VariableReferenceExpression>> translator)
         {
             Set<VariableReferenceExpression> newPartitioningColumns = partitioningColumns.stream()
@@ -366,7 +390,7 @@ class PreferredProperties
             }
 
             if (!partitioning.isPresent()) {
-                return Optional.of(new PartitioningProperties(newPartitioningColumns, Optional.empty(), nullsAndAnyReplicated));
+                return Optional.of(new PartitioningProperties(newPartitioningColumns, Optional.empty(), nullsAndAnyReplicated, tableWritePartitioning));
             }
 
             Optional<Partitioning> newPartitioning = translateVariableToRowExpression(partitioning.get(), variable -> translator.apply(variable).map(RowExpression.class::cast));
@@ -374,13 +398,13 @@ class PreferredProperties
                 return Optional.empty();
             }
 
-            return Optional.of(new PartitioningProperties(newPartitioningColumns, newPartitioning, nullsAndAnyReplicated));
+            return Optional.of(new PartitioningProperties(newPartitioningColumns, newPartitioning, nullsAndAnyReplicated, tableWritePartitioning));
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(partitioningColumns, partitioning, nullsAndAnyReplicated);
+            return Objects.hash(partitioningColumns, partitioning, nullsAndAnyReplicated, tableWritePartitioning);
         }
 
         @Override
@@ -395,7 +419,8 @@ class PreferredProperties
             final PartitioningProperties other = (PartitioningProperties) obj;
             return Objects.equals(this.partitioningColumns, other.partitioningColumns)
                     && Objects.equals(this.partitioning, other.partitioning)
-                    && this.nullsAndAnyReplicated == other.nullsAndAnyReplicated;
+                    && this.nullsAndAnyReplicated == other.nullsAndAnyReplicated
+                    && this.tableWritePartitioning == other.tableWritePartitioning;
         }
 
         @Override
@@ -405,6 +430,7 @@ class PreferredProperties
                     .add("partitioningColumns", partitioningColumns)
                     .add("partitioning", partitioning)
                     .add("nullsAndAnyReplicated", nullsAndAnyReplicated)
+                    .add("tableWritePartitioning", tableWritePartitioning)
                     .toString();
         }
 
