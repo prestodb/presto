@@ -14,6 +14,7 @@ This guide is intended for Presto contributors and plugin developers.
     develop/types
     develop/functions
     develop/materialized-view-rollups
+    develop/logical-dataset-rewrite
     develop/table-functions
     develop/procedures
     develop/system-access-control
