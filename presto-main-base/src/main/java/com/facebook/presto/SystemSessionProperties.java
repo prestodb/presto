@@ -174,6 +174,7 @@ public final class SystemSessionProperties
     public static final String ITERATIVE_OPTIMIZER = "iterative_optimizer_enabled";
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String QUERY_ANALYZER_TIMEOUT = "query_analyzer_timeout";
+    public static final String REPORT_INTERRUPTED_PLANNING_AS_TIMEOUT = "report_interrupted_planning_as_timeout";
     public static final String RUNTIME_OPTIMIZER_ENABLED = "runtime_optimizer_enabled";
     public static final String EXCHANGE_COMPRESSION_CODEC = "exchange_compression_codec";
     public static final String EXCHANGE_CHECKSUM = "exchange_checksum";
@@ -959,6 +960,11 @@ public final class SystemSessionProperties
                         false,
                         value -> Duration.valueOf((String) value),
                         Duration::toString),
+                booleanProperty(
+                        REPORT_INTERRUPTED_PLANNING_AS_TIMEOUT,
+                        "Report an analysis or planning failure caused by the query analyzer timeout's interrupt as a planning timeout",
+                        featuresConfig.isReportInterruptedPlanningAsTimeout(),
+                        false),
                 booleanProperty(
                         RUNTIME_OPTIMIZER_ENABLED,
                         "Experimental: enable runtime optimizer",
@@ -2995,6 +3001,11 @@ public final class SystemSessionProperties
     public static Duration getQueryAnalyzerTimeout(Session session)
     {
         return session.getSystemProperty(QUERY_ANALYZER_TIMEOUT, Duration.class);
+    }
+
+    public static boolean isReportInterruptedPlanningAsTimeout(Session session)
+    {
+        return session.getSystemProperty(REPORT_INTERRUPTED_PLANNING_AS_TIMEOUT, Boolean.class);
     }
 
     public static CompressionCodec getExchangeCompressionCodec(Session session)

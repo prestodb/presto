@@ -1433,6 +1433,22 @@ Planner Properties
 Maximum running time for the query analyzer in case the processing takes too long or is stuck in an infinite loop.
 When timeout expires the planner thread is interrupted and throws exception.
 
+``planner.report-interrupted-planning-as-timeout``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+When ``planner.query-analyzer-timeout`` expires, the planner thread is interrupted. A call blocked at
+that moment, such as a Metastore request, may report its own error before the planner checks for the timeout,
+so the query fails with that call's error, such as a Metastore error.
+When enabled, a failure that occurs after the timeout expired, and whose cause chain contains that interrupt,
+is reported as ``QUERY_PLANNING_TIMEOUT`` instead, with the original error kept as the cause.
+The scope includes analysis, planning, and the permission check and scheduler creation that follow.
+Other failures, including ``EXPLAIN (TYPE VALIDATE)``, still report their own error.
+
+The corresponding session property is :ref:`admin/properties-session:\`\`report_interrupted_planning_as_timeout\`\``.
+
 Regular Expression Function Properties
 --------------------------------------
 

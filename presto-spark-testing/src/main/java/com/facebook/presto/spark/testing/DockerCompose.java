@@ -17,14 +17,17 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.facebook.presto.spark.testing.Processes.startProcess;
 import static com.facebook.presto.spark.testing.Processes.waitForProcess;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
+import static java.lang.Thread.sleep;
 import static java.util.Objects.requireNonNull;
 
 public class DockerCompose
@@ -96,6 +99,29 @@ public class DockerCompose
     private String getContainerId(String service)
             throws InterruptedException
     {
+        return getContainerId(service, Duration.ofMinutes(1));
+    }
+
+    String getContainerId(String service, Duration timeout)
+            throws InterruptedException
+    {
+        checkArgument(!timeout.isNegative(), "timeout is negative");
+        long start = System.nanoTime();
+        while (true) {
+            Optional<String> containerId = findContainerId(service);
+            if (containerId.isPresent()) {
+                return containerId.get();
+            }
+            if (System.nanoTime() - start >= timeout.toNanos()) {
+                throw new IllegalArgumentException(format("container not found: %s after %s", service, timeout));
+            }
+            sleep(100);
+        }
+    }
+
+    Optional<String> findContainerId(String service)
+            throws InterruptedException
+    {
         List<String> containerIds = getContainerIds();
         for (String containerId : containerIds) {
             String output = Processes.executeForOutput(
@@ -104,10 +130,10 @@ public class DockerCompose
                     "--filter", format("id=%s", containerId),
                     "--filter", format("name=%s", service));
             if (!output.isEmpty()) {
-                return containerId;
+                return Optional.of(containerId);
             }
         }
-        throw new IllegalArgumentException(format("container not found: %s", service));
+        return Optional.empty();
     }
 
     private List<String> getContainerIds()

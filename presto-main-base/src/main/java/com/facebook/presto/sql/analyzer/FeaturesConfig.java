@@ -188,6 +188,7 @@ public class FeaturesConfig
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private Duration queryAnalyzerTimeout = new Duration(3, MINUTES);
+    private boolean reportInterruptedPlanningAsTimeout;
     private boolean enableDynamicFiltering;
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = new DataSize(10, KILOBYTE);
@@ -1449,6 +1450,19 @@ public class FeaturesConfig
     public FeaturesConfig setQueryAnalyzerTimeout(Duration timeout)
     {
         this.queryAnalyzerTimeout = timeout;
+        return this;
+    }
+
+    public boolean isReportInterruptedPlanningAsTimeout()
+    {
+        return this.reportInterruptedPlanningAsTimeout;
+    }
+
+    @Config("planner.report-interrupted-planning-as-timeout")
+    @ConfigDescription("Report an analysis or planning failure caused by the query analyzer timeout's interrupt as a planning timeout")
+    public FeaturesConfig setReportInterruptedPlanningAsTimeout(boolean reportInterruptedPlanningAsTimeout)
+    {
+        this.reportInterruptedPlanningAsTimeout = reportInterruptedPlanningAsTimeout;
         return this;
     }
 
