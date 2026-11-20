@@ -171,7 +171,7 @@ public class QueryBuilder
                 sql.append(simpleExpression.get());
             }
 
-            sql.append(String.format("/* %s : %s */", session.getUser(), session.getQueryId()));
+            sql.append(String.format("/* %s : %s */", sanitizeComment(session.getUser()), session.getQueryId()));
             statement = client.getPreparedStatement(connection, sql.toString());
         }
 
@@ -325,6 +325,13 @@ public class QueryBuilder
     {
         name = name.replace(quote, quote + quote);
         return quote + name + quote;
+    }
+
+    // The trailing comment is passed verbatim to the remote database. Break up the block comment
+    // terminator so an attacker-controlled user name cannot close the comment and append SQL.
+    private static String sanitizeComment(String value)
+    {
+        return value.replace("*/", "* /");
     }
 
     private static void bindValue(Object value, Type type, List<TypeAndValue> accumulator)
