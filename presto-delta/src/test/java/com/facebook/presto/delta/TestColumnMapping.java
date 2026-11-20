@@ -40,12 +40,29 @@ public class TestColumnMapping
         assertEquals(result.getMaterializedRows().get(3).getField(0), "email");
         assertEquals(result.getMaterializedRows().get(4).getField(0), "signup_date");
     }
+
     @Test
     public void testColumnMappingByNameRenamedColumns()
     {
         Session session = Session.builder(getSession()).build();
         String query = format("SELECT * FROM \"%s\".\"%s\" ORDER BY id", PATH_SCHEMA,
                 goldenTablePathWithPrefix(DELTA_V3, "cm_name"));
+        MaterializedResult result = computeActual(session, query);
+        assertEquals(result.getMaterializedRows().size(), 5);
+        MaterializedRow row1 = new MaterializedRow(5, 1, "Alice", "Smith", "alice.smith@example.com",
+                LocalDate.of(2025, 1, 15));
+        assertEquals(result.getMaterializedRows().get(0), row1);
+        MaterializedRow row5 = new MaterializedRow(5, 5, "Eva", "Martinez", "eva.martinez@example.com",
+                LocalDate.of(2026, 1, 20));
+        assertEquals(result.getMaterializedRows().get(4), row5);
+    }
+
+    @Test
+    public void testColumnMappingByNameAndPartitionedColumns()
+    {
+        Session session = Session.builder(getSession()).build();
+        String query = format("SELECT * FROM \"%s\".\"%s\" ORDER BY id", PATH_SCHEMA,
+                goldenTablePathWithPrefix(DELTA_V3, "cm_name_partitioned"));
         MaterializedResult result = computeActual(session, query);
         assertEquals(result.getMaterializedRows().size(), 5);
         MaterializedRow row1 = new MaterializedRow(5, 1, "Alice", "Smith", "alice.smith@example.com",
@@ -73,11 +90,43 @@ public class TestColumnMapping
     }
 
     @Test
+    public void testColumnMappingByIdAndPartitionedColumns()
+    {
+        Session session = Session.builder(getSession()).build();
+        String query = format("SELECT * FROM \"%s\".\"%s\" ORDER BY id", PATH_SCHEMA,
+                goldenTablePathWithPrefix(DELTA_V3, "cm_id_partitioned"));
+        MaterializedResult result = computeActual(session, query);
+        assertEquals(result.getMaterializedRows().size(), 5);
+        MaterializedRow row1 = new MaterializedRow(5, 1, "Alice", "Smith", "alice.smith@example.com",
+                LocalDate.of(2025, 1, 15));
+        assertEquals(result.getMaterializedRows().get(0), row1);
+        MaterializedRow row5 = new MaterializedRow(5, 5, "Eva", "Martinez", "eva.martinez@example.com",
+                LocalDate.of(2026, 1, 20));
+        assertEquals(result.getMaterializedRows().get(4), row5);
+    }
+
+    @Test
     public void testColumnMappingRenameWithSpaceAndSpecialCharactersSchema()
     {
         Session session = Session.builder(getSession()).build();
         String query = format("SHOW COLUMNS FROM \"%s\".\"%s\"", PATH_SCHEMA,
                 goldenTablePathWithPrefix(DELTA_V3, "cm_sp_char"));
+        MaterializedResult result = computeActual(session, query);
+        assertEquals(result.getMaterializedRows().size(), 6);
+        assertEquals(result.getMaterializedRows().get(0).getField(0), "id");
+        assertEquals(result.getMaterializedRows().get(1).getField(0), "first name");
+        assertEquals(result.getMaterializedRows().get(2).getField(0), "last@name");
+        assertEquals(result.getMaterializedRows().get(3).getField(0), "e-mail (address)");
+        assertEquals(result.getMaterializedRows().get(4).getField(0), "phone");
+        assertEquals(result.getMaterializedRows().get(5).getField(0), "sign up #date");
+    }
+
+    @Test
+    public void testColumnMappingRenameWithSpaceAndSpecialCharactersAndPartitionedSchema()
+    {
+        Session session = Session.builder(getSession()).build();
+        String query = format("SHOW COLUMNS FROM \"%s\".\"%s\"", PATH_SCHEMA,
+                goldenTablePathWithPrefix(DELTA_V3, "cm_sp_char_partitioned"));
         MaterializedResult result = computeActual(session, query);
         assertEquals(result.getMaterializedRows().size(), 6);
         assertEquals(result.getMaterializedRows().get(0).getField(0), "id");
@@ -105,6 +154,22 @@ public class TestColumnMapping
     }
 
     @Test
+    public void testColumnMappingRenameWithSpaceAndSpecialCharactersAndPartitioned()
+    {
+        Session session = Session.builder(getSession()).build();
+        String query = format("SELECT * FROM \"%s\".\"%s\" ORDER BY id", PATH_SCHEMA,
+                goldenTablePathWithPrefix(DELTA_V3, "cm_sp_char_partitioned"));
+        MaterializedResult result = computeActual(session, query);
+        assertEquals(result.getMaterializedRows().size(), 5);
+        MaterializedRow row1 = new MaterializedRow(6, 1, "Alice", "Smith", "alice.smith@example.com",
+                "555-0101", LocalDate.of(2025, 1, 15));
+        assertEquals(result.getMaterializedRows().get(0), row1);
+        MaterializedRow row5 = new MaterializedRow(6, 5, "Eva", "Martinez", "eva.martinez@example.com",
+                "555-0105", LocalDate.of(2026, 1, 20));
+        assertEquals(result.getMaterializedRows().get(4), row5);
+    }
+
+    @Test
     public void testColumnMappingDroppedColumnsSchema()
     {
         Session session = Session.builder(getSession()).build();
@@ -119,11 +184,41 @@ public class TestColumnMapping
     }
 
     @Test
+    public void testColumnMappingDroppedAndPartitionedColumnsSchema()
+    {
+        Session session = Session.builder(getSession()).build();
+        String query = format("SHOW COLUMNS FROM \"%s\".\"%s\"", PATH_SCHEMA,
+                goldenTablePathWithPrefix(DELTA_V3, "cm_drop_partitioned"));
+        MaterializedResult result = computeActual(session, query);
+        assertEquals(result.getMaterializedRows().size(), 4);
+        assertEquals(result.getMaterializedRows().get(0).getField(0), "id");
+        assertEquals(result.getMaterializedRows().get(1).getField(0), "first_name");
+        assertEquals(result.getMaterializedRows().get(2).getField(0), "last_name");
+        assertEquals(result.getMaterializedRows().get(3).getField(0), "signup_date");
+    }
+
+    @Test
     public void testColumnMappingDroppedColumns()
     {
         Session session = Session.builder(getSession()).build();
         String query = format("SELECT * FROM \"%s\".\"%s\" ORDER BY id", PATH_SCHEMA,
                 goldenTablePathWithPrefix(DELTA_V3, "cm_drop"));
+        MaterializedResult result = computeActual(session, query);
+        assertEquals(result.getMaterializedRows().size(), 5);
+        MaterializedRow row1 = new MaterializedRow(5, 1, "Alice", "Smith",
+                LocalDate.of(2025, 1, 15));
+        assertEquals(result.getMaterializedRows().get(0), row1);
+        MaterializedRow row5 = new MaterializedRow(5, 5, "Eva", "Martinez",
+                LocalDate.of(2026, 1, 20));
+        assertEquals(result.getMaterializedRows().get(4), row5);
+    }
+
+    @Test
+    public void testColumnMappingDroppedAndPartitionedColumns()
+    {
+        Session session = Session.builder(getSession()).build();
+        String query = format("SELECT * FROM \"%s\".\"%s\" ORDER BY id", PATH_SCHEMA,
+                goldenTablePathWithPrefix(DELTA_V3, "cm_drop_partitioned"));
         MaterializedResult result = computeActual(session, query);
         assertEquals(result.getMaterializedRows().size(), 5);
         MaterializedRow row1 = new MaterializedRow(5, 1, "Alice", "Smith",
