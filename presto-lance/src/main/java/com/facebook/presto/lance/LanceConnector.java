@@ -22,12 +22,15 @@ import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorPlanOptimizerProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
+import com.facebook.presto.spi.function.table.ConnectorTableFunction;
 import com.facebook.presto.spi.session.PropertyMetadata;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.google.common.collect.ImmutableSet;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,6 +47,7 @@ public class LanceConnector
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final LanceSessionProperties sessionProperties;
     private final ConnectorPlanOptimizerProvider planOptimizerProvider;
+    private final Set<ConnectorTableFunction> tableFunctions;
 
     @Inject
     public LanceConnector(
@@ -54,7 +58,8 @@ public class LanceConnector
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider,
             LanceSessionProperties sessionProperties,
-            ConnectorPlanOptimizerProvider planOptimizerProvider)
+            ConnectorPlanOptimizerProvider planOptimizerProvider,
+            Set<ConnectorTableFunction> tableFunctions)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -64,6 +69,7 @@ public class LanceConnector
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
         this.planOptimizerProvider = requireNonNull(planOptimizerProvider, "planOptimizerProvider is null");
+        this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
     }
 
     @Override
@@ -100,6 +106,12 @@ public class LanceConnector
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties.getSessionProperties();
+    }
+
+    @Override
+    public Set<ConnectorTableFunction> getTableFunctions()
+    {
+        return tableFunctions;
     }
 
     @Override

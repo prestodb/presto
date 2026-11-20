@@ -37,7 +37,10 @@ import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -45,24 +48,83 @@ import static java.util.Objects.requireNonNull;
 public class LanceColumnHandle
         implements ColumnHandle
 {
+    /**
+     * Synthetic column used by row-level UPDATE to carry the row id plus all
+     * unmodified columns, mirroring Iceberg's {@code $row_id} struct column.
+     */
+    public static final String UPDATE_ROW_ID_COLUMN_NAME = "$row_id";
+
+    public enum ColumnHandleType
+    {
+        /** A regular table column read from Lance storage. */
+        REGULAR,
+        /** The {@code _rowaddr} metadata column used as the DELETE row id. */
+        ROW_ADDRESS,
+        /** The synthetic struct row id used by UPDATE (row address + unmodified columns). */
+        UPDATE_ROW_ID,
+        /** The {@code _distance} column Lance appends to the batches of a nearest (ANN) scan. */
+        DISTANCE,
+    }
+
     private final String columnName;
     private final Type columnType;
     private final boolean nullable;
+    private final ColumnHandleType columnHandleType;
 
     @JsonCreator
     public LanceColumnHandle(
             @JsonProperty("columnName") String columnName,
             @JsonProperty("columnType") Type columnType,
-            @JsonProperty("nullable") boolean nullable)
+            @JsonProperty("nullable") boolean nullable,
+            @JsonProperty("columnHandleType") ColumnHandleType columnHandleType)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
+        this.columnHandleType = columnHandleType == null ? ColumnHandleType.REGULAR : columnHandleType;
+    }
+
+    public LanceColumnHandle(String columnName, Type columnType, boolean nullable)
+    {
+        this(columnName, columnType, nullable, ColumnHandleType.REGULAR);
     }
 
     public LanceColumnHandle(String columnName, Type columnType)
     {
-        this(columnName, columnType, true);
+        this(columnName, columnType, true, ColumnHandleType.REGULAR);
+    }
+
+    /**
+     * The {@code _rowaddr} metadata column used as the row id for DELETE.
+     */
+    public static LanceColumnHandle rowAddressColumn()
+    {
+        return new LanceColumnHandle(RowAddress.ROW_ADDRESS_COLUMN_NAME, BigintType.BIGINT, false, ColumnHandleType.ROW_ADDRESS);
+    }
+
+    /**
+     * The synthetic {@code $row_id} struct column used by UPDATE. Its first field is the
+     * row address, followed by every column that is not being updated, so the connector
+     * can re-emit the full row when rewriting it.
+     */
+    public static LanceColumnHandle updateRowIdColumn(List<LanceColumnHandle> unmodifiedColumns)
+    {
+        List<RowType.Field> fields = new ArrayList<>();
+        fields.add(new RowType.Field(Optional.of(RowAddress.ROW_ADDRESS_COLUMN_NAME), BigintType.BIGINT));
+        for (LanceColumnHandle column : unmodifiedColumns) {
+            fields.add(new RowType.Field(Optional.of(column.getColumnName()), column.getColumnType()));
+        }
+        return new LanceColumnHandle(UPDATE_ROW_ID_COLUMN_NAME, RowType.from(fields), false, ColumnHandleType.UPDATE_ROW_ID);
+    }
+
+    /**
+     * The {@code _distance} column emitted by a Lance nearest scan (REAL, smaller = nearer
+     * for every metric). Not a stored column: it must be excluded from the Lance projection
+     * list and is materialized from the scan batches by name.
+     */
+    public static LanceColumnHandle distanceColumn()
+    {
+        return new LanceColumnHandle(LanceVectorSearch.DISTANCE_COLUMN_NAME, RealType.REAL, false, ColumnHandleType.DISTANCE);
     }
 
     @JsonProperty
@@ -81,6 +143,32 @@ public class LanceColumnHandle
     public boolean isNullable()
     {
         return nullable;
+    }
+
+    @JsonProperty
+    public ColumnHandleType getColumnHandleType()
+    {
+        return columnHandleType;
+    }
+
+    public boolean isRowAddress()
+    {
+        return columnHandleType == ColumnHandleType.ROW_ADDRESS;
+    }
+
+    public boolean isUpdateRowId()
+    {
+        return columnHandleType == ColumnHandleType.UPDATE_ROW_ID;
+    }
+
+    public boolean isDistance()
+    {
+        return columnHandleType == ColumnHandleType.DISTANCE;
+    }
+
+    public boolean isSynthetic()
+    {
+        return columnHandleType != ColumnHandleType.REGULAR;
     }
 
     public ColumnMetadata getColumnMetadata()
@@ -190,7 +278,7 @@ public class LanceColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(columnName, columnType);
+        return Objects.hash(columnName, columnType, columnHandleType);
     }
 
     @Override
@@ -204,7 +292,8 @@ public class LanceColumnHandle
         }
         LanceColumnHandle other = (LanceColumnHandle) obj;
         return Objects.equals(this.columnName, other.columnName) &&
-                Objects.equals(this.columnType, other.columnType);
+                Objects.equals(this.columnType, other.columnType) &&
+                this.columnHandleType == other.columnHandleType;
     }
 
     @Override
@@ -214,6 +303,7 @@ public class LanceColumnHandle
                 .add("columnName", columnName)
                 .add("columnType", columnType)
                 .add("nullable", nullable)
+                .add("columnHandleType", columnHandleType)
                 .toString();
     }
 }

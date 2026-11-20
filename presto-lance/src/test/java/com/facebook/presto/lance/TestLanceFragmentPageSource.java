@@ -193,7 +193,7 @@ public class TestLanceFragmentPageSource
 
     private Map<String, ColumnHandle> getColumnHandles()
     {
-        LanceMetadata metadata = new LanceMetadata(namespaceHolder, jsonCodec(LanceCommitTaskData.class));
+        LanceMetadata metadata = new LanceMetadata(namespaceHolder, jsonCodec(LanceCommitTaskData.class), jsonCodec(LanceMergeCommitData.class));
         return metadata.getColumnHandles(null, tableHandle);
     }
 }

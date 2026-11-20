@@ -21,6 +21,7 @@ import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
 import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
+import com.facebook.presto.spi.function.TableFunctionHandleResolver;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Injector;
@@ -28,6 +29,7 @@ import com.google.inject.TypeLiteral;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public class LanceConnectorFactory
@@ -58,6 +60,12 @@ public class LanceConnectorFactory
     public ConnectorHandleResolver getHandleResolver()
     {
         return new LanceHandleResolver();
+    }
+
+    @Override
+    public Optional<TableFunctionHandleResolver> getTableFunctionHandleResolver()
+    {
+        return Optional.of(() -> ImmutableSet.of(LanceVectorSearchFunctionHandle.class));
     }
 
     @Override
