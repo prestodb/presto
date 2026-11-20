@@ -19,6 +19,7 @@ import com.facebook.presto.common.type.UuidType;
 import com.facebook.presto.parquet.RichColumnDescriptor;
 import io.airlift.slice.Slice;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.PrimitiveType;
 
 import static com.facebook.presto.common.type.Chars.isCharType;
 import static com.facebook.presto.common.type.Chars.truncateToLengthAndTrimSpaces;
@@ -43,7 +44,7 @@ public class BinaryColumnReader
             Binary binary = valuesReader.readBytes();
             Slice value;
 
-            if (type instanceof UuidType) {
+            if (type instanceof UuidType || isUuidColumn()) {
                 byte[] src = binary.getBytes();
                 blockBuilder.writeLong(getLongBigEndian(src, 0));
                 blockBuilder.writeLong(getLongBigEndian(src, Long.BYTES));
@@ -68,6 +69,12 @@ public class BinaryColumnReader
         else if (isValueNull()) {
             blockBuilder.appendNull();
         }
+    }
+
+    private boolean isUuidColumn()
+    {
+        return columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY
+                && columnDescriptor.getPrimitiveType().getTypeLength() == 16;
     }
 
     @Override
