@@ -162,6 +162,12 @@
             <artifactId>mockwebserver3</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp-tls</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

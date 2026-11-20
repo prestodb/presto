@@ -144,7 +144,8 @@ public class Console
                 !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization,
                 !clientOptions.disableRedirects,
                 clientOptions.externalAuthentication,
-                clientOptions.externalAuthenticationRedirectHandler)) {
+                clientOptions.externalAuthenticationRedirectHandler,
+                ImmutableSet.copyOf(clientOptions.trustedRedirectHosts))) {
             if (hasQuery) {
                 return executeCommand(queryRunner, query, clientOptions.outputFormat, clientOptions.ignoreErrors);
             }

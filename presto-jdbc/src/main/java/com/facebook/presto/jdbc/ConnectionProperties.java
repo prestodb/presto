@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 
+import static com.facebook.presto.client.OkHttpUtil.normalizeTrustedRedirectHosts;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.ClassListConverter.CLASS_LIST_CONVERTER;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.HttpProtocolConverter.HTTP_PROTOCOL_CONVERTER;
 import static com.facebook.presto.jdbc.AbstractConnectionProperty.ListValidateConvertor.LIST_VALIDATE_CONVERTOR;
@@ -62,6 +63,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<File> KERBEROS_KEYTAB_PATH = new KerberosKeytabPath();
     public static final ConnectionProperty<File> KERBEROS_CREDENTIAL_CACHE_PATH = new KerberosCredentialCachePath();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
+    public static final ConnectionProperty<Set<String>> TRUSTED_REDIRECT_HOSTS = new TrustedRedirectHosts();
     public static final ConnectionProperty<String> TIMEZONE_ID = new TimeZoneId();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
     public static final ConnectionProperty<Map<String, String>> CUSTOM_HEADERS = new CustomHeaders();
@@ -100,6 +102,7 @@ final class ConnectionProperties
             .add(KERBEROS_KEYTAB_PATH)
             .add(KERBEROS_CREDENTIAL_CACHE_PATH)
             .add(ACCESS_TOKEN)
+            .add(TRUSTED_REDIRECT_HOSTS)
             .add(TIMEZONE_ID)
             .add(EXTRA_CREDENTIALS)
             .add(CUSTOM_HEADERS)
@@ -337,6 +340,22 @@ final class ConnectionProperties
         public AccessToken()
         {
             super("accessToken", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class TrustedRedirectHosts
+            extends AbstractConnectionProperty<Set<String>>
+    {
+        private static final Splitter HOST_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+
+        public TrustedRedirectHosts()
+        {
+            super("trustedRedirectHosts", NOT_REQUIRED, ALLOWED, TrustedRedirectHosts::parse);
+        }
+
+        public static Set<String> parse(String value)
+        {
+            return normalizeTrustedRedirectHosts(ImmutableSet.copyOf(HOST_SPLITTER.split(value)));
         }
     }
 
