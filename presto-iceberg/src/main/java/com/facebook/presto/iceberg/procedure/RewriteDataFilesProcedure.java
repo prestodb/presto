@@ -23,6 +23,7 @@ import com.facebook.presto.iceberg.IcebergColumnHandle;
 import com.facebook.presto.iceberg.IcebergDistributedProcedureHandle;
 import com.facebook.presto.iceberg.IcebergTableHandle;
 import com.facebook.presto.iceberg.IcebergTableLayoutHandle;
+import com.facebook.presto.iceberg.IcebergWriteLocation;
 import com.facebook.presto.iceberg.PartitionData;
 import com.facebook.presto.iceberg.RuntimeStatsMetricsReporter;
 import com.facebook.presto.iceberg.SortField;
@@ -281,16 +282,18 @@ public class RewriteDataFilesProcedure
                         .add(new SortField(Z_ORDER.getId(), com.facebook.presto.common.block.SortOrder.ASC_NULLS_LAST))
                         .build();
             }
+            IcebergWriteLocation writeLocation = IcebergWriteLocation.forTable(icebergTable);
             return new IcebergDistributedProcedureHandle(
                     tableHandle.getSchemaName(),
                     tableHandle.getIcebergTableName(),
                     toPrestoSchema(icebergTable.schema(), typeManager),
                     toPrestoPartitionSpec(icebergTable.spec(), typeManager),
                     getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
-                    icebergTable.location(),
+                    writeLocation.getLocation(),
+                    writeLocation.isIncludePartitionPaths(),
                     getFileFormat(icebergTable),
                     getCompressionCodec(session),
-                    icebergTable.properties(),
+                    writeLocation.getStorageProperties(),
                     layoutHandle,
                     sortFields,
                     ImmutableMap.of());

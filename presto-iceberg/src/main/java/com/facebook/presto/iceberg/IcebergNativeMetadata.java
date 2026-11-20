@@ -505,16 +505,18 @@ public class IcebergNativeMetadata
             throw new PrestoException(ICEBERG_COMMIT_ERROR, "Failed to set the sorted_by property", e);
         }
 
+        IcebergWriteLocation writeLocation = getWriteLocation(session, icebergTable);
         return new IcebergOutputTableHandle(
                 schemaName,
                 new IcebergTableName(tableName, DATA, Optional.empty(), Optional.empty(), Optional.empty()),
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
                 getColumnsForWrite(icebergTable.schema(), icebergTable.spec(), typeManager),
-                icebergTable.location(),
+                writeLocation.getLocation(),
+                writeLocation.isIncludePartitionPaths(),
                 fileFormat,
                 getCompressionCodec(session),
-                icebergTable.properties(),
+                writeLocation.getStorageProperties(),
                 sortFields);
     }
 

@@ -430,6 +430,7 @@ public class IcebergHiveMetadata
                 toPrestoPartitionSpec(metadata.spec(), typeManager),
                 getColumnsForWrite(metadata.schema(), metadata.spec(), typeManager),
                 targetPath,
+                true,
                 fileFormat,
                 getCompressionCodec(session),
                 metadata.properties(),

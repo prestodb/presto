@@ -64,6 +64,7 @@ public class IcebergDeleteTableHandle
             @JsonProperty("partitionSpec") PrestoIcebergPartitionSpec partitionSpec,
             @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
             @JsonProperty("outputPath") String outputPath,
+            @JsonProperty("includePartitionPaths") Boolean includePartitionPaths,
             @JsonProperty("fileFormat") FileFormat fileFormat,
             @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec,
             @JsonProperty("storageProperties") Map<String, String> storageProperties,
@@ -79,6 +80,8 @@ public class IcebergDeleteTableHandle
                 partitionSpec,
                 inputColumns,
                 outputPath,
+                // Absent from coordinators that predate the field: keep the legacy layout.
+                includePartitionPaths == null || includePartitionPaths,
                 fileFormat,
                 compressionCodec,
                 storageProperties,

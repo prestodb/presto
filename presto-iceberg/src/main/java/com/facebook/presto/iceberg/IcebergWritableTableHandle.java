@@ -32,6 +32,7 @@ public class IcebergWritableTableHandle
     private final PrestoIcebergPartitionSpec partitionSpec;
     private final List<IcebergColumnHandle> inputColumns;
     private final String outputPath;
+    private final boolean includePartitionPaths;
     private final FileFormat fileFormat;
     private final HiveCompressionCodec compressionCodec;
     private final Map<String, String> storageProperties;
@@ -46,12 +47,13 @@ public class IcebergWritableTableHandle
             PrestoIcebergPartitionSpec partitionSpec,
             List<IcebergColumnHandle> inputColumns,
             String outputPath,
+            boolean includePartitionPaths,
             FileFormat fileFormat,
             HiveCompressionCodec compressionCodec,
             Map<String, String> storageProperties,
             List<SortField> sortOrder)
     {
-        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath, fileFormat, compressionCodec, storageProperties, sortOrder, Optional.empty(), false);
+        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath, includePartitionPaths, fileFormat, compressionCodec, storageProperties, sortOrder, Optional.empty(), false);
     }
 
     public IcebergWritableTableHandle(
@@ -61,13 +63,14 @@ public class IcebergWritableTableHandle
             PrestoIcebergPartitionSpec partitionSpec,
             List<IcebergColumnHandle> inputColumns,
             String outputPath,
+            boolean includePartitionPaths,
             FileFormat fileFormat,
             HiveCompressionCodec compressionCodec,
             Map<String, String> storageProperties,
             List<SortField> sortOrder,
             Optional<SchemaTableName> materializedViewName)
     {
-        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath, fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false);
+        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath, includePartitionPaths, fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false);
     }
 
     public IcebergWritableTableHandle(
@@ -77,6 +80,7 @@ public class IcebergWritableTableHandle
             PrestoIcebergPartitionSpec partitionSpec,
             List<IcebergColumnHandle> inputColumns,
             String outputPath,
+            boolean includePartitionPaths,
             FileFormat fileFormat,
             HiveCompressionCodec compressionCodec,
             Map<String, String> storageProperties,
@@ -90,6 +94,7 @@ public class IcebergWritableTableHandle
         this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
         this.outputPath = requireNonNull(outputPath, "filePrefix is null");
+        this.includePartitionPaths = includePartitionPaths;
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
@@ -132,6 +137,12 @@ public class IcebergWritableTableHandle
     public String getOutputPath()
     {
         return outputPath;
+    }
+
+    @JsonProperty
+    public boolean isIncludePartitionPaths()
+    {
+        return includePartitionPaths;
     }
 
     @JsonProperty
