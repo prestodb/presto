@@ -27,6 +27,7 @@ public final class DeltaSessionProperties
 {
     private static final String CACHE_ENABLED = "cache_enabled";
     public static final String PARQUET_DEREFERENCE_PUSHDOWN_ENABLED = "parquet_dereference_pushdown_enabled";
+    private static final String STATISTICS_ENABLED = "statistics_enabled";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -46,6 +47,11 @@ public final class DeltaSessionProperties
                         PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
                         "Is dereference pushdown expression pushdown into Parquet reader enabled?",
                         deltaConfigConfig.isParquetDereferencePushdownEnabled(),
+                        false),
+                booleanProperty(
+                        STATISTICS_ENABLED,
+                        "Enable table statistics derived from the Delta transaction log",
+                        deltaConfigConfig.isTableStatisticsEnabled(),
                         false));
     }
 
@@ -57,5 +63,10 @@ public final class DeltaSessionProperties
     public static boolean isParquetDereferencePushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_DEREFERENCE_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static boolean isTableStatisticsEnabled(ConnectorSession session)
+    {
+        return session.getProperty(STATISTICS_ENABLED, Boolean.class);
     }
 }
