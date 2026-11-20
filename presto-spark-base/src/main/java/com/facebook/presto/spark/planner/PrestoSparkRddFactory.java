@@ -195,7 +195,7 @@ public class PrestoSparkRddFactory
         PrestoSparkTaskDescriptor taskDescriptor = new PrestoSparkTaskDescriptor(
                 session.toSessionRepresentation(),
                 session.getIdentity().getExtraCredentials(),
-                fragment,
+                fragment.withoutJsonRepresentation(),
                 tableWriteInfo,
                 nativeTempStorage.serializeHandle(nativeTempStorage.getRootDirectoryHandle()));
         SerializedPrestoSparkTaskDescriptor serializedTaskDescriptor = new SerializedPrestoSparkTaskDescriptor(
