@@ -24,6 +24,7 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.sql.planner.iterative.GroupReference;
 import com.facebook.presto.sql.planner.iterative.Lookup;
 import com.facebook.presto.sql.planner.plan.ApplyNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
@@ -114,6 +115,13 @@ public class ExpressionExtractor
         {
             context.addAll(node.getAssignments().getExpressions().stream().collect(toImmutableList()));
             return super.visitProject(node, context);
+        }
+
+        @Override
+        public Void visitRPC(RPCNode node, ImmutableList.Builder<RowExpression> context)
+        {
+            context.addAll(node.getInputGroupingExpressions());
+            return super.visitRPC(node, context);
         }
 
         @Override

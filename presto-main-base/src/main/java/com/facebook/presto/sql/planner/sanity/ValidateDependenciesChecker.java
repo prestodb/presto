@@ -56,6 +56,7 @@ import com.facebook.presto.spi.plan.UnionNode;
 import com.facebook.presto.spi.plan.UnnestNode;
 import com.facebook.presto.spi.plan.ValuesNode;
 import com.facebook.presto.spi.plan.WindowNode;
+import com.facebook.presto.spi.relation.ConstantExpression;
 import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.VariablesExtractor;
@@ -844,11 +845,20 @@ public final class ValidateDependenciesChecker
         {
             PlanNode source = node.getSource();
             source.accept(this, boundSymbols); // visit child
+            for (RowExpression expression : node.getInputGroupingExpressions()) {
+                checkArgument(source.getOutputVariables().containsAll(VariablesExtractor.extractUnique(expression)),
+                        "Invalid node. RPC grouping references variables not present in source output");
+            }
 
             Set<String> sourceOutputNames = source.getOutputVariables().stream()
                     .map(VariableReferenceExpression::getName)
                     .collect(toImmutableSet());
-            for (String argColumn : node.getArgumentColumns()) {
+            for (int i = 0; i < node.getArgumentColumns().size(); i++) {
+                if (node.getExecutionPhase() != RPCNode.ExecutionPhase.INLINE &&
+                        node.getArguments().get(i) instanceof ConstantExpression) {
+                    continue;
+                }
+                String argColumn = node.getArgumentColumns().get(i);
                 checkArgument(
                         sourceOutputNames.contains(argColumn),
                         "Invalid node. RPCNode argument column (%s) not in source plan output (%s)",

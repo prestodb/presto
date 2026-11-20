@@ -159,9 +159,9 @@ import static com.facebook.presto.spi.connector.ConnectorCapabilities.SUPPORTS_P
 import static com.facebook.presto.spi.storage.StorageCapabilities.REMOTELY_ACCESSIBLE;
 import static com.facebook.presto.sql.planner.PlanFragmenterUtils.isRootFragment;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.getSystemPartitionCount;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedHash;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isFixedRoundRobin;
 import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -339,7 +339,7 @@ public abstract class AbstractPrestoSparkQueryExecution
         if (partitioning.equals(SINGLE_DISTRIBUTION)) {
             return new PrestoSparkPartitioner(1);
         }
-        if (partitioning.equals(FIXED_HASH_DISTRIBUTION)
+        if (isFixedHash(partitioning)
                 || isFixedRoundRobin(partitioning)
                 || partitioning.getConnectorId().isPresent()) {
             int[] bucketToPartition = partitioningScheme.getBucketToPartition().orElseThrow(
@@ -877,11 +877,8 @@ public abstract class AbstractPrestoSparkQueryExecution
     @VisibleForTesting
     static Optional<int[]> getSystemBucketToPartition(PartitioningHandle partitioningHandle, int hashPartitionCount)
     {
-        if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
-            return Optional.of(IntStream.range(0, hashPartitionCount).toArray());
-        }
         // Count-less round-robin handles are used by UNION ALL.
-        if (isFixedRoundRobin(partitioningHandle)) {
+        if (isFixedHash(partitioningHandle) || isFixedRoundRobin(partitioningHandle)) {
             int partitionCount = getSystemPartitionCount(partitioningHandle).orElse(hashPartitionCount);
             return Optional.of(IntStream.range(0, partitionCount).toArray());
         }

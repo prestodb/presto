@@ -22,8 +22,12 @@ import com.facebook.presto.cost.StatsProvider;
 import com.facebook.presto.expressions.DefaultRowExpressionTraversalVisitor;
 import com.facebook.presto.expressions.RowExpressionRewriter;
 import com.facebook.presto.expressions.RowExpressionTreeRewriter;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.operator.scalar.TryFunction;
+import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
+import com.facebook.presto.spi.function.FunctionMetadata;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -39,8 +43,10 @@ import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.SimplePlanRewriter;
+import com.facebook.presto.sql.relational.RowExpressionOptimizer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -59,6 +65,10 @@ import java.util.function.Supplier;
 import static com.facebook.presto.SystemSessionProperties.getRpcDispatchBatchSize;
 import static com.facebook.presto.SystemSessionProperties.getRpcStreamingMode;
 import static com.facebook.presto.SystemSessionProperties.isRpcFunctionOptimizerEnabled;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.function.FunctionKind.SCALAR;
+import static com.facebook.presto.spi.relation.ExpressionOptimizer.Level.OPTIMIZED;
+import static com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -70,6 +80,9 @@ public class RpcFunctionOptimizer
     // Nullable: when absent, the execution policy receives a NaN row estimate.
     private final StatsCalculator statsCalculator;
     private final RpcExecutionPolicy executionPolicy;
+    private final boolean nativePrestoOnSparkExecution;
+    private final FunctionAndTypeManager functionAndTypeManager;
+    private final RpcDeferredExecutionRegistry deferredExecutionRegistry;
 
     public RpcFunctionOptimizer()
     {
@@ -88,9 +101,29 @@ public class RpcFunctionOptimizer
 
     public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier, StatsCalculator statsCalculator, RpcExecutionPolicy executionPolicy)
     {
+        this(rpcFunctionNamesSupplier, statsCalculator, executionPolicy, false);
+    }
+
+    public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier, StatsCalculator statsCalculator, RpcExecutionPolicy executionPolicy, boolean nativePrestoOnSparkExecution)
+    {
+        this(rpcFunctionNamesSupplier, statsCalculator, executionPolicy, nativePrestoOnSparkExecution, null);
+    }
+
+    public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier, StatsCalculator statsCalculator, RpcExecutionPolicy executionPolicy, boolean nativePrestoOnSparkExecution, FunctionAndTypeManager functionAndTypeManager)
+    {
+        this(rpcFunctionNamesSupplier, statsCalculator, executionPolicy, nativePrestoOnSparkExecution, functionAndTypeManager,
+                new DefaultRpcDeferredExecutionRegistry());
+    }
+
+    public RpcFunctionOptimizer(Supplier<Set<String>> rpcFunctionNamesSupplier, StatsCalculator statsCalculator, RpcExecutionPolicy executionPolicy,
+            boolean nativePrestoOnSparkExecution, FunctionAndTypeManager functionAndTypeManager, RpcDeferredExecutionRegistry deferredExecutionRegistry)
+    {
         this.rpcFunctionNamesSupplier = requireNonNull(rpcFunctionNamesSupplier, "rpcFunctionNamesSupplier is null");
         this.statsCalculator = statsCalculator;
         this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
+        this.nativePrestoOnSparkExecution = nativePrestoOnSparkExecution;
+        this.functionAndTypeManager = functionAndTypeManager;
+        this.deferredExecutionRegistry = requireNonNull(deferredExecutionRegistry, "deferredExecutionRegistry is null");
     }
 
     public boolean isRpcFunction(CallExpression call)
@@ -116,14 +149,20 @@ public class RpcFunctionOptimizer
         requireNonNull(idAllocator, "idAllocator is null");
 
         if (!isRpcFunctionOptimizerEnabled(session)) {
+            Rewriter rewriter = new Rewriter(session, idAllocator, variableAllocator, rpcFunctionNamesSupplier, null,
+                    executionPolicy, nativePrestoOnSparkExecution, functionAndTypeManager, deferredExecutionRegistry);
+            rewriter.rejectUnloweredDeferredCalls(plan, "BATCH_DEFERRED requires rpc_function_optimizer_enabled=true");
             return PlanOptimizerResult.optimizerResult(plan, false);
         }
 
         StatsProvider statsProvider = statsCalculator != null
                 ? new CachingStatsProvider(statsCalculator, session, types)
                 : null;
-        Rewriter rewriter = new Rewriter(session, idAllocator, variableAllocator, rpcFunctionNamesSupplier.get(), statsProvider, executionPolicy);
+        Rewriter rewriter = new Rewriter(session, idAllocator, variableAllocator, rpcFunctionNamesSupplier, statsProvider,
+                executionPolicy, nativePrestoOnSparkExecution, functionAndTypeManager, deferredExecutionRegistry);
         PlanNode rewrittenPlan = SimplePlanRewriter.rewriteWith(rewriter, plan, null);
+        rewriter.rejectUnloweredDeferredCalls(rewrittenPlan,
+                "BATCH_DEFERRED does not support RPC calls in this expression shape or inside lambdas");
         return PlanOptimizerResult.optimizerResult(rewrittenPlan, rewriter.isPlanChanged());
     }
 
@@ -133,20 +172,55 @@ public class RpcFunctionOptimizer
         private final Session session;
         private final PlanNodeIdAllocator idAllocator;
         private final VariableAllocator variableAllocator;
-        private final Set<String> rpcFunctionNames;
+        private final Supplier<Set<String>> rpcFunctionNames;
         // Nullable: when null, the execution policy receives a NaN row estimate.
         private final StatsProvider statsProvider;
         private final RpcExecutionPolicy executionPolicy;
+        private final boolean nativePrestoOnSparkExecution;
+        private final FunctionAndTypeManager functionAndTypeManager;
+        private final RowExpressionOptimizer constantOptimizer;
+        private final RpcDeferredExecutionRegistry deferredExecutionRegistry;
         private boolean planChanged;
 
         private Rewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<String> rpcFunctionNames, StatsProvider statsProvider, RpcExecutionPolicy executionPolicy)
         {
+            this(session, idAllocator, variableAllocator, rpcFunctionNames, statsProvider, executionPolicy, false);
+        }
+
+        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<String> rpcFunctionNames, StatsProvider statsProvider, RpcExecutionPolicy executionPolicy, boolean nativePrestoOnSparkExecution)
+        {
+            this(session, idAllocator, variableAllocator, rpcFunctionNames, statsProvider, executionPolicy, nativePrestoOnSparkExecution, null);
+        }
+
+        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<String> rpcFunctionNames, StatsProvider statsProvider, RpcExecutionPolicy executionPolicy, boolean nativePrestoOnSparkExecution, FunctionAndTypeManager functionAndTypeManager)
+        {
+            this(session, idAllocator, variableAllocator, rpcFunctionNames, statsProvider, executionPolicy,
+                    nativePrestoOnSparkExecution, functionAndTypeManager, new DefaultRpcDeferredExecutionRegistry());
+        }
+
+        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Set<String> rpcFunctionNames,
+                StatsProvider statsProvider, RpcExecutionPolicy executionPolicy, boolean nativePrestoOnSparkExecution,
+                FunctionAndTypeManager functionAndTypeManager, RpcDeferredExecutionRegistry deferredExecutionRegistry)
+        {
+            this(session, idAllocator, variableAllocator, () -> rpcFunctionNames, statsProvider, executionPolicy,
+                    nativePrestoOnSparkExecution, functionAndTypeManager, deferredExecutionRegistry);
+        }
+
+        private Rewriter(Session session, PlanNodeIdAllocator idAllocator, VariableAllocator variableAllocator, Supplier<Set<String>> rpcFunctionNames,
+                StatsProvider statsProvider, RpcExecutionPolicy executionPolicy, boolean nativePrestoOnSparkExecution,
+                FunctionAndTypeManager functionAndTypeManager, RpcDeferredExecutionRegistry deferredExecutionRegistry)
+        {
             this.session = requireNonNull(session, "session is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.variableAllocator = requireNonNull(variableAllocator, "variableAllocator is null");
-            this.rpcFunctionNames = requireNonNull(rpcFunctionNames, "rpcFunctionNames is null");
+            requireNonNull(rpcFunctionNames, "rpcFunctionNames is null");
+            this.rpcFunctionNames = Suppliers.memoize(() -> requireNonNull(rpcFunctionNames.get(), "RPC function names are null"))::get;
             this.statsProvider = statsProvider;
             this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
+            this.nativePrestoOnSparkExecution = nativePrestoOnSparkExecution;
+            this.functionAndTypeManager = functionAndTypeManager;
+            this.constantOptimizer = functionAndTypeManager == null ? null : new RowExpressionOptimizer(functionAndTypeManager);
+            this.deferredExecutionRegistry = requireNonNull(deferredExecutionRegistry, "deferredExecutionRegistry is null");
         }
 
         public boolean isPlanChanged()
@@ -196,19 +270,55 @@ public class RpcFunctionOptimizer
             //    constants.
             PlanNode currentSource = rewrittenSource;
             for (ExtractedRpcCall extracted : extractedCalls) {
+                ExtractedRpcCall planned = resolveProjectedOptions(extracted, currentSource);
+                RPCNode.StreamingMode requestedMode = parseStreamingMode(planned.originalCall);
+                int dispatchBatchSize = parseDispatchBatchSize(planned.originalCall);
+                boolean deferred = requestedMode == RPCNode.StreamingMode.BATCH_DEFERRED;
+                if (deferred) {
+                    if (!nativePrestoOnSparkExecution) {
+                        throw new PrestoException(NOT_SUPPORTED, "BATCH_DEFERRED requires native Presto-on-Spark execution");
+                    }
+                }
+                else {
+                    // Resolving options is only a planning aid. Preserve INLINE argument
+                    // expressions for the native receiver.
+                    planned = extracted;
+                }
                 // Resolve the streaming mode against rewrittenSource (the input feeding the whole
                 // chain). Every RPC call in this ProjectNode, and the projections interleaved
                 // between them, are row-count-preserving, so they all share rewrittenSource's
                 // cardinality. Using rewrittenSource (rather than walking currentSource onto the
                 // prior RPCNode) keeps the estimate well-defined even if no stats rule exists for
                 // RPCNode.
-                int dispatchBatchSize = parseDispatchBatchSize(extracted.originalCall);
                 RpcExecutionProperties executionProperties = resolveExecutionProperties(
-                        extracted.originalCall,
+                        planned.originalCall,
                         rewrittenSource,
-                        dispatchBatchSize);
+                        dispatchBatchSize,
+                        requestedMode);
 
-                List<RowExpression> substitutedArgs = extracted.substitutedCall.getArguments();
+                if (deferred) {
+                    PlanNode planningSource = currentSource;
+                    RpcDeferredPlanningContext planningContext = new RpcDeferredPlanningContext(planned.substitutedCall, session,
+                            deferredExecutionRegistry.argumentLayout(planned.substitutedCall), dispatchBatchSize, executionProperties,
+                            expression -> resolveConstant(expression, planningSource));
+                    DeferredRpcExecution execution = deferredExecutionRegistry.resolve(planningContext).orElseThrow(() ->
+                            new PrestoException(NOT_SUPPORTED, "No BATCH_DEFERRED execution provider supports call " + extracted.originalCall.getDisplayName()));
+                    ImmutableSet.Builder<VariableReferenceExpression> required = ImmutableSet.builder();
+                    for (RowExpression assignment : newAssignments.build().getMap().values()) {
+                        required.addAll(extractFreeVariables(assignment));
+                    }
+                    int nextCall = extractedCalls.indexOf(extracted) + 1;
+                    for (int callIndex = nextCall; callIndex < extractedCalls.size(); callIndex++) {
+                        for (RowExpression argument : extractedCalls.get(callIndex).substitutedCall.getArguments()) {
+                            required.addAll(extractFreeVariables(argument));
+                        }
+                    }
+                    currentSource = DeferredRpcPlanBuilder.build(node.getSourceLocation(), currentSource, planned.resultVar,
+                            required.build(), execution, session, variableAllocator, idAllocator, functionAndTypeManager);
+                    continue;
+                }
+
+                List<RowExpression> substitutedArgs = planned.substitutedCall.getArguments();
                 ImmutableList.Builder<String> argumentColumns = ImmutableList.builder();
                 Assignments.Builder projections = Assignments.builder();
                 boolean needsProjection = false;
@@ -249,8 +359,8 @@ public class RpcFunctionOptimizer
                         node.getSourceLocation(),
                         idAllocator.getNextId(),
                         currentSource,
-                        extracted.originalCall.getDisplayName(),
-                        extracted.originalCall.getArguments(),
+                        planned.originalCall.getDisplayName(),
+                        planned.originalCall.getArguments(),
                         argumentColumns.build(),
                         extracted.resultVar,
                         executionProperties.getStreamingMode(),
@@ -266,6 +376,152 @@ public class RpcFunctionOptimizer
                     currentSource,
                     newAssignments.build(),
                     node.getLocality());
+        }
+
+        private ExtractedRpcCall resolveProjectedOptions(ExtractedRpcCall extracted, PlanNode source)
+        {
+            int index = optionsArgumentIndex(extracted.substitutedCall);
+            if (index < 0) {
+                return extracted;
+            }
+            Optional<ConstantExpression> options = resolveConstant(extracted.substitutedCall.getArguments().get(index), source);
+            if (!options.isPresent()) {
+                return extracted;
+            }
+            return new ExtractedRpcCall(replaceArgument(extracted.originalCall, index, options.get()),
+                    replaceArgument(extracted.substitutedCall, index, options.get()), extracted.resultVar);
+        }
+
+        private static CallExpression replaceArgument(CallExpression call, int index, RowExpression argument)
+        {
+            if (call.getArguments().get(index).equals(argument)) {
+                return call;
+            }
+            List<RowExpression> arguments = new ArrayList<>(call.getArguments());
+            arguments.set(index, argument);
+            return new CallExpression(call.getSourceLocation(), call.getDisplayName(), call.getFunctionHandle(), call.getType(), arguments);
+        }
+
+        private int optionsArgumentIndex(CallExpression call)
+        {
+            RpcArgumentLayout layout = deferredExecutionRegistry.argumentLayout(call);
+            return layout.getOptionsArgumentIndex().isPresent() ? layout.getOptionsArgumentIndex().getAsInt() : -1;
+        }
+
+        private void rejectUnloweredDeferredCalls(PlanNode node, String message)
+        {
+            PlanNode source = node.getSources().size() == 1 ? node.getSources().get(0) : node;
+            for (RowExpression expression : extractExpressionsNonRecursive(node)) {
+                rejectUnloweredDeferredCalls(expression, source, ImmutableSet.of(), message);
+            }
+            node.getSources().forEach(child -> rejectUnloweredDeferredCalls(child, message));
+        }
+
+        private void rejectUnloweredDeferredCalls(RowExpression expression, PlanNode source, Set<String> boundNames, String message)
+        {
+            if (expression instanceof LambdaDefinitionExpression) {
+                LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) expression;
+                Set<String> scope = ImmutableSet.<String>builder().addAll(boundNames).addAll(lambda.getArguments()).build();
+                rejectUnloweredDeferredCalls(lambda.getBody(), source, scope, message);
+                return;
+            }
+            if (expression instanceof SpecialFormExpression &&
+                    ((SpecialFormExpression) expression).getForm() == SpecialFormExpression.Form.BIND) {
+                List<RowExpression> arguments = ((SpecialFormExpression) expression).getArguments();
+                RowExpression function = arguments.get(arguments.size() - 1);
+                if (function instanceof LambdaDefinitionExpression) {
+                    LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) function;
+                    Map<String, RowExpression> bindings = new LinkedHashMap<>();
+                    for (int index = 0; index < arguments.size() - 1; index++) {
+                        bindings.put(lambda.getArguments().get(index), arguments.get(index));
+                        rejectUnloweredDeferredCalls(arguments.get(index), source, boundNames, message);
+                    }
+                    Set<String> scope = ImmutableSet.<String>builder().addAll(boundNames)
+                            .addAll(lambda.getArguments().subList(arguments.size() - 1, lambda.getArguments().size())).build();
+                    rejectUnloweredDeferredCalls(VariableSubstitutor.substitute(lambda.getBody(), bindings), source, scope, message);
+                    return;
+                }
+            }
+            if (expression instanceof CallExpression) {
+                CallExpression call = (CallExpression) expression;
+                if (rpcFunctionNames.get().contains(call.getDisplayName().toLowerCase(Locale.ENGLISH))) {
+                    int index = optionsArgumentIndex(call);
+                    if (index >= 0 && extractFreeVariables(call.getArguments().get(index)).stream()
+                                .noneMatch(variable -> boundNames.contains(variable.getName()))) {
+                        Optional<ConstantExpression> options = resolveConstant(call.getArguments().get(index), source);
+                        if (options.isPresent()) {
+                            call = replaceArgument(call, index, options.get());
+                        }
+                    }
+                    if (parseStreamingMode(call) == RPCNode.StreamingMode.BATCH_DEFERRED) {
+                        throw new PrestoException(NOT_SUPPORTED, String.format("%s (call %s)", message, call.getDisplayName()));
+                    }
+                }
+            }
+            expression.getChildren().forEach(child -> rejectUnloweredDeferredCalls(child, source, boundNames, message));
+        }
+
+        private Optional<ConstantExpression> resolveConstant(RowExpression expression, PlanNode source)
+        {
+            if (expression instanceof ConstantExpression) {
+                return Optional.of((ConstantExpression) expression);
+            }
+            if (expression instanceof VariableReferenceExpression) {
+                if (!source.getOutputVariables().contains(expression)) {
+                    return Optional.empty();
+                }
+                if (source instanceof ProjectNode) {
+                    ProjectNode project = (ProjectNode) source;
+                    RowExpression assignment = project.getAssignments().getMap().get(expression);
+                    return assignment == null ? Optional.empty() : resolveConstant(assignment, project.getSource());
+                }
+                if (source.getSources().size() == 1) {
+                    PlanNode child = source.getSources().get(0);
+                    boolean passthrough = source.getOutputVariables().equals(child.getOutputVariables()) ||
+                            (source instanceof RPCNode && !((RPCNode) source).getOutputVariable().equals(expression));
+                    if (passthrough) {
+                        return resolveConstant(expression, child);
+                    }
+                }
+                return Optional.empty();
+            }
+            if (constantOptimizer == null) {
+                return Optional.empty();
+            }
+            if (!isSafeLocalExpression(expression)) {
+                return Optional.empty();
+            }
+            Map<VariableReferenceExpression, ConstantExpression> constants = new LinkedHashMap<>();
+            for (VariableReferenceExpression variable : extractFreeVariables(expression)) {
+                Optional<ConstantExpression> constant = resolveConstant(variable, source);
+                if (!constant.isPresent()) {
+                    return Optional.empty();
+                }
+                constants.put(variable, constant.get());
+            }
+            RowExpression optimized = TryFunction.evaluate(() -> constantOptimizer.optimize(expression, OPTIMIZED, session.toConnectorSession(),
+                    variable -> constants.containsKey(variable) ? constants.get(variable).getValue() : variable), null);
+            return optimized instanceof ConstantExpression ? Optional.of((ConstantExpression) optimized) : Optional.empty();
+        }
+
+        private boolean isSafeLocalExpression(RowExpression expression)
+        {
+            if (expression instanceof CallExpression) {
+                CallExpression call = (CallExpression) expression;
+                FunctionMetadata metadata = functionAndTypeManager.getFunctionMetadata(call.getFunctionHandle());
+                if (!metadata.isDeterministic() || metadata.getFunctionKind() != SCALAR ||
+                        !metadata.getImplementationType().canBeEvaluatedInCoordinator()) {
+                    return false;
+                }
+                if (rpcFunctionNames.get().contains(call.getDisplayName().toLowerCase(Locale.ENGLISH))) {
+                    return false;
+                }
+            }
+            else if (!(expression instanceof ConstantExpression) && !(expression instanceof VariableReferenceExpression) &&
+                    !(expression instanceof SpecialFormExpression)) {
+                return false;
+            }
+            return expression.getChildren().stream().allMatch(this::isSafeLocalExpression);
         }
 
         private RowExpressionRewriter<RpcExtractionContext> createRpcRewriter()
@@ -287,7 +543,7 @@ public class RpcFunctionOptimizer
                         }
                     }
 
-                    if (!rpcFunctionNames.contains(
+                    if (!rpcFunctionNames.get().contains(
                             node.getDisplayName().toLowerCase(Locale.ENGLISH))) {
                         return null;
                     }
@@ -503,7 +759,7 @@ public class RpcFunctionOptimizer
         {
             if (expression instanceof CallExpression) {
                 CallExpression call = (CallExpression) expression;
-                if (rpcFunctionNames.contains(call.getDisplayName().toLowerCase(Locale.ENGLISH))) {
+                if (rpcFunctionNames.get().contains(call.getDisplayName().toLowerCase(Locale.ENGLISH))) {
                     return true;
                 }
                 return call.getArguments().stream().anyMatch(this::containsRpcFunction);
@@ -650,11 +906,13 @@ public class RpcFunctionOptimizer
 
         private Optional<JsonNode> parseOptionsJson(CallExpression rpcCall)
         {
-            List<RowExpression> args = rpcCall.getArguments();
-            if (args.size() < 3) {
-                return Optional.empty();
-            }
-            ConstantExpression optionsArg = extractConstant(args.get(args.size() - 1));
+            int index = optionsArgumentIndex(rpcCall);
+            return index < 0 ? Optional.empty() : parseOptionsJson(rpcCall.getArguments().get(index));
+        }
+
+        private Optional<JsonNode> parseOptionsJson(RowExpression expression)
+        {
+            ConstantExpression optionsArg = extractConstant(expression);
             if (optionsArg == null || optionsArg.getValue() == null) {
                 return Optional.empty();
             }
@@ -679,14 +937,15 @@ public class RpcFunctionOptimizer
         // policy returns the resolved RpcExecutionProperties. AUTOMATIC is resolved here so the
         // RPCNode never carries it. The default policy carries no batching heuristic
         // (AUTOMATIC -> PER_ROW, no overrides); a deployment may bind a stats-driven policy.
-        private RpcExecutionProperties resolveExecutionProperties(CallExpression rpcCall, PlanNode source, int dispatchBatchSize)
+        private RpcExecutionProperties resolveExecutionProperties(CallExpression rpcCall, PlanNode source, int dispatchBatchSize, RPCNode.StreamingMode requested)
         {
-            RPCNode.StreamingMode requested = parseStreamingMode(rpcCall);
+            RPCNode.StreamingMode policyMode = requested == RPCNode.StreamingMode.BATCH_DEFERRED
+                    ? RPCNode.StreamingMode.BATCH : requested;
             PlanNodeStatsEstimate sourceStats = statsProvider == null
                     ? PlanNodeStatsEstimate.unknown()
                     : statsProvider.getStats(source);
             RpcExecutionIntent intent = RpcExecutionIntent.builder()
-                    .setRequestedMode(requested)
+                    .setRequestedMode(policyMode)
                     .setInputStats(sourceStats)
                     .setSession(session)
                     .setFunctionName(rpcCall.getDisplayName())
@@ -698,21 +957,27 @@ public class RpcFunctionOptimizer
             // by passing the requested mode through) would otherwise leak it into the serialized
             // RPCNode and fail at the native worker, far from the offending policy.
             checkArgument(
-                    properties.getStreamingMode() != RPCNode.StreamingMode.AUTOMATIC,
-                    "RpcExecutionPolicy must return a concrete streaming mode, not AUTOMATIC (call %s)",
+                    properties.getStreamingMode() == RPCNode.StreamingMode.PER_ROW || properties.getStreamingMode() == RPCNode.StreamingMode.BATCH,
+                    "RpcExecutionPolicy must return PER_ROW or BATCH, not AUTOMATIC or BATCH_DEFERRED (call %s)",
                     rpcCall.getDisplayName());
+            checkArgument(requested != RPCNode.StreamingMode.BATCH_DEFERRED || properties.getStreamingMode() == RPCNode.StreamingMode.BATCH,
+                    "RpcExecutionPolicy must preserve BATCH for BATCH_DEFERRED (call %s)", rpcCall.getDisplayName());
             return properties;
         }
 
         private RPCNode.StreamingMode parseStreamingMode(CallExpression rpcCall)
         {
             // Per-function override from constant options JSON takes precedence.
-            Optional<RPCNode.StreamingMode> fromJson = parseOptionsJson(rpcCall)
-                    .map(json -> json.path("streaming_mode").asText(""))
-                    .filter(mode -> mode.equalsIgnoreCase("batch"))
-                    .map(mode -> RPCNode.StreamingMode.BATCH);
-            if (fromJson.isPresent()) {
-                return fromJson.get();
+            Optional<JsonNode> options = parseOptionsJson(rpcCall);
+            if (options.isPresent() && options.get().has("streaming_mode")) {
+                JsonNode mode = options.get().get("streaming_mode");
+                if (mode.isTextual()) {
+                    for (RPCNode.StreamingMode candidate : RPCNode.StreamingMode.values()) {
+                        if (candidate.name().equalsIgnoreCase(mode.asText())) {
+                            return candidate;
+                        }
+                    }
+                }
             }
             // Fall back to session property.
             return getRpcStreamingMode(session);

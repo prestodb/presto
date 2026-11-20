@@ -17,6 +17,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -25,12 +26,68 @@
 #include "presto_cpp/main/types/PrestoToVeloxExpr.h"
 #include "presto_cpp/main/types/TypeParser.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
+#include "velox/common/base/Exceptions.h"
 #include "velox/core/Expressions.h"
 #include "velox/core/PlanFragment.h"
 #include "velox/core/PlanNode.h"
 #include "velox/type/Variant.h"
 
 namespace facebook::presto {
+
+namespace detail {
+
+template <typename RpcNode = velox::core::RPCNode>
+inline constexpr bool kSupportsRpcExecutionPhases = std::is_constructible_v<
+    RpcNode,
+    const velox::core::PlanNodeId&,
+    velox::core::PlanNodePtr,
+    velox::core::CallTypedExprPtr,
+    std::string,
+    velox::RowTypePtr,
+    velox::rpc::RPCStreamingMode,
+    int32_t,
+    std::string>;
+
+// Keep constructor selection dependent on RpcNode so older Velox headers need
+// not compile a constructor accepting execution phases.
+template <typename RpcNode = velox::core::RPCNode>
+std::shared_ptr<RpcNode> makeRpcPlanNode(
+    const velox::core::PlanNodeId& id,
+    velox::core::PlanNodePtr source,
+    velox::core::CallTypedExprPtr call,
+    std::string outputColumn,
+    velox::RowTypePtr outputType,
+    velox::rpc::RPCStreamingMode streamingMode,
+    int32_t dispatchBatchSize,
+    std::string executionPhase) {
+  if constexpr (kSupportsRpcExecutionPhases<RpcNode>) {
+    return std::make_shared<RpcNode>(
+        id,
+        std::move(source),
+        std::move(call),
+        std::move(outputColumn),
+        std::move(outputType),
+        streamingMode,
+        dispatchBatchSize,
+        std::move(executionPhase));
+  } else {
+    VELOX_USER_CHECK(
+        executionPhase == "INLINE",
+        "RPC execution phase is unsupported by this Velox version; "
+        "upgrade Velox to support deferred RPC execution phases: {}",
+        executionPhase);
+    return std::make_shared<RpcNode>(
+        id,
+        std::move(source),
+        std::move(call),
+        std::move(outputColumn),
+        std::move(outputType),
+        streamingMode,
+        dispatchBatchSize);
+  }
+}
+
+} // namespace detail
 
 class VeloxQueryPlanConverterBase {
  public:

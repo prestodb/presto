@@ -191,6 +191,7 @@ import com.facebook.presto.sql.planner.optimizations.AddLocalExchanges;
 import com.facebook.presto.sql.planner.optimizations.ApplyConnectorOptimization;
 import com.facebook.presto.sql.planner.optimizations.CheckSubqueryNodesAreRewritten;
 import com.facebook.presto.sql.planner.optimizations.CteProjectionAndPredicatePushDown;
+import com.facebook.presto.sql.planner.optimizations.DefaultRpcDeferredExecutionRegistry;
 import com.facebook.presto.sql.planner.optimizations.DefaultRpcExecutionPolicy;
 import com.facebook.presto.sql.planner.optimizations.GroupInnerJoinsByConnectorRuleSet;
 import com.facebook.presto.sql.planner.optimizations.HashGenerationOptimizer;
@@ -221,6 +222,7 @@ import com.facebook.presto.sql.planner.optimizations.ReplaceConstantVariableRefe
 import com.facebook.presto.sql.planner.optimizations.ReplicateSemiJoinInDelete;
 import com.facebook.presto.sql.planner.optimizations.RewriteIfOverAggregation;
 import com.facebook.presto.sql.planner.optimizations.RewriteWriterTarget;
+import com.facebook.presto.sql.planner.optimizations.RpcDeferredExecutionRegistry;
 import com.facebook.presto.sql.planner.optimizations.RpcExecutionPolicy;
 import com.facebook.presto.sql.planner.optimizations.RpcFunctionOptimizer;
 import com.facebook.presto.sql.planner.optimizations.SetFlatteningOptimizer;
@@ -276,7 +278,8 @@ public class PlanOptimizers
             TaskManagerConfig taskManagerConfig,
             AccessControl accessControl,
             @Named("rpcFunctionNames") Supplier<Set<String>> rpcFunctionNames,
-            RpcExecutionPolicy rpcExecutionPolicy)
+            RpcExecutionPolicy rpcExecutionPolicy,
+            RpcDeferredExecutionRegistry deferredExecutionRegistry)
     {
         this(metadata,
                 sqlParser,
@@ -296,7 +299,8 @@ public class PlanOptimizers
                 taskManagerConfig,
                 accessControl,
                 rpcFunctionNames,
-                rpcExecutionPolicy);
+                rpcExecutionPolicy,
+                deferredExecutionRegistry);
     }
 
     @PostConstruct
@@ -378,6 +382,34 @@ public class PlanOptimizers
             AccessControl accessControl,
             Supplier<Set<String>> rpcFunctionNames,
             RpcExecutionPolicy rpcExecutionPolicy)
+    {
+        this(metadata, sqlParser, noExchange, exporter, splitManager, planOptimizerManager, pageSourceManager,
+                statsCalculator, costCalculator, estimatedExchangesCostCalculator, costComparator, taskCountEstimator,
+                partitioningProviderManager, featuresConfig, expressionOptimizerManager, taskManagerConfig, accessControl,
+                rpcFunctionNames, rpcExecutionPolicy, new DefaultRpcDeferredExecutionRegistry());
+    }
+
+    public PlanOptimizers(
+            Metadata metadata,
+            SqlParser sqlParser,
+            boolean noExchange,
+            MBeanExporter exporter,
+            SplitManager splitManager,
+            ConnectorPlanOptimizerManager planOptimizerManager,
+            PageSourceManager pageSourceManager,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator,
+            CostCalculator estimatedExchangesCostCalculator,
+            CostComparator costComparator,
+            TaskCountEstimator taskCountEstimator,
+            PartitioningProviderManager partitioningProviderManager,
+            FeaturesConfig featuresConfig,
+            ExpressionOptimizerManager expressionOptimizerManager,
+            TaskManagerConfig taskManagerConfig,
+            AccessControl accessControl,
+            Supplier<Set<String>> rpcFunctionNames,
+            RpcExecutionPolicy rpcExecutionPolicy,
+            RpcDeferredExecutionRegistry deferredExecutionRegistry)
     {
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
@@ -688,7 +720,9 @@ public class PlanOptimizers
 
         builder.add(new IterativeOptimizer(metadata, ruleStats, statsCalculator, estimatedExchangesCostCalculator,
                 new RewriteRowExpressions(expressionOptimizerManager).rules()));
-        builder.add(new RpcFunctionOptimizer(rpcFunctionNames, statsCalculator, rpcExecutionPolicy));
+        builder.add(new RpcFunctionOptimizer(rpcFunctionNames, statsCalculator, rpcExecutionPolicy,
+                featuresConfig.isNativeExecutionEnabled() && featuresConfig.isPrestoSparkExecutionEnvironment(),
+                metadata.getFunctionAndTypeManager(), deferredExecutionRegistry));
 
         builder.add(new IterativeOptimizer(
                 metadata,

@@ -66,6 +66,7 @@ import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.plan.LateralJoinNode;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
 import com.facebook.presto.sql.planner.plan.RemoteSourceNode;
 import com.facebook.presto.sql.planner.plan.RowNumberNode;
 import com.facebook.presto.sql.planner.plan.SampleNode;
@@ -111,6 +112,7 @@ public final class GraphvizPrinter
         AGGREGATE,
         FILTER,
         PROJECT,
+        RPC,
         TOPN,
         OUTPUT,
         LIMIT,
@@ -146,6 +148,7 @@ public final class GraphvizPrinter
             .put(NodeType.AGGREGATE, "chartreuse3")
             .put(NodeType.FILTER, "yellow")
             .put(NodeType.PROJECT, "bisque")
+            .put(NodeType.RPC, "lavender")
             .put(NodeType.TOPN, "darksalmon")
             .put(NodeType.OUTPUT, "white")
             .put(NodeType.LIMIT, "gray83")
@@ -549,6 +552,13 @@ public final class GraphvizPrinter
             }
 
             printNode(node, "Project", builder.toString(), NODE_COLORS.get(NodeType.PROJECT));
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Void visitRPC(RPCNode node, Void context)
+        {
+            printNode(node, node.getDisplayName(), node.getFunctionName(), NODE_COLORS.get(NodeType.RPC));
             return node.getSource().accept(this, context);
         }
 
