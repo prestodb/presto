@@ -90,6 +90,10 @@ public class CassandraClusteringPredicatesExtractor
                             if (range.isAll()) {
                                 return null;
                             }
+                            // Presto compares inet as varchar and Cassandra compares by address, so leave ranges to Presto
+                            if (!range.isSingleValue() && columnHandle.getCassandraType() == CassandraType.INET) {
+                                return null;
+                            }
                             if (range.isSingleValue()) {
                                 singleValues.add(CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getSingleValue()),
                                         columnHandle.getCassandraType()));

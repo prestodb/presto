@@ -30,7 +30,9 @@ import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.UUID;
+import java.util.function.IntFunction;
 
+import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 
 public class CassandraTestingUtils
@@ -42,6 +44,10 @@ public class CassandraTestingUtils
     public static final String TABLE_CLUSTERING_KEYS_LARGE = "table_clustering_keys_large";
     public static final String TABLE_MULTI_PARTITION_CLUSTERING_KEYS = "table_multi_partition_clustering_keys";
     public static final String TABLE_CLUSTERING_KEYS_INEQUALITY = "table_clustering_keys_inequality";
+    public static final String TABLE_CLUSTERING_KEY_DATE = "table_clustering_key_date";
+    public static final String TABLE_CLUSTERING_KEY_FLOAT = "table_clustering_key_float";
+    public static final String TABLE_CLUSTERING_KEY_INET = "table_clustering_key_inet";
+    public static final String TABLE_INDEXED_DATE_FLOAT_INET = "table_indexed_date_float_inet";
 
     private CassandraTestingUtils() {}
 
@@ -55,6 +61,36 @@ public class CassandraTestingUtils
         createTableClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS_LARGE), 1000);
         createTableMultiPartitionClusteringKeys(cassandraSession, new SchemaTableName(keyspace, TABLE_MULTI_PARTITION_CLUSTERING_KEYS));
         createTableClusteringKeysInequality(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEYS_INEQUALITY), date, 4);
+        createTableSingleClusteringKey(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEY_DATE), "date", rowNumber -> format("'2026-09-%02d'", rowNumber));
+        createTableSingleClusteringKey(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEY_FLOAT), "float", rowNumber -> rowNumber + ".5");
+        createTableSingleClusteringKey(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEY_INET), "inet", rowNumber -> "'10.0.0." + rowNumber + "'");
+        createTableIndexedDateFloatInet(cassandraSession, new SchemaTableName(keyspace, TABLE_INDEXED_DATE_FLOAT_INET));
+    }
+
+    /**
+     * Creates 10 rows in partition pk = 1, where row n has clustering key {@code literal.apply(n)}.
+     */
+    public static void createTableSingleClusteringKey(CassandraSession session, SchemaTableName table, String cqlType, IntFunction<String> literal)
+    {
+        session.execute("DROP TABLE IF EXISTS " + table);
+        session.execute("CREATE TABLE " + table + " (pk int, ck " + cqlType + ", data text, PRIMARY KEY ((pk), ck))");
+        for (int rowNumber = 1; rowNumber <= 10; rowNumber++) {
+            session.execute(format("INSERT INTO %s (pk, ck, data) VALUES (1, %s, 'row_%s')", table, literal.apply(rowNumber), rowNumber));
+        }
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 10);
+    }
+
+    public static void createTableIndexedDateFloatInet(CassandraSession session, SchemaTableName table)
+    {
+        session.execute("DROP TABLE IF EXISTS " + table);
+        session.execute("CREATE TABLE " + table + " (id int PRIMARY KEY, d date, f float, ip inet)");
+        session.execute("CREATE INDEX ON " + table + " (d)");
+        session.execute("CREATE INDEX ON " + table + " (f)");
+        session.execute("CREATE INDEX ON " + table + " (ip)");
+        for (int rowNumber = 1; rowNumber <= 10; rowNumber++) {
+            session.execute(format("INSERT INTO %s (id, d, f, ip) VALUES (%s, '2026-09-%02d', %s.5, '10.0.0.%s')", table, rowNumber, rowNumber, rowNumber, rowNumber));
+        }
+        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 10);
     }
 
     public static void createKeyspace(CassandraSession session, String keyspaceName)
