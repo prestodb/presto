@@ -14,14 +14,40 @@
 package com.facebook.presto.cost;
 
 import com.facebook.presto.spi.plan.AggregationNode;
+import com.facebook.presto.spi.plan.AggregationNode.Step;
+import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.EquiJoinClause;
+import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeId;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
+import com.facebook.presto.sql.planner.iterative.GroupReference;
+import com.facebook.presto.sql.planner.iterative.Lookup;
+import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
+import com.facebook.presto.sql.planner.plan.AssignUniqueId;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Test;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.FINAL;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.PARTIAL;
+import static com.facebook.presto.spi.plan.AggregationNode.Step.SINGLE;
+import static com.facebook.presto.spi.plan.JoinType.FULL;
+import static com.facebook.presto.spi.plan.JoinType.INNER;
+import static com.facebook.presto.spi.plan.JoinType.LEFT;
+import static com.facebook.presto.spi.plan.JoinType.RIGHT;
 import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
+import static com.facebook.presto.sql.planner.plan.AssignmentUtils.identityAssignments;
+import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
+import static org.testng.Assert.assertEquals;
 
 public class TestAggregationStatsRule
         extends BaseStatsCalculatorTest
@@ -29,6 +55,8 @@ public class TestAggregationStatsRule
     private static final VariableReferenceExpression VARIABLE_X = new VariableReferenceExpression(Optional.empty(), "x", BIGINT);
     private static final VariableReferenceExpression VARIABLE_Y = new VariableReferenceExpression(Optional.empty(), "y", BIGINT);
     private static final VariableReferenceExpression VARIABLE_Z = new VariableReferenceExpression(Optional.empty(), "z", BIGINT);
+    private static final VariableReferenceExpression VARIABLE_W = new VariableReferenceExpression(Optional.empty(), "w", BIGINT);
+    private static final VariableReferenceExpression VARIABLE_UNIQUE = new VariableReferenceExpression(Optional.empty(), "unique", BIGINT);
 
     @Test
     public void testAggregationWhenAllStatisticsAreKnown()
@@ -154,6 +182,327 @@ public class TestAggregationStatsRule
                         .addVariableStatistics(VARIABLE_Z, VariableStatsEstimate.builder().setDistinctValuesCount(50).build())
                         .build())
                 .check(check -> check.outputRowsCount(100));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdCappedAtUniqueIdRows()
+    {
+        // As a decorrelated subquery groups: by the unique id and by columns of the rows it was assigned to, which are
+        // on the side of the outer join that is never filled with NULLs
+        groupedOnUniqueId(pb -> pb.join(LEFT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y)), VARIABLE_UNIQUE, VARIABLE_X)
+                .check(check -> check.outputRowsCount(100));
+        groupedOnUniqueId(pb -> pb.join(RIGHT, otherRows(pb), numberedRows(pb), new EquiJoinClause(VARIABLE_Y, VARIABLE_X)), VARIABLE_UNIQUE, VARIABLE_X)
+                .check(check -> check.outputRowsCount(100));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdThroughProjectAndFilterCappedAtUniqueIdRows()
+    {
+        groupedOnUniqueId(
+                pb -> {
+                    PlanNode join = pb.join(LEFT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y));
+                    return pb.project(identityAssignments(VARIABLE_UNIQUE, VARIABLE_X), pb.filter(pb.rowExpression("y > 0"), join));
+                },
+                VARIABLE_UNIQUE,
+                VARIABLE_X)
+                .check(check -> check.outputRowsCount(100));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdThroughExchangeAndPartialAggregationCappedAtUniqueIdRows()
+    {
+        // As once the aggregation is split into a partial and a final step around an exchange
+        groupedOnUniqueId(
+                FINAL,
+                pb -> {
+                    PlanNode partialAggregation = pb.aggregation(ab -> ab
+                            .step(PARTIAL)
+                            .singleGroupingSet(VARIABLE_UNIQUE, VARIABLE_X)
+                            .source(pb.join(LEFT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y))));
+                    return pb.exchange(exchange -> exchange
+                            .singleDistributionPartitioningScheme(VARIABLE_UNIQUE, VARIABLE_X)
+                            .addSource(partialAggregation)
+                            .addInputsSet(VARIABLE_UNIQUE, VARIABLE_X));
+                },
+                VARIABLE_UNIQUE,
+                VARIABLE_X)
+                .check(check -> check.outputRowsCount(100));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdThroughExchangeWithSeveralSourcesNotCapped()
+    {
+        // The rows of the second source are not numbered rows
+        groupedOnUniqueId(
+                pb -> pb.exchange(exchange -> exchange
+                        .singleDistributionPartitioningScheme(VARIABLE_UNIQUE, VARIABLE_X)
+                        .addSource(pb.join(LEFT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y)))
+                        .addInputsSet(VARIABLE_UNIQUE, VARIABLE_X)
+                        .addSource(otherRows(pb))
+                        .addInputsSet(VARIABLE_Y, VARIABLE_Z)),
+                VARIABLE_UNIQUE,
+                VARIABLE_X)
+                .check(check -> check.outputRowsCount(1000));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdThroughOtherNodeNotCapped()
+    {
+        // An EnforceSingleRow is not walked through: it returns a row of NULLs when its source is empty
+        groupedOnUniqueId(pb -> pb.enforceSingleRow(pb.join(LEFT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y))), VARIABLE_UNIQUE, VARIABLE_X)
+                .check(check -> check.outputRowsCount(1000));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdThroughProjectReassigningKeyNotCapped()
+    {
+        // Above the projection x holds x + 1, not the x of the numbered rows
+        groupedOnUniqueId(
+                pb -> {
+                    PlanNode join = pb.join(LEFT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y));
+                    return pb.project(Assignments.builder().putAll(identityAssignments(VARIABLE_UNIQUE)).put(VARIABLE_X, pb.rowExpression("x + 1")).build(), join);
+                },
+                VARIABLE_UNIQUE,
+                VARIABLE_X)
+                .check(check -> check.outputRowsCount(1000));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdThroughExchangeMappingKeyFromOtherColumnNotCapped()
+    {
+        // The exchange's x is its source's w
+        groupedOnUniqueId(
+                pb -> pb.exchange(exchange -> exchange
+                        .singleDistributionPartitioningScheme(VARIABLE_UNIQUE, VARIABLE_X, VARIABLE_W)
+                        .addSource(pb.join(LEFT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y)))
+                        .addInputsSet(VARIABLE_UNIQUE, VARIABLE_W, VARIABLE_X)),
+                VARIABLE_UNIQUE,
+                VARIABLE_X)
+                .check(check -> check.outputRowsCount(1000));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdThroughAggregationNotKeepingKeyNotCapped()
+    {
+        // Above the aggregation x holds max(x), not a grouping key passed through
+        groupedOnUniqueId(
+                pb -> {
+                    PlanNode join = pb.join(LEFT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y));
+                    return pb.aggregation(ab -> ab
+                            .singleGroupingSet(VARIABLE_UNIQUE)
+                            .addAggregation(VARIABLE_X, pb.rowExpression("max(x)"))
+                            .source(join));
+                },
+                VARIABLE_UNIQUE,
+                VARIABLE_X)
+                .check(check -> check.outputRowsCount(1000));
+        // A global grouping set adds a row whose keys are NULL
+        groupedOnUniqueId(
+                pb -> pb.aggregation(ab -> ab
+                        .groupingSets(new AggregationNode.GroupingSetDescriptor(ImmutableList.of(VARIABLE_UNIQUE, VARIABLE_X), 2, ImmutableSet.of(1)))
+                        .addAggregation(pb.variable("count", BIGINT), pb.rowExpression("count()"))
+                        .source(pb.join(LEFT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y)))),
+                VARIABLE_UNIQUE,
+                VARIABLE_X)
+                .check(check -> check.outputRowsCount(1000));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdBelowAnotherUniqueIdCappedAtUniqueIdRows()
+    {
+        groupedOnUniqueId(
+                pb -> pb.join(
+                        LEFT,
+                        pb.assignUniqueId(pb.variable("other_unique"), numberedRows(pb)),
+                        otherRows(pb),
+                        new EquiJoinClause(VARIABLE_X, VARIABLE_Y)),
+                VARIABLE_UNIQUE,
+                VARIABLE_X)
+                .check(check -> check.outputRowsCount(100));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdAndInnerJoinEqualKeyCappedAtUniqueIdRows()
+    {
+        // The inner join makes y equal to x on every row, with the numbered rows on either side
+        groupedOnUniqueId(pb -> pb.join(INNER, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y)), VARIABLE_UNIQUE, VARIABLE_Y)
+                .check(check -> check.outputRowsCount(100));
+        groupedOnUniqueId(pb -> pb.join(INNER, otherRows(pb), numberedRows(pb), new EquiJoinClause(VARIABLE_Y, VARIABLE_X)), VARIABLE_UNIQUE, VARIABLE_Y)
+                .check(check -> check.outputRowsCount(100));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdAndKeyEqualToSeveralColumnsCappedAtUniqueIdRows()
+    {
+        // y is equal to both x and w
+        groupedOnUniqueId(
+                pb -> pb.join(INNER, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y), new EquiJoinClause(VARIABLE_W, VARIABLE_Y)),
+                VARIABLE_UNIQUE,
+                VARIABLE_Y)
+                .check(check -> check.outputRowsCount(100));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdAndOuterJoinEqualKeyNotCapped()
+    {
+        // Join clauses are only used as equalities below inner joins
+        groupedOnUniqueId(pb -> pb.join(LEFT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y)), VARIABLE_UNIQUE, VARIABLE_Y)
+                .check(check -> check.outputRowsCount(1000));
+        groupedOnUniqueId(pb -> pb.join(RIGHT, otherRows(pb), numberedRows(pb), new EquiJoinClause(VARIABLE_Y, VARIABLE_X)), VARIABLE_UNIQUE, VARIABLE_Y)
+                .check(check -> check.outputRowsCount(1000));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdAndOtherJoinSideNotCapped()
+    {
+        // z comes from the other side of the join and no join clause makes it equal to x, so one id can have several groups
+        groupedOnUniqueId(pb -> pb.join(INNER, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y)), VARIABLE_UNIQUE, VARIABLE_Z)
+                .check(check -> check.outputRowsCount(1000));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdAndComputedKeyNotCapped()
+    {
+        // The search only follows keys that pass through unchanged, and x_plus_one is computed above the numbered rows
+        VariableReferenceExpression xPlusOne = new VariableReferenceExpression(Optional.empty(), "x_plus_one", BIGINT);
+        groupedOnUniqueId(
+                pb -> {
+                    PlanNode numbered = numberedRows(pb);
+                    PlanNode computed = pb.project(
+                            Assignments.builder().putAll(identityAssignments(VARIABLE_UNIQUE, VARIABLE_X)).put(pb.variable("x_plus_one"), pb.rowExpression("x + 1")).build(),
+                            numbered);
+                    return pb.join(LEFT, computed, otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y));
+                },
+                VARIABLE_UNIQUE,
+                xPlusOne)
+                .withSourceStats(PlanNodeStatsEstimate.buildFrom(sourceStats())
+                        .addVariableStatistics(xPlusOne, VariableStatsEstimate.builder().setDistinctValuesCount(50).build())
+                        .build())
+                .check(check -> check.outputRowsCount(1000));
+    }
+
+    @Test
+    public void testGroupsOnNullExtendedUniqueIdNotCapped()
+    {
+        // Unmatched rows of the other side carry a NULL id, an additional group
+        groupedOnUniqueId(pb -> pb.join(RIGHT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y)), VARIABLE_UNIQUE, VARIABLE_X)
+                .check(check -> check.outputRowsCount(1000));
+        groupedOnUniqueId(pb -> pb.join(LEFT, otherRows(pb), numberedRows(pb), new EquiJoinClause(VARIABLE_Y, VARIABLE_X)), VARIABLE_UNIQUE, VARIABLE_X)
+                .check(check -> check.outputRowsCount(1000));
+        groupedOnUniqueId(pb -> pb.join(FULL, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y)), VARIABLE_UNIQUE, VARIABLE_X)
+                .check(check -> check.outputRowsCount(1000));
+        groupedOnUniqueId(pb -> pb.join(FULL, otherRows(pb), numberedRows(pb), new EquiJoinClause(VARIABLE_Y, VARIABLE_X)), VARIABLE_UNIQUE, VARIABLE_X)
+                .check(check -> check.outputRowsCount(1000));
+    }
+
+    @Test
+    public void testGroupsWithoutUniqueIdNotCapped()
+    {
+        // The cap only applies to aggregations that group on the unique id
+        groupedOnUniqueId(pb -> pb.join(LEFT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y)), VARIABLE_X, VARIABLE_W)
+                .check(check -> check.outputRowsCount(1000));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdWithUnknownUniqueIdRowsNotCapped()
+    {
+        groupedOnUniqueId(pb -> pb.join(LEFT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y)), VARIABLE_UNIQUE, VARIABLE_X)
+                .withSourceStats(new PlanNodeId("numbered_rows"), PlanNodeStatsEstimate.unknown())
+                .check(check -> check.outputRowsCount(1000));
+    }
+
+    @Test
+    public void testGroupsOnUniqueIdEstimatedBelowUniqueIdRowsUnchanged()
+    {
+        groupedOnUniqueId(pb -> pb.join(LEFT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y)), VARIABLE_UNIQUE, VARIABLE_X)
+                .withSourceStats(PlanNodeStatsEstimate.builder()
+                        .setOutputRowCount(60)
+                        .addVariableStatistics(VARIABLE_UNIQUE, VariableStatsEstimate.builder().setDistinctValuesCount(60).build())
+                        .addVariableStatistics(VARIABLE_X, VariableStatsEstimate.builder().setDistinctValuesCount(50).build())
+                        .build())
+                .check(check -> check.outputRowsCount(60));
+    }
+
+    @Test
+    public void testPartialAggregationOnUniqueIdNotCapped()
+    {
+        // Partial aggregations forward the row count of their source
+        groupedOnUniqueId(PARTIAL, pb -> pb.join(LEFT, numberedRows(pb), otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y)), VARIABLE_UNIQUE, VARIABLE_X)
+                .check(check -> check.outputRowsCount(1000));
+    }
+
+    @Test
+    public void testUniqueIdRowsReadThroughItsReference()
+    {
+        // During optimization, nodes refer to their sources through group references, whose statistics the memo keeps
+        // up to date. Statistics cached for the node a reference resolves to can be outdated.
+        PlanBuilder pb = new PlanBuilder(testSessionBuilder().build(), new PlanNodeIdAllocator(), tester().getMetadata());
+        PlanNode rows = pb.values(pb.variable("x"), pb.variable("w"));
+        PlanNode rowsReference = new GroupReference(Optional.empty(), new PlanNodeId("rows_reference"), 1, rows.getOutputVariables(), Optional.empty());
+        PlanNode numbered = new AssignUniqueId(Optional.empty(), new PlanNodeId("unique_id"), rowsReference, pb.variable("unique"));
+        PlanNode numberedReference = new GroupReference(Optional.empty(), new PlanNodeId("numbered_reference"), 2, numbered.getOutputVariables(), Optional.empty());
+        PlanNode join = pb.join(LEFT, numberedReference, otherRows(pb), new EquiJoinClause(VARIABLE_X, VARIABLE_Y));
+        AggregationNode aggregation = pb.aggregation(ab -> ab
+                .addAggregation(pb.variable("count", BIGINT), pb.rowExpression("count()"))
+                .singleGroupingSet(VARIABLE_UNIQUE, VARIABLE_X)
+                .source(join));
+        Map<PlanNode, PlanNodeStatsEstimate> statistics = ImmutableMap.of(
+                join, sourceStats(),
+                rowsReference, PlanNodeStatsEstimate.builder().setOutputRowCount(100).build(),
+                rows, PlanNodeStatsEstimate.builder().setOutputRowCount(500).build(),
+                numbered, PlanNodeStatsEstimate.builder().setOutputRowCount(500).build());
+        Lookup lookup = Lookup.from(group -> Stream.of(group.getGroupId() == 1 ? rows : numbered));
+        Optional<PlanNodeStatsEstimate> estimate = new AggregationStatsRule(new StatsNormalizer())
+                .calculate(aggregation, statistics::get, lookup, testSessionBuilder().build(), pb.getTypes());
+        assertEquals(estimate.get().getOutputRowCount(), 100.0);
+    }
+
+    private StatsCalculatorAssertion groupedOnUniqueId(Function<PlanBuilder, PlanNode> source, VariableReferenceExpression... groupingKeys)
+    {
+        return groupedOnUniqueId(SINGLE, source, groupingKeys);
+    }
+
+    // Aggregation step on the given grouping keys over the given source, with the statistics of sourceStats(). The
+    // numbered rows have 100 rows.
+    private StatsCalculatorAssertion groupedOnUniqueId(Step step, Function<PlanBuilder, PlanNode> source, VariableReferenceExpression... groupingKeys)
+    {
+        return tester().assertStatsFor(pb -> {
+            PlanNode sourceNode = source.apply(pb);
+            return pb.aggregation(ab -> ab
+                    .step(step)
+                    .addAggregation(pb.variable("count", BIGINT), pb.rowExpression("count()"))
+                    .singleGroupingSet(groupingKeys)
+                    .source(sourceNode));
+        })
+                .withSourceStats(sourceStats())
+                .withSourceStats(new PlanNodeId("numbered_rows"), PlanNodeStatsEstimate.builder().setOutputRowCount(100).build());
+    }
+
+    // 1000 rows with 100 distinct ids and 50 distinct x, 30 distinct w, 80 distinct y and 40 distinct z values, so
+    // multiplying the distinct counts of the grouping keys reaches the 1000-row cap
+    private static PlanNodeStatsEstimate sourceStats()
+    {
+        return PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(1000)
+                .addVariableStatistics(VARIABLE_UNIQUE, VariableStatsEstimate.builder().setDistinctValuesCount(100).build())
+                .addVariableStatistics(VARIABLE_X, VariableStatsEstimate.builder().setDistinctValuesCount(50).build())
+                .addVariableStatistics(VARIABLE_W, VariableStatsEstimate.builder().setDistinctValuesCount(30).build())
+                .addVariableStatistics(VARIABLE_Y, VariableStatsEstimate.builder().setDistinctValuesCount(80).build())
+                .addVariableStatistics(VARIABLE_Z, VariableStatsEstimate.builder().setDistinctValuesCount(40).build())
+                .build();
+    }
+
+    // Rows with columns x and w, numbered by an AssignUniqueId with the id column unique
+    private static PlanNode numberedRows(PlanBuilder pb)
+    {
+        PlanNode rows = pb.values(new PlanNodeId("numbered_rows"), pb.variable("x"), pb.variable("w"));
+        return new AssignUniqueId(Optional.empty(), new PlanNodeId("unique_id"), rows, pb.variable("unique"));
+    }
+
+    // Rows with columns y and z
+    private static PlanNode otherRows(PlanBuilder pb)
+    {
+        return pb.values(pb.variable("y"), pb.variable("z"));
     }
 
     /**
