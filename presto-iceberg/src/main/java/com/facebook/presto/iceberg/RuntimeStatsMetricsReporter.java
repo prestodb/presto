@@ -169,6 +169,19 @@ public final class RuntimeStatsMetricsReporter
         }
     }
 
+    public void reportTableStatistics(
+            String tableName,
+            long planningDurationNanos,
+            long resultDataFiles,
+            long totalDataManifests,
+            long totalFileSizeInBytes)
+    {
+        runtimeStats.addMetricValue(tableScanString(tableName, "totalPlanningDuration"), RuntimeUnit.NANO, planningDurationNanos);
+        runtimeStats.addMetricValue(tableScanString(tableName, "resultDataFiles"), RuntimeUnit.NONE, resultDataFiles);
+        runtimeStats.addMetricValue(tableScanString(tableName, "totalDataManifests"), RuntimeUnit.NONE, totalDataManifests);
+        runtimeStats.addMetricValue(tableScanString(tableName, "totalFileSizeInBytes"), RuntimeUnit.BYTE, totalFileSizeInBytes);
+    }
+
     /**
      * Helper method to construct the full metric name for a table scan.
      *
