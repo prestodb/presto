@@ -107,6 +107,12 @@ public class HiveAggregationFunctionImplementation
         return aggregationFunctionDescription.isOrderSensitive();
     }
 
+    @Override
+    public boolean isDistinctSensitive()
+    {
+        return aggregationFunctionDescription.isDistinctSensitive();
+    }
+
     public AggregationMetadata getAggregationMetadata()
     {
         return aggregationMetadata;
