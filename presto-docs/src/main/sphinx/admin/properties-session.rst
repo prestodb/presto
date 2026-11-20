@@ -1030,6 +1030,16 @@ translator extract per-column constraints for optimization. Only fires when the 
 (optionally through projections), and runs once before table layout selection. This optimization is
 flag-controlled and adds a small overhead from the extra predicates.
 
+``experimental_logical_dataset_rewrite_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable the experimental Logical Dataset statement rewrite. When enabled, references to
+logical dataset names in SQL queries are rewritten to their corresponding physical
+artifacts before analysis. The substitution is transparent to the caller.
+
 
 JDBC Properties
 ---------------
