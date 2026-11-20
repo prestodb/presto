@@ -391,6 +391,7 @@ public final class SystemSessionProperties
     public static final String JOIN_PREFILTER_BUILD_SIDE = "join_prefilter_build_side";
     public static final String JOIN_PREFILTER_COMPLEX_BUILD_SIDE = "join_prefilter_build_side_with_complex_probe_side";
     public static final String OPTIMIZER_USE_HISTOGRAMS = "optimizer_use_histograms";
+    public static final String DISJOINT_STRING_OR_ESTIMATION_ENABLED = "disjoint_string_or_estimation_enabled";
     public static final String INLINE_PROJECTIONS_ON_VALUES = "inline_projections_on_values";
     public static final String EVALUATE_FILTER_ON_VALUES = "evaluate_filter_on_values";
     public static final String INCLUDE_VALUES_NODE_IN_CONNECTOR_OPTIMIZER = "include_values_node_in_connector_optimizer";
@@ -2339,6 +2340,10 @@ public final class SystemSessionProperties
                         "whether or not to use histograms in the CBO",
                         featuresConfig.isUseHistograms(),
                         false),
+                booleanProperty(DISJOINT_STRING_OR_ESTIMATION_ENABLED,
+                        "Estimate an OR whose branches pin a string column to different literals as the sum of its branches",
+                        featuresConfig.isDisjointStringOrEstimationEnabled(),
+                        false),
                 booleanProperty(INLINE_PROJECTIONS_ON_VALUES,
                         "Whether to evaluate project node on values node",
                         featuresConfig.getInlineProjectionsOnValues(),
@@ -4137,6 +4142,11 @@ public final class SystemSessionProperties
     public static boolean shouldOptimizerUseHistograms(Session session)
     {
         return session.getSystemProperty(OPTIMIZER_USE_HISTOGRAMS, Boolean.class);
+    }
+
+    public static boolean isDisjointStringOrEstimationEnabled(Session session)
+    {
+        return session.getSystemProperty(DISJOINT_STRING_OR_ESTIMATION_ENABLED, Boolean.class);
     }
 
     public static boolean isInlineProjectionsOnValues(Session session)

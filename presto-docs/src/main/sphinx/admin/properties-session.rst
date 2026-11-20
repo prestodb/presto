@@ -1030,6 +1030,19 @@ translator extract per-column constraints for optimization. Only fires when the 
 (optionally through projections), and runs once before table layout selection. This optimization is
 flag-controlled and adds a small overhead from the extra predicates.
 
+``disjoint_string_or_estimation_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Estimates the row count of an ``OR`` as the sum of its branches when the branches cannot
+both be true because they require different literal values of the same string column,
+such as ``(name = 'a' AND kind = 'x') OR (name = 'b' AND kind = 'y')``. When set to ``false``,
+such an ``OR`` is estimated as large as one branch.
+
+The corresponding configuration property is :ref:`admin/properties:\`\`optimizer.disjoint-string-or-estimation-enabled\`\``.
+
 
 JDBC Properties
 ---------------

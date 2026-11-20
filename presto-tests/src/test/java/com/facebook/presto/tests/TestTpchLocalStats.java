@@ -37,6 +37,7 @@ import static com.facebook.presto.tests.statistics.Metrics.lowValue;
 import static com.facebook.presto.tests.statistics.Metrics.nullsFraction;
 import static com.facebook.presto.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static java.lang.String.format;
 
 public class TestTpchLocalStats
 {
@@ -126,6 +127,57 @@ public class TestTpchLocalStats
 
         statisticsAssertion.check("SELECT * FROM orders WHERE 'this is always ...' = '... false'",
                 checks -> checks.estimate(OUTPUT_ROW_COUNT, noError()));
+    }
+
+    @Test
+    public void testOrOfVarcharConjunctions()
+    {
+        // Each branch matches one of the 28 (l_shipmode, l_shipinstruct) combinations, about 1/28 of lineitem.
+        // Branches with different literals cannot overlap, so the result grows with the number of branches.
+        // The branches leave at least one value of each column out: the planner adds IN lists implied by the
+        // OR, and an IN list covering every value of a column is capped at 0.8 of its input.
+        for (int branches : new int[] {1, 2, 4, 6}) {
+            statisticsAssertion.check("SELECT * FROM lineitem WHERE " + shipModeAndInstructionPairs(branches),
+                    checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(0.2)));
+        }
+    }
+
+    @Test
+    public void testJoinOverOrOfVarcharConjunctions()
+    {
+        // The filtered side's estimate feeds the join estimate, which decides the join's build side.
+        for (int branches : new int[] {1, 4}) {
+            statisticsAssertion.check("SELECT * FROM lineitem JOIN orders ON l_orderkey = o_orderkey WHERE " + shipModeAndInstructionPairs(branches),
+                    checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(0.2)));
+        }
+    }
+
+    @Test
+    public void testOrOfVarcharEqualitiesOnOneColumn()
+    {
+        statisticsAssertion.check("SELECT * FROM lineitem WHERE l_shipmode = 'AIR' OR l_shipmode = 'RAIL'",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(0.1)));
+
+        statisticsAssertion.check("SELECT * FROM lineitem WHERE l_shipmode IN ('AIR', 'RAIL', 'SHIP')",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(0.1)));
+
+        // Different columns: unchanged independence estimate. Both columns are uniformly distributed in TPC-H.
+        statisticsAssertion.check("SELECT * FROM lineitem WHERE l_shipmode = 'AIR' OR l_shipinstruct = 'NONE'",
+                checks -> checks.estimate(OUTPUT_ROW_COUNT, relativeError(0.1)));
+    }
+
+    private static String shipModeAndInstructionPairs(int branches)
+    {
+        String[] modes = {"AIR", "FOB", "MAIL", "RAIL", "REG AIR", "SHIP"};
+        String[] instructions = {"COLLECT COD", "NONE"};
+        StringBuilder predicate = new StringBuilder();
+        for (int i = 0; i < branches; i++) {
+            if (i > 0) {
+                predicate.append(" OR ");
+            }
+            predicate.append(format("(l_shipmode = '%s' AND l_shipinstruct = '%s')", modes[i % modes.length], instructions[i % instructions.length]));
+        }
+        return predicate.toString();
     }
 
     @Test
