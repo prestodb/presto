@@ -3540,7 +3540,7 @@ public abstract class IcebergAbstractMetadata
                 storageTableHandle.getIcebergTableName(),
                 toPrestoSchema(storageTable.schema(), typeManager),
                 toPrestoPartitionSpec(storageTable.spec(), typeManager),
-                getColumns(storageTable.schema(), storageTable.spec(), typeManager),
+                getColumnsForWrite(storageTable.schema(), storageTable.spec(), typeManager),
                 storageTable.location(),
                 getFileFormat(storageTable),
                 getCompressionCodec(session),
