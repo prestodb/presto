@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.StoragePartitionLoader.BucketSplitInfo;
 import com.facebook.presto.hive.metastore.Partition;
 import com.facebook.presto.hive.metastore.Table;
@@ -40,6 +41,7 @@ public class DelegatingPartitionLoader
     public DelegatingPartitionLoader(
             Table table,
             Map<Integer, Domain> infoColumnConstraints,
+            TupleDomain<String> dataColumnPredicate,
             Optional<BucketSplitInfo> tableBucketInfo,
             ConnectorSession session,
             HdfsEnvironment hdfsEnvironment,
@@ -54,6 +56,7 @@ public class DelegatingPartitionLoader
         this.storagePartitionLoader = new StoragePartitionLoader(
                 table,
                 infoColumnConstraints,
+                dataColumnPredicate,
                 tableBucketInfo,
                 session,
                 hdfsEnvironment,

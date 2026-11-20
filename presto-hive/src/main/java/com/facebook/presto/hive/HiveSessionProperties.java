@@ -125,6 +125,7 @@ public final class HiveSessionProperties
     public static final String MAX_INITIAL_SPLITS = "max_initial_splits";
     public static final String FILE_SPLITTABLE = "file_splittable";
     private static final String HUDI_METADATA_ENABLED = "hudi_metadata_enabled";
+    private static final String HUDI_MDT_DATA_SKIPPING_ENABLED = "hudi_mdt_data_skipping_enabled";
     private static final String HUDI_TABLES_USE_MERGED_VIEW = "hudi_tables_use_merged_view";
     private static final String READ_TABLE_CONSTRAINTS = "read_table_constraints";
     public static final String PARALLEL_PARSING_OF_PARTITION_VALUES_ENABLED = "parallel_parsing_of_partition_values_enabled";
@@ -614,6 +615,11 @@ public final class HiveSessionProperties
                         HUDI_METADATA_ENABLED,
                         "For Hudi tables prefer to fetch the list of file names, sizes and other metadata from the internal metadata table rather than storage",
                         hiveClientConfig.isHudiMetadataEnabled(),
+                        false),
+                booleanProperty(
+                        HUDI_MDT_DATA_SKIPPING_ENABLED,
+                        "Prune Hudi COW files using latest MDT column statistics",
+                        hiveClientConfig.isHudiMdtDataSkippingEnabled(),
                         false),
                 stringProperty(
                         HUDI_TABLES_USE_MERGED_VIEW,
@@ -1135,6 +1141,11 @@ public final class HiveSessionProperties
     public static boolean isHudiMetadataEnabled(ConnectorSession session)
     {
         return session.getProperty(HUDI_METADATA_ENABLED, Boolean.class);
+    }
+
+    public static boolean isHudiMdtDataSkippingEnabled(ConnectorSession session)
+    {
+        return session.getProperty(HUDI_MDT_DATA_SKIPPING_ENABLED, Boolean.class);
     }
 
     public static String getHudiTablesUseMergedView(ConnectorSession session)

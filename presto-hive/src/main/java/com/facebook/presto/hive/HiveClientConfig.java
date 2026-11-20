@@ -185,6 +185,7 @@ public class HiveClientConfig
     private boolean verboseRuntimeStatsEnabled;
     private boolean useRecordPageSourceForCustomSplit = true;
     private boolean hudiMetadataEnabled;
+    private boolean hudiMdtDataSkippingEnabled;
     private String hudiTablesUseMergedView;
 
     private boolean sizeBasedSplitWeightsEnabled = true;
@@ -1589,6 +1590,19 @@ public class HiveClientConfig
     public boolean isHudiMetadataEnabled()
     {
         return this.hudiMetadataEnabled;
+    }
+
+    @Config("hive.hudi-mdt-data-skipping-enabled")
+    @ConfigDescription("Prune Hudi COW files using available MDT column statistics; requires Parquet column names")
+    public HiveClientConfig setHudiMdtDataSkippingEnabled(boolean hudiMdtDataSkippingEnabled)
+    {
+        this.hudiMdtDataSkippingEnabled = hudiMdtDataSkippingEnabled;
+        return this;
+    }
+
+    public boolean isHudiMdtDataSkippingEnabled()
+    {
+        return hudiMdtDataSkippingEnabled;
     }
 
     @Config("hive.hudi-tables-use-merged-view")
