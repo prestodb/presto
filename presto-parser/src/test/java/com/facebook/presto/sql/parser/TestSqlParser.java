@@ -2228,10 +2228,27 @@ public class TestSqlParser
     @Test
     public void testRenameColumn()
     {
-        assertStatement("ALTER TABLE foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), false, false));
-        assertStatement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), true, false));
-        assertStatement("ALTER TABLE foo.t RENAME COLUMN IF EXISTS a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), false, true));
-        assertStatement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN IF EXISTS a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), true, true));
+        // Top-level column rename (flat)
+        assertStatement("ALTER TABLE foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), QualifiedName.of("a"), identifier("b"), false, false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), QualifiedName.of("a"), identifier("b"), true, false));
+        assertStatement("ALTER TABLE foo.t RENAME COLUMN IF EXISTS a TO b", new RenameColumn(QualifiedName.of("foo", "t"), QualifiedName.of("a"), identifier("b"), false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN IF EXISTS a TO b", new RenameColumn(QualifiedName.of("foo", "t"), QualifiedName.of("a"), identifier("b"), true, true));
+
+        // Nested field rename: one level of nesting
+        assertStatement("ALTER TABLE t RENAME COLUMN col.field TO new_name",
+                new RenameColumn(QualifiedName.of("t"), QualifiedName.of("col", "field"), identifier("new_name"), false, false));
+
+        // Nested field rename: two levels of nesting
+        assertStatement("ALTER TABLE t RENAME COLUMN parent_col.child_col.leaf_field TO new_name",
+                new RenameColumn(QualifiedName.of("t"), QualifiedName.of("parent_col", "child_col", "leaf_field"), identifier("new_name"), false, false));
+
+        // Nested field rename with IF EXISTS
+        assertStatement("ALTER TABLE t RENAME COLUMN IF EXISTS col.field TO new_name",
+                new RenameColumn(QualifiedName.of("t"), QualifiedName.of("col", "field"), identifier("new_name"), false, true));
+
+        // Quoted identifiers in nested path
+        assertStatement("ALTER TABLE foo.t RENAME COLUMN \"info\".age TO years",
+                new RenameColumn(QualifiedName.of("foo", "t"), QualifiedName.of(ImmutableList.of(quotedIdentifier("info"), identifier("age"))), identifier("years"), false, false));
     }
 
     @Test
