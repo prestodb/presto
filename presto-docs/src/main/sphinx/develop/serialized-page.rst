@@ -152,7 +152,7 @@ Let’s again take the example from the Null Flags section and say that we
 have a string column with 10 rows with nulls in zero-based rows 1, 4, 6, 7, 9.
 The non-null rows will have values: 0 - Denali, 2 - Reinier, 3 - Whitney,
 5 - Bona, 8 - Bear. We’ll have 4 bytes storing the number of rows: 10, followed
-by 40 bytes of offsets, followed by 3 bytes of null flags, followed by 1 bytes
+by 40 bytes of offsets, followed by 3 bytes of null flags, followed by 4 bytes
 storing total size of all strings: 28, followed by the concatenated string values.
 Notice that we have offsets for all rows, not just the non-null rows.
 
