@@ -228,7 +228,7 @@ public class IonSqlQueryBuilder
             return "`" + FORMATTER.print(DAYS.toMillis((long) value)) + "`";
         }
         if (type.equals(VarcharType.VARCHAR)) {
-            return "'" + ((Slice) value).toStringUtf8() + "'";
+            return "'" + ((Slice) value).toStringUtf8().replace("'", "''") + "'";
         }
         if (type instanceof DecimalType) {
             if (Decimals.isLongDecimal(type)) {
@@ -236,7 +236,7 @@ public class IonSqlQueryBuilder
             }
             return Decimals.toString((long) value, ((DecimalType) type).getScale());
         }
-        return "'" + ((Slice) value).toStringUtf8() + "'";
+        return "'" + ((Slice) value).toStringUtf8().replace("'", "''") + "'";
     }
 
     private String createColumn(Type type, HiveColumnHandle columnHandle)
