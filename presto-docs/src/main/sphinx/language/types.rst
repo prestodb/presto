@@ -478,6 +478,23 @@ supports int, bigint, double, varchar, and boolean types. See
 application which utilizes the Apache DataSketches library to read KLL
 sketches.
 
+Gaussian
+--------
+
+.. _gaussian_type:
+
+``Gaussian``
+^^^^^^^^^^^^
+
+A Gaussian holds the parameters of a fitted
+`multivariate normal distribution <https://wikipedia.org/wiki/Multivariate_normal_distribution>`_:
+the total weight of the points it was fitted to, the mean vector, and the covariance
+matrix. It summarises where a set of points lies and how it is spread, in a fixed amount
+of space that does not grow with the number of points, so a fitted distribution can be
+stored in a table and queried later.
+
+See :doc:`/functions/gaussian`.
+
 Geospatial
 ----------
 

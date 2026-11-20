@@ -25,6 +25,7 @@ Functions and Operators
     functions/map
     functions/url
     functions/ip
+    functions/gaussian
     functions/geospatial
     functions/hyperloglog
     functions/khyperloglog
