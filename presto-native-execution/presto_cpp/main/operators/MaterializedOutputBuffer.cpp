@@ -267,12 +267,15 @@ MaterializedOutputBuffer::MaterializedOutputBuffer(
                   ->exchangeMaterializationOutputBufferLowWatermarkRatio())),
       pool_(pool->addLeafChild(
           fmt::format("materialized_output_buffer.{}", taskId),
-          true,
-          std::make_unique<Reclaimer>(this))),
+          true)),
       writer_(
           shuffleWriterFactory->createWriter(shuffleWriterInfo, pool_.get())),
       collectCountPerPartition_(numPartitions) {
   initPartitionBuffers(numPartitions);
+  // Memory arbitration can call the reclaimer as soon as it is set, so it is
+  // set only once the buffer is fully built.
+  VELOX_CHECK_NOT_NULL(pool_);
+  pool_->setReclaimer(std::make_unique<Reclaimer>(this));
 }
 
 MaterializedOutputBuffer::~MaterializedOutputBuffer() {
