@@ -21,6 +21,16 @@ import java.util.Set;
 
 public interface SplitPlacementPolicy
 {
+    default boolean requiresFullSplitSet()
+    {
+        return false;
+    }
+
+    default void prepareForSplits(Set<Split> splits)
+    {
+        throw new UnsupportedOperationException("Full split-set placement is not supported");
+    }
+
     SplitPlacementResult computeAssignments(Set<Split> splits);
 
     void lockDownNodes();
