@@ -784,22 +784,29 @@ public abstract class IcebergAbstractMetadata
         return finishInsert(session, (IcebergOutputTableHandle) tableHandle, fragments);
     }
 
+    protected IcebergWriteLocation getWriteLocation(ConnectorSession session, Table icebergTable)
+    {
+        return IcebergWriteLocation.forTable(icebergTable);
+    }
+
     protected ConnectorInsertTableHandle beginIcebergTableInsert(ConnectorSession session, IcebergTableHandle table, Table icebergTable, List<String> insertColumnNames)
     {
         validateBranchExists(table, icebergTable);
         validateGeospatialWrite(icebergTable);
         // Return value (file schema) is intentionally ignored here; IcebergFileWriterFactory recomputes it per writer.
         UnknownUtils.validateWritable(icebergTable.schema());
+        IcebergWriteLocation writeLocation = getWriteLocation(session, icebergTable);
         return new IcebergInsertTableHandle(
                 table.getSchemaName(),
                 table.getIcebergTableName(),
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
                 getColumnsForWrite(icebergTable.schema(), icebergTable.spec(), typeManager),
-                icebergTable.location(),
+                writeLocation.getLocation(),
+                writeLocation.isIncludePartitionPaths(),
                 getFileFormat(icebergTable),
                 getCompressionCodec(session),
-                icebergTable.properties(),
+                writeLocation.getStorageProperties(),
                 getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()),
                 Optional.empty(),
                 toIcebergFieldNames(session, icebergTable.schema(), insertColumnNames));
@@ -1266,6 +1273,7 @@ public abstract class IcebergAbstractMetadata
         Map<String, DeleteFile> existingDeletionVectors = formatVersion >= MIN_FORMAT_VERSION_FOR_DELETION_VECTORS
                 ? enumerateExistingDeletionVectors(icebergTable, icebergTableHandle.getIcebergTableName().getSnapshotId())
                 : ImmutableMap.of();
+        IcebergWriteLocation writeLocation = getWriteLocation(session, icebergTable);
 
         IcebergInsertTableHandle insertHandle = IcebergInsertTableHandle.forMergeOnRead(
                 icebergTableHandle.getSchemaName(),
@@ -1273,10 +1281,11 @@ public abstract class IcebergAbstractMetadata
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
                 getColumnsForWrite(icebergTable.schema(), icebergTable.spec(), typeManager),
-                icebergTable.location(),
+                writeLocation.getLocation(),
+                writeLocation.isIncludePartitionPaths(),
                 getFileFormat(icebergTable),
                 getCompressionCodec(session),
-                icebergTable.properties(),
+                writeLocation.getStorageProperties(),
                 getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()),
                 Optional.empty(),
                 existingDeletionVectors);
@@ -2332,6 +2341,7 @@ public abstract class IcebergAbstractMetadata
         Map<String, DeleteFile> existingDeletionVectors = formatVersion >= MIN_FORMAT_VERSION_FOR_DELETION_VECTORS
                 ? enumerateExistingDeletionVectors(icebergTable, handle.getIcebergTableName().getSnapshotId())
                 : ImmutableMap.of();
+        IcebergWriteLocation writeLocation = getWriteLocation(session, icebergTable);
 
         return new IcebergDeleteTableHandle(
                 handle.getSchemaName(),
@@ -2339,10 +2349,11 @@ public abstract class IcebergAbstractMetadata
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
                 getColumns(icebergTable.schema(), icebergTable.spec(), typeManager),
-                icebergTable.location(),
+                writeLocation.getLocation(),
+                writeLocation.isIncludePartitionPaths(),
                 getFileFormat(icebergTable),
                 getCompressionCodec(session),
-                icebergTable.properties(),
+                writeLocation.getStorageProperties(),
                 getSupportedSortFields(icebergTable.schema(), icebergTable.sortOrder()),
                 Optional.empty(),
                 fileContent,
@@ -2847,16 +2858,18 @@ public abstract class IcebergAbstractMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Table icebergTable = getIcebergTable(session, handle.getSchemaTableName());
+        IcebergWriteLocation writeLocation = IcebergWriteLocation.forTable(icebergTable);
         IcebergOutputTableHandle outputTableHandle = new IcebergOutputTableHandle(
                 handle.getSchemaName(),
                 handle.getIcebergTableName(),
                 toPrestoSchema(icebergTable.schema(), typeManager),
                 toPrestoPartitionSpec(icebergTable.spec(), typeManager),
                 handle.getUpdatedColumns(),
-                icebergTable.location(),
+                writeLocation.getLocation(),
+                writeLocation.isIncludePartitionPaths(),
                 getFileFormat(icebergTable),
                 getCompressionCodec(session),
-                icebergTable.properties(),
+                writeLocation.getStorageProperties(),
                 handle.getSortOrder());
         finishWrite(session, handle.getSchemaTableName(), outputTableHandle, fragments, UPDATE_AFTER,
                 this.transactionContext.getQueryWriteScope(session.getQueryId()));
@@ -3535,16 +3548,18 @@ public abstract class IcebergAbstractMetadata
                 || status.getPartitionsFromBaseTables().values().stream()
                 .anyMatch(p -> p.getPredicateDisjuncts().isEmpty()));
 
+        IcebergWriteLocation writeLocation = getWriteLocation(session, storageTable);
         return new IcebergInsertTableHandle(
                 storageTableHandle.getSchemaName(),
                 storageTableHandle.getIcebergTableName(),
                 toPrestoSchema(storageTable.schema(), typeManager),
                 toPrestoPartitionSpec(storageTable.spec(), typeManager),
                 getColumns(storageTable.schema(), storageTable.spec(), typeManager),
-                storageTable.location(),
+                writeLocation.getLocation(),
+                writeLocation.isIncludePartitionPaths(),
                 getFileFormat(storageTable),
                 getCompressionCodec(session),
-                storageTable.properties(),
+                writeLocation.getStorageProperties(),
                 getSupportedSortFields(storageTable.schema(), storageTable.sortOrder()),
                 Optional.of(materializedViewName),
                 fullRefreshRequired);

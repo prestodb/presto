@@ -44,13 +44,14 @@ public class IcebergInsertTableHandle
             PrestoIcebergPartitionSpec partitionSpec,
             List<IcebergColumnHandle> inputColumns,
             String outputPath,
+            boolean includePartitionPaths,
             FileFormat fileFormat,
             HiveCompressionCodec compressionCodec,
             Map<String, String> storageProperties,
             List<SortField> sortOrder,
             Optional<SchemaTableName> materializedViewName)
     {
-        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
+        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath, includePartitionPaths,
                 fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false, ImmutableList.of(), ImmutableMap.of());
     }
 
@@ -61,6 +62,7 @@ public class IcebergInsertTableHandle
             PrestoIcebergPartitionSpec partitionSpec,
             List<IcebergColumnHandle> inputColumns,
             String outputPath,
+            boolean includePartitionPaths,
             FileFormat fileFormat,
             HiveCompressionCodec compressionCodec,
             Map<String, String> storageProperties,
@@ -68,7 +70,7 @@ public class IcebergInsertTableHandle
             Optional<SchemaTableName> materializedViewName,
             List<String> insertedColumns)
     {
-        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
+        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath, includePartitionPaths,
                 fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false, insertedColumns, ImmutableMap.of());
     }
 
@@ -79,6 +81,7 @@ public class IcebergInsertTableHandle
             PrestoIcebergPartitionSpec partitionSpec,
             List<IcebergColumnHandle> inputColumns,
             String outputPath,
+            boolean includePartitionPaths,
             FileFormat fileFormat,
             HiveCompressionCodec compressionCodec,
             Map<String, String> storageProperties,
@@ -86,7 +89,7 @@ public class IcebergInsertTableHandle
             Optional<SchemaTableName> materializedViewName,
             boolean fullRefreshRequired)
     {
-        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
+        this(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath, includePartitionPaths,
                 fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, fullRefreshRequired, ImmutableList.of(), ImmutableMap.of());
     }
 
@@ -103,6 +106,7 @@ public class IcebergInsertTableHandle
             PrestoIcebergPartitionSpec partitionSpec,
             List<IcebergColumnHandle> inputColumns,
             String outputPath,
+            boolean includePartitionPaths,
             FileFormat fileFormat,
             HiveCompressionCodec compressionCodec,
             Map<String, String> storageProperties,
@@ -110,7 +114,7 @@ public class IcebergInsertTableHandle
             Optional<SchemaTableName> materializedViewName,
             Map<String, DeleteFile> existingDeletionVectors)
     {
-        return new IcebergInsertTableHandle(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath,
+        return new IcebergInsertTableHandle(schemaName, tableName, schema, partitionSpec, inputColumns, outputPath, includePartitionPaths,
                 fileFormat, compressionCodec, storageProperties, sortOrder, materializedViewName, false, ImmutableList.of(), existingDeletionVectors);
     }
 
@@ -122,6 +126,7 @@ public class IcebergInsertTableHandle
             @JsonProperty("partitionSpec") PrestoIcebergPartitionSpec partitionSpec,
             @JsonProperty("inputColumns") List<IcebergColumnHandle> inputColumns,
             @JsonProperty("outputPath") String outputPath,
+            @JsonProperty("includePartitionPaths") Boolean includePartitionPaths,
             @JsonProperty("fileFormat") FileFormat fileFormat,
             @JsonProperty("compressionCodec") HiveCompressionCodec compressionCodec,
             @JsonProperty("storageProperties") Map<String, String> storageProperties,
@@ -138,6 +143,8 @@ public class IcebergInsertTableHandle
                 partitionSpec,
                 inputColumns,
                 outputPath,
+                // Absent from coordinators that predate the field: keep the legacy layout.
+                includePartitionPaths == null || includePartitionPaths,
                 fileFormat,
                 compressionCodec,
                 storageProperties,

@@ -105,7 +105,7 @@ public class IcebergPageSinkProvider
         Schema schema = toIcebergSchema(tableHandle.getSchema());
         PartitionSpec partitionSpec = toIcebergPartitionSpec(tableHandle.getPartitionSpec()).toUnbound().bind(schema);
         LocationProvider locationProvider = getLocationProvider(new SchemaTableName(tableHandle.getSchemaName(), tableHandle.getTableName().getTableName()),
-                tableHandle.getOutputPath(), tableHandle.getStorageProperties());
+                tableHandle.getOutputPath(), tableHandle.getStorageProperties(), tableHandle.isIncludePartitionPaths());
         Table table = getShallowWrappedIcebergTable(schema, partitionSpec, tableHandle.getStorageProperties(), Optional.empty());
         return new IcebergPageSink(
                 table,
@@ -131,7 +131,7 @@ public class IcebergPageSinkProvider
         IcebergMergeTableHandle merge = (IcebergMergeTableHandle) mergeHandle;
         IcebergWritableTableHandle tableHandle = merge.getInsertTableHandle();
         SchemaTableName schemaTableName = new SchemaTableName(tableHandle.getSchemaName(), tableHandle.getTableName().getTableName());
-        LocationProvider locationProvider = getLocationProvider(schemaTableName, tableHandle.getOutputPath(), tableHandle.getStorageProperties());
+        LocationProvider locationProvider = getLocationProvider(schemaTableName, tableHandle.getOutputPath(), tableHandle.getStorageProperties(), tableHandle.isIncludePartitionPaths());
 
         Schema schema = toIcebergSchema(tableHandle.getSchema());
         Map<Integer, PartitionSpec> partitionSpecs = transformValues(merge.getPartitionSpecs(),
