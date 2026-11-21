@@ -17,8 +17,10 @@ import com.facebook.airlift.json.JsonCodec;
 import com.facebook.airlift.json.JsonCodecFactory;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
 import com.facebook.airlift.json.ObjectMapperProvider;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.type.TypeDeserializer;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -27,6 +29,7 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
+import java.util.List;
 
 import static com.facebook.presto.common.type.BigintType.BIGINT;
 import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
@@ -36,6 +39,8 @@ import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.metadata.FunctionAndTypeManager.createTestFunctionAndTypeManager;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestLanceColumnHandle
 {
@@ -73,6 +78,38 @@ public class TestLanceColumnHandle
         assertEquals(LanceColumnHandle.toArrowType(REAL), new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE));
         assertEquals(LanceColumnHandle.toArrowType(DOUBLE), new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE));
         assertEquals(LanceColumnHandle.toArrowType(VARCHAR), ArrowType.Utf8.INSTANCE);
+    }
+
+    @Test
+    public void testRowAddressColumn()
+    {
+        LanceColumnHandle handle = LanceColumnHandle.rowAddressColumn();
+        assertEquals(handle.getColumnName(), "_rowaddr");
+        assertEquals(handle.getColumnType(), BIGINT);
+        assertEquals(handle.getColumnHandleType(), LanceColumnHandle.ColumnHandleType.ROW_ADDRESS);
+        assertTrue(handle.isRowAddress());
+        assertFalse(handle.isUpdateRowId());
+    }
+
+    @Test
+    public void testUpdateRowIdColumnStructShape()
+    {
+        LanceColumnHandle id = new LanceColumnHandle("id", BIGINT);
+        LanceColumnHandle name = new LanceColumnHandle("name", VARCHAR);
+        LanceColumnHandle rowId = LanceColumnHandle.updateRowIdColumn(ImmutableList.of(id, name));
+
+        assertEquals(rowId.getColumnName(), "$row_id");
+        assertEquals(rowId.getColumnHandleType(), LanceColumnHandle.ColumnHandleType.UPDATE_ROW_ID);
+        assertTrue(rowId.isUpdateRowId());
+
+        RowType rowType = (RowType) rowId.getColumnType();
+        List<RowType.Field> fields = rowType.getFields();
+        // First field is always the row address, followed by the unmodified columns in order.
+        assertEquals(fields.size(), 3);
+        assertEquals(fields.get(0).getName().get(), "_rowaddr");
+        assertEquals(fields.get(0).getType(), BIGINT);
+        assertEquals(fields.get(1).getName().get(), "id");
+        assertEquals(fields.get(2).getName().get(), "name");
     }
 
     private static Field field(String name, ArrowType type)
