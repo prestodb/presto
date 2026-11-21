@@ -148,7 +148,7 @@ public class TestUnweightedDoubleReservoirSample
                                 long[] drawChoices = {firstDraw, secondDraw};
                                 int[] shuffleIndex = {0};
                                 int[] drawIndex = {0};
-                                left.mergeFullReservoirs(right,
+                                left.mergeWith(right,
                                         bound -> {
                                             assertEquals(bound, 2);
                                             return shuffleChoices[shuffleIndex[0]++];

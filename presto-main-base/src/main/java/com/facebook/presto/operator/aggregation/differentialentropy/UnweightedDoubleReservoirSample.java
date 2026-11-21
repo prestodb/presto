@@ -82,6 +82,14 @@ public class UnweightedDoubleReservoirSample
 
     public void mergeWith(UnweightedDoubleReservoirSample other)
     {
+        mergeWith(other,
+                bound -> ThreadLocalRandom.current().nextInt(bound),
+                bound -> ThreadLocalRandom.current().nextLong(bound));
+    }
+
+    @VisibleForTesting
+    void mergeWith(UnweightedDoubleReservoirSample other, IntUnaryOperator nextInt, LongUnaryOperator nextLong)
+    {
         checkArgument(
                 samples.length == other.samples.length,
                 format("Maximum number of samples %s must be equal to that of other %s", samples.length, other.samples.length));
@@ -101,14 +109,6 @@ public class UnweightedDoubleReservoirSample
             return;
         }
 
-        mergeFullReservoirs(other,
-                bound -> ThreadLocalRandom.current().nextInt(bound),
-                bound -> ThreadLocalRandom.current().nextLong(bound));
-    }
-
-    @VisibleForTesting
-    void mergeFullReservoirs(UnweightedDoubleReservoirSample other, IntUnaryOperator nextInt, LongUnaryOperator nextLong)
-    {
         shuffleArray(samples, nextInt);
         shuffleArray(other.samples, nextInt);
         int remainingCount = seenCount;
