@@ -860,7 +860,8 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
         columnHandles,
     const protocol::Map<protocol::String, protocol::String>& tableParameters,
     const VeloxExprConverter& exprConverter,
-    const TypeParser& typeParser) {
+    const TypeParser& typeParser,
+    const std::string& dbName) {
   common::SubfieldFilters subfieldFilters;
   auto domains = domainPredicate.domains;
   for (const auto& domain : *domains) {
@@ -910,7 +911,9 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
       finalDataColumns,
       indexColumns,
       finalTableParameters,
-      columnHandles);
+      columnHandles,
+      /*sampleRate=*/1.0,
+      dbName);
 }
 
 void extractNimbleSerdeParameters(

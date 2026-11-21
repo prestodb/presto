@@ -55,6 +55,9 @@ velox::connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
 /// Threads index columns into the resulting handle so index lookups can reuse
 /// this conversion path. Index columns are placed right after dataColumns to
 /// mirror the velox HiveTableHandle constructor ordering.
+///
+/// 'dbName' is stored as the handle's dbName(), the database or namespace name
+/// of the table. Defaults to empty.
 std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
     const protocol::TupleDomain<protocol::Subfield>& domainPredicate,
     const std::shared_ptr<protocol::RowExpression>& remainingPredicate,
@@ -66,7 +69,8 @@ std::unique_ptr<velox::connector::ConnectorTableHandle> toHiveTableHandle(
         columnHandles,
     const protocol::Map<protocol::String, protocol::String>& tableParameters,
     const VeloxExprConverter& exprConverter,
-    const TypeParser& typeParser);
+    const TypeParser& typeParser,
+    const std::string& dbName = "");
 
 /// Extracts nimble serde parameters (nimble.* and alpha.*) from table
 /// parameters.
