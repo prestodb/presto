@@ -51,9 +51,19 @@ public class LanceSplitManager
         LanceTableLayoutHandle layoutHandle = (LanceTableLayoutHandle) layout;
         LanceTableHandle tableHandle = layoutHandle.getTable();
 
+        String datasetPath = tableHandle.getTablePath();
+
         List<Fragment> fragments = namespaceHolder.getFragments(
                 tableHandle.getTablePath(),
                 tableHandle.getDatasetVersion());
+
+        // Vector (ANN) search runs as a single split over all fragments: one nearest query returns
+        // the exact global top-k. It cannot be split by fragment, because lance-core silently turns
+        // a nearest scan restricted to fragment IDs into a plain scan and drops _distance.
+        if (tableHandle.hasVectorSearch()) {
+            List<Integer> allFragmentIds = fragments.stream().map(Fragment::getId).collect(toImmutableList());
+            return new FixedSplitSource(ImmutableList.of(new LanceSplit(datasetPath, allFragmentIds)));
+        }
 
         // With a pushed-down LIMIT, coalesce just enough leading fragments to cover it into a single
         // split instead of one-split-per-fragment (which would scan numFragments * LIMIT rows).
@@ -65,11 +75,12 @@ public class LanceSplitManager
                     .map(fragment -> fragment.metadata().getNumRows())
                     .collect(toImmutableList());
             List<Integer> coalesced = coalesceFragmentsForLimit(ids, rowCounts, limit);
-            return new FixedSplitSource(ImmutableList.of(new LanceSplit(coalesced)));
+            return new FixedSplitSource(ImmutableList.of(new LanceSplit(datasetPath, coalesced)));
         }
 
         List<ConnectorSplit> splits = fragments.stream()
                 .map(fragment -> (ConnectorSplit) new LanceSplit(
+                        datasetPath,
                         ImmutableList.of(fragment.getId())))
                 .collect(toImmutableList());
 

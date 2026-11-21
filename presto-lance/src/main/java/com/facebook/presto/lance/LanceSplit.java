@@ -32,13 +32,22 @@ import static java.util.Objects.requireNonNull;
 public class LanceSplit
         implements ConnectorSplit
 {
+    private final String datasetPath;
     private final List<Integer> fragments;
 
     @JsonCreator
     public LanceSplit(
+            @JsonProperty("datasetPath") String datasetPath,
             @JsonProperty("fragments") List<Integer> fragments)
     {
+        this.datasetPath = requireNonNull(datasetPath, "datasetPath is null");
         this.fragments = ImmutableList.copyOf(requireNonNull(fragments, "fragments is null"));
+    }
+
+    @JsonProperty
+    public String getDatasetPath()
+    {
+        return datasetPath;
     }
 
     @JsonProperty
@@ -63,6 +72,7 @@ public class LanceSplit
     public Object getInfo()
     {
         return ImmutableMap.builder()
+                .put("datasetPath", datasetPath)
                 .put("fragments", fragments)
                 .build();
     }
@@ -77,19 +87,21 @@ public class LanceSplit
             return false;
         }
         LanceSplit that = (LanceSplit) o;
-        return Objects.equals(fragments, that.fragments);
+        return Objects.equals(datasetPath, that.datasetPath) &&
+                Objects.equals(fragments, that.fragments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(fragments);
+        return Objects.hash(datasetPath, fragments);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
+                .add("datasetPath", datasetPath)
                 .add("fragments", fragments)
                 .toString();
     }
