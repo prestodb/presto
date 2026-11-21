@@ -262,6 +262,47 @@ TEST_F(PrestoToVeloxConnectorTest, hiveLowercasesColumnNames) {
   EXPECT_EQ(dataColumnsType->nameOf(1), "uppercasecol2");
 }
 
+TEST_F(PrestoToVeloxConnectorTest, toHiveTableHandleDbName) {
+  auto layout = std::make_shared<protocol::hive::HiveTableLayoutHandle>();
+  setCommonLayoutProperties(
+      layout, createTestDataColumns(), createTrueConstant());
+
+  protocol::TableHandle tableHandle;
+  tableHandle.connectorId = "hive";
+
+  auto result = toHiveTableHandle(
+      layout->domainPredicate,
+      layout->remainingPredicate,
+      "test_schema.test_table",
+      layout->dataColumns,
+      /*indexColumns=*/{},
+      tableHandle,
+      /*columnHandles=*/{},
+      layout->tableParameters,
+      *exprConverter_,
+      *typeParser_,
+      "test_schema");
+  auto* handle = dynamic_cast<connector::hive::HiveTableHandle*>(result.get());
+  ASSERT_NE(handle, nullptr);
+  EXPECT_EQ(handle->tableName(), "test_schema.test_table");
+  EXPECT_EQ(handle->dbName(), "test_schema");
+
+  result = toHiveTableHandle(
+      layout->domainPredicate,
+      layout->remainingPredicate,
+      "test_schema.test_table",
+      layout->dataColumns,
+      /*indexColumns=*/{},
+      tableHandle,
+      /*columnHandles=*/{},
+      layout->tableParameters,
+      *exprConverter_,
+      *typeParser_);
+  handle = dynamic_cast<connector::hive::HiveTableHandle*>(result.get());
+  ASSERT_NE(handle, nullptr);
+  EXPECT_EQ(handle->dbName(), "");
+}
+
 namespace {
 
 protocol::iceberg::IcebergColumnHandle createIcebergColumnHandle(
@@ -773,7 +814,8 @@ TEST_F(PrestoToVeloxConnectorTest, hiveInsertTableHandleTableParameters) {
 
 TEST_F(PrestoToVeloxConnectorTest, adjacentBigintRanges) {
   auto boundary = serializeToBlock(
-      BaseVector::createConstant(BIGINT(), variant(int64_t{25}), 1, pool_.get()),
+      BaseVector::createConstant(
+          BIGINT(), variant(int64_t{25}), 1, pool_.get()),
       pool_.get());
   auto rangeSet = std::make_shared<protocol::SortedRangeSet>();
   rangeSet->type = "bigint";
