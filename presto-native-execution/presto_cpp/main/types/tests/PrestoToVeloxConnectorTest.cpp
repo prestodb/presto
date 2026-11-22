@@ -773,7 +773,8 @@ TEST_F(PrestoToVeloxConnectorTest, hiveInsertTableHandleTableParameters) {
 
 TEST_F(PrestoToVeloxConnectorTest, adjacentBigintRanges) {
   auto boundary = serializeToBlock(
-      BaseVector::createConstant(BIGINT(), variant(int64_t{25}), 1, pool_.get()),
+      BaseVector::createConstant(
+          BIGINT(), variant(int64_t{25}), 1, pool_.get()),
       pool_.get());
   auto rangeSet = std::make_shared<protocol::SortedRangeSet>();
   rangeSet->type = "bigint";
