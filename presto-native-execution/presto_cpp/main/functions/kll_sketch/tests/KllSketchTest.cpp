@@ -22,6 +22,7 @@
 #include "presto_cpp/main/functions/kll_sketch/KllSketchRegistration.h"
 #include "presto_cpp/main/functions/kll_sketch/KllSketchTypeTraits.h"
 #include "presto_cpp/main/types/KllSketchType.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 
@@ -119,7 +120,7 @@ class KllSketchTest : public AggregationTestBase {
 
     auto plan = PlanBuilder().values({sketch}).project({query}).planNode();
 
-    return readSingleValue(plan).value<TypeKind::DOUBLE>();
+    return AssertQueryBuilder(plan).copySingleValue().value<TypeKind::DOUBLE>();
   }
 
   template <typename T>
@@ -132,13 +133,21 @@ class KllSketchTest : public AggregationTestBase {
     auto plan = PlanBuilder().values({sketch}).project({query}).planNode();
 
     if constexpr (std::is_same_v<T, std::string>) {
-      return readSingleValue(plan).value<TypeKind::VARCHAR>();
+      return AssertQueryBuilder(plan)
+          .copySingleValue()
+          .value<TypeKind::VARCHAR>();
     } else if constexpr (std::is_same_v<T, bool>) {
-      return readSingleValue(plan).value<TypeKind::BOOLEAN>();
+      return AssertQueryBuilder(plan)
+          .copySingleValue()
+          .value<TypeKind::BOOLEAN>();
     } else if constexpr (std::is_same_v<T, double>) {
-      return readSingleValue(plan).value<TypeKind::DOUBLE>();
+      return AssertQueryBuilder(plan)
+          .copySingleValue()
+          .value<TypeKind::DOUBLE>();
     } else {
-      return readSingleValue(plan).value<TypeKind::BIGINT>();
+      return AssertQueryBuilder(plan)
+          .copySingleValue()
+          .value<TypeKind::BIGINT>();
     }
   }
 };
@@ -672,7 +681,9 @@ class KllSketchCrossEngineTest : public AggregationTestBase {
           inclusive ? "" : ", false");
     }
     auto plan = PlanBuilder().values({sketch}).project({query}).planNode();
-    return readSingleValue(plan).template value<TypeKind::DOUBLE>();
+    return AssertQueryBuilder(plan)
+        .copySingleValue()
+        .template value<TypeKind::DOUBLE>();
   }
 
   template <typename T>
@@ -687,13 +698,21 @@ class KllSketchCrossEngineTest : public AggregationTestBase {
         inclusive ? "" : ", false");
     auto plan = PlanBuilder().values({sketch}).project({query}).planNode();
     if constexpr (std::is_same_v<T, std::string>) {
-      return readSingleValue(plan).template value<TypeKind::VARCHAR>();
+      return AssertQueryBuilder(plan)
+          .copySingleValue()
+          .template value<TypeKind::VARCHAR>();
     } else if constexpr (std::is_same_v<T, bool>) {
-      return readSingleValue(plan).template value<TypeKind::BOOLEAN>();
+      return AssertQueryBuilder(plan)
+          .copySingleValue()
+          .template value<TypeKind::BOOLEAN>();
     } else if constexpr (std::is_same_v<T, double>) {
-      return readSingleValue(plan).template value<TypeKind::DOUBLE>();
+      return AssertQueryBuilder(plan)
+          .copySingleValue()
+          .template value<TypeKind::DOUBLE>();
     } else {
-      return readSingleValue(plan).template value<TypeKind::BIGINT>();
+      return AssertQueryBuilder(plan)
+          .copySingleValue()
+          .template value<TypeKind::BIGINT>();
     }
   }
 

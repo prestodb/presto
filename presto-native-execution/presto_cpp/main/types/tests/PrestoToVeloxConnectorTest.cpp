@@ -21,6 +21,7 @@
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/encode/Base64.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/HiveConnector.h"
 #include "velox/connectors/hive/HiveDataSink.h"
 #include "velox/connectors/hive/TableHandle.h"
@@ -771,9 +772,67 @@ TEST_F(PrestoToVeloxConnectorTest, hiveInsertTableHandleTableParameters) {
   EXPECT_EQ(storageParams.at("param2"), "value2");
 }
 
+TEST_F(
+    PrestoToVeloxConnectorTest,
+    hiveInsertTableHandleInsertExistingPartitionsBehavior) {
+  // The three-argument overload carries the behavior resolved from the
+  // session property; the two-argument form keeps the session default.
+  using Behavior =
+      connector::hive::HiveConfig::InsertExistingPartitionsBehavior;
+  auto protoHandle = std::make_shared<protocol::hive::HiveInsertTableHandle>();
+  protoHandle->_type = "hive";
+
+  protocol::hive::HiveColumnHandle col;
+  col.name = "col1";
+  col.hiveType = "int";
+  col.typeSignature = "integer";
+  col.columnType = protocol::hive::ColumnType::REGULAR;
+  protoHandle->inputColumns = {col};
+
+  protoHandle->locationHandle.targetPath = "/target";
+  protoHandle->locationHandle.writePath = "/write";
+  protoHandle->locationHandle.tableType = protocol::hive::TableType::EXISTING;
+
+  protoHandle->actualStorageFormat = protocol::hive::HiveStorageFormat::DWRF;
+  protoHandle->compressionCodec = protocol::hive::HiveCompressionCodec::NONE;
+
+  auto table = std::make_shared<protocol::hive::Table>();
+  protoHandle->pageSinkMetadata.table = table;
+
+  protocol::InsertHandle insertHandle;
+  insertHandle.handle.connectorHandle = protoHandle;
+  insertHandle.handle.connectorId = "hive";
+
+  HivePrestoToVeloxConnector hiveConnector("hive");
+  auto overwriteResult = hiveConnector.toVeloxInsertTableHandle(
+      &insertHandle, *typeParser_, Behavior::kOverwrite);
+  ASSERT_NE(overwriteResult, nullptr);
+  const auto* overwriteHandle =
+      dynamic_cast<connector::hive::HiveInsertTableHandle*>(
+          overwriteResult.get());
+  ASSERT_NE(overwriteHandle, nullptr);
+  ASSERT_TRUE(overwriteHandle->insertExistingPartitionsBehavior().has_value());
+  EXPECT_EQ(
+      overwriteHandle->insertExistingPartitionsBehavior().value(),
+      Behavior::kOverwrite);
+
+  auto defaultResult =
+      hiveConnector.toVeloxInsertTableHandle(&insertHandle, *typeParser_);
+  ASSERT_NE(defaultResult, nullptr);
+  const auto* defaultHandle =
+      dynamic_cast<connector::hive::HiveInsertTableHandle*>(
+          defaultResult.get());
+  ASSERT_NE(defaultHandle, nullptr);
+  ASSERT_TRUE(defaultHandle->insertExistingPartitionsBehavior().has_value());
+  EXPECT_EQ(
+      defaultHandle->insertExistingPartitionsBehavior().value(),
+      Behavior::kError);
+}
+
 TEST_F(PrestoToVeloxConnectorTest, adjacentBigintRanges) {
   auto boundary = serializeToBlock(
-      BaseVector::createConstant(BIGINT(), variant(int64_t{25}), 1, pool_.get()),
+      BaseVector::createConstant(
+          BIGINT(), variant(int64_t{25}), 1, pool_.get()),
       pool_.get());
   auto rangeSet = std::make_shared<protocol::SortedRangeSet>();
   rangeSet->type = "bigint";

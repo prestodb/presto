@@ -18,6 +18,7 @@
 #include "presto_cpp/main/operators/BroadcastFile.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
+#include "presto_cpp/main/operators/tests/TestCursor.h"
 #include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "velox/buffer/Buffer.h"
 #include "velox/common/base/tests/GTestUtils.h"
@@ -102,7 +103,7 @@ class BroadcastTest : public exec::test::OperatorTestBase,
     params.queryCtx = core::QueryCtx::create(
         executor_.get(), core::QueryConfig(std::move(configs)));
 
-    auto [taskCursor, results] = exec::test::readCursor(params);
+    auto [taskCursor, results] = readCursor(params);
 
     std::vector<std::string> broadcastFilePaths;
     for (const auto& result : results) {
@@ -139,26 +140,24 @@ class BroadcastTest : public exec::test::OperatorTestBase,
     }
 
     // Read back result using BroadcastExchangeSource.
-    return exec::test::readCursor(
-        broadcastReadParams, [&](exec::TaskCursor* taskCursor) {
-          if (taskCursor->noMoreSplits()) {
-            return;
-          }
-          auto& task = taskCursor->task();
-          for (int splitIndex = 0; splitIndex < broadcastFilePaths.size();
-               ++splitIndex) {
-            auto split = exec::Split(
-                std::make_shared<exec::RemoteConnectorSplit>(fmt::format(
-                    "batch://task?broadcastInfo={}",
-                    fmt::format(
-                        kBroadcastFileInfoFormat,
-                        broadcastFilePaths[splitIndex]))),
-                -1);
-            task->addSplit("0", std::move(split));
-          }
-          task->noMoreSplits("0");
-          taskCursor->setNoMoreSplits();
-        });
+    return readCursor(broadcastReadParams, [&](exec::TaskCursor* taskCursor) {
+      if (taskCursor->noMoreSplits()) {
+        return;
+      }
+      auto& task = taskCursor->task();
+      for (int splitIndex = 0; splitIndex < broadcastFilePaths.size();
+           ++splitIndex) {
+        auto split = exec::Split(
+            std::make_shared<exec::RemoteConnectorSplit>(fmt::format(
+                "batch://task?broadcastInfo={}",
+                fmt::format(
+                    kBroadcastFileInfoFormat, broadcastFilePaths[splitIndex]))),
+            -1);
+        task->addSplit("0", std::move(split));
+      }
+      task->noMoreSplits("0");
+      taskCursor->setNoMoreSplits();
+    });
   }
 
   std::vector<RowVectorPtr> reorderColumns(
@@ -355,7 +354,7 @@ TEST_P(BroadcastTest, malformedBroadcastInfoJson) {
   broadcastReadParams.planNode = readerPlan;
 
   VELOX_ASSERT_THROW(
-      exec::test::readCursor(
+      readCursor(
           broadcastReadParams,
           [&](exec::TaskCursor* taskCursor) {
             if (taskCursor->noMoreSplits()) {
@@ -744,7 +743,7 @@ TEST_P(BroadcastTest, broadcastWriteOperatorReadsTheGateFromTheQueryConfig) {
         params.queryCtx = core::QueryCtx::create(
             executor_.get(), core::QueryConfig(std::move(configs)));
 
-        auto [taskCursor, results] = exec::test::readCursor(params);
+        auto [taskCursor, results] = readCursor(params);
         VELOX_CHECK_EQ(results.size(), 1);
         return results[0]
             ->childAt(3)
@@ -1161,7 +1160,7 @@ TEST_P(BroadcastTest, broadcastJoinExceedLimit) {
       executor_.get(), core::QueryConfig(std::move(configs)));
 
   try {
-    auto [writeTaskCursor, writeResults] = exec::test::readCursor(params);
+    auto [writeTaskCursor, writeResults] = readCursor(params);
     FAIL() << "Expected PrestoException to be thrown during broadcast write";
   } catch (const VeloxException& e) {
     EXPECT_EQ(e.errorSource(), velox::error_source::kErrorSourceRuntime);

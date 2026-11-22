@@ -41,10 +41,12 @@
 #include "velox/dwio/dwrf/RegisterDwrfReader.h"
 #include "velox/dwio/dwrf/RegisterDwrfWriter.h"
 #include "velox/exec/HashPartitionFunction.h"
+#include "velox/exec/Spill.h"
 #include "velox/exec/Values.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/exec/tests/utils/QueryAssertions.h"
+#include "velox/exec/tests/utils/TaskMonitor.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/type/Type.h"
 
@@ -413,8 +415,10 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
       const std::string& duckDbSql) {
     auto resultOrFailure = fetchAllResults(taskId, resultType, {taskId});
     ASSERT_EQ(resultOrFailure.status, nullptr);
-    exec::test::assertResults(
-        resultOrFailure.results, resultType, duckDbSql, duckDbQueryRunner_);
+    exec::test::assertEqualResults(
+        duckDbQueryRunner_.execute(duckDbSql, resultType),
+        resultType,
+        resultOrFailure.results);
   }
 
   std::unique_ptr<protocol::TaskInfo> createOutputTask(
@@ -831,8 +835,9 @@ TEST_P(TaskManagerTest, fecthFromFinishedTask) {
   // Close destination 0 and triggers the task closure.
   taskManager_->abortResults(taskId, destination);
   auto prestoTask = taskManager_->tasks().at(taskId);
-  ASSERT_TRUE(waitForTaskStateChange(
-      prestoTask->task.get(), TaskState::kFinished, 3'000'000));
+  ASSERT_TRUE(
+      velox::exec::test::TaskMonitor::waitForStateChange(
+          *prestoTask->task.get(), TaskState::kFinished, 3'000'000));
 
   const auto newDestination = 1;
   // Fetch destination 1 from the closed task.
@@ -902,8 +907,9 @@ DEBUG_ONLY_TEST_P(TaskManagerTest, fecthFromArbitraryOutput) {
   taskManager_->abortResults(taskId, 1);
 
   auto prestoTask = taskManager_->tasks().at(taskId);
-  ASSERT_TRUE(waitForTaskStateChange(
-      prestoTask->task.get(), TaskState::kFinished, 3'000'000));
+  ASSERT_TRUE(
+      velox::exec::test::TaskMonitor::waitForStateChange(
+          *prestoTask->task.get(), TaskState::kFinished, 3'000'000));
 }
 
 // Verifies that a system clock step does not make a running task look
@@ -948,8 +954,9 @@ TEST_P(TaskManagerTest, abandonedTaskIgnoresSystemClockSteps) {
   // The task is still cancelled once its coordinator heartbeat is old enough.
   taskManager_->setOldTaskCleanUpMs(0);
   taskManager_->cleanOldTasks();
-  ASSERT_TRUE(waitForTaskStateChange(
-      prestoTask->task.get(), TaskState::kCanceled, 3'000'000));
+  ASSERT_TRUE(
+      velox::exec::test::TaskMonitor::waitForStateChange(
+          *prestoTask->task.get(), TaskState::kCanceled, 3'000'000));
 }
 
 // Verifies that a system clock step during execution does not change the
@@ -1945,7 +1952,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   ASSERT_EQ(taskStats.peakTotalMemoryInBytes, taskStats.peakUserMemoryInBytes);
   prestoTask.reset();
   veloxTask.reset();
-  velox::exec::test::waitForAllTasksToBeDeleted(3'000'000);
+  velox::exec::test::TaskMonitor::waitForAllTasksDeleted(3'000'000);
 }
 
 TEST_P(TaskManagerTest, checkBatchSplits) {
@@ -2060,7 +2067,7 @@ TEST_P(TaskManagerTest, buildSpillDirectoryFailure) {
       }
     }
     waitForAllOldTasksToBeCleaned(taskManager_.get(), 3'000'000);
-    velox::exec::test::waitForAllTasksToBeDeleted(3'000'000);
+    velox::exec::test::TaskMonitor::waitForAllTasksDeleted(3'000'000);
     ASSERT_TRUE(taskManager_->tasks().empty());
   }
 }

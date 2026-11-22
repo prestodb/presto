@@ -17,6 +17,7 @@
 #include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.h"
 #include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
 #include "velox/connectors/Connector.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/PlanNode.h"
 #include "velox/vector/ComplexVector.h"
@@ -94,12 +95,39 @@ class PrestoToVeloxConnector {
     return {};
   }
 
+  /// Overload carrying the already-resolved partition-overwrite behavior
+  /// for connectors whose insert handle decides it. Default delegates to
+  /// the two-argument form, so connectors that do not decide it are
+  /// unaffected. The Hive connector overrides this to pass the behavior
+  /// resolved from the session property to HiveInsertTableHandle.
+  [[nodiscard]] virtual std::unique_ptr<
+      velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::CreateHandle* createHandle,
+      const TypeParser& typeParser,
+      velox::connector::hive::HiveConfig::InsertExistingPartitionsBehavior
+      /*behavior*/) const {
+    return toVeloxInsertTableHandle(createHandle, typeParser);
+  }
+
   [[nodiscard]] virtual std::unique_ptr<
       velox::connector::ConnectorInsertTableHandle>
   toVeloxInsertTableHandle(
       const protocol::InsertHandle* insertHandle,
       const TypeParser& typeParser) const {
     return {};
+  }
+
+  /// Overload carrying the already-resolved partition-overwrite behavior,
+  /// as for the CreateHandle overload above.
+  [[nodiscard]] virtual std::unique_ptr<
+      velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::InsertHandle* insertHandle,
+      const TypeParser& typeParser,
+      velox::connector::hive::HiveConfig::InsertExistingPartitionsBehavior
+      /*behavior*/) const {
+    return toVeloxInsertTableHandle(insertHandle, typeParser);
   }
 
   [[nodiscard]] virtual std::unique_ptr<

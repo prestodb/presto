@@ -350,7 +350,7 @@ TEST_F(ArrowFlightConnectorDataTypeTest, dateDayType) {
           {makeNumericArray<arrow::Date32Type>(datesDay),
            makeNumericArray<arrow::Date64Type>(datesMilli)}));
 
-  auto dateVec = makeFlatVector<int32_t>(datesDay);
+  auto dateVec = makeFlatVector<int32_t>(datesDay, velox::DATE());
   auto milliVec = makeFlatVector<int64_t>(datesMilli);
 
   core::PlanNodePtr plan;
@@ -382,7 +382,8 @@ TEST_F(ArrowFlightConnectorDataTypeTest, decimalType) {
   decimalArrayVec.push_back(makeDecimalArray(decimalValuesBigInt, 18, 2));
   updateTable(
       "sample-data", makeArrowTable({"decimal_col_bigint"}, decimalArrayVec));
-  auto decimalVecBigInt = makeFlatVector<int64_t>(decimalValuesBigInt);
+  auto decimalVecBigInt =
+      makeFlatVector<int64_t>(decimalValuesBigInt, velox::DECIMAL(18, 2));
 
   core::PlanNodePtr plan;
   plan =
@@ -554,7 +555,7 @@ TEST_F(ArrowFlightConnectorDataTypeTest, allTypes) {
 
   updateTable("gen-data", sampleTable);
 
-  auto dateVec = makeFlatVector<int32_t>({18748, 18749, 18750});
+  auto dateVec = makeFlatVector<int32_t>({18748, 18749, 18750}, velox::DATE());
 
   std::vector<facebook::velox::Timestamp> veloxTimestampSec;
   for (const auto& ts : timestampValues) {
