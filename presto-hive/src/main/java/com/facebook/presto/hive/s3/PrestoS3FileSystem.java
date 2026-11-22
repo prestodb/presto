@@ -680,11 +680,7 @@ public class PrestoS3FileSystem
     {
         String bucketName = getBucketName(uri);
         String key = keyFromPath(path);
-        ObjectMetadata s3ObjectMetadata = getS3ObjectMetadata(path, bucketName, key);
-        if (s3ObjectMetadata == null && !key.isEmpty()) {
-            return new PrestoS3ObjectMetadata(getS3ObjectMetadata(path, bucketName, key + PATH_SEPARATOR), true);
-        }
-        return new PrestoS3ObjectMetadata(s3ObjectMetadata, false);
+        return new PrestoS3ObjectMetadata(getS3ObjectMetadata(path, bucketName, key), false);
     }
 
     private ObjectMetadata getS3ObjectMetadata(Path path, String bucketName, String key)
