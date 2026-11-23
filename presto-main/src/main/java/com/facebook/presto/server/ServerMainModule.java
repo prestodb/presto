@@ -240,7 +240,9 @@ import com.facebook.presto.sql.planner.LocalExecutionPlanner;
 import com.facebook.presto.sql.planner.NodePartitioningManager;
 import com.facebook.presto.sql.planner.PartitioningProviderManager;
 import com.facebook.presto.sql.planner.PlanFragment;
+import com.facebook.presto.sql.planner.optimizations.DefaultRpcDeferredExecutionRegistry;
 import com.facebook.presto.sql.planner.optimizations.DefaultRpcExecutionPolicy;
+import com.facebook.presto.sql.planner.optimizations.RpcDeferredExecutionRegistry;
 import com.facebook.presto.sql.planner.optimizations.RpcExecutionPolicy;
 import com.facebook.presto.sql.planner.plan.JsonCodecSimplePlanFragmentSerde;
 import com.facebook.presto.sql.planner.sanity.PlanChecker;
@@ -384,6 +386,7 @@ public class ServerMainModule
         // RPC execution policy: the OSS default carries no batching heuristic (AUTOMATIC ->
         // PER_ROW); a deployment may bind an override to enable stats-driven resolution.
         newOptionalBinder(binder, RpcExecutionPolicy.class).setDefault().to(DefaultRpcExecutionPolicy.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, RpcDeferredExecutionRegistry.class).setDefault().to(DefaultRpcDeferredExecutionRegistry.class).in(Scopes.SINGLETON);
 
         jaxrsBinder(binder).bind(ThrowableMapper.class);
 

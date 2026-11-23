@@ -98,6 +98,20 @@ jobs:
       - name: Download nodejs to maven cache
         if: needs.changes.outputs.codechange == 'true'
         run: .github/bin/download_nodejs
+      - name: Bootstrap Maven extensions
+        if: needs.changes.outputs.codechange == 'true'
+        run: |
+          for attempt in 1 2 3; do
+            if timeout --foreground 120s ./mvnw -B --no-transfer-progress -U -N -Dair.check.skip-all validate; then
+              exit 0
+            else
+              result=$?
+            fi
+            if (( attempt == 3 )); then
+              exit "$result"
+            fi
+            sleep "$(( attempt * 10 ))"
+          done
       - name: Maven Install
         if: needs.changes.outputs.codechange == 'true'
         run: |

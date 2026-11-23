@@ -17,8 +17,12 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.TimeoutException;
+import java.util.function.LongSupplier;
 
 import static com.facebook.presto.spark.testing.Processes.startProcess;
 import static com.facebook.presto.spark.testing.Processes.waitForProcess;
@@ -26,6 +30,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public class DockerCompose
 {
@@ -78,6 +84,71 @@ public class DockerCompose
         return Processes.executeForOutput("docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", containerId).trim();
     }
 
+    public String getContainerAddress(String service, Process composeProcess, Duration timeout)
+            throws InterruptedException, TimeoutException
+    {
+        return waitForContainerAddress(service, composeProcess, timeout, () -> {
+            Optional<String> containerId = findContainerId(service);
+            if (!containerId.isPresent()) {
+                return Optional.empty();
+            }
+            return Optional.of(Processes.executeForOutput(
+                    "docker", "inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", containerId.get()).trim());
+        }, System::nanoTime, NANOSECONDS::sleep);
+    }
+
+    static String waitForContainerAddress(String service, Process composeProcess, Duration timeout, AddressLookup addressLookup, LongSupplier nanoTime, Sleeper sleeper)
+            throws InterruptedException, TimeoutException
+    {
+        requireNonNull(service, "service is null");
+        requireNonNull(composeProcess, "composeProcess is null");
+        requireNonNull(timeout, "timeout is null");
+        requireNonNull(addressLookup, "addressLookup is null");
+        requireNonNull(nanoTime, "nanoTime is null");
+        requireNonNull(sleeper, "sleeper is null");
+        checkArgument(!timeout.isNegative() && !timeout.isZero(), "timeout must be positive");
+        long started = nanoTime.getAsLong();
+        long timeoutNanos = timeout.toNanos();
+        while (true) {
+            checkComposeRunning(service, composeProcess);
+            long remaining = timeoutNanos - (nanoTime.getAsLong() - started);
+            if (remaining <= 0) {
+                throw new TimeoutException(format("Timed out after %s waiting for container address: %s", timeout, service));
+            }
+            Optional<String> address = addressLookup.get();
+            checkComposeRunning(service, composeProcess);
+            remaining = timeoutNanos - (nanoTime.getAsLong() - started);
+            if (remaining <= 0) {
+                throw new TimeoutException(format("Timed out after %s waiting for container address: %s", timeout, service));
+            }
+            if (address.isPresent() && !address.get().isEmpty()) {
+                return address.get();
+            }
+            sleeper.sleep(Math.min(MILLISECONDS.toNanos(100), remaining));
+        }
+    }
+
+    private static void checkComposeRunning(String service, Process composeProcess)
+    {
+        if (!composeProcess.isAlive()) {
+            throw new IllegalStateException(format("docker compose exited with code %s while waiting for container address: %s", composeProcess.exitValue(), service));
+        }
+    }
+
+    @FunctionalInterface
+    interface AddressLookup
+    {
+        Optional<String> get()
+                throws InterruptedException;
+    }
+
+    @FunctionalInterface
+    interface Sleeper
+    {
+        void sleep(long nanos)
+                throws InterruptedException;
+    }
+
     public int run(String... parameters)
             throws InterruptedException
     {
@@ -96,6 +167,13 @@ public class DockerCompose
     private String getContainerId(String service)
             throws InterruptedException
     {
+        return findContainerId(service)
+                .orElseThrow(() -> new IllegalArgumentException(format("container not found: %s", service)));
+    }
+
+    private Optional<String> findContainerId(String service)
+            throws InterruptedException
+    {
         List<String> containerIds = getContainerIds();
         for (String containerId : containerIds) {
             String output = Processes.executeForOutput(
@@ -104,10 +182,10 @@ public class DockerCompose
                     "--filter", format("id=%s", containerId),
                     "--filter", format("name=%s", service));
             if (!output.isEmpty()) {
-                return containerId;
+                return Optional.of(containerId);
             }
         }
-        throw new IllegalArgumentException(format("container not found: %s", service));
+        return Optional.empty();
     }
 
     private List<String> getContainerIds()

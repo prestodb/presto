@@ -80,7 +80,9 @@ void updateFromSessionConfigs(
   std::optional<std::string> traceFragmentId;
   std::optional<std::string> traceShardId;
   for (const auto& it : systemProperties) {
-    if (it.first == SessionProperties::kQueryTraceFragmentId) {
+    if (it.first == "rpc_streaming_mode") {
+      queryConfigs[it.first] = it.second;
+    } else if (it.first == SessionProperties::kQueryTraceFragmentId) {
       traceFragmentId = it.second;
     } else if (it.first == SessionProperties::kQueryTraceShardId) {
       traceShardId = it.second;

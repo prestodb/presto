@@ -60,6 +60,7 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFa
 import com.facebook.presto.spark.execution.AbstractPrestoSparkQueryExecution;
 import com.facebook.presto.spark.execution.nativeprocess.NativeExecutionModule;
 import com.facebook.presto.spark.execution.property.NativeExecutionConfigModule;
+import com.facebook.presto.spark.planner.PrestoSparkRddFactory;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.WarningCollector;
@@ -160,6 +161,7 @@ public class PrestoSparkQueryRunner
     private final TransactionManager transactionManager;
     private final Metadata metadata;
     private final SplitManager splitManager;
+    private final PrestoSparkRddFactory rddFactory;
     private final PageSourceManager pageSourceManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final ConnectorPlanOptimizerManager connectorPlanOptimizerManager;
@@ -379,6 +381,7 @@ public class PrestoSparkQueryRunner
         transactionManager = injector.getInstance(TransactionManager.class);
         metadata = injector.getInstance(Metadata.class);
         splitManager = injector.getInstance(SplitManager.class);
+        rddFactory = injector.getInstance(PrestoSparkRddFactory.class);
         pageSourceManager = injector.getInstance(PageSourceManager.class);
         nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
         connectorPlanOptimizerManager = injector.getInstance(ConnectorPlanOptimizerManager.class);
@@ -677,7 +680,7 @@ public class PrestoSparkQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId),
+                getTaskExecutorFactoryProvider(),
                 Optional.empty(),
                 Optional.empty(),
                 executionStrategies,
@@ -758,6 +761,16 @@ public class PrestoSparkQueryRunner
     public PrestoSparkService getPrestoSparkService()
     {
         return prestoSparkService;
+    }
+
+    public PrestoSparkRddFactory getRddFactory()
+    {
+        return rddFactory;
+    }
+
+    public PrestoSparkTaskExecutorFactoryProvider getTaskExecutorFactoryProvider()
+    {
+        return new TestingPrestoSparkTaskExecutorFactoryProvider(instanceId);
     }
 
     public FileHiveMetastore getMetastore()

@@ -110,7 +110,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -156,6 +155,9 @@ import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_ARB
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SystemPartitionFunction.HASH;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.SystemPartitioning.FIXED;
+import static com.facebook.presto.sql.planner.SystemPartitioningHandle.createSystemPartitioning;
 import static com.facebook.presto.sql.planner.SystemPartitioningHandle.isCompatibleSystemPartitioning;
 import static com.facebook.presto.sql.planner.iterative.rule.PickTableLayout.pushPredicateIntoTableScan;
 import static com.facebook.presto.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
@@ -213,13 +215,17 @@ public class AddExchanges
                                         PlanNodeIdAllocator idAllocator, WarningCollector warningCollector, boolean forceEnableOptimizer)
     {
         if (isEnabled(session, forceEnableOptimizer)) {
+            boolean hasDeferredRpcCollect = prestoSparkExecutionEnvironment && PlanNodeSearcher.searchFrom(plan)
+                    .where(node -> node instanceof RPCNode && ((RPCNode) node).getExecutionPhase() == RPCNode.ExecutionPhase.COLLECT)
+                    .findFirst().isPresent();
             PlanWithProperties result = new Rewriter(
                     idAllocator,
                     variableAllocator,
                     session,
                     partitioningProviderManager,
                     nativeExecution,
-                    prestoSparkExecutionEnvironment).accept(plan, PreferredProperties.any());
+                    prestoSparkExecutionEnvironment,
+                    hasDeferredRpcCollect).accept(plan, PreferredProperties.any());
             boolean optimizerTriggered = PlanNodeSearcher.searchFrom(result.getNode()).where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope().isRemote()).findFirst().isPresent();
             return PlanOptimizerResult.optimizerResult(result.getNode(), optimizerTriggered);
         }
@@ -254,7 +260,8 @@ public class AddExchanges
                 Session session,
                 PartitioningProviderManager partitioningProviderManager,
                 boolean nativeExecution,
-                boolean prestoSparkExecutionEnvironment)
+                boolean prestoSparkExecutionEnvironment,
+                boolean hasDeferredRpcCollect)
         {
             this.idAllocator = idAllocator;
             this.variableAllocator = variableAllocator;
@@ -264,7 +271,8 @@ public class AddExchanges
             this.redistributeWrites = isRedistributeWrites(session);
             this.scaleWriters = isScaleWriters(session);
             this.preferDistributedUnion = isPreferDistributedUnion(session);
-            this.reconcileUnionPartitionCounts = prestoSparkExecutionEnvironment && getRpcFunctionParallelism(session) > 0;
+            this.reconcileUnionPartitionCounts = prestoSparkExecutionEnvironment &&
+                    (getRpcFunctionParallelism(session) > 0 || hasDeferredRpcCollect);
             this.partialMergePushdownStrategy = getPartialMergePushdownStrategy(session);
             this.preferStreamingOperators = preferStreamingOperators(session);
             this.partitioningProviderCatalog = getPartitioningProviderCatalog(session);
@@ -890,6 +898,38 @@ public class AddExchanges
         @Override
         public PlanWithProperties visitRPC(RPCNode node, PreferredProperties preferredProperties)
         {
+            if (node.getExecutionPhase() == RPCNode.ExecutionPhase.POLL ||
+                    node.getExecutionPhase() == RPCNode.ExecutionPhase.COLLECT) {
+                checkArgument(prestoSparkExecutionEnvironment, "Deferred RPC requires Presto-on-Spark shuffle execution");
+                int taskCount = node.getRecommendedTaskCount();
+                checkArgument(taskCount > 0 || (node.getExecutionPhase() == RPCNode.ExecutionPhase.COLLECT && taskCount == 0),
+                        "Deferred RPC task count must be positive or unset for collection");
+                PlanWithProperties source = accept(node.getSource(), PreferredProperties.any());
+                checkArgument(!node.getInputGroupingExpressions().isEmpty(), "Deferred RPC input grouping is missing");
+                Assignments.Builder projection = Assignments.builder();
+                for (VariableReferenceExpression variable : source.getNode().getOutputVariables()) {
+                    projection.put(variable, variable);
+                }
+                ImmutableList.Builder<VariableReferenceExpression> groupingVariables = ImmutableList.builder();
+                for (RowExpression expression : node.getInputGroupingExpressions()) {
+                    checkArgument(expression.getType().isComparable(), "Deferred RPC grouping type is not hashable");
+                    VariableReferenceExpression groupingVariable = variableAllocator.newVariable("__rpc_group_key", expression.getType());
+                    projection.put(groupingVariable, expression);
+                    groupingVariables.add(groupingVariable);
+                }
+                PlanNode groupedSource = new ProjectNode(node.getSourceLocation(), idAllocator.getNextId(),
+                        source.getNode(), projection.build(), ProjectNode.Locality.LOCAL);
+                // Physical partition allocation runs after optimization. An inherited
+                // count must remain unset so auto-tuning and retries can change it.
+                PartitioningHandle handle = taskCount == 0 ? FIXED_HASH_DISTRIBUTION : createSystemPartitioning(FIXED, HASH, taskCount);
+                PartitioningScheme partitioning = new PartitioningScheme(
+                        Partitioning.create(handle, groupingVariables.build()),
+                        groupedSource.getOutputVariables());
+                return rebaseAndDeriveProperties(node, withDerivedProperties(
+                        partitionedExchange(idAllocator.getNextId(), REMOTE_STREAMING, groupedSource, partitioning),
+                        source.getProperties()));
+            }
+
             int configuredTaskCount = getRpcFunctionParallelism(session);
             PreferredProperties sourcePreferred = configuredTaskCount > 1 ? PreferredProperties.any() :
                     preferredProperties.translate(variable -> variable.equals(node.getOutputVariable()) ? Optional.empty() : Optional.of(variable));
@@ -1800,44 +1840,47 @@ public class AddExchanges
         private List<PlanNode> reconcileUnionPartitionCounts(List<PlanNode> sources)
         {
             // Spark requires every non-broadcast input to have the same number of partitions.
-            // When inputs disagree, bring them all back to hash_partition_count so that
-            // rpc_function_parallelism stays confined to the RPC stage.
-            long distinctPartitionCounts = extractRemoteExchangePartitioningHandles(sources).stream()
-                    .map(this::getSystemPartitionCount)
-                    .filter(OptionalInt::isPresent)
-                    .mapToInt(OptionalInt::getAsInt)
+            // Inherited counts follow physical allocation, while explicit counts stay fixed.
+            // Their bindings must agree even when the initial numeric values match.
+            long distinctPartitionCountBindings = extractRemoteExchangePartitioningHandles(sources).stream()
+                    .map(this::getFixedSystemPartitioningHandle)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .map(SystemPartitioningHandle::getPartitionCount)
                     .distinct()
                     .count();
-            if (distinctPartitionCounts <= 1) {
+            if (distinctPartitionCountBindings <= 1) {
                 return sources;
             }
 
             return sources.stream()
-                    .map(source -> hasPartitionCountOtherThan(source, hashPartitionCount)
+                    .map(source -> hasExplicitSystemPartitionCount(source)
                             ? roundRobinExchange(idAllocator.getNextId(), REMOTE_STREAMING, source)
                             : source)
                     .collect(toImmutableList());
         }
 
-        private boolean hasPartitionCountOtherThan(PlanNode source, int partitionCount)
+        private boolean hasExplicitSystemPartitionCount(PlanNode source)
         {
             return extractRemoteExchangePartitioningHandles(ImmutableList.of(source)).stream()
-                    .map(this::getSystemPartitionCount)
-                    .anyMatch(count -> count.isPresent() && count.getAsInt() != partitionCount);
+                    .map(this::getFixedSystemPartitioningHandle)
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .anyMatch(handle -> handle.getPartitionCount().isPresent());
         }
 
-        private OptionalInt getSystemPartitionCount(PartitioningHandle handle)
+        private Optional<SystemPartitioningHandle> getFixedSystemPartitioningHandle(PartitioningHandle handle)
         {
             if (!(handle.getConnectorHandle() instanceof SystemPartitioningHandle)) {
-                return OptionalInt.empty();
+                return Optional.empty();
             }
             SystemPartitioningHandle systemHandle = (SystemPartitioningHandle) handle.getConnectorHandle();
             if (systemHandle.getPartitioning() != SystemPartitioningHandle.SystemPartitioning.FIXED ||
                     (systemHandle.getFunction() != SystemPartitioningHandle.SystemPartitionFunction.HASH &&
                             systemHandle.getFunction() != SystemPartitioningHandle.SystemPartitionFunction.ROUND_ROBIN)) {
-                return OptionalInt.empty();
+                return Optional.empty();
             }
-            return OptionalInt.of(systemHandle.getPartitionCount().orElse(hashPartitionCount));
+            return Optional.of(systemHandle);
         }
 
         // TODO: refactor this method into ExchangeNode#partitionedExchange once

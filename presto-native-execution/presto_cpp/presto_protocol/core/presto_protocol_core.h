@@ -2230,7 +2230,17 @@ void to_json(json& j, const ProjectNode& p);
 void from_json(const json& j, ProjectNode& p);
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
-enum class RPCNodeStreamingMode { PER_ROW, BATCH, AUTOMATIC };
+enum class RPCNodeExecutionPhase { INLINE, SUBMIT, POLL, COLLECT };
+extern void to_json(json& j, const RPCNodeExecutionPhase& e);
+extern void from_json(const json& j, RPCNodeExecutionPhase& e);
+} // namespace facebook::presto::protocol
+namespace facebook::presto::protocol {
+enum class RPCNodeStreamingMode {
+  PER_ROW,
+  BATCH,
+  BATCH_DEFERRED,
+  AUTOMATIC,
+};
 extern void to_json(json& j, const RPCNodeStreamingMode& e);
 extern void from_json(const json& j, RPCNodeStreamingMode& e);
 } // namespace facebook::presto::protocol
@@ -2243,6 +2253,8 @@ struct RPCNode : public PlanNode {
   VariableReferenceExpression outputVariable = {};
   RPCNodeStreamingMode streamingMode = {};
   Integer dispatchBatchSize = {};
+  std::shared_ptr<RPCNodeExecutionPhase> executionPhase = {};
+  List<std::shared_ptr<RowExpression>> inputGroupingExpressions = {};
 
   RPCNode() noexcept;
 };

@@ -850,17 +850,8 @@ public class UnaliasSymbolReferences
             List<String> newArgumentColumns = node.getArgumentColumns().stream()
                     .map(this::canonicalizeColumnName)
                     .collect(toImmutableList());
-            return new RPCNode(
-                    node.getSourceLocation(),
-                    node.getId(),
-                    source,
-                    node.getFunctionName(),
-                    newArguments,
-                    newArgumentColumns,
-                    canonicalize(node.getOutputVariable()),
-                    node.getStreamingMode(),
-                    node.getDispatchBatchSize(),
-                    node.getRecommendedTaskCount());
+            List<RowExpression> groupingExpressions = node.getInputGroupingExpressions().stream().map(this::canonicalize).collect(toImmutableList());
+            return node.rewrite(source, newArguments, newArgumentColumns, canonicalize(node.getOutputVariable()), groupingExpressions);
         }
 
         @Override

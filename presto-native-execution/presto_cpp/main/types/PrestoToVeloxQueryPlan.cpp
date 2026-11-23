@@ -18,6 +18,7 @@
 #include "presto_cpp/main/properties/session/SessionProperties.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include <folly/container/F14Map.h>
 #include <folly/container/F14Set.h>
 #include <folly/io/IOBuf.h>
@@ -2540,6 +2541,12 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     const std::shared_ptr<const protocol::RPCNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
+  VELOX_CHECK_NOT_NULL(node, "RPC plan node must not be null");
+  VELOX_USER_CHECK(
+      node->streamingMode == protocol::RPCNodeStreamingMode::PER_ROW ||
+          node->streamingMode == protocol::RPCNodeStreamingMode::BATCH,
+      "RPCNode requires a concrete PER_ROW or BATCH streaming mode; "
+      "resolve request modes before native execution");
   // Convert the single source.
   auto sourceNode = toVeloxQueryPlan(node->source, tableWriteInfo, taskId);
 
@@ -2599,8 +2606,13 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   // (arg[3]) for robustness, in case the Java protocol path has issues.
   // The Java->protocol path for streamingMode can fail when the options
   // argument is wrapped in CAST, so we parse the options here as a fallback.
-  parseRpcOptions(
-      node->arguments, pool_, veloxStreamingMode, dispatchBatchSize);
+  const auto executionPhase = node->executionPhase
+      ? *node->executionPhase
+      : protocol::RPCNodeExecutionPhase::INLINE;
+  if (executionPhase == protocol::RPCNodeExecutionPhase::INLINE) {
+    parseRpcOptions(
+        node->arguments, pool_, veloxStreamingMode, dispatchBatchSize);
+  }
 
   // Build explicit output type: source columns + RPC result column.
   // Specified explicitly to support column pruning optimizations.
@@ -2645,14 +2657,31 @@ core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(
   auto call = std::make_shared<core::CallTypedExpr>(
       resultType, std::move(callInputs), node->functionName);
 
-  return std::make_shared<core::RPCNode>(
+  const char* executionPhaseName{"INLINE"};
+  switch (executionPhase) {
+    case protocol::RPCNodeExecutionPhase::SUBMIT:
+      executionPhaseName = "SUBMIT";
+      break;
+    case protocol::RPCNodeExecutionPhase::POLL:
+      executionPhaseName = "POLL";
+      break;
+    case protocol::RPCNodeExecutionPhase::COLLECT:
+      executionPhaseName = "COLLECT";
+      break;
+    case protocol::RPCNodeExecutionPhase::INLINE:
+    default:
+      break;
+  }
+
+  return facebook::presto::detail::makeRpcPlanNode(
       node->id,
       sourceNode,
       std::move(call),
       node->outputVariable.name,
       std::move(outputType),
       veloxStreamingMode,
-      dispatchBatchSize);
+      dispatchBatchSize,
+      executionPhaseName);
 }
 
 core::PlanNodePtr VeloxQueryPlanConverterBase::toVeloxQueryPlan(

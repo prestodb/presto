@@ -222,6 +222,17 @@ public final class SystemPartitioningHandle
                 && systemHandle.function == SystemPartitionFunction.ROUND_ROBIN;
     }
 
+    public static boolean isFixedHash(PartitioningHandle handle)
+    {
+        ConnectorPartitioningHandle connectorHandle = handle.getConnectorHandle();
+        if (!(connectorHandle instanceof SystemPartitioningHandle)) {
+            return false;
+        }
+        SystemPartitioningHandle systemHandle = (SystemPartitioningHandle) connectorHandle;
+        return systemHandle.partitioning == SystemPartitioning.FIXED
+                && systemHandle.function == SystemPartitionFunction.HASH;
+    }
+
     public static Optional<Integer> getSystemPartitionCount(PartitioningHandle handle)
     {
         ConnectorPartitioningHandle connectorHandle = handle.getConnectorHandle();

@@ -220,7 +220,7 @@ asynchronous ``RPCNode`` execution.
 ^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``string``
-* **Allowed values:** ``PER_ROW``, ``BATCH``, ``AUTOMATIC``
+* **Allowed values:** ``PER_ROW``, ``BATCH``, ``BATCH_DEFERRED``, ``AUTOMATIC``
 * **Default value:** ``PER_ROW``
 
 Controls how RPC function calls are dispatched. ``PER_ROW`` dispatches each row
@@ -231,6 +231,43 @@ at query planning time from the estimated input row count (see
 ``PER_ROW``. The default deployment resolves ``AUTOMATIC`` to ``PER_ROW``; a
 deployment may install a custom ``RpcExecutionPolicy`` to enable stats-driven
 resolution.
+
+``BATCH_DEFERRED`` separates batch RPC execution into submission, polling, and
+collection stages. It requires native Presto-on-Spark, a phase-capable native
+runtime, a registered backend planner, and ``rpc_function_optimizer_enabled``
+set to ``true``. Unsupported deferred requests fail during planning. Function
+options override the session default when selecting the execution mode.
+
+``rpc_deferred_poll_task_count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Restrictions:** must be greater than ``0``
+* **Default value:** ``1``
+
+Sets the task count for the polling stage of ``BATCH_DEFERRED`` RPC execution on
+native Presto-on-Spark. Polling checks the completion status of submitted backend
+jobs. Increase this value to distribute polling across more tasks. Values less
+than ``1`` are rejected when the session property is set.
+
+``rpc_deferred_collect_task_count``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``integer``
+* **Restrictions:** must be greater than or equal to ``0``
+* **Default value:** ``0``
+
+Sets the task count for the collection stage of ``BATCH_DEFERRED`` RPC execution
+on native Presto-on-Spark. Collection retrieves the backend job results.
+
+``0`` uses the query's final physical hash partition count, including automatic
+partition allocation. A positive value fixes the collection stage's task count
+independently of the query's partition count. Negative values are rejected when
+the session property is set.
+
+For example, if ``hash_partition_count`` is ``512`` and automatic allocation
+chooses ``146`` partitions, the default ``0`` runs collection with ``146`` tasks.
+An explicit value of ``512`` runs collection with ``512`` tasks.
 
 ``rpc_batch_min_rows``
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -253,6 +290,10 @@ policy ignores this value and always resolves ``AUTOMATIC`` to ``PER_ROW``.
 Batch size for RPC function dispatch in ``BATCH`` streaming mode. ``0`` collects all
 rows and dispatches once at the end; values greater than ``0`` flush every N rows
 during input processing.
+
+In ``BATCH_DEFERRED`` mode, backend providers determine the effective batch size
+and may enforce a finite limit. A provider may use a finite default when this
+property is ``0``; see the backend's deferred-execution documentation.
 
 ``rpc_function_parallelism``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

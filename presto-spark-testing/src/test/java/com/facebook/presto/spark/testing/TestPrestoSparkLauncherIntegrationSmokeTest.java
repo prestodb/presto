@@ -67,6 +67,7 @@ import static java.lang.String.format;
 import static java.lang.Thread.sleep;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectories;
+import static java.time.Duration.ofSeconds;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
@@ -134,7 +135,7 @@ public class TestPrestoSparkLauncherIntegrationSmokeTest
         HiveHadoop2Plugin plugin = new HiveHadoop2Plugin();
         ConnectorFactory hiveConnectorFactory = getOnlyElement(plugin.getConnectorFactories());
         addStaticResolution("hadoop-master", "127.0.0.1");
-        String hadoopMasterAddress = dockerCompose.getContainerAddress("hadoop-master");
+        String hadoopMasterAddress = dockerCompose.getContainerAddress("hadoop-master", composeProcess, ofSeconds(60));
         // datanode is accessed via the internal docker IP address that is not accessible from the host
         addStaticResolution(hadoopMasterAddress, "127.0.0.1");
         localQueryRunner.createCatalog(

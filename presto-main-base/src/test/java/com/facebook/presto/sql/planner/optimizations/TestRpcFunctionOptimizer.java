@@ -13,20 +13,38 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.airlift.bootstrap.Bootstrap;
+import com.facebook.airlift.json.JsonModule;
 import com.facebook.airlift.json.JsonObjectMapperProvider;
+import com.facebook.drift.codec.guice.ThriftCodecModule;
 import com.facebook.presto.Session;
 import com.facebook.presto.SystemSessionProperties;
+import com.facebook.presto.block.BlockJsonSerde;
+import com.facebook.presto.common.CatalogSchemaName;
+import com.facebook.presto.common.block.Block;
+import com.facebook.presto.common.block.BlockEncodingSerde;
+import com.facebook.presto.common.block.TestingBlockEncodingSerde;
+import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.FunctionType;
+import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.common.type.TestingTypeDeserializer;
 import com.facebook.presto.common.type.TestingTypeManager;
 import com.facebook.presto.common.type.Type;
+import com.facebook.presto.common.type.TypeManager;
+import com.facebook.presto.common.type.TypeSignature;
+import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.metadata.FunctionAndTypeManager;
+import com.facebook.presto.metadata.HandleJsonModule;
+import com.facebook.presto.server.SliceDeserializer;
+import com.facebook.presto.server.SliceSerializer;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.VariableAllocator;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.function.FunctionHandle;
 import com.facebook.presto.spi.function.FunctionKind;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.FilterNode;
 import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
@@ -39,32 +57,64 @@ import com.facebook.presto.spi.relation.RowExpression;
 import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.spi.session.PropertyMetadata;
+import com.facebook.presto.sql.Serialization;
+import com.facebook.presto.sql.analyzer.FeaturesConfig;
+import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.planner.TypeProvider;
 import com.facebook.presto.sql.planner.plan.RPCNode;
+import com.facebook.presto.sql.planner.sanity.ValidateDependenciesChecker;
+import com.facebook.presto.sql.tree.Expression;
+import com.facebook.presto.sql.tree.FunctionCall;
 import com.facebook.presto.testing.TestingSession;
+import com.facebook.presto.type.TypeDeserializer;
+import com.fasterxml.jackson.core.json.JsonReadFeature;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Module;
+import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
+import static com.facebook.airlift.configuration.ConfigBinder.configBinder;
+import static com.facebook.airlift.json.JsonBinder.jsonBinder;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.IntegerType.INTEGER;
+import static com.facebook.presto.common.type.RealType.REAL;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.metadata.CastType.CAST;
+import static com.facebook.presto.metadata.MetadataManager.createTestMetadataManager;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestRpcFunctionOptimizer
 {
+    private static final FunctionAndTypeManager FUNCTION_AND_TYPE_MANAGER = createTestMetadataManager().getFunctionAndTypeManager();
+
     private static CallExpression createRpcCall(RowExpression optionsArg)
     {
         FunctionHandle handle = createFunctionHandle("test_rpc_function");
@@ -90,14 +140,125 @@ public class TestRpcFunctionOptimizer
         return new ConstantExpression(Slices.utf8Slice(value), VARCHAR);
     }
 
+    @DataProvider
+    public Object[][] legacyInferenceOptions()
+    {
+        List<Object[]> cases = new ArrayList<>();
+        for (String name : new String[] {"test_inference", "test_inference_alias", "test_inference_alt", "test_inference_with_error"}) {
+            for (String sessionMode : new String[] {"PER_ROW", "BATCH"}) {
+                for (String mode : new String[] {"chat", "BATCH_DEFERRED"}) {
+                    for (boolean enabled : new boolean[] {false, true}) {
+                        cases.add(new Object[] {name, mode, enabled, sessionMode});
+                    }
+                }
+            }
+        }
+        return cases.toArray(new Object[0][]);
+    }
+
+    @Test(dataProvider = "legacyInferenceOptions")
+    public void testLegacyInferenceOptionsRespectRequestedMode(String functionName, String optionsMode, boolean enabled, String sessionMode)
+    {
+        Session session = TestingSession.testSessionBuilder()
+                .setSystemProperty("rpc_streaming_mode", sessionMode)
+                .setSystemProperty("rpc_function_optimizer_enabled", Boolean.toString(enabled))
+                .build();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        VariableAllocator variables = new VariableAllocator();
+        VariableReferenceExpression input = variables.newVariable("input", VARCHAR);
+        Type resultType = functionName.endsWith("_with_error")
+                ? RowType.from(ImmutableList.of(new RowType.Field(Optional.of("result"), VARCHAR), new RowType.Field(Optional.of("error"), VARCHAR)))
+                : VARCHAR;
+        VariableReferenceExpression result = variables.newVariable("result", resultType);
+        ConstantExpression options = varchar("{\"streaming_mode\":\"" + optionsMode + "\"}");
+        CallExpression call = new CallExpression(functionName, createFunctionHandle(functionName), resultType,
+                ImmutableList.of(input, varchar("model"), options));
+        ValuesNode source = new ValuesNode(Optional.empty(), ids.getNextId(), ImmutableList.of(input), ImmutableList.of(), Optional.empty());
+        ProjectNode project = new ProjectNode(ids.getNextId(), source, Assignments.of(result, call));
+        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(() -> ImmutableSet.of(functionName), null,
+                new DefaultRpcExecutionPolicy(), true);
+        if (optionsMode.equals("BATCH_DEFERRED")) {
+            PrestoException error = expectThrows(PrestoException.class, () ->
+                    optimizer.optimize(project, session, TypeProvider.viewOf(variables.getVariables()), variables, ids,
+                            WarningCollector.NOOP, false));
+            assertEquals(error.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+            assertTrue(error.getMessage().contains(enabled ? "No BATCH_DEFERRED" : "rpc_function_optimizer_enabled"));
+            return;
+        }
+        PlanNode planned = optimizer.optimize(project, session, TypeProvider.viewOf(variables.getVariables()), variables, ids,
+                WarningCollector.NOOP, false).getPlanNode();
+        if (enabled) {
+            RPCNode rpc = (RPCNode) findPlanNode(planned, RPCNode.class);
+            assertTrue(rpc != null);
+            assertEquals(rpc.getExecutionPhase(), RPCNode.ExecutionPhase.INLINE);
+            assertEquals(rpc.getStreamingMode(), RPCNode.StreamingMode.valueOf(sessionMode));
+            assertEquals(rpc.getArguments().get(2), options);
+        }
+        else {
+            assertEquals(planned, project);
+        }
+    }
+
+    @DataProvider
+    public Object[][] optimizerEnablement()
+    {
+        return new Object[][] {{false}, {true}};
+    }
+
+    @Test(dataProvider = "optimizerEnablement")
+    public void testOptimizerDoesNotLoadRpcNamesForPlansWithoutCalls(boolean enabled)
+    {
+        Session session = TestingSession.testSessionBuilder()
+                .setSystemProperty("rpc_function_optimizer_enabled", Boolean.toString(enabled))
+                .setSystemProperty("rpc_streaming_mode", "BATCH_DEFERRED")
+                .build();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        VariableAllocator variables = new VariableAllocator();
+        VariableReferenceExpression input = variables.newVariable("input", VARCHAR);
+        ValuesNode source = new ValuesNode(Optional.empty(), ids.getNextId(), ImmutableList.of(input), ImmutableList.of(), Optional.empty());
+        ProjectNode project = new ProjectNode(ids.getNextId(), source,
+                Assignments.of(variables.newVariable("result", VARCHAR), varchar("{\"streaming_mode\":\"BATCH_DEFERRED\"}")));
+        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(() -> {
+            throw new IllegalStateException("RPC registry must not be loaded for this query");
+        });
+        assertEquals(optimizer.optimize(project, session, TypeProvider.viewOf(variables.getVariables()), variables, ids,
+                WarningCollector.NOOP, false).getPlanNode(), project);
+    }
+
+    @Test(dataProvider = "optimizerEnablement")
+    public void testOrdinaryCallsDoNotResolveRpcOptionsOrEvaluateArguments(boolean enabled)
+    {
+        Session session = TestingSession.testSessionBuilder()
+                .setSystemProperty("rpc_function_optimizer_enabled", Boolean.toString(enabled))
+                .setSystemProperty("rpc_streaming_mode", "BATCH_DEFERRED")
+                .build();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        VariableAllocator variables = new VariableAllocator();
+        ValuesNode source = new ValuesNode(Optional.empty(), ids.getNextId(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        CallExpression nonLocalConstant = new CallExpression("not_a_local_function", createFunctionHandle("not_a_local_function"), VARCHAR, ImmutableList.of());
+        RowExpression expression = new SpecialFormExpression(SpecialFormExpression.Form.IF, VARCHAR,
+                ImmutableList.of(new ConstantExpression(false, BOOLEAN), createConcat(varchar("prefix"), varchar("middle"), nonLocalConstant), varchar("safe")));
+        ProjectNode project = new ProjectNode(ids.getNextId(), source, Assignments.of(variables.newVariable("result", VARCHAR), expression));
+        List<String> layoutCalls = new ArrayList<>();
+        RpcDeferredExecutionRegistry registry = new DefaultRpcDeferredExecutionRegistry(call -> {
+            layoutCalls.add(call.getDisplayName());
+            return call.getArguments().size() >= 3 ? RpcArgumentLayout.optionsAt(call.getArguments().size() - 1) : RpcArgumentLayout.noOptions();
+        }, ImmutableList.of());
+        PlanNode planned = new RpcFunctionOptimizer(() -> ImmutableSet.of("test_rpc_function"), null, new DefaultRpcExecutionPolicy(), true,
+                FUNCTION_AND_TYPE_MANAGER, registry).optimize(project, session, TypeProvider.viewOf(variables.getVariables()), variables, ids,
+                        WarningCollector.NOOP, false).getPlanNode();
+        assertEquals(planned, project);
+        assertTrue(layoutCalls.isEmpty());
+    }
+
     private static FunctionHandle createFunctionHandle(String name)
     {
         return new FunctionHandle()
         {
             @Override
-            public com.facebook.presto.common.CatalogSchemaName getCatalogSchemaName()
+            public CatalogSchemaName getCatalogSchemaName()
             {
-                return new com.facebook.presto.common.CatalogSchemaName("presto", "default");
+                return new CatalogSchemaName("presto", "default");
             }
 
             @Override
@@ -113,7 +274,7 @@ public class TestRpcFunctionOptimizer
             }
 
             @Override
-            public List<com.facebook.presto.common.type.TypeSignature> getArgumentTypes()
+            public List<TypeSignature> getArgumentTypes()
             {
                 return Collections.emptyList();
             }
@@ -151,14 +312,14 @@ public class TestRpcFunctionOptimizer
         Class<?>[] innerClasses = RpcFunctionOptimizer.class.getDeclaredClasses();
         for (Class<?> inner : innerClasses) {
             if (inner.getSimpleName().equals("Rewriter")) {
-                for (java.lang.reflect.Constructor<?> ctor : inner.getDeclaredConstructors()) {
+                for (Constructor<?> ctor : inner.getDeclaredConstructors()) {
                     if (ctor.getParameterCount() == 6) {
                         ctor.setAccessible(true);
                         return ctor.newInstance(
                                 session,
-                                new com.facebook.presto.spi.plan.PlanNodeIdAllocator(),
-                                new com.facebook.presto.spi.VariableAllocator(),
-                                com.google.common.collect.ImmutableSet.of(),
+                                new PlanNodeIdAllocator(),
+                                new VariableAllocator(),
+                                ImmutableSet.of(),
                                 null,
                                 new DefaultRpcExecutionPolicy());
                     }
@@ -250,6 +411,398 @@ public class TestRpcFunctionOptimizer
                 .setSystemProperty("rpc_streaming_mode", "BATCH")
                 .build();
         assertEquals(invokeParseStreamingMode(rpcCall, batchSession), RPCNode.StreamingMode.BATCH);
+    }
+
+    @DataProvider
+    public Object[][] streamingModeOverrides()
+    {
+        List<Object[]> cases = new ArrayList<>();
+        for (RPCNode.StreamingMode sessionMode : RPCNode.StreamingMode.values()) {
+            for (RPCNode.StreamingMode functionMode : RPCNode.StreamingMode.values()) {
+                for (boolean projected : new boolean[] {false, true}) {
+                    cases.add(new Object[] {sessionMode, functionMode.name().toLowerCase(Locale.ENGLISH), projected, "", 25});
+                }
+            }
+            cases.add(new Object[] {sessionMode, null, false, "", 25});
+        }
+        String rawSchemaOptions = ",\"json_schema\":\"{\n\t\\\"type\\\":\\\"object\\\"\n}\",\"dispatch_batch_size\":10";
+        for (boolean projected : new boolean[] {false, true}) {
+            cases.add(new Object[] {RPCNode.StreamingMode.BATCH, "batch_deferred", projected, rawSchemaOptions, 10});
+            cases.add(new Object[] {RPCNode.StreamingMode.BATCH_DEFERRED, "batch", projected, rawSchemaOptions, 10});
+        }
+        return cases.toArray(new Object[0][]);
+    }
+
+    @Test(dataProvider = "streamingModeOverrides")
+    public void testFunctionModeOverridesSessionIncludingProjectedConstants(RPCNode.StreamingMode sessionMode, String functionMode,
+            boolean projected, String optionsSuffix, int expectedBatchSize)
+    {
+        Session session = Session.builder(streamingModeSession(sessionMode.name()))
+                .setSystemProperty("rpc_dispatch_batch_size", "25").build();
+        PlanNode plan = optimizeModeCall(session, "fake_completion", functionMode,
+                projected, 0, true, new DefaultRpcExecutionPolicy(), optionsSuffix);
+        RPCNode.StreamingMode requested = functionMode == null ? sessionMode : RPCNode.StreamingMode.valueOf(functionMode.toUpperCase(Locale.ENGLISH));
+        List<RPCNode> nodes = collectRpcNodes(plan);
+        assertEquals(nodes.size(), requested == RPCNode.StreamingMode.BATCH_DEFERRED ? 3 : 1);
+        RPCNode.StreamingMode physical = requested == RPCNode.StreamingMode.AUTOMATIC ? RPCNode.StreamingMode.PER_ROW :
+                requested == RPCNode.StreamingMode.BATCH_DEFERRED ? RPCNode.StreamingMode.BATCH : requested;
+        for (RPCNode node : nodes) {
+            assertEquals(node.getStreamingMode(), physical);
+            assertEquals(node.getDispatchBatchSize(), expectedBatchSize);
+        }
+        ConstantExpression expectedOptions = modeOptions(functionMode, optionsSuffix);
+        if (requested == RPCNode.StreamingMode.BATCH_DEFERRED) {
+            assertEquals(nodes.get(0).getExecutionPhase(), RPCNode.ExecutionPhase.COLLECT);
+            assertEquals(nodes.get(1).getExecutionPhase(), RPCNode.ExecutionPhase.POLL);
+            assertEquals(nodes.get(2).getExecutionPhase(), RPCNode.ExecutionPhase.SUBMIT);
+            assertEquals(nodes.get(0).getArguments().get(1), expectedOptions);
+            assertEquals(nodes.get(1).getArguments().get(1), expectedOptions);
+            assertEquals(nodes.get(2).getArguments().get(3), expectedOptions);
+        }
+        else {
+            assertEquals(nodes.get(0).getExecutionPhase(), RPCNode.ExecutionPhase.INLINE);
+            RowExpression options = nodes.get(0).getArguments().get(3);
+            if (projected) {
+                assertTrue(options instanceof VariableReferenceExpression);
+                assertEquals(nodes.get(0).getArgumentColumns().get(3), ((VariableReferenceExpression) options).getName());
+            }
+            else {
+                assertEquals(options, expectedOptions);
+            }
+        }
+        new ValidateDependenciesChecker().validate(plan);
+    }
+
+    @Test
+    public void testDeferredIntentUsesExistingBatchPolicyContract()
+    {
+        List<RPCNode.StreamingMode> requested = new ArrayList<>();
+        RpcExecutionPolicy policy = intent -> {
+            requested.add(intent.getRequestedMode());
+            return new DefaultRpcExecutionPolicy().translateIntent(intent);
+        };
+        PlanNode plan = optimizeModeCall(streamingModeSession("BATCH_DEFERRED"), "fake_completion", null,
+                false, 0, true, policy);
+        assertEquals(requested, ImmutableList.of(RPCNode.StreamingMode.BATCH));
+        assertEquals(collectRpcNodes(plan).size(), 3);
+        IllegalArgumentException error = expectThrows(IllegalArgumentException.class, () ->
+                optimizeModeCall(streamingModeSession("BATCH_DEFERRED"), "fake_completion", null,
+                        false, 0, true, intent -> RpcExecutionProperties.of(RPCNode.StreamingMode.PER_ROW)));
+        assertTrue(error.getMessage().contains("preserve BATCH"));
+    }
+
+    @Test
+    public void testPolicyCannotLeakDeferredModeIntoPhysicalPlan()
+    {
+        IllegalArgumentException error = expectThrows(IllegalArgumentException.class, () ->
+                optimizeWithPolicy(streamingModeSession("PER_ROW"), intent -> RpcExecutionProperties.of(RPCNode.StreamingMode.BATCH_DEFERRED)));
+        assertTrue(error.getMessage().contains("BATCH_DEFERRED"));
+    }
+
+    @Test
+    public void testInlineFunctionOverrideDoesNotRequireNativeSpark()
+    {
+        for (String mode : new String[] {"PER_ROW", "BATCH", "AUTOMATIC"}) {
+            PlanNode plan = optimizeModeCall(streamingModeSession("BATCH_DEFERRED"), "fake_completion", mode,
+                    true, 0, false, new DefaultRpcExecutionPolicy());
+            assertEquals(collectRpcNodes(plan).size(), 1);
+            assertEquals(collectRpcNodes(plan).get(0).getExecutionPhase(), RPCNode.ExecutionPhase.INLINE);
+        }
+    }
+
+    @DataProvider
+    public Object[][] embeddingModes()
+    {
+        List<Object[]> cases = new ArrayList<>();
+        for (String function : new String[] {"fake_embedding", "fake_embedding_alias", "fake_embedding_double",
+                "fake_embedding_with_error", "fake_embedding_double_with_error"}) {
+            for (int mediaCount : new int[] {1, 2}) {
+                for (RPCNode.StreamingMode mode : RPCNode.StreamingMode.values()) {
+                    for (boolean projected : new boolean[] {false, true}) {
+                        cases.add(new Object[] {function, mediaCount, mode, projected});
+                    }
+                }
+            }
+        }
+        return cases.toArray(new Object[0][]);
+    }
+
+    @Test(dataProvider = "embeddingModes")
+    public void testEmbeddingOptionsPrecedeMediaArguments(String function, int mediaCount, RPCNode.StreamingMode functionMode, boolean projected)
+    {
+        if (functionMode == RPCNode.StreamingMode.BATCH_DEFERRED) {
+            PrestoException error = expectThrows(PrestoException.class, () ->
+                    optimizeModeCall(streamingModeSession("PER_ROW"), function, functionMode.name(),
+                            projected, mediaCount, true, new DefaultRpcExecutionPolicy()));
+            assertEquals(error.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+            assertTrue(error.getMessage().contains("BATCH_DEFERRED"));
+            return;
+        }
+        PlanNode plan = optimizeModeCall(streamingModeSession("BATCH_DEFERRED"), function, functionMode.name(),
+                projected, mediaCount, true, new DefaultRpcExecutionPolicy());
+        List<RPCNode> nodes = collectRpcNodes(plan);
+        assertEquals(nodes.size(), 1);
+        assertEquals(nodes.get(0).getExecutionPhase(), RPCNode.ExecutionPhase.INLINE);
+        assertEquals(nodes.get(0).getStreamingMode(), functionMode == RPCNode.StreamingMode.AUTOMATIC ? RPCNode.StreamingMode.PER_ROW : functionMode);
+    }
+
+    @Test
+    public void testDeferredModeWithOptimizerDisabledChecksEffectiveFunctionMode()
+    {
+        for (RPCNode.StreamingMode mode : new RPCNode.StreamingMode[] {RPCNode.StreamingMode.PER_ROW, RPCNode.StreamingMode.BATCH, RPCNode.StreamingMode.AUTOMATIC}) {
+            for (boolean projected : new boolean[] {false, true}) {
+                Session session = Session.builder(streamingModeSession("BATCH_DEFERRED"))
+                        .setSystemProperty("rpc_function_optimizer_enabled", "false").build();
+                assertEquals(collectRpcNodes(optimizeModeCall(session, "fake_completion", mode.name(),
+                        projected, 0, true, new DefaultRpcExecutionPolicy())).size(), 0);
+            }
+        }
+        Session session = Session.builder(streamingModeSession("PER_ROW"))
+                .setSystemProperty("rpc_function_optimizer_enabled", "false").build();
+        PrestoException error = expectThrows(PrestoException.class, () ->
+                optimizeModeCall(session, "fake_completion", "BATCH_DEFERRED", true, 0, true, new DefaultRpcExecutionPolicy()));
+        assertEquals(error.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+        assertTrue(error.getMessage().contains("rpc_function_optimizer_enabled"));
+        VariableAllocator variables = new VariableAllocator();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        PlanNode values = new ValuesNode(Optional.empty(), ids.getNextId(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        PlanNode unchanged = new RpcFunctionOptimizer(() -> ImmutableSet.of("fake_completion"))
+                .optimize(values, Session.builder(session).setSystemProperty("rpc_streaming_mode", "BATCH_DEFERRED").build(),
+                        TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false).getPlanNode();
+        assertEquals(unchanged, values);
+    }
+
+    @DataProvider
+    public Object[][] emptyOptionsModes()
+    {
+        return new Object[][] {
+                {"PER_ROW"},
+                {"BATCH"},
+                {"AUTOMATIC"}};
+    }
+
+    @Test(dataProvider = "emptyOptionsModes")
+    public void testEmptyOptionsRespectSessionWhenOptimizerDisabled(String mode)
+    {
+        Session session = Session.builder(streamingModeSession(mode))
+                .setSystemProperty("rpc_function_optimizer_enabled", "false")
+                .build();
+        VariableAllocator variables = new VariableAllocator();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        ValuesNode source = new ValuesNode(Optional.empty(), ids.getNextId(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        ProjectNode project = new ProjectNode(ids.getNextId(), source,
+                Assignments.builder().put(variables.newVariable("result", VARCHAR), createRpcCall(varchar(""))).build());
+        PlanNode result = new RpcFunctionOptimizer(() -> ImmutableSet.of("test_rpc_function"))
+                .optimize(project, session, TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false).getPlanNode();
+        assertEquals(result, project);
+        assertTrue(collectRpcNodes(result).isEmpty());
+        PrestoException error = expectThrows(PrestoException.class, () ->
+                new RpcFunctionOptimizer(() -> ImmutableSet.of("test_rpc_function"))
+                        .optimize(project, Session.builder(session).setSystemProperty("rpc_streaming_mode", "BATCH_DEFERRED").build(),
+                                TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false));
+        assertEquals(error.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+        assertTrue(error.getMessage().contains("rpc_function_optimizer_enabled"));
+    }
+
+    @Test(dataProvider = "emptyOptionsModes")
+    public void testEmptyOptionsRespectSessionForInlineExecution(String mode)
+            throws Exception
+    {
+        assertEquals(invokeParseStreamingMode(createRpcCall(varchar("")), streamingModeSession(mode)),
+                RPCNode.StreamingMode.valueOf(mode));
+    }
+
+    @Test(dataProvider = "optimizerEnablement")
+    public void testDeferredCallsInsideOrdinaryLambdasAreRejected(boolean enabled)
+    {
+        VariableAllocator variables = new VariableAllocator();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        ValuesNode source = new ValuesNode(Optional.empty(), ids.getNextId(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
+        CallExpression call = new CallExpression("fake_completion", createFunctionHandle("fake_completion"), VARCHAR,
+                ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "p", VARCHAR), varchar("model"), varchar(""),
+                        varchar("{\"streaming_mode\":\"BATCH_DEFERRED\"}")));
+        LambdaDefinitionExpression lambda = new LambdaDefinitionExpression(Optional.empty(), ImmutableList.of(VARCHAR), ImmutableList.of("p"),
+                createConcat(varchar("prefix"), call));
+        ProjectNode project = new ProjectNode(ids.getNextId(), source,
+                Assignments.builder().put(variables.newVariable("function", lambda.getType()), lambda).build());
+        PrestoException error = expectThrows(PrestoException.class, () ->
+                new RpcFunctionOptimizer(() -> ImmutableSet.of("fake_completion"), null, new DefaultRpcExecutionPolicy(), true, FUNCTION_AND_TYPE_MANAGER, fakeRegistry())
+                        .optimize(project, Session.builder(streamingModeSession("PER_ROW"))
+                                        .setSystemProperty("rpc_function_optimizer_enabled", Boolean.toString(enabled)).build(),
+                                TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false));
+        assertEquals(error.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+        assertTrue(error.getMessage().contains("BATCH_DEFERRED"));
+        assertTrue(error.getMessage().contains(enabled ? "lambdas" : "rpc_function_optimizer_enabled"));
+    }
+
+    @Test
+    public void testGenericRpcUsesLastOptionsArgument()
+    {
+        PlanNode plan = optimizeModeCall(streamingModeSession("BATCH_DEFERRED"), "custom_rpc", "PER_ROW",
+                false, 1, true, new DefaultRpcExecutionPolicy());
+        assertEquals(collectRpcNodes(plan).get(0).getStreamingMode(), RPCNode.StreamingMode.PER_ROW);
+        PlanNode batch = optimizeModeCall(streamingModeSession("BATCH_DEFERRED"), "custom_rpc", "BATCH",
+                false, 1, true, new DefaultRpcExecutionPolicy());
+        assertEquals(collectRpcNodes(batch).get(0).getStreamingMode(), RPCNode.StreamingMode.BATCH);
+        assertEquals(collectRpcNodes(batch).get(0).getExecutionPhase(), RPCNode.ExecutionPhase.INLINE);
+        PrestoException error = expectThrows(PrestoException.class, () ->
+                optimizeModeCall(streamingModeSession("PER_ROW"), "custom_rpc", "BATCH_DEFERRED",
+                        false, 0, true, new DefaultRpcExecutionPolicy()));
+        assertEquals(error.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+        assertTrue(error.getMessage().contains("No BATCH_DEFERRED"));
+    }
+
+    @Test
+    public void testUnknownFunctionModeFallsBackToSession()
+    {
+        for (RPCNode.StreamingMode mode : new RPCNode.StreamingMode[] {RPCNode.StreamingMode.PER_ROW, RPCNode.StreamingMode.BATCH, RPCNode.StreamingMode.AUTOMATIC}) {
+            PlanNode plan = optimizeModeCall(streamingModeSession(mode.name()), "fake_completion", "unknown",
+                    false, 0, true, new DefaultRpcExecutionPolicy());
+            List<RPCNode> nodes = collectRpcNodes(plan);
+            assertEquals(nodes.size(), 1);
+            assertEquals(nodes.get(0).getExecutionPhase(), RPCNode.ExecutionPhase.INLINE);
+            assertEquals(nodes.get(0).getStreamingMode(), mode == RPCNode.StreamingMode.AUTOMATIC ? RPCNode.StreamingMode.PER_ROW : mode);
+        }
+    }
+
+    @DataProvider
+    public Object[][] collectOnlyDependencies()
+    {
+        return new Object[][] {{false}, {true}};
+    }
+
+    @Test(dataProvider = "collectOnlyDependencies")
+    public void testDeclaredCollectDependenciesSurvivePolling(boolean groupingOnly)
+    {
+        VariableAllocator variables = new VariableAllocator();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        VariableReferenceExpression input = variables.newVariable("input", VARCHAR);
+        VariableReferenceExpression collectOnly = variables.newVariable("collect_only", VARCHAR);
+        VariableReferenceExpression output = variables.newVariable("output", VARCHAR);
+        ValuesNode source = new ValuesNode(Optional.empty(), ids.getNextId(), ImmutableList.of(input, collectOnly), ImmutableList.of(), Optional.empty());
+        CallExpression call = new CallExpression("collect_dependency", createFunctionHandle("collect_dependency"), VARCHAR,
+                ImmutableList.of(input, varchar("model"), collectOnly, varchar("{\"streaming_mode\":\"batch_deferred\"}")));
+        ProjectNode project = new ProjectNode(ids.getNextId(), source, Assignments.builder().put(output, call).build());
+        DeferredRpcExecution execution = new DeferredRpcExecution()
+        {
+            @Override
+            public DeferredRpcCall submit()
+            {
+                return DeferredRpcCall.builder("test_submit", fakeReceiptType()).setArguments(ImmutableList.of(input)).setDispatchBatchSize(2).build();
+            }
+
+            @Override
+            public DeferredRpcCall poll(VariableReferenceExpression receipt)
+            {
+                return DeferredRpcCall.builder("test_poll", fakeReceiptType()).setArguments(ImmutableList.of(receipt)).setDispatchBatchSize(2)
+                        .setInputGroupingExpressions(ImmutableList.of(fakeGrouping(receipt))).build();
+            }
+
+            @Override
+            public DeferredRpcCall collect(VariableReferenceExpression ready)
+            {
+                return DeferredRpcCall.builder("test_collect", VARCHAR)
+                        .setArguments(groupingOnly ? ImmutableList.of(ready) : ImmutableList.of(ready, collectOnly)).setDispatchBatchSize(2)
+                        .setInputGroupingExpressions(ImmutableList.of(groupingOnly ? collectOnly : fakeGrouping(ready))).build();
+            }
+        };
+        RpcDeferredExecutionRegistry registry = new DefaultRpcDeferredExecutionRegistry(ignored -> RpcArgumentLayout.optionsAt(3),
+                ImmutableList.of(ignored -> Optional.of(execution)));
+        Session session = streamingModeSession("PER_ROW");
+        PlanNode plan = new RpcFunctionOptimizer(() -> ImmutableSet.of("collect_dependency"), null, new DefaultRpcExecutionPolicy(),
+                true, FUNCTION_AND_TYPE_MANAGER, registry).optimize(project, session, TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false).getPlanNode();
+        PlanNode pruned = new PruneUnreferencedOutputs().optimize(plan, session, TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false).getPlanNode();
+        List<RPCNode> phases = collectRpcNodes(pruned);
+        assertEquals(phases.size(), 3);
+        assertTrue(phases.get(1).getSource().getOutputVariables().contains(collectOnly));
+        assertFalse(phases.get(1).getSource().getOutputVariables().contains(input));
+        assertTrue(phases.get(0).getSource().getOutputVariables().contains(collectOnly));
+        assertFalse(pruned.getOutputVariables().contains(collectOnly));
+        new ValidateDependenciesChecker().validate(pruned);
+    }
+
+    @Test
+    public void testMissingAndAmbiguousDeferredProvidersFailClearly()
+    {
+        VariableAllocator variables = new VariableAllocator();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        VariableReferenceExpression input = variables.newVariable("input", VARCHAR);
+        VariableReferenceExpression output = variables.newVariable("output", VARCHAR);
+        ValuesNode source = new ValuesNode(Optional.empty(), ids.getNextId(), ImmutableList.of(input), ImmutableList.of(), Optional.empty());
+        CallExpression call = new CallExpression("fake_completion", createFunctionHandle("fake_completion"), VARCHAR,
+                ImmutableList.of(input, varchar("model"), varchar(""), varchar("{}")));
+        ProjectNode project = new ProjectNode(ids.getNextId(), source, Assignments.builder().put(output, call).build());
+        PrestoException missing = expectThrows(PrestoException.class, () ->
+                new RpcFunctionOptimizer(() -> ImmutableSet.of("fake_completion"), null, new DefaultRpcExecutionPolicy(), true,
+                        FUNCTION_AND_TYPE_MANAGER, new DefaultRpcDeferredExecutionRegistry())
+                        .optimize(project, streamingModeSession("BATCH_DEFERRED"), TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false));
+        assertEquals(missing.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+        assertTrue(missing.getMessage().contains("No BATCH_DEFERRED"));
+        RpcDeferredExecutionRegistry ambiguous = new DefaultRpcDeferredExecutionRegistry(ignored -> RpcArgumentLayout.optionsAt(3),
+                ImmutableList.of(context -> fakeRegistry().resolve(context), context -> fakeRegistry().resolve(context)));
+        IllegalArgumentException multiple = expectThrows(IllegalArgumentException.class, () ->
+                new RpcFunctionOptimizer(() -> ImmutableSet.of("fake_completion"), null, new DefaultRpcExecutionPolicy(), true,
+                        FUNCTION_AND_TYPE_MANAGER, ambiguous)
+                        .optimize(project, streamingModeSession("BATCH_DEFERRED"), TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false));
+        assertTrue(multiple.getMessage().contains("Multiple deferred RPC providers"));
+    }
+
+    @Test
+    public void testProviderControlsDispatchLimit()
+    {
+        Session session = Session.builder(streamingModeSession("BATCH_DEFERRED")).setSystemProperty("rpc_dispatch_batch_size", "8192").build();
+        PlanNode plan = optimizeModeCall(session, "fake_completion", null, false, 0, true, new DefaultRpcExecutionPolicy());
+        for (RPCNode phase : collectRpcNodes(plan)) {
+            assertEquals(phase.getDispatchBatchSize(), 1024);
+            assertEquals(phase.getInputGroupingExpressions().size(), phase.getExecutionPhase() == RPCNode.ExecutionPhase.SUBMIT ? 0 : 1);
+        }
+    }
+
+    @DataProvider
+    public Object[][] deferredCompletionShapes()
+    {
+        return new Object[][] {{2, false, false}, {3, false, false}, {4, false, false},
+                {5, false, false}, {6, false, false}, {4, true, true}};
+    }
+
+    @Test(dataProvider = "deferredCompletionShapes")
+    public void testDeferredCompletionPreservesProviderInputShapes(int argumentCount, boolean withError, boolean typedContent)
+    {
+        VariableAllocator variables = new VariableAllocator();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        Type inputType = typedContent ? new ArrayType(RowType.from(ImmutableList.of(RowType.field("payload", VARCHAR),
+                RowType.field("category", VARCHAR)))) : VARCHAR;
+        VariableReferenceExpression input = variables.newVariable("input", inputType);
+        List<VariableReferenceExpression> sourceVariables = new ArrayList<>(ImmutableList.of(input));
+        List<RowExpression> arguments = new ArrayList<>(ImmutableList.of(input, varchar("model")));
+        if (argumentCount >= 3) {
+            arguments.add(varchar(""));
+        }
+        if (argumentCount >= 4) {
+            arguments.add(varchar("{\"streaming_mode\":\"batch_deferred\"}"));
+        }
+        for (int index = 4; index < argumentCount; index++) {
+            Type mediaType = argumentCount == 6 ? new ArrayType(new ArrayType(VARCHAR)) : VARCHAR;
+            VariableReferenceExpression media = variables.newVariable("media", mediaType);
+            sourceVariables.add(media);
+            arguments.add(media);
+        }
+        ValuesNode source = new ValuesNode(Optional.empty(), ids.getNextId(), sourceVariables, ImmutableList.of(), Optional.empty());
+        Type resultType = withError ? RowType.from(ImmutableList.of(RowType.field("result", VARCHAR), RowType.field("error", VARCHAR))) : VARCHAR;
+        String function = withError ? "fake_completion_with_error" : "fake_completion";
+        CallExpression call = new CallExpression(function, createFunctionHandle(function), resultType, arguments);
+        ProjectNode project = new ProjectNode(ids.getNextId(), source,
+                Assignments.builder().put(variables.newVariable("output", resultType), call).build());
+        PlanNode plan = new RpcFunctionOptimizer(() -> ImmutableSet.of(function), null, new DefaultRpcExecutionPolicy(), true, FUNCTION_AND_TYPE_MANAGER, fakeRegistry())
+                .optimize(project, streamingModeSession("BATCH_DEFERRED"), TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false).getPlanNode();
+        List<RPCNode> nodes = collectRpcNodes(plan);
+        assertEquals(nodes.size(), 3);
+        assertEquals(nodes.get(2).getArguments().size(), argumentCount);
+        assertEquals(nodes.get(0).getOutputVariable().getType(), resultType);
+        for (RPCNode node : nodes) {
+            assertEquals(node.getStreamingMode(), RPCNode.StreamingMode.BATCH);
+        }
+        new ValidateDependenciesChecker().validate(plan);
     }
 
     @Test
@@ -1003,6 +1556,40 @@ public class TestRpcFunctionOptimizer
     }
 
     @Test
+    public void testGroupingMetadataSurvivesSerializationAndSymbolRewrites()
+            throws Exception
+    {
+        VariableAllocator variables = new VariableAllocator();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        VariableReferenceExpression receipt = variables.newVariable("receipt", fakeReceiptType());
+        VariableReferenceExpression alias = variables.newVariable("receipt_alias", fakeReceiptType());
+        VariableReferenceExpression ready = variables.newVariable("ready", fakeReceiptType());
+        ValuesNode values = new ValuesNode(Optional.empty(), ids.getNextId(), ImmutableList.of(receipt), ImmutableList.of(), Optional.empty());
+        ProjectNode source = new ProjectNode(ids.getNextId(), values, Assignments.builder().put(alias, receipt).build());
+        RPCNode rpc = new RPCNode(Optional.empty(), ids.getNextId(), Optional.empty(), source, "fake_poll",
+                ImmutableList.of(alias, varchar("{}")), ImmutableList.of(alias.getName(), "constant_options"), ready,
+                RPCNode.StreamingMode.BATCH, 2, 1, RPCNode.ExecutionPhase.POLL, ImmutableList.of(fakeGrouping(alias)));
+        ObjectMapper mapper = planNodeObjectMapper();
+        String json = mapper.writeValueAsString(rpc);
+        RPCNode copy = mapper.readValue(json, RPCNode.class);
+        assertEquals(copy.getExecutionPhase(), RPCNode.ExecutionPhase.POLL);
+        assertEquals(copy.getInputGroupingExpressions(), rpc.getInputGroupingExpressions());
+        assertEquals(((RPCNode) copy.replaceChildren(ImmutableList.of(source))).getExecutionPhase(), RPCNode.ExecutionPhase.POLL);
+        assertEquals(((RPCNode) copy.replaceChildren(ImmutableList.of(source))).getInputGroupingExpressions(), rpc.getInputGroupingExpressions());
+        assertEquals(((RPCNode) copy.assignStatsEquivalentPlanNode(Optional.empty())).getInputGroupingExpressions(), rpc.getInputGroupingExpressions());
+        com.fasterxml.jackson.databind.node.ObjectNode oldJson = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(json);
+        oldJson.remove("inputGroupingExpressions");
+        assertTrue(mapper.treeToValue(oldJson, RPCNode.class).getInputGroupingExpressions().isEmpty());
+        PlanNode rewritten = new UnaliasSymbolReferences(FUNCTION_AND_TYPE_MANAGER)
+                .optimize(rpc, streamingModeSession("PER_ROW"), TypeProvider.viewOf(variables.getVariables()), variables, ids, WarningCollector.NOOP, false).getPlanNode();
+        RPCNode canonical = (RPCNode) rewritten;
+        assertEquals(canonical.getExecutionPhase(), RPCNode.ExecutionPhase.POLL);
+        assertEquals(((SpecialFormExpression) canonical.getInputGroupingExpressions().get(0)).getArguments().get(0), canonical.getArguments().get(0));
+        assertTrue(com.facebook.presto.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive(canonical).contains(canonical.getInputGroupingExpressions().get(0)));
+        new ValidateDependenciesChecker().validate(canonical);
+    }
+
+    @Test
     public void testOptimizerRejectsPolicyReturningAutomatic()
     {
         // The optimizer enforces the policy contract at plan time: a policy that returns
@@ -1018,8 +1605,14 @@ public class TestRpcFunctionOptimizer
         }
     }
 
-    @Test
-    public void testRpcNodeConstructorRejectsAutomatic()
+    @DataProvider
+    public Object[][] nonPhysicalStreamingModes()
+    {
+        return new Object[][] {{RPCNode.StreamingMode.AUTOMATIC}, {RPCNode.StreamingMode.BATCH_DEFERRED}};
+    }
+
+    @Test(dataProvider = "nonPhysicalStreamingModes")
+    public void testRpcNodeConstructorRejectsPlanningModes(RPCNode.StreamingMode mode)
     {
         // Defense in depth: even outside the optimizer, an RPCNode must never be constructed with
         // AUTOMATIC (this guard also covers the @JsonCreator deserialization path), so the value
@@ -1044,18 +1637,18 @@ public class TestRpcFunctionOptimizer
                     ImmutableList.of(inputVar),
                     ImmutableList.of("input_col"),
                     outputVar,
-                    RPCNode.StreamingMode.AUTOMATIC,
+                    mode,
                     0,
                     0);
             fail("expected rejection when constructing RPCNode with AUTOMATIC");
         }
         catch (IllegalArgumentException expected) {
-            assertTrue(expected.getMessage().contains("AUTOMATIC"), "message should mention AUTOMATIC: " + expected.getMessage());
+            assertTrue(expected.getMessage().contains(mode.name()), "message should mention AUTOMATIC: " + expected.getMessage());
         }
     }
 
-    @Test
-    public void testRpcNodeJsonCreatorRejectsAutomatic()
+    @Test(dataProvider = "nonPhysicalStreamingModes")
+    public void testRpcNodeJsonCreatorRejectsPlanningModes(RPCNode.StreamingMode mode)
     {
         // The @JsonCreator constructor (the deserialization entry point) must route through the
         // same guard, so a JSON plan payload carrying streamingMode=AUTOMATIC is rejected at the
@@ -1081,12 +1674,12 @@ public class TestRpcFunctionOptimizer
                     ImmutableList.of(inputVar),
                     ImmutableList.of("input_col"),
                     outputVar,
-                    RPCNode.StreamingMode.AUTOMATIC,
-                    Integer.valueOf(0));
+                    mode,
+                    Integer.valueOf(0), RPCNode.ExecutionPhase.INLINE);
             fail("expected rejection when deserializing an RPCNode with AUTOMATIC");
         }
         catch (IllegalArgumentException expected) {
-            assertTrue(expected.getMessage().contains("AUTOMATIC"), "message should mention AUTOMATIC: " + expected.getMessage());
+            assertTrue(expected.getMessage().contains(mode.name()), "message should mention AUTOMATIC: " + expected.getMessage());
         }
     }
 
@@ -1111,6 +1704,26 @@ public class TestRpcFunctionOptimizer
             }
             catch (PrestoException expected) {
                 assertEquals(expected.getErrorCode(), INVALID_SESSION_PROPERTY.toErrorCode());
+            }
+        }
+    }
+
+    @Test
+    public void testDeferredTaskCountMetadataRejectsInvalidValues()
+    {
+        for (PropertyMetadata<?> property : new SystemSessionProperties().getSessionProperties()) {
+            if (property.getName().equals(SystemSessionProperties.RPC_DEFERRED_POLL_TASK_COUNT)) {
+                assertEquals(property.decode(1), 1);
+                for (int value : new int[] {-1, 0}) {
+                    PrestoException failure = expectThrows(PrestoException.class, () -> property.decode(value));
+                    assertEquals(failure.getErrorCode(), INVALID_SESSION_PROPERTY.toErrorCode());
+                }
+            }
+            if (property.getName().equals(SystemSessionProperties.RPC_DEFERRED_COLLECT_TASK_COUNT)) {
+                assertEquals(property.decode(0), 0);
+                assertEquals(property.decode(8), 8);
+                PrestoException failure = expectThrows(PrestoException.class, () -> property.decode(-1));
+                assertEquals(failure.getErrorCode(), INVALID_SESSION_PROPERTY.toErrorCode());
             }
         }
     }
@@ -1147,5 +1760,483 @@ public class TestRpcFunctionOptimizer
             }
         }
         return null;
+    }
+    @DataProvider
+    public Object[][] deferredFakeBackendModes()
+    {
+        return new Object[][] {
+                {false, "fake_backend", "BATCH", 1},
+                {true, "fake_backend", "BATCH", 3},
+                {false, "unregistered", "BATCH", 1},
+                {false, "other_backend", "BATCH", 1},
+                {false, "fake_backend", "PER_ROW", 1},
+                {false, "fake_backend", "AUTOMATIC", 1}};
+    }
+
+    @Test(dataProvider = "deferredFakeBackendModes")
+    public void testDeferredFakeBackendIsExplicitlyEnabled(boolean enabled, String backend, String mode, int expectedNodes)
+    {
+        Session session = TestingSession.testSessionBuilder()
+                .setSystemProperty("rpc_streaming_mode", enabled ? "BATCH_DEFERRED" : mode)
+                .setSystemProperty("rpc_deferred_poll_task_count", "1")
+                .setSystemProperty("rpc_deferred_collect_task_count", "2")
+                .build();
+        PlanNode plan = optimizeFakeBackend(session, backend, true);
+        List<RPCNode> nodes = collectRpcNodes(plan);
+        assertEquals(nodes.size(), expectedNodes);
+        if (expectedNodes == 3) {
+            assertEquals(nodes.get(0).getExecutionPhase(), RPCNode.ExecutionPhase.COLLECT);
+            assertEquals(nodes.get(1).getExecutionPhase(), RPCNode.ExecutionPhase.POLL);
+            assertEquals(nodes.get(2).getExecutionPhase(), RPCNode.ExecutionPhase.SUBMIT);
+            assertEquals(nodes.get(0).getRecommendedTaskCount(), 2);
+            assertEquals(nodes.get(1).getRecommendedTaskCount(), 1);
+            assertEquals(nodes.get(2).getFunctionName(), "fake_submit");
+            assertEquals(nodes.get(0).getFunctionName(), "fake_collect");
+            assertFalse(nodes.get(1).getSource().getOutputVariables().stream()
+                    .anyMatch(variable -> variable.getName().contains("options")));
+            assertFalse(nodes.get(1).getSource().getOutputVariables().stream()
+                    .anyMatch(variable -> variable.getName().equals("prompt")));
+            new ValidateDependenciesChecker().validate(plan);
+        }
+        else {
+            assertEquals(nodes.get(0).getExecutionPhase(), RPCNode.ExecutionPhase.INLINE);
+            assertEquals(nodes.get(0).getFunctionName(), "fake_completion");
+        }
+    }
+
+    @Test
+    public void testBatchModeRemainsInline()
+    {
+        Session session = TestingSession.testSessionBuilder()
+                .setSystemProperty("rpc_streaming_mode", "BATCH")
+                .build();
+        assertEquals(collectRpcNodes(optimizeFakeBackend(session, "fake_backend", true)).size(), 1);
+    }
+
+    @DataProvider
+    public Object[][] deferredProjectedArguments()
+    {
+        return new Object[][] {
+                {true, "fake_backend", "constant", false, 3},
+                {true, "fake_backend", "constant", true, 3},
+                {false, "fake_backend", "constant", true, 1},
+                {true, "unregistered", "constant", true, 0},
+                {true, "other_backend", "constant", true, 0},
+                {true, "fake_backend", "dynamic_model", true, 0},
+                {true, "fake_backend", "dynamic_options", true, 0},
+                {true, "fake_backend", "nondeterministic_options", true, 0},
+                {true, "fake_backend", "invalid_options_handle", true, 0}};
+    }
+
+    @Test(dataProvider = "deferredProjectedArguments")
+    public void testDeferredFakeBackendResolvesOnlyProvenProjectedConstants(boolean enabled, String backend, String argumentKind, boolean withTry, int expectedNodes)
+    {
+        Session session = TestingSession.testSessionBuilder()
+                .setSystemProperty("rpc_streaming_mode", enabled ? "BATCH_DEFERRED" : "BATCH")
+                .build();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        VariableAllocator variables = new VariableAllocator();
+        VariableReferenceExpression prompt = variables.newVariable("prompt", VARCHAR);
+        VariableReferenceExpression dynamic = variables.newVariable("dynamic", VARCHAR);
+        VariableReferenceExpression model = variables.newVariable("model", VARCHAR);
+        VariableReferenceExpression extraOptions = variables.newVariable("extra_options", VARCHAR);
+        VariableReferenceExpression modelAlias = variables.newVariable("model_alias", VARCHAR);
+        VariableReferenceExpression optionsAlias = variables.newVariable("options_alias", VARCHAR);
+        VariableReferenceExpression output = variables.newVariable("output", VARCHAR);
+        ValuesNode values = new ValuesNode(Optional.empty(), ids.getNextId(),
+                ImmutableList.of(prompt, dynamic), ImmutableList.of(), Optional.empty());
+
+        String optionsSuffix = ",\"streaming_mode\":\"" + (enabled ? "batch_deferred" : "batch") + "\",\"dispatch_batch_size\":10";
+        RowExpression suffix = varchar(optionsSuffix);
+        if (argumentKind.equals("dynamic_options")) {
+            suffix = dynamic;
+        }
+        else if (argumentKind.equals("nondeterministic_options")) {
+            suffix = new CallExpression("CAST", FUNCTION_AND_TYPE_MANAGER.lookupCast(CAST, DOUBLE, VARCHAR), VARCHAR,
+                    ImmutableList.of(localCall("random", DOUBLE)));
+        }
+        else if (argumentKind.equals("invalid_options_handle")) {
+            suffix = new CallExpression("unknown_options", createFunctionHandle("unknown_options"), VARCHAR, ImmutableList.of());
+        }
+        ProjectNode constants = new ProjectNode(ids.getNextId(), values,
+                Assignments.builder().put(prompt, prompt)
+                        .put(model, argumentKind.equals("dynamic_model") ? dynamic : varchar("model"))
+                        .put(extraOptions, suffix).build());
+        RowExpression optionalSuffix = new SpecialFormExpression(SpecialFormExpression.Form.IF, VARCHAR,
+                new SpecialFormExpression(SpecialFormExpression.Form.IS_NULL, BOOLEAN, extraOptions),
+                varchar(""), extraOptions);
+        RowExpression options = localCall("concat", VARCHAR,
+                varchar("{\"inference_backend\":\"" + backend + "\""), optionalSuffix, varchar("}"));
+        ProjectNode aliases = new ProjectNode(ids.getNextId(), constants,
+                Assignments.builder().put(prompt, prompt).put(modelAlias, model).put(optionsAlias, options).build());
+        FilterNode source = new FilterNode(Optional.empty(), ids.getNextId(), aliases, new ConstantExpression(true, BOOLEAN));
+        CallExpression call = new CallExpression("fake_completion", createFunctionHandle("fake_completion"), VARCHAR,
+                ImmutableList.of(prompt, modelAlias, varchar(""), optionsAlias));
+        RowExpression expression = call;
+        if (withTry) {
+            CallExpression lambdaCall = new CallExpression("fake_completion", createFunctionHandle("fake_completion"), VARCHAR,
+                    ImmutableList.of(new VariableReferenceExpression(Optional.empty(), "p", VARCHAR),
+                            new VariableReferenceExpression(Optional.empty(), "m", VARCHAR), varchar(""),
+                            new VariableReferenceExpression(Optional.empty(), "o", VARCHAR)));
+            LambdaDefinitionExpression lambda = new LambdaDefinitionExpression(Optional.empty(),
+                    ImmutableList.of(VARCHAR, VARCHAR, VARCHAR), ImmutableList.of("p", "m", "o"), lambdaCall);
+            RowExpression bind = new SpecialFormExpression(SpecialFormExpression.Form.BIND, new FunctionType(ImmutableList.of(), VARCHAR),
+                    ImmutableList.of(prompt, modelAlias, optionsAlias, lambda));
+            expression = new CallExpression("$internal$try", createFunctionHandle("$internal$try"), VARCHAR,
+                    ImmutableList.of(bind));
+        }
+        ProjectNode project = new ProjectNode(ids.getNextId(), source, Assignments.builder().put(output, expression).build());
+        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(() -> ImmutableSet.of("fake_completion"), null, new DefaultRpcExecutionPolicy(), true, FUNCTION_AND_TYPE_MANAGER, fakeRegistry());
+        if (expectedNodes == 0) {
+            if (!backend.equals("fake_backend")) {
+                PrestoException error = expectThrows(PrestoException.class, () ->
+                        optimizer.optimize(project, session, TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false));
+                assertEquals(error.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+                assertTrue(error.getMessage().contains("No BATCH_DEFERRED"));
+                return;
+            }
+            IllegalArgumentException error = expectThrows(IllegalArgumentException.class, () ->
+                    optimizer.optimize(project, session, TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false));
+            if (argumentKind.equals("invalid_options_handle")) {
+                assertEquals(error.getMessage(), "Expect BuiltInFunctionHandle");
+            }
+            else {
+                assertTrue(error.getMessage().contains("BATCH_DEFERRED"));
+            }
+            return;
+        }
+        PlanNode plan = optimizer.optimize(project, session, TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false).getPlanNode();
+        List<RPCNode> nodes = collectRpcNodes(plan);
+        assertEquals(nodes.size(), expectedNodes);
+        if (expectedNodes == 3) {
+            RPCNode submit = nodes.get(2);
+            ConstantExpression expectedOptions = varchar("{\"inference_backend\":\"fake_backend\"" + optionsSuffix + "}");
+            assertEquals(submit.getExecutionPhase(), RPCNode.ExecutionPhase.SUBMIT);
+            assertEquals(submit.getArguments().get(1), varchar("model"));
+            assertEquals(submit.getArguments().get(3), expectedOptions);
+            assertEquals(nodes.get(1).getArguments().get(1), expectedOptions);
+            assertEquals(nodes.get(0).getArguments().get(1), expectedOptions);
+            for (RPCNode node : nodes) {
+                assertEquals(node.getDispatchBatchSize(), 10);
+            }
+        }
+        else {
+            assertEquals(nodes.get(0).getExecutionPhase(), RPCNode.ExecutionPhase.INLINE);
+            assertEquals(nodes.get(0).getStreamingMode(), RPCNode.StreamingMode.BATCH);
+            assertEquals(nodes.get(0).getDispatchBatchSize(), 10);
+            assertEquals(nodes.get(0).getArguments(), call.getArguments());
+            assertEquals(nodes.get(0).getArgumentColumns().get(3), optionsAlias.getName());
+        }
+        new ValidateDependenciesChecker().validate(plan);
+    }
+
+    private static CallExpression localCall(String name, Type returnType, RowExpression... arguments)
+    {
+        List<Type> types = new ArrayList<>();
+        for (RowExpression argument : arguments) {
+            types.add(argument.getType());
+        }
+        return new CallExpression(name, FUNCTION_AND_TYPE_MANAGER.lookupFunction(name, fromTypes(types)), returnType, ImmutableList.copyOf(arguments));
+    }
+
+    @DataProvider
+    public Object[][] deferredNonFakeBackendBackends()
+    {
+        return new Object[][] {{"unregistered"}, {"other_backend"}};
+    }
+
+    @Test(dataProvider = "deferredNonFakeBackendBackends")
+    public void testDeferredNonFakeBackendMultiAttachmentCallRemainsInline(String backend)
+    {
+        Session session = TestingSession.testSessionBuilder()
+                .setSystemProperty("rpc_streaming_mode", "BATCH")
+                .build();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        VariableAllocator variables = new VariableAllocator();
+        VariableReferenceExpression prompt = variables.newVariable("prompt", VARCHAR);
+        Type attachmentsType = new ArrayType(new ArrayType(VARCHAR));
+        VariableReferenceExpression images = variables.newVariable("images", attachmentsType);
+        VariableReferenceExpression videos = variables.newVariable("videos", attachmentsType);
+        VariableReferenceExpression output = variables.newVariable("output", VARCHAR);
+        ValuesNode source = new ValuesNode(Optional.empty(), ids.getNextId(),
+                ImmutableList.of(prompt, images, videos), ImmutableList.of(), Optional.empty());
+        CallExpression call = new CallExpression("fake_completion", createFunctionHandle("fake_completion"), VARCHAR,
+                ImmutableList.of(prompt, varchar("model"), varchar(""),
+                        varchar("{\"inference_backend\":\"" + backend + "\"}"), images, videos));
+        ProjectNode project = new ProjectNode(ids.getNextId(), source,
+                Assignments.builder().put(output, call).build());
+        PlanNode plan = new RpcFunctionOptimizer(() -> ImmutableSet.of("fake_completion"), null, new DefaultRpcExecutionPolicy(), true, FUNCTION_AND_TYPE_MANAGER, fakeRegistry())
+                .optimize(project, session, TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false).getPlanNode();
+
+        List<RPCNode> nodes = collectRpcNodes(plan);
+        assertEquals(nodes.size(), 1);
+        assertEquals(nodes.get(0).getExecutionPhase(), RPCNode.ExecutionPhase.INLINE);
+        assertEquals(nodes.get(0).getStreamingMode(), RPCNode.StreamingMode.BATCH);
+        assertEquals(nodes.get(0).getFunctionName(), "fake_completion");
+        assertEquals(nodes.get(0).getArguments(), call.getArguments());
+        new ValidateDependenciesChecker().validate(plan);
+    }
+
+    @Test
+    public void testDeferredFakeBackendRequiresNativeSpark()
+    {
+        Session session = TestingSession.testSessionBuilder()
+                .setSystemProperty("rpc_streaming_mode", "BATCH_DEFERRED")
+                .build();
+        PrestoException error = expectThrows(PrestoException.class, () -> optimizeFakeBackend(session, "fake_backend", false));
+        assertEquals(error.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+        assertTrue(error.getMessage().contains("Presto-on-Spark"));
+    }
+
+    @Test
+    public void testDeferredPhasesSurvivePruningAndSymbolRewrites()
+    {
+        Session session = TestingSession.testSessionBuilder()
+                .setSystemProperty("rpc_streaming_mode", "BATCH_DEFERRED")
+                .build();
+        PlanNode plan = optimizeFakeBackend(session, "fake_backend", true);
+        VariableAllocator variables = new VariableAllocator();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        for (PlanOptimizer optimizer : ImmutableList.of(new PruneUnreferencedOutputs(), new UnaliasSymbolReferences(com.facebook.presto.metadata.MetadataManager.createTestMetadataManager().getFunctionAndTypeManager()))) {
+            plan = optimizer.optimize(plan, session, TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false).getPlanNode();
+        }
+        List<RPCNode> nodes = collectRpcNodes(plan);
+        assertEquals(nodes.size(), 3);
+        assertEquals(nodes.get(0).getExecutionPhase(), RPCNode.ExecutionPhase.COLLECT);
+        assertEquals(nodes.get(1).getExecutionPhase(), RPCNode.ExecutionPhase.POLL);
+        assertEquals(nodes.get(2).getExecutionPhase(), RPCNode.ExecutionPhase.SUBMIT);
+        new ValidateDependenciesChecker().validate(plan);
+    }
+
+    @Test
+    public void testMultipleDeferredCallsKeepTheirDependencies()
+    {
+        Session session = TestingSession.testSessionBuilder()
+                .setSystemProperty("rpc_streaming_mode", "BATCH_DEFERRED")
+                .build();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        VariableAllocator variables = new VariableAllocator();
+        VariableReferenceExpression prompt = variables.newVariable("prompt", VARCHAR);
+        VariableReferenceExpression first = variables.newVariable("first", VARCHAR);
+        VariableReferenceExpression second = variables.newVariable("second", VARCHAR);
+        ValuesNode source = new ValuesNode(Optional.empty(), ids.getNextId(),
+                ImmutableList.of(prompt), ImmutableList.of(), Optional.empty());
+        CallExpression call = new CallExpression("fake_completion", createFunctionHandle("fake_completion"), VARCHAR,
+                ImmutableList.of(prompt, varchar("model"), varchar(""), varchar("{}")));
+        ProjectNode project = new ProjectNode(ids.getNextId(), source,
+                Assignments.builder().put(first, call).put(second, call).build());
+        PlanNode plan = new RpcFunctionOptimizer(() -> ImmutableSet.of("fake_completion"), null, new DefaultRpcExecutionPolicy(), true, FUNCTION_AND_TYPE_MANAGER, fakeRegistry())
+                .optimize(project, session, TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false).getPlanNode();
+        assertEquals(collectRpcNodes(plan).size(), 6);
+        PlanNode pruned = new PruneUnreferencedOutputs().optimize(plan, session, TypeProvider.empty(),
+                variables, ids, WarningCollector.NOOP, false).getPlanNode();
+        assertEquals(collectRpcNodes(pruned).size(), 6);
+        new ValidateDependenciesChecker().validate(pruned);
+    }
+
+    private PlanNode optimizeFakeBackend(Session session, String backend, boolean nativeSpark)
+    {
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        VariableAllocator variables = new VariableAllocator();
+        VariableReferenceExpression prompt = variables.newVariable("prompt", VARCHAR);
+        VariableReferenceExpression rowKey = variables.newVariable("row_key", VARCHAR);
+        VariableReferenceExpression output = variables.newVariable("output", VARCHAR);
+        ValuesNode source = new ValuesNode(Optional.empty(), ids.getNextId(),
+                ImmutableList.of(prompt, rowKey), ImmutableList.of(), Optional.empty());
+        CallExpression call = new CallExpression("fake_completion", createFunctionHandle("fake_completion"), VARCHAR,
+                ImmutableList.of(prompt, varchar("model"), varchar(""), varchar("{\"inference_backend\":\"" + backend + "\"}")));
+        ProjectNode project = new ProjectNode(ids.getNextId(), source,
+                Assignments.builder().put(rowKey, rowKey).put(output, call).build());
+        RpcFunctionOptimizer optimizer = new RpcFunctionOptimizer(() -> ImmutableSet.of("fake_completion"),
+                null, new DefaultRpcExecutionPolicy(), nativeSpark, FUNCTION_AND_TYPE_MANAGER, fakeRegistry());
+        return optimizer.optimize(project, session, TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false).getPlanNode();
+    }
+
+    private static List<RPCNode> collectRpcNodes(PlanNode plan)
+    {
+        List<RPCNode> nodes = new ArrayList<>();
+        if (plan instanceof RPCNode) {
+            nodes.add((RPCNode) plan);
+        }
+        for (PlanNode source : plan.getSources()) {
+            nodes.addAll(collectRpcNodes(source));
+        }
+        return nodes;
+    }
+
+    private PlanNode optimizeModeCall(Session session, String function, String functionMode, boolean projectedOptions,
+            int mediaCount, boolean nativeSpark, RpcExecutionPolicy policy)
+    {
+        return optimizeModeCall(session, function, functionMode, projectedOptions, mediaCount, nativeSpark, policy, "");
+    }
+
+    private PlanNode optimizeModeCall(Session session, String function, String functionMode, boolean projectedOptions,
+            int mediaCount, boolean nativeSpark, RpcExecutionPolicy policy, String optionsSuffix)
+    {
+        VariableAllocator variables = new VariableAllocator();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        VariableReferenceExpression prompt = variables.newVariable("prompt", VARCHAR);
+        VariableReferenceExpression rowKey = variables.newVariable("row_key", VARCHAR);
+        boolean embedding = function.startsWith("fake_embedding") || function.equals("fake_embedding_alias");
+        boolean completion = ImmutableSet.of("fake_completion", "fake_completion_alias", "fake_completion_alias", "fake_completion_with_error").contains(function);
+        Type resultType = embedding ? new ArrayType(function.contains("double") ? DOUBLE : REAL) : VARCHAR;
+        if (function.endsWith("_with_error")) {
+            resultType = RowType.from(ImmutableList.of(RowType.field("result", resultType), RowType.field("error", VARCHAR)));
+        }
+        VariableReferenceExpression output = variables.newVariable("output", resultType);
+        PlanNode source = new ValuesNode(Optional.empty(), ids.getNextId(), ImmutableList.of(prompt, rowKey), ImmutableList.of(), Optional.empty());
+        RowExpression options = modeOptions(functionMode, optionsSuffix);
+        if (projectedOptions) {
+            VariableReferenceExpression alias = variables.newVariable("options_alias", VARCHAR);
+            source = new ProjectNode(ids.getNextId(), source,
+                    Assignments.builder().put(prompt, prompt).put(rowKey, rowKey).put(alias, options).build());
+            options = alias;
+        }
+        List<RowExpression> arguments = new ArrayList<>(ImmutableList.of(prompt, varchar("model")));
+        if (!embedding) {
+            arguments.add(varchar(""));
+        }
+        if (embedding || completion) {
+            arguments.add(options);
+        }
+        for (int index = 0; index < mediaCount; index++) {
+            arguments.add(varchar("{\"streaming_mode\":\"not-options\"}"));
+        }
+        if (!embedding && !completion) {
+            arguments.add(options);
+        }
+        CallExpression call = new CallExpression(function, createFunctionHandle(function), resultType, arguments);
+        ProjectNode project = new ProjectNode(ids.getNextId(), source,
+                Assignments.builder().put(rowKey, rowKey).put(output, call).build());
+        return new RpcFunctionOptimizer(() -> ImmutableSet.of(function), null, policy, nativeSpark, FUNCTION_AND_TYPE_MANAGER, fakeRegistry())
+                .optimize(project, session, TypeProvider.empty(), variables, ids, WarningCollector.NOOP, false).getPlanNode();
+    }
+
+    private static ConstantExpression modeOptions(String functionMode, String optionsSuffix)
+    {
+        return varchar("{\"inference_backend\":\"fake_backend\"" +
+                (functionMode == null ? "" : ",\"streaming_mode\":\"" + functionMode + "\"") + optionsSuffix + "}");
+    }
+
+    static RowType fakeReceiptType()
+    {
+        return RowType.from(ImmutableList.of(RowType.field("job_key", VARCHAR), RowType.field("input_position", BIGINT)));
+    }
+
+    static RowExpression fakeGrouping(VariableReferenceExpression receipt)
+    {
+        return new SpecialFormExpression(SpecialFormExpression.Form.DEREFERENCE, VARCHAR,
+                ImmutableList.of(receipt, new ConstantExpression(0L, INTEGER)));
+    }
+
+    static RpcDeferredExecutionRegistry fakeRegistry()
+    {
+        return new DefaultRpcDeferredExecutionRegistry(call -> {
+            String name = call.getDisplayName().toLowerCase(Locale.ENGLISH);
+            if (name.startsWith("fake_completion")) {
+                return call.getArguments().size() >= 4 ? RpcArgumentLayout.optionsAt(3) : RpcArgumentLayout.noOptions();
+            }
+            if (name.startsWith("fake_embedding")) {
+                return call.getArguments().size() >= 3 ? RpcArgumentLayout.optionsAt(2) : RpcArgumentLayout.noOptions();
+            }
+            return call.getArguments().size() >= 3 ? RpcArgumentLayout.optionsAt(call.getArguments().size() - 1) : RpcArgumentLayout.noOptions();
+        }, ImmutableList.of(context -> {
+            CallExpression call = context.getCall();
+            if (!call.getDisplayName().startsWith("fake_completion")) {
+                return Optional.empty();
+            }
+            ConstantExpression options = context.getArgumentLayout().getOptionsArgumentIndex().isPresent()
+                    ? context.resolveConstant(call.getArguments().get(context.getArgumentLayout().getOptionsArgumentIndex().getAsInt()))
+                            .orElseThrow(() -> new IllegalArgumentException("BATCH_DEFERRED fake provider requires constant options"))
+                    : varchar("{}");
+            if (options.getValue() == null) {
+                options = varchar("{}");
+            }
+            try {
+                JsonNode json = JsonMapper.builder()
+                        .enable(JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS)
+                        .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                        .build()
+                        .readTree(((Slice) options.getValue()).toStringUtf8());
+                if (!json.path("inference_backend").asText("fake_backend").equals("fake_backend")) {
+                    return Optional.empty();
+                }
+            }
+            catch (IOException invalidOptions) {
+                throw new IllegalArgumentException("BATCH_DEFERRED fake provider requires valid options", invalidOptions);
+            }
+            checkFakeArguments(call);
+            ConstantExpression model = context.resolveConstant(call.getArguments().get(1))
+                    .orElseThrow(() -> new IllegalArgumentException("BATCH_DEFERRED fake provider requires a constant model"));
+            if (model.getValue() == null) {
+                throw new IllegalArgumentException("BATCH_DEFERRED fake provider requires a non-null model");
+            }
+            List<RowExpression> arguments = new ArrayList<>(call.getArguments());
+            arguments.set(1, model);
+            if (context.getArgumentLayout().getOptionsArgumentIndex().isPresent()) {
+                arguments.set(context.getArgumentLayout().getOptionsArgumentIndex().getAsInt(), options);
+            }
+            ConstantExpression phaseOptions = options;
+            int batchSize = context.getRequestedDispatchBatchSize() == 0 ? 64 : Math.min(1024, context.getRequestedDispatchBatchSize());
+            boolean withError = call.getDisplayName().endsWith("_with_error");
+            return Optional.of(new DeferredRpcExecution()
+            {
+                @Override
+                public DeferredRpcCall submit()
+                {
+                    return DeferredRpcCall.builder(withError ? "fake_submit_with_error" : "fake_submit", fakeReceiptType())
+                            .setArguments(arguments).setDispatchBatchSize(batchSize).build();
+                }
+
+                @Override
+                public DeferredRpcCall poll(VariableReferenceExpression receipt)
+                {
+                    return DeferredRpcCall.builder("fake_poll", fakeReceiptType()).setArguments(ImmutableList.of(receipt, phaseOptions))
+                            .setDispatchBatchSize(batchSize).setInputGroupingExpressions(ImmutableList.of(fakeGrouping(receipt))).build();
+                }
+
+                @Override
+                public DeferredRpcCall collect(VariableReferenceExpression ready)
+                {
+                    return DeferredRpcCall.builder(withError ? "fake_collect_with_error" : "fake_collect", call.getType())
+                            .setArguments(ImmutableList.of(ready, phaseOptions)).setDispatchBatchSize(batchSize)
+                            .setInputGroupingExpressions(ImmutableList.of(fakeGrouping(ready))).build();
+                }
+            });
+        }));
+    }
+
+    private static void checkFakeArguments(CallExpression call)
+    {
+        if (call.getArguments().size() < 2) {
+            throw new IllegalArgumentException("BATCH_DEFERRED fake provider requires two input arguments");
+        }
+    }
+
+    private static ObjectMapper planNodeObjectMapper()
+            throws Exception
+    {
+        Module module = binder -> {
+            binder.install(new JsonModule());
+            binder.install(new ThriftCodecModule());
+            binder.install(new HandleJsonModule());
+            configBinder(binder).bindConfig(FeaturesConfig.class);
+            binder.bind(ConnectorManager.class).toProvider(() -> null);
+            binder.bind(SqlParser.class).toInstance(new SqlParser());
+            binder.bind(TypeManager.class).toInstance(FUNCTION_AND_TYPE_MANAGER);
+            newSetBinder(binder, Type.class);
+            binder.bind(BlockEncodingSerde.class).toInstance(new TestingBlockEncodingSerde());
+            jsonBinder(binder).addSerializerBinding(Block.class).to(BlockJsonSerde.Serializer.class);
+            jsonBinder(binder).addDeserializerBinding(Block.class).to(BlockJsonSerde.Deserializer.class);
+            jsonBinder(binder).addSerializerBinding(Slice.class).to(SliceSerializer.class);
+            jsonBinder(binder).addDeserializerBinding(Slice.class).to(SliceDeserializer.class);
+            jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
+            jsonBinder(binder).addSerializerBinding(Expression.class).to(Serialization.ExpressionSerializer.class);
+            jsonBinder(binder).addDeserializerBinding(Expression.class).to(Serialization.ExpressionDeserializer.class);
+            jsonBinder(binder).addDeserializerBinding(FunctionCall.class).to(Serialization.FunctionCallDeserializer.class);
+            jsonBinder(binder).addKeySerializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionSerializer.class);
+            jsonBinder(binder).addKeyDeserializerBinding(VariableReferenceExpression.class).to(Serialization.VariableReferenceExpressionDeserializer.class);
+        };
+        return new Bootstrap(ImmutableList.of(module)).doNotInitializeLogging().quiet().initialize().getInstance(ObjectMapper.class);
     }
 }
