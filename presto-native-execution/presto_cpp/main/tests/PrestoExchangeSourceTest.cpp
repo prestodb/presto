@@ -11,13 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <folly/ScopeGuard.h>
 #include <folly/init/Init.h>
 #include <folly/portability/GMock.h>
+#include <folly/synchronization/Baton.h>
+#include <folly/synchronization/Latch.h>
 #include <gtest/gtest.h>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
-#include "folly/synchronization/EventCount.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/common/tests/MutableConfigs.h"
@@ -25,6 +27,7 @@
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/file/FileSystems.h"
+#include "velox/common/memory/MmapAllocator.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/ExchangeQueue.h"
 
@@ -303,11 +306,7 @@ class Producer {
       future = std::move(f);
     }
 
-    std::move(future).get();
-  }
-
-  folly::Promise<bool>& promise() {
-    return promise_;
+    std::move(future).get(std::chrono::seconds(10));
   }
 
  private:
@@ -499,7 +498,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
   static void SetUpTestCase() {
     MemoryManager::Options options;
     options.allocatorCapacity = 1L << 30;
-    options.useMmapAllocator = true;
+    options.useMmapAllocator = MmapAllocator::isPageSizeSupported();
     MemoryManager::testingSetInstance(options);
   }
 
@@ -921,66 +920,103 @@ TEST_P(PrestoExchangeSourceTest, slowProducer) {
   ASSERT_GT(stats.at("prestoExchangeSource.iobufBytes").count, 0);
 }
 
-DEBUG_ONLY_TEST_P(
-    PrestoExchangeSourceTest,
-    slowProducerAndEarlyTerminatingConsumer) {
+TEST_P(PrestoExchangeSourceTest, closeReleasesPoolBeforeCallbacksFinish) {
   const bool useHttps = GetParam().useHttps;
-  std::atomic_bool codePointHit{false};
-  folly::EventCount closeWait;
-  std::atomic_bool allCloseCheckPassed{false};
-  SCOPED_TESTVALUE_SET(
-      "facebook::presto::PrestoExchangeSource::doRequest",
-      std::function<void(const PrestoExchangeSource*)>(
-          ([&](const auto* prestoExchangeSource) {
-            allCloseCheckPassed = true;
-            closeWait.notifyAll();
-          })));
-  SCOPED_TESTVALUE_SET(
-      "facebook::presto::PrestoExchangeSource::handleDataResponse",
-      std::function<void(const PrestoExchangeSource*)>(
-          ([&](const auto* prestoExchangeSource) { codePointHit = true; })));
+  const bool immediateBufferTransfer =
+      GetParam().enableBufferCopy && GetParam().immediateBufferTransfer;
+  SystemConfig::instance()->setValue(
+      std::string(SystemConfig::kExchangeRequestTimeout), "30s");
 
-  auto producer = std::make_unique<Producer>();
-  auto producerServer = createHttpServer(useHttps);
-  producer->registerEndpoints(producerServer.get());
-  test::HttpServerWrapper serverWrapper(std::move(producerServer));
-  auto producerAddress = serverWrapper.start().get();
+  for (const bool lateResponse : {false, true}) {
+    SCOPED_TRACE(lateResponse);
+    const auto numThreads = GetParam().exchangeCpuThreadPoolSize;
+    exchangeCpuExecutor_ =
+        std::make_shared<folly::CPUThreadPoolExecutor>(numThreads);
+    folly::Baton<> requestReceived;
+    folly::Baton<> unblockProducer;
+    std::atomic_int deleteAttempts{0};
+    Producer producer([&](bool isDelete) {
+      if (isDelete) {
+        return ++deleteAttempts == 1;
+      }
+      if (lateResponse) {
+        requestReceived.post();
+        unblockProducer.wait();
+        return true;
+      }
+      return false;
+    });
+    producer.enqueue("page");
+    auto server = createHttpServer(useHttps);
+    producer.registerEndpoints(server.get());
+    test::HttpServerWrapper serverWrapper(std::move(server));
+    auto producerAddress = serverWrapper.start().get();
 
-  auto queue = makeSingleSourceQueue();
-  auto exchangeSource = makeExchangeSource(producerAddress, useHttps, 3, queue);
-  requestNextPage(queue, exchangeSource);
+    auto driverStarted = std::make_shared<folly::Latch>(numThreads);
+    auto unblockDriver = std::make_shared<folly::Latch>(1);
+    auto releaseThreads = folly::makeGuard([&] {
+      unblockProducer.post();
+      unblockDriver->count_down();
+    });
+    for (size_t i = 0; i < numThreads; ++i) {
+      exchangeCpuExecutor_->add([driverStarted, unblockDriver] {
+        driverStarted->count_down();
+        unblockDriver->wait();
+      });
+    }
+    ASSERT_TRUE(driverStarted->try_wait_for(std::chrono::seconds(10)));
 
-  closeWait.await([&]() { return allCloseCheckPassed.load(); });
+    auto queue = makeSingleSourceQueue();
+    auto root = memoryManager()->addRootPool();
+    auto pool = root->addLeafChild("exchange");
+    auto source =
+        makeExchangeSource(producerAddress, useHttps, 3, queue, pool.get());
+    {
+      std::lock_guard<std::mutex> l(queue->mutex());
+      ASSERT_TRUE(source->shouldRequestLocked());
+    }
+    auto response = source->request(1 << 20, std::chrono::seconds(2));
+    if (lateResponse) {
+      ASSERT_TRUE(requestReceived.try_wait_for(std::chrono::seconds(10)));
+    } else {
+      // Wait until the completed HTTP response is queued on the blocked
+      // driver executor. In immediate mode it already owns pooled data.
+      const auto deadline =
+          std::chrono::steady_clock::now() + std::chrono::seconds(10);
+      while (exchangeCpuExecutor_->getPoolStats().pendingTaskCount == 0 &&
+             std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+      ASSERT_GT(exchangeCpuExecutor_->getPoolStats().pendingTaskCount, 0);
+      if (immediateBufferTransfer) {
+        ASSERT_GT(pool->usedBytes(), 0);
+      }
+    }
 
-  // Simulation of an early destruction of 'Task' will release following
-  // resources, including pool_
-  exchangeSource->close();
-  queue->close();
-  exchangeSource.reset();
-  queue.reset();
-  pool_.reset();
+    std::weak_ptr weakSource = source;
+    std::weak_ptr weakPool = pool;
+    std::weak_ptr weakRoot = root;
+    source->close();
+    ASSERT_TRUE(response.isReady());
+    EXPECT_EQ(std::move(response).get().bytes, 0);
+    EXPECT_EQ(pool->usedBytes(), 0);
+    source.reset();
+    queue->close();
+    queue.reset();
+    pool.reset();
+    root.reset();
+    EXPECT_TRUE(weakSource.expired());
+    EXPECT_TRUE(weakPool.expired());
+    EXPECT_TRUE(weakRoot.expired());
 
-  // We want to wait a bit on the promise state to be valid. That way we are
-  // sure getResults() on the server side (producer) goes into empty data
-  // condition because we did not enqueue any data in producer yet. This allows
-  // us to have full control to simulate a super late response return by
-  // enqueuing a result afterwards.
-  while (!producer->promise().valid()) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    releaseThreads.dismiss();
+    unblockProducer.post();
+    unblockDriver->count_down();
+    producer.waitForDeleteResults();
+    exchangeCpuExecutor_->join();
+    EXPECT_EQ(deleteAttempts.load(), 2);
+    serverWrapper.stop();
   }
-
-  // We shall not crash here when response comes back super late.
-  producer->enqueue("I'm a super slow response");
-
-  // We need to wait a bit for response handling mechanism to happen in the
-  // background. There is no way to know where we are for response handling as
-  // all resources have been cleaned up, so explicitly waiting is the only way
-  // to allow the execution of background processing. We expect the test to not
-  // crash.
-  while (!codePointHit) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  }
-  serverWrapper.stop();
 }
 
 TEST_P(PrestoExchangeSourceTest, failedProducer) {

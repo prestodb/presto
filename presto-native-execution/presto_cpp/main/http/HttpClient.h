@@ -18,6 +18,8 @@
 #include <proxygen/lib/http/connpool/SessionPool.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
 #include <velox/common/memory/MemoryPool.h>
+#include <mutex>
+#include <optional>
 #include "presto_cpp/main/http/HttpClientOptions.h" // @manual
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "presto_cpp/main/http/JwtOptions.h" // @manual
@@ -28,13 +30,14 @@ namespace facebook::presto::http {
 /// NOTE: this class is not thread safe.
 class HttpResponse {
  public:
+  class BodyBuffer;
+  using WeakBodyBuffer = std::optional<std::weak_ptr<BodyBuffer>>;
+
   HttpResponse(
       std::unique_ptr<proxygen::HTTPMessage> headers,
       std::shared_ptr<velox::memory::MemoryPool> pool,
-      uint64_t minResponseAllocBytes,
-      uint64_t maxResponseAllocBytes);
-
-  ~HttpResponse();
+      uint64_t maxResponseAllocBytes,
+      WeakBodyBuffer bodyBuffer = std::nullopt);
 
   proxygen::HTTPMessage* headers() {
     return headers_.get();
@@ -43,13 +46,17 @@ class HttpResponse {
   /// Appends payload to the body of this HttpResponse.
   void append(std::unique_ptr<folly::IOBuf>&& iobuf);
 
+  /// Claims the body of a buffered response after HTTP has finished writing
+  /// it. Returns false if the buffer was closed or destroyed.
+  bool takeBufferedBody();
+
   /// Indicates if this http response has error occurred. If it has error, we
   /// will skip the rest of http response data processing.
   ///
   /// NOTE: a http client might append the payload more than once if the
   /// response payload is too big.
   bool hasError() const {
-    return !error_.empty();
+    return body_ && !body_->error_.empty();
   }
 
   /// Returns http response error string if error occurred during the http
@@ -57,12 +64,12 @@ class HttpResponse {
   ///
   /// NOTE: the error is only set when append() fails to allocate memory.
   const std::string& error() const {
-    return error_;
+    return body_->error_;
   }
 
   /// Returns true if the body of this HttpResponse is empty.
   bool empty() const {
-    return bodyChain_.empty();
+    return body_->chain_.empty();
   }
 
   /// Consumes the response body. The caller is responsible for freeing the
@@ -70,44 +77,48 @@ class HttpResponse {
   /// memory leak.
   std::vector<std::unique_ptr<folly::IOBuf>> consumeBody() {
     VELOX_CHECK(!hasError());
-    return std::move(bodyChain_);
+    return std::move(body_->chain_);
   }
 
   /// Consumes the response body. The memory of body will be transferred to the
   /// memory to be allocated from 'pool'.
   std::unique_ptr<folly::IOBuf> consumeBody(velox::memory::MemoryPool* pool);
 
-  void freeBuffers();
-
   std::string dumpBodyChain() const;
 
+  /// Pooled exchanges keep this buffer alive until the driver claims it.
+  /// Closing it frees buffered data while any allocation already underway
+  /// finishes on the HTTP thread.
+  class BodyBuffer {
+   public:
+    BodyBuffer(
+        std::shared_ptr<velox::memory::MemoryPool> pool,
+        uint64_t maxResponseAllocBytes);
+    BodyBuffer(BodyBuffer&& other);
+    ~BodyBuffer();
+
+    void close();
+
+   private:
+    friend class HttpResponse;
+
+    void appendWithCopy(const folly::IOBuf& iobuf);
+    void freeBuffers();
+    size_t nextAllocationSize(uint64_t dataLength) const;
+
+    std::mutex mutex_;
+    std::shared_ptr<velox::memory::MemoryPool> pool_;
+    std::string error_;
+    std::vector<std::unique_ptr<folly::IOBuf>> chain_;
+    size_t chainBytes_{0};
+    const uint64_t minResponseAllocBytes_;
+    const uint64_t maxResponseAllocBytes_;
+  };
+
  private:
-  // The append operation that copies the 'iobuf' to velox memory 'pool_' and
-  // free 'iobuf' immediately.
-  void appendWithCopy(std::unique_ptr<folly::IOBuf>&& iobuf);
-
-  // Appends the 'iobuf' to 'bodyChain_', and copies them all once into a single
-  // large buffer after receives the entire http response payload.
-  void appendWithoutCopy(std::unique_ptr<folly::IOBuf>&& iobuf);
-
-  // Invoked to set the error on the first encountered 'exception'.
-  void setError(const std::exception& exception) {
-    VELOX_CHECK(!hasError());
-    error_ = exception.what();
-    freeBuffers();
-  }
-
-  // Returns the next buffer allocation size given the new request 'dataLength'.
-  FOLLY_ALWAYS_INLINE size_t nextAllocationSize(uint64_t dataLength) const;
-
   const std::unique_ptr<proxygen::HTTPMessage> headers_;
-  const std::shared_ptr<velox::memory::MemoryPool> pool_;
-  const uint64_t minResponseAllocBytes_;
-  const uint64_t maxResponseAllocBytes_;
-
-  std::string error_{};
-  std::vector<std::unique_ptr<folly::IOBuf>> bodyChain_;
-  size_t bodyChainBytes_{0};
+  std::optional<BodyBuffer> body_;
+  const WeakBodyBuffer bodyBuffer_;
 };
 
 /// Connection pool shared by all the http clients.  It is held by presto server
@@ -170,10 +181,16 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
   ~HttpClient();
 
   // TODO Avoid copy by using IOBuf for body
+  // Responses that use responseBodyBuffer must claim it before reading the
+  // body.
   folly::SemiFuture<std::unique_ptr<HttpResponse>> sendRequest(
       proxygen::HTTPMessage& request,
       const std::string& body = "",
-      int64_t delayMs = 0);
+      int64_t delayMs = 0,
+      HttpResponse::WeakBodyBuffer responseBodyBuffer = std::nullopt);
+
+  std::shared_ptr<HttpResponse::BodyBuffer> makeResponseBodyBuffer(
+      const std::shared_ptr<velox::memory::MemoryPool>& pool) const;
 
   const std::shared_ptr<velox::memory::MemoryPool>& memoryPool() {
     return pool_;
@@ -277,11 +294,15 @@ class RequestBuilder {
     return std::move(*this);
   }
 
-  folly::SemiFuture<std::unique_ptr<HttpResponse>>
-  send(HttpClient* client, const std::string& body = "", int64_t delayMs = 0) {
+  folly::SemiFuture<std::unique_ptr<HttpResponse>> send(
+      HttpClient* client,
+      const std::string& body = "",
+      int64_t delayMs = 0,
+      HttpResponse::WeakBodyBuffer responseBodyBuffer = std::nullopt) {
     addJwtIfConfigured();
     header(proxygen::HTTP_HEADER_CONTENT_LENGTH, std::to_string(body.size()));
-    return client->sendRequest(headers_, body, delayMs);
+    return client->sendRequest(
+        headers_, body, delayMs, std::move(responseBodyBuffer));
   }
 
  private:

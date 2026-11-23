@@ -127,8 +127,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
       http::HttpClientConnectionPool* connPool,
       folly::SSLContextPtr sslContext);
 
-  /// Completes the future returned by 'request()' if it hasn't completed
-  /// already.
+  /// Releases buffered data and completes any pending request. Producer
+  /// cleanup continues asynchronously.
   void close() override;
 
   bool supportsMetrics() const override {
@@ -228,32 +228,14 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
 
   void acknowledgeResults(int64_t ackSequence);
 
-  // Handles returned http response from acknowledge result request.
-  //
-  // NOTE: This method is normally called within callbacks. Caller should make
-  // sure 'this' lives during the entire duration of this method call.
-  void handleAckResponse(
+  static void handleAckResponse(
       folly::Try<std::unique_ptr<http::HttpResponse>> responseTry);
 
   void abortResults();
 
-  // Send abort results after specified delay. This function is called
-  // multiple times by abortResults for retries.
-  void doAbortResults(int64_t delayMs);
-
-  // Handles returned http response from abort result request.
-  //
-  // NOTE: This method is normally called within callbacks. Caller should make
-  // sure 'this' lives during the entire duration of this method call.
-  void handleAbortResponse(
-      folly::Try<std::unique_ptr<http::HttpResponse>> responseTry);
-
   // Completes the future returned from 'request()' if it hasn't completed
   // already.
   bool checkSetRequestPromise();
-
-  // Returns a shared ptr owning the current object.
-  std::shared_ptr<PrestoExchangeSource> getSelfPtr();
 
   // Tracks the currently node-wide queued memory usage in bytes.
   static std::atomic<int64_t>& currQueuedMemoryBytes() {
@@ -288,8 +270,10 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
 
   std::shared_ptr<http::HttpClient> httpClient_;
   http::JwtOptions jwtOptions_;
+  // Owns the pooled body while HTTP receives it or its continuation is queued.
+  // Protected by the exchange queue mutex.
+  std::shared_ptr<http::HttpResponse::BodyBuffer> responseBodyBuffer_;
   RetryState dataRequestRetryState_;
-  RetryState abortRetryState_;
   int failedAttempts_;
   // The number of pages received from this presto exchange source.
   uint64_t numPages_{0};
