@@ -23,6 +23,7 @@
 #include <folly/io/IOBuf.h>
 #include <velox/type/TypeUtil.h>
 #include <velox/type/Filter.h>
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/core/QueryCtx.h"
 #include "velox/exec/HashPartitionFunction.h"
 #include "velox/exec/RoundRobinPartitionFunction.h"
@@ -1636,6 +1637,39 @@ folly::F14FastSet<std::string> toNotNullColumnNames(
   return notNullTargetTableColumnNames;
 }
 
+// Resolves the partition-overwrite behavior Velox requires on
+// HiveInsertTableHandle from the Hive session properties already carried
+// by 'queryCtx', mirroring HiveConfig::insertExistingPartitionsBehavior:
+// the session property wins and the default is kError. This copies the
+// behavior the legacy Velox constructor used to provide (leave the
+// behavior unset and let the writers read the session property): the value
+// is decided here, at handle-build time, and passed explicitly. The HiveConfig
+// is only the resolver: its connector config supplies the default, while
+// the session value comes from the connector session properties. A
+// catalog config file default is not consulted, matching how the value
+// arrives in a task request. Returns kError when there is no QueryCtx
+// (tests and sidecar conversion) or no session properties for the
+// catalog.
+connector::hive::HiveConfig::InsertExistingPartitionsBehavior
+resolveInsertExistingPartitionsBehavior(
+    const core::QueryCtx* queryCtx,
+    const std::string& connectorId) {
+  constexpr auto kDefaultBehavior =
+      connector::hive::HiveConfig::InsertExistingPartitionsBehavior::kError;
+  if (queryCtx == nullptr) {
+    return kDefaultBehavior;
+  }
+  const auto* sessionProperties =
+      queryCtx->connectorSessionProperties(connectorId);
+  if (sessionProperties == nullptr) {
+    return kDefaultBehavior;
+  }
+  const connector::hive::HiveConfig hiveConfig(
+      std::make_shared<config::ConfigBase>(
+          std::unordered_map<std::string, std::string>{}));
+  return hiveConfig.insertExistingPartitionsBehavior(sessionProperties);
+}
+
 } // namespace
 
 std::shared_ptr<const core::TableWriteNode>
@@ -1651,8 +1685,10 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     connectorId = createHandle->handle.connectorId;
     auto& connector =
         getPrestoToVeloxConnector(createHandle->handle.connectorHandle->_type);
-    auto veloxHandle =
-        connector.toVeloxInsertTableHandle(createHandle.get(), typeParser_);
+    auto veloxHandle = connector.toVeloxInsertTableHandle(
+        createHandle.get(),
+        typeParser_,
+        resolveInsertExistingPartitionsBehavior(queryCtx_, connectorId));
     connectorInsertHandle = std::shared_ptr(std::move(veloxHandle));
   } else if (
       const auto insertHandle =
@@ -1661,8 +1697,10 @@ VeloxQueryPlanConverterBase::toVeloxQueryPlan(
     connectorId = insertHandle->handle.connectorId;
     auto& connector =
         getPrestoToVeloxConnector(insertHandle->handle.connectorHandle->_type);
-    auto veloxHandle =
-        connector.toVeloxInsertTableHandle(insertHandle.get(), typeParser_);
+    auto veloxHandle = connector.toVeloxInsertTableHandle(
+        insertHandle.get(),
+        typeParser_,
+        resolveInsertExistingPartitionsBehavior(queryCtx_, connectorId));
     connectorInsertHandle = std::shared_ptr(std::move(veloxHandle));
   }
 

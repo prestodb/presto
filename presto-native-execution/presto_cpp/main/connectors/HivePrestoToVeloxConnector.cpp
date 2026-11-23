@@ -399,6 +399,18 @@ std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
 HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
     const protocol::CreateHandle* createHandle,
     const TypeParser& typeParser) const {
+  return toVeloxInsertTableHandle(
+      createHandle,
+      typeParser,
+      connector::hive::HiveConfig::InsertExistingPartitionsBehavior::kError);
+}
+
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::CreateHandle* createHandle,
+    const TypeParser& typeParser,
+    connector::hive::HiveConfig::InsertExistingPartitionsBehavior behavior)
+    const {
   auto hiveOutputTableHandle =
       std::dynamic_pointer_cast<protocol::hive::HiveOutputTableHandle>(
           createHandle->handle.connectorHandle);
@@ -415,6 +427,7 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
   return std::make_unique<velox::connector::hive::HiveInsertTableHandle>(
       inputColumns,
       toLocationHandle(hiveOutputTableHandle->locationHandle),
+      behavior,
       toFileFormat(hiveOutputTableHandle->actualStorageFormat, "TableWrite"),
       toHiveBucketProperty(
           inputColumns, hiveOutputTableHandle->bucketProperty, typeParser),
@@ -427,6 +440,18 @@ std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
 HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
     const protocol::InsertHandle* insertHandle,
     const TypeParser& typeParser) const {
+  return toVeloxInsertTableHandle(
+      insertHandle,
+      typeParser,
+      connector::hive::HiveConfig::InsertExistingPartitionsBehavior::kError);
+}
+
+std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
+    const protocol::InsertHandle* insertHandle,
+    const TypeParser& typeParser,
+    connector::hive::HiveConfig::InsertExistingPartitionsBehavior behavior)
+    const {
   auto hiveInsertTableHandle =
       std::dynamic_pointer_cast<protocol::hive::HiveInsertTableHandle>(
           insertHandle->handle.connectorHandle);
@@ -443,6 +468,7 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
   return std::make_unique<connector::hive::HiveInsertTableHandle>(
       inputColumns,
       toLocationHandle(hiveInsertTableHandle->locationHandle),
+      behavior,
       toFileFormat(hiveInsertTableHandle->actualStorageFormat, "TableWrite"),
       toHiveBucketProperty(
           inputColumns, hiveInsertTableHandle->bucketProperty, typeParser),
@@ -451,8 +477,7 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
       std::unordered_map<std::string, std::string>(
           table->storage.serdeParameters.begin(),
           table->storage.serdeParameters.end()),
-      nullptr, // writerOptions
-      false, // ensureFiles
+      false, // writeEmptyFile
       std::make_shared<velox::connector::hive::HiveInsertFileNameGenerator>(),
       std::unordered_map<std::string, std::string>(
           table->storage.parameters.begin(), table->storage.parameters.end()));

@@ -16,7 +16,7 @@
 #include <folly/base64.h>
 #include "presto_cpp/main/connectors/arrow_flight/ArrowFlightConnector.h"
 #include "presto_cpp/main/connectors/arrow_flight/Macros.h"
-#include "velox/exec/tests/utils/PortUtil.h"
+#include "velox/exec/tests/utils/Ports.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec::test;
@@ -33,7 +33,7 @@ void ArrowFlightConnectorTestBase::SetUp() {
   if (config.defaultServerPort().has_value()) {
     port_ = config.defaultServerPort().value();
   } else {
-    port_ = getFreePort();
+    port_ = Ports::findFreePort();
   }
   AFC_ASSIGN_OR_RAISE(
       auto serverLocation,

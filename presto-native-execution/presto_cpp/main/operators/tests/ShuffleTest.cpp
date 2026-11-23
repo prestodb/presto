@@ -25,6 +25,7 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
+#include "presto_cpp/main/operators/tests/TestCursor.h"
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
@@ -34,6 +35,7 @@
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TaskMonitor.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/row/CompactRow.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
@@ -196,7 +198,7 @@ class ShuffleTest : public exec::test::OperatorTestBase {
   }
 
   void TearDown() override {
-    exec::test::waitForAllTasksToBeDeleted();
+    exec::test::TaskMonitor::waitForAllTasksDeleted();
     exec::ExchangeSource::factories().clear();
     exec::test::OperatorTestBase::TearDown();
   }
@@ -251,7 +253,7 @@ class ShuffleTest : public exec::test::OperatorTestBase {
       const RowVectorPtr& expected,
       const exec::CursorParameters params,
       const std::optional<uint32_t> expectedOutputCount = std::nullopt) {
-    auto [taskCursor, serializedResults] = exec::test::readCursor(params);
+    auto [taskCursor, serializedResults] = readCursor(params);
 
     RowVectorPtr result =
         BaseVector::create<RowVector>(expected->type(), 0, pool());
@@ -283,7 +285,7 @@ class ShuffleTest : public exec::test::OperatorTestBase {
   runShuffleReadTask(
       const exec::CursorParameters& params,
       const std::string& shuffleInfo) {
-    return exec::test::readCursor(params, [&](exec::TaskCursor* taskCursor) {
+    return readCursor(params, [&](exec::TaskCursor* taskCursor) {
       if (taskCursor->noMoreSplits()) {
         return;
       }
@@ -339,7 +341,9 @@ class ShuffleTest : public exec::test::OperatorTestBase {
         makeTask(writerTaskId, writerPlan, 0, std::move(queryConfig));
     writerTask->start(numMapDrivers);
 
-    ASSERT_TRUE(exec::test::waitForTaskCompletion(writerTask.get(), 5'000'000));
+    ASSERT_TRUE(
+        exec::test::TaskMonitor::waitForCompletion(
+            *writerTask.get(), 5'000'000));
 
     // Verify that shuffle stats got propagated to the ShuffleWrite operator.
     const auto shuffleWriteOperatorStats =
@@ -588,7 +592,7 @@ class ShuffleTest : public exec::test::OperatorTestBase {
     params.planNode = plan;
     params.maxDrivers = 1;
 
-    auto [taskCursor, results] = exec::test::readCursor(params);
+    auto [taskCursor, results] = readCursor(params);
     ASSERT_EQ(results.size(), 0);
 
     // Verify by reading shuffle files
@@ -927,8 +931,7 @@ DEBUG_ONLY_TEST_F(ShuffleTest, shuffleWriterExceptions) {
           .addNode(addShuffleWriteNode(4, std::string(shuffleName_), info))
           .planNode();
 
-  VELOX_ASSERT_THROW(
-      exec::test::readCursor(params), "ShuffleWriter::collect failed");
+  VELOX_ASSERT_THROW(readCursor(params), "ShuffleWriter::collect failed");
 }
 
 DEBUG_ONLY_TEST_F(ShuffleTest, shuffleReaderExceptions) {
@@ -947,7 +950,7 @@ DEBUG_ONLY_TEST_F(ShuffleTest, shuffleReaderExceptions) {
           .addNode(addShuffleWriteNode(2, std::string(shuffleName_), writeInfo))
           .planNode();
 
-  ASSERT_NO_THROW(exec::test::readCursor(params));
+  ASSERT_NO_THROW(readCursor(params));
 
   std::function<void(LocalShuffleReader*)> injectFailure =
       [&](LocalShuffleReader* /*reader*/) {
@@ -1307,7 +1310,9 @@ TEST_F(ShuffleTest, shuffleReadRuntimeStats) {
         makeTask(writerTaskId, writerPlan, 0, core::QueryConfig({}));
     writerTask->start(numMapDrivers);
 
-    ASSERT_TRUE(exec::test::waitForTaskCompletion(writerTask.get(), 5'000'000));
+    ASSERT_TRUE(
+        exec::test::TaskMonitor::waitForCompletion(
+            *writerTask.get(), 5'000'000));
 
     auto plan = exec::test::PlanBuilder()
                     .addNode(addShuffleReadNode(dataType))
@@ -1322,7 +1327,8 @@ TEST_F(ShuffleTest, shuffleReadRuntimeStats) {
     auto [taskCursor, results] = runShuffleReadTask(
         params, localShuffleReadInfo(tempDir_->getPath(), 0));
     ASSERT_TRUE(
-        exec::test::waitForTaskCompletion(taskCursor->task().get(), 5'000'000));
+        exec::test::TaskMonitor::waitForCompletion(
+            *taskCursor->task().get(), 5'000'000));
 
     const auto operatorStats =
         taskCursor->task()->taskStats().pipelineStats[0].operatorStats[0];

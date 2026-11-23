@@ -18,6 +18,7 @@
 #include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.h"
 #include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
 #include "velox/connectors/Connector.h"
+#include "velox/connectors/hive/HiveConfig.h"
 #include "velox/connectors/hive/TableHandle.h"
 #include "velox/core/PlanNode.h"
 #include "velox/vector/ComplexVector.h"
@@ -48,10 +49,30 @@ class HivePrestoToVeloxConnector final : public PrestoToVeloxConnector {
       const protocol::CreateHandle* createHandle,
       const TypeParser& typeParser) const final;
 
+  /// Builds the insert handle with 'behavior' already resolved from the
+  /// session property by the plan converter. The two-argument form
+  /// delegates here with kError, the session property default.
+  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::CreateHandle* createHandle,
+      const TypeParser& typeParser,
+      velox::connector::hive::HiveConfig::InsertExistingPartitionsBehavior
+          behavior) const final;
+
   std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
   toVeloxInsertTableHandle(
       const protocol::InsertHandle* insertHandle,
       const TypeParser& typeParser) const final;
+
+  /// Builds the insert handle with 'behavior' already resolved from the
+  /// session property by the plan converter. The two-argument form
+  /// delegates here with kError, the session property default.
+  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
+  toVeloxInsertTableHandle(
+      const protocol::InsertHandle* insertHandle,
+      const TypeParser& typeParser,
+      velox::connector::hive::HiveConfig::InsertExistingPartitionsBehavior
+          behavior) const final;
 
   std::unique_ptr<velox::core::PartitionFunctionSpec>
   createVeloxPartitionFunctionSpec(

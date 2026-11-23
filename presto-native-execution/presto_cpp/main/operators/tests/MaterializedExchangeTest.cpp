@@ -30,6 +30,7 @@
 #include "presto_cpp/main/operators/MaterializedOutputBuffer.h"
 #include "presto_cpp/main/operators/ShuffleExchangeSource.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
+#include "presto_cpp/main/operators/tests/TestCursor.h"
 
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
@@ -39,6 +40,7 @@
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/exec/tests/utils/TaskMonitor.h"
 #include "velox/exec/tests/utils/TempDirectoryPath.h"
 #include "velox/vector/fuzzer/VectorFuzzer.h"
 
@@ -340,7 +342,7 @@ class MaterializedExchangeTest : public exec::test::OperatorTestBase {
   }
 
   void TearDown() override {
-    exec::test::waitForAllTasksToBeDeleted();
+    exec::test::TaskMonitor::waitForAllTasksDeleted();
     exec::ExchangeSource::factories().clear();
     exec::test::OperatorTestBase::TearDown();
   }
@@ -412,7 +414,8 @@ class MaterializedExchangeTest : public exec::test::OperatorTestBase {
     auto task = makeTask(taskId, exchangeWriteNode, 0);
     task->start(numDrivers);
 
-    EXPECT_TRUE(exec::test::waitForTaskCompletion(task.get(), 10'000'000));
+    EXPECT_TRUE(
+        exec::test::TaskMonitor::waitForCompletion(*task.get(), 10'000'000));
     MaterializedOutputBuffer::removeBuffer(taskId);
 
     // Build expected output: each driver processes the full input.
@@ -452,7 +455,7 @@ class MaterializedExchangeTest : public exec::test::OperatorTestBase {
       params.destination = partition;
 
       auto [taskCursor, results] =
-          exec::test::readCursor(params, [&](exec::TaskCursor* taskCursor) {
+          readCursor(params, [&](exec::TaskCursor* taskCursor) {
             if (taskCursor->noMoreSplits()) {
               return;
             }
@@ -600,7 +603,8 @@ TEST_F(MaterializedExchangeTest, boundsCollectSizeForLargeInputBatch) {
   auto task = makeTask(taskId, exchangeWriteNode, 0);
   task->start(numDrivers);
 
-  EXPECT_TRUE(exec::test::waitForTaskCompletion(task.get(), 10'000'000));
+  EXPECT_TRUE(
+      exec::test::TaskMonitor::waitForCompletion(*task.get(), 10'000'000));
   MaterializedOutputBuffer::removeBuffer(taskId);
 
   auto stats = buffer->stats();
@@ -725,7 +729,8 @@ TEST_F(MaterializedExchangeTest, zeroColumnOutput) {
   auto task = makeTask(taskId, exchangeWriteNode, 0);
   task->start(numDrivers);
 
-  EXPECT_TRUE(exec::test::waitForTaskCompletion(task.get(), 10'000'000));
+  EXPECT_TRUE(
+      exec::test::TaskMonitor::waitForCompletion(*task.get(), 10'000'000));
   MaterializedOutputBuffer::removeBuffer(taskId);
 
   // Every input row must come back as a zero-column row across all partitions.
@@ -933,7 +938,7 @@ TEST_F(MaterializedExchangeTest, assertBufferCloseExceptionsArePropagated) {
   auto task = makeTask(taskId, exchangeWriteNode, 0);
   task->start(numDrivers);
 
-  EXPECT_TRUE(exec::test::waitForTaskFailure(task.get(), 10'000'000))
+  EXPECT_TRUE(exec::test::TaskMonitor::waitForFailure(*task.get(), 10'000'000))
       << "Task should fail when buffer noMoreData() throws, not succeed silently";
   MaterializedOutputBuffer::removeBuffer(taskId);
 
@@ -1187,7 +1192,8 @@ TEST_F(MaterializedExchangeTest, DISABLED_finishedDriverSkipsBackpressure) {
 
   EXPECT_TRUE(secondDriverReady);
   EXPECT_TRUE(finishedDriverReady);
-  EXPECT_TRUE(exec::test::waitForTaskCompletion(task.get(), 10'000'000));
+  EXPECT_TRUE(
+      exec::test::TaskMonitor::waitForCompletion(*task.get(), 10'000'000));
   MaterializedOutputBuffer::removeBuffer(taskId);
   cleanupDirectory(shuffleDir->getPath());
 }

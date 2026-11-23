@@ -18,6 +18,7 @@
 #include "presto_cpp/main/functions/theta_sketch/ThetaSketchRegistration.h"
 #include "velox/common/hyperloglog/HllUtils.h"
 #include "velox/exec/PlanNodeStats.h"
+#include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
 #include "velox/functions/lib/aggregates/tests/utils/AggregationTestBase.h"
 
@@ -279,7 +280,7 @@ TEST_F(ThetaSketchAggregationTest, testSketchThetaEstimate) {
                   .project({"sketch_theta_estimate(a0)"})
                   .planNode();
 
-    return readSingleValue(op);
+    return AssertQueryBuilder(op).copySingleValue();
   };
 
   // Empty sketch
@@ -327,7 +328,7 @@ TEST_F(ThetaSketchAggregationTest, testSketchThetaSummary) {
                   .project({"sketch_theta_summary(a0)"})
                   .planNode();
 
-    return readSingleValue(op);
+    return AssertQueryBuilder(op).copySingleValue();
   };
 
   // Empty sketch
