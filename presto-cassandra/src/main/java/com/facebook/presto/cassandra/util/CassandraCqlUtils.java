@@ -20,6 +20,7 @@ import com.facebook.presto.cassandra.CassandraTableHandle;
 import com.facebook.presto.cassandra.CassandraType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
+import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 
 import java.time.LocalDate;
@@ -185,6 +186,26 @@ public final class CassandraCqlUtils
             default:
                 return value;
         }
+    }
+
+    /**
+     * Returns whether a predicate on {@code nativeValue} can be enforced by Cassandra with the same result as Presto.
+     * Presto exposes inet as varchar and compares strings, while Cassandra compares addresses. So an inet literal is
+     * pushed down only when it is a valid address already in the form the connector reads, from
+     * {@link InetAddresses#toAddrString}. Otherwise {@code '0:0:0:0:0:0:0:1'} would match a row read as {@code '::1'},
+     * and an invalid address would make Cassandra reject a valid varchar comparison.
+     */
+    public static boolean isPushdownSafeValue(Object nativeValue, CassandraType cassandraType)
+    {
+        if (cassandraType != CassandraType.INET) {
+            return true;
+        }
+        String value = toCQLCompatibleString(nativeValue);
+        // Cassandra does not store an IPv6 scope ID, so a row never reads back with one
+        if (value.indexOf('%') >= 0 || !InetAddresses.isInetAddress(value)) {
+            return false;
+        }
+        return InetAddresses.toAddrString(InetAddresses.forString(value)).equals(value);
     }
 
     public static String toCQLCompatibleString(Object value)

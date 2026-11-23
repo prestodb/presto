@@ -95,6 +95,9 @@ public class CassandraClusteringPredicatesExtractor
                                 return null;
                             }
                             if (range.isSingleValue()) {
+                                if (!CassandraCqlUtils.isPushdownSafeValue(range.getSingleValue(), columnHandle.getCassandraType())) {
+                                    return null;
+                                }
                                 singleValues.add(CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getSingleValue()),
                                         columnHandle.getCassandraType()));
                             }
@@ -136,6 +139,9 @@ public class CassandraClusteringPredicatesExtractor
                         if (discreteValues.isWhiteList()) {
                             ImmutableList.Builder<Object> discreteValuesList = ImmutableList.builder();
                             for (Object discreteValue : discreteValues.getValues()) {
+                                if (!CassandraCqlUtils.isPushdownSafeValue(discreteValue, columnHandle.getCassandraType())) {
+                                    return null;
+                                }
                                 discreteValuesList.add(CassandraCqlUtils.cqlValue(toCQLCompatibleString(discreteValue),
                                         columnHandle.getCassandraType()));
                             }

@@ -47,6 +47,7 @@ public class CassandraTestingUtils
     public static final String TABLE_CLUSTERING_KEY_DATE = "table_clustering_key_date";
     public static final String TABLE_CLUSTERING_KEY_FLOAT = "table_clustering_key_float";
     public static final String TABLE_CLUSTERING_KEY_INET = "table_clustering_key_inet";
+    public static final String TABLE_CLUSTERING_KEY_INET6 = "table_clustering_key_inet6";
     public static final String TABLE_INDEXED_DATE_FLOAT_INET = "table_indexed_date_float_inet";
 
     private CassandraTestingUtils() {}
@@ -64,6 +65,7 @@ public class CassandraTestingUtils
         createTableSingleClusteringKey(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEY_DATE), "date", rowNumber -> format("'2026-09-%02d'", rowNumber));
         createTableSingleClusteringKey(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEY_FLOAT), "float", rowNumber -> rowNumber + ".5");
         createTableSingleClusteringKey(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEY_INET), "inet", rowNumber -> "'10.0.0." + rowNumber + "'");
+        createTableSingleClusteringKey(cassandraSession, new SchemaTableName(keyspace, TABLE_CLUSTERING_KEY_INET6), "inet", rowNumber -> "'2001:db8::" + rowNumber + "'");
         createTableIndexedDateFloatInet(cassandraSession, new SchemaTableName(keyspace, TABLE_INDEXED_DATE_FLOAT_INET));
     }
 

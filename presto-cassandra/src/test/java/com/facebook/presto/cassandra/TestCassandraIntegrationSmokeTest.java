@@ -42,6 +42,7 @@ import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERI
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEY_DATE;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEY_FLOAT;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEY_INET;
+import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_CLUSTERING_KEY_INET6;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_INDEXED_DATE_FLOAT_INET;
 import static com.facebook.presto.cassandra.CassandraTestingUtils.TABLE_MULTI_PARTITION_CLUSTERING_KEYS;
 import static com.facebook.presto.common.type.BigintType.BIGINT;
@@ -293,6 +294,30 @@ public class TestCassandraIntegrationSmokeTest
         assertEquals(execute(from + "ck IN ('10.0.0.1', '10.0.0.2')").getRowCount(), 2);
         // inet compares as varchar, so '10.0.0.10' < '10.0.0.2'
         assertEquals(execute(from + "ck >= '10.0.0.2'").getRowCount(), 8);
+    }
+
+    @Test
+    public void testClusteringKeyPushdownInetNoncanonical()
+    {
+        // rows hold ck = 2001:db8::1 .. 2001:db8::10, which Presto reads in that exact form
+        String from = "SELECT * FROM " + TABLE_CLUSTERING_KEY_INET6 + " WHERE pk = 1 AND ";
+        assertEquals(execute(from + "ck = '2001:db8::6'").getRowCount(), 1);
+        // Cassandra matches these by address, but as varchar they equal no row
+        assertEquals(execute(from + "ck = '2001:0db8::6'").getRowCount(), 0);
+        assertEquals(execute(from + "ck = '2001:DB8::6'").getRowCount(), 0);
+        assertEquals(execute(from + "ck = '2001:db8:0:0:0:0:0:6'").getRowCount(), 0);
+        assertEquals(execute(from + "ck IN ('2001:db8::1', '2001:0db8::2')").getRowCount(), 1);
+        // not an address: a valid varchar comparison, so no Cassandra error
+        assertEquals(execute(from + "ck = 'not-an-ip'").getRowCount(), 0);
+    }
+
+    @Test
+    public void testIndexPushdownInetNoncanonical()
+    {
+        // row n holds ip = 10.0.0.n
+        String from = "SELECT * FROM " + TABLE_INDEXED_DATE_FLOAT_INET + " WHERE ";
+        assertEquals(execute(from + "ip = '::ffff:10.0.0.6'").getRowCount(), 0);
+        assertEquals(execute(from + "ip = 'not-an-ip'").getRowCount(), 0);
     }
 
     @Test

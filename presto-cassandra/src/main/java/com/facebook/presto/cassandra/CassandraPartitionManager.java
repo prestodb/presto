@@ -88,7 +88,7 @@ public class CassandraPartitionManager
             for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
                 CassandraColumnHandle column = (CassandraColumnHandle) entry.getKey();
                 Domain domain = entry.getValue();
-                if (column.isIndexed() && domain.isSingleValue()) {
+                if (column.isIndexed() && domain.isSingleValue() && CassandraCqlUtils.isPushdownSafeValue(domain.getSingleValue(), column.getCassandraType())) {
                     sb.append(CassandraCqlUtils.validColumnName(column.getName()))
                             .append(" = ")
                             .append(CassandraCqlUtils.cqlValue(toCQLCompatibleString(entry.getValue().getSingleValue()), column.getCassandraType()));

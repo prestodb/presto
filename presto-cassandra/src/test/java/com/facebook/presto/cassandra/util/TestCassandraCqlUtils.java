@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.cqlValue;
+import static com.facebook.presto.cassandra.util.CassandraCqlUtils.isPushdownSafeValue;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.quoteStringLiteralForJson;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
@@ -31,6 +32,8 @@ import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validTableNam
 import static io.airlift.slice.Slices.utf8Slice;
 import static java.lang.Float.floatToRawIntBits;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestCassandraCqlUtils
 {
@@ -96,6 +99,33 @@ public class TestCassandraCqlUtils
         assertEquals(cqlValue(toCQLCompatibleString(utf8Slice("10.0.0.6")), CassandraType.INET), "'10.0.0.6'");
         assertEquals(cqlValue(toCQLCompatibleString(utf8Slice("127.0.0.1")), CassandraType.INET), "'127.0.0.1'");
         assertEquals(cqlValue(toCQLCompatibleString(utf8Slice("::1")), CassandraType.INET), "'::1'");
+    }
+
+    @Test
+    public void testIsPushdownSafeValueInet()
+    {
+        // already in the form the connector reads back
+        assertTrue(isPushdownSafeValue(utf8Slice("10.0.0.6"), CassandraType.INET));
+        assertTrue(isPushdownSafeValue(utf8Slice("::1"), CassandraType.INET));
+        assertTrue(isPushdownSafeValue(utf8Slice("2001:db8::1"), CassandraType.INET));
+
+        // same address as a stored row, but a different string
+        assertFalse(isPushdownSafeValue(utf8Slice("0:0:0:0:0:0:0:1"), CassandraType.INET));
+        assertFalse(isPushdownSafeValue(utf8Slice("2001:0db8::1"), CassandraType.INET));
+        assertFalse(isPushdownSafeValue(utf8Slice("2001:DB8::1"), CassandraType.INET));
+        assertFalse(isPushdownSafeValue(utf8Slice("::ffff:10.0.0.6"), CassandraType.INET));
+        assertFalse(isPushdownSafeValue(utf8Slice("fe80::1%1"), CassandraType.INET));
+
+        // not an address, so Cassandra would reject the query
+        assertFalse(isPushdownSafeValue(utf8Slice("not-an-ip"), CassandraType.INET));
+        assertFalse(isPushdownSafeValue(utf8Slice(""), CassandraType.INET));
+    }
+
+    @Test
+    public void testIsPushdownSafeValueOtherTypes()
+    {
+        assertTrue(isPushdownSafeValue(utf8Slice("not-an-ip"), CassandraType.TEXT));
+        assertTrue(isPushdownSafeValue(60L, CassandraType.INT));
     }
 
     @Test

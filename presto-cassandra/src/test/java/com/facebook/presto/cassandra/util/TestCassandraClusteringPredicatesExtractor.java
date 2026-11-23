@@ -140,6 +140,23 @@ public class TestCassandraClusteringPredicatesExtractor
         assertTrue(extractor.getUnenforcedConstraints().getDomains().get().containsKey(ck));
     }
 
+    @Test
+    public void testNoncanonicalInetClusteringPredicateNotPushedDown()
+    {
+        Type inet = createVarcharType(45);
+        CassandraColumnHandle ck = clusteringColumn(CassandraType.INET);
+        for (Domain domain : ImmutableList.of(
+                Domain.singleValue(inet, utf8Slice("0:0:0:0:0:0:0:1")),
+                Domain.singleValue(inet, utf8Slice("not-an-ip")),
+                Domain.multipleValues(inet, ImmutableList.of(utf8Slice("2001:db8::1"), utf8Slice("2001:0db8::2"))))) {
+            CassandraClusteringPredicatesExtractor extractor = new CassandraClusteringPredicatesExtractor(
+                    ImmutableList.of(ck), TupleDomain.withColumnDomains(ImmutableMap.of(ck, domain)), "3.11.0");
+            assertEquals(extractor.getClusteringKeyPredicates(), "");
+            assertTrue(extractor.getUnenforcedConstraints().getDomains().get().containsKey(ck));
+        }
+        assertEquals(singleClusteringColumnPredicate(CassandraType.INET, inet, Domain.singleValue(inet, utf8Slice("2001:db8::1"))), "\"ck\" = '2001:db8::1'");
+    }
+
     private static CassandraColumnHandle clusteringColumn(CassandraType type)
     {
         return new CassandraColumnHandle("cassandra", "ck", 1, type, null, false, true, false, false);
