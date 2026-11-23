@@ -680,14 +680,27 @@ public class PrestoS3FileSystem
     {
         String bucketName = getBucketName(uri);
         String key = keyFromPath(path);
-        ObjectMetadata s3ObjectMetadata = getS3ObjectMetadata(path, bucketName, key);
+        ObjectMetadata s3ObjectMetadata = getS3ObjectMetadata(path, bucketName, key, false);
         if (s3ObjectMetadata == null && !key.isEmpty()) {
-            return new PrestoS3ObjectMetadata(getS3ObjectMetadata(path, bucketName, key + PATH_SEPARATOR), true);
+            // If the exact key is absent (404), probe "key/" for an explicit directory
+            // marker. Some S3-compatible stores (e.g. SeaweedFS table buckets) reject a
+            // HEAD on a key that does not conform to their enforced layout with 403
+            // AccessDenied instead of the AWS-correct 404 NoSuchKey. Suppress the 403 on
+            // this probe only (suppressForbidden=true), so that a directory probe such as
+            // "metadata/<file>/" degrades to getFileStatus()'s listPrefix() LIST fallback
+            // instead of failing the write (e.g. Iceberg ANALYZE / Puffin statistics files).
+            //
+            // TODO: the trailing-slash directory probe is an artifact of the Hadoop
+            // FileSystem file/directory semantics. Long term, migrate to a native S3
+            // filesystem (like Trino's io.trino.filesystem.s3 S3FileSystem) that has no
+            // directory concept and operates on exact keys, eliminating this class of
+            // layout-vs-permission 403 ambiguity entirely.
+            return new PrestoS3ObjectMetadata(getS3ObjectMetadata(path, bucketName, key + PATH_SEPARATOR, true), true);
         }
         return new PrestoS3ObjectMetadata(s3ObjectMetadata, false);
     }
 
-    private ObjectMetadata getS3ObjectMetadata(Path path, String bucketName, String key)
+    private ObjectMetadata getS3ObjectMetadata(Path path, String bucketName, String key, boolean suppressForbidden)
             throws IOException
     {
         try {
@@ -708,6 +721,10 @@ public class PrestoS3FileSystem
                                     case HTTP_NOT_FOUND:
                                         return null;
                                     case HTTP_FORBIDDEN:
+                                        if (suppressForbidden) {
+                                            return null;
+                                        }
+                                        // fall through
                                     case HTTP_BAD_REQUEST:
                                         throw new UnrecoverableS3OperationException(path, e);
                                 }
