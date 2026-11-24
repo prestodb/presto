@@ -1000,6 +1000,13 @@ void to_json(json& j, const IcebergDeleteTableHandle& p) {
       "outputPath");
   to_json_key(
       j,
+      "includePartitionPaths",
+      p.includePartitionPaths,
+      "IcebergDeleteTableHandle",
+      "bool",
+      "includePartitionPaths");
+  to_json_key(
+      j,
       "fileFormat",
       p.fileFormat,
       "IcebergDeleteTableHandle",
@@ -1093,6 +1100,13 @@ void from_json(const json& j, IcebergDeleteTableHandle& p) {
       "IcebergDeleteTableHandle",
       "String",
       "outputPath");
+  from_json_key(
+      j,
+      "includePartitionPaths",
+      p.includePartitionPaths,
+      "IcebergDeleteTableHandle",
+      "bool",
+      "includePartitionPaths");
   from_json_key(
       j,
       "fileFormat",
@@ -1554,6 +1568,13 @@ void to_json(json& j, const IcebergDistributedProcedureHandle& p) {
       "outputPath");
   to_json_key(
       j,
+      "includePartitionPaths",
+      p.includePartitionPaths,
+      "IcebergDistributedProcedureHandle",
+      "bool",
+      "includePartitionPaths");
+  to_json_key(
+      j,
       "fileFormat",
       p.fileFormat,
       "IcebergDistributedProcedureHandle",
@@ -1640,6 +1661,13 @@ void from_json(const json& j, IcebergDistributedProcedureHandle& p) {
       "IcebergDistributedProcedureHandle",
       "String",
       "outputPath");
+  from_json_key(
+      j,
+      "includePartitionPaths",
+      p.includePartitionPaths,
+      "IcebergDistributedProcedureHandle",
+      "bool",
+      "includePartitionPaths");
   from_json_key(
       j,
       "fileFormat",
@@ -1734,6 +1762,13 @@ void to_json(json& j, const IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "String",
       "outputPath");
+  to_json_key(
+      j,
+      "includePartitionPaths",
+      p.includePartitionPaths,
+      "IcebergInsertTableHandle",
+      "bool",
+      "includePartitionPaths");
   to_json_key(
       j,
       "fileFormat",
@@ -1836,6 +1871,13 @@ void from_json(const json& j, IcebergInsertTableHandle& p) {
       "IcebergInsertTableHandle",
       "String",
       "outputPath");
+  from_json_key(
+      j,
+      "includePartitionPaths",
+      p.includePartitionPaths,
+      "IcebergInsertTableHandle",
+      "bool",
+      "includePartitionPaths");
   from_json_key(
       j,
       "fileFormat",
@@ -2002,6 +2044,13 @@ void to_json(json& j, const IcebergOutputTableHandle& p) {
       "outputPath");
   to_json_key(
       j,
+      "includePartitionPaths",
+      p.includePartitionPaths,
+      "IcebergOutputTableHandle",
+      "bool",
+      "includePartitionPaths");
+  to_json_key(
+      j,
       "fileFormat",
       p.fileFormat,
       "IcebergOutputTableHandle",
@@ -2074,6 +2123,13 @@ void from_json(const json& j, IcebergOutputTableHandle& p) {
       "IcebergOutputTableHandle",
       "String",
       "outputPath");
+  from_json_key(
+      j,
+      "includePartitionPaths",
+      p.includePartitionPaths,
+      "IcebergOutputTableHandle",
+      "bool",
+      "includePartitionPaths");
   from_json_key(
       j,
       "fileFormat",

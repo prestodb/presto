@@ -228,6 +228,7 @@ struct IcebergDeleteTableHandle : public ConnectorDeleteTableHandle {
   PrestoIcebergPartitionSpec partitionSpec = {};
   List<IcebergColumnHandle> inputColumns = {};
   String outputPath = {};
+  std::shared_ptr<bool> includePartitionPaths = {};
   FileFormat fileFormat = {};
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
@@ -290,6 +291,7 @@ struct IcebergDistributedProcedureHandle
   PrestoIcebergPartitionSpec partitionSpec = {};
   List<IcebergColumnHandle> inputColumns = {};
   String outputPath = {};
+  std::shared_ptr<bool> includePartitionPaths = {};
   FileFormat fileFormat = {};
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
@@ -313,6 +315,7 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
   PrestoIcebergPartitionSpec partitionSpec = {};
   List<IcebergColumnHandle> inputColumns = {};
   String outputPath = {};
+  std::shared_ptr<bool> includePartitionPaths = {};
   FileFormat fileFormat = {};
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
@@ -349,6 +352,7 @@ struct IcebergOutputTableHandle : public ConnectorOutputTableHandle {
   PrestoIcebergPartitionSpec partitionSpec = {};
   List<IcebergColumnHandle> inputColumns = {};
   String outputPath = {};
+  std::shared_ptr<bool> includePartitionPaths = {};
   FileFormat fileFormat = {};
   hive::HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};

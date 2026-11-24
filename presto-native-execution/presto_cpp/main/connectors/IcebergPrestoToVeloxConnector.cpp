@@ -534,6 +534,32 @@ toExistingDeletionVectors(
   }
   return result;
 }
+
+struct IcebergWriteLayout {
+  std::shared_ptr<velox::connector::hive::LocationHandle> locationHandle;
+  bool includePartitionPaths;
+};
+
+// An explicit false means outputPath is the directory every file goes into,
+// with no partition subdirectories. Otherwise, including when a coordinator
+// that predates the field omits it, outputPath is the table location and data
+// files go under <outputPath>/data with partition subdirectories.
+IcebergWriteLayout toWriteLayout(
+    const std::string& outputPath,
+    const std::shared_ptr<bool>& includePartitionPaths,
+    velox::connector::hive::LocationHandle::TableType tableType) {
+  if (includePartitionPaths != nullptr && !*includePartitionPaths) {
+    return {
+        std::make_shared<velox::connector::hive::LocationHandle>(
+            outputPath, outputPath, tableType),
+        false};
+  }
+  const auto dataPath = fmt::format("{}/data", outputPath);
+  return {
+      std::make_shared<velox::connector::hive::LocationHandle>(
+          dataPath, dataPath, tableType),
+      true};
+}
 } // namespace
 
 std::unique_ptr<velox::connector::ConnectorSplit>
@@ -852,18 +878,31 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
   const auto inputColumns = toIcebergColumns(
       icebergDistributedProcedureHandle->inputColumns, typeParser);
 
+  const auto layout = toWriteLayout(
+      icebergDistributedProcedureHandle->outputPath,
+      icebergDistributedProcedureHandle->includePartitionPaths,
+      velox::connector::hive::LocationHandle::TableType::kExisting);
   return std::make_unique<
       velox::connector::hive::iceberg::IcebergInsertTableHandle>(
       inputColumns,
-      std::make_shared<velox::connector::hive::LocationHandle>(
-          fmt::format("{}/data", icebergDistributedProcedureHandle->outputPath),
-          fmt::format("{}/data", icebergDistributedProcedureHandle->outputPath),
-          velox::connector::hive::LocationHandle::TableType::kExisting),
+      layout.locationHandle,
       toVeloxFileFormat(icebergDistributedProcedureHandle->fileFormat),
       toVeloxIcebergPartitionSpec(
           icebergDistributedProcedureHandle->partitionSpec, typeParser),
       std::optional(toFileCompressionKind(
-          icebergDistributedProcedureHandle->compressionCodec)));
+          icebergDistributedProcedureHandle->compressionCodec)),
+      /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
+      velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+          kData,
+      /*existingDeletionVectors=*/
+      std::unordered_map<
+          std::string,
+          velox::connector::hive::iceberg::IcebergInsertTableHandle::
+              ExistingDeletionVector>{},
+      std::make_shared<
+          const velox::connector::hive::iceberg::IcebergFileNameGenerator>(),
+      /*insertedColumns=*/std::vector<std::string>{},
+      /*includePartitionPaths=*/layout.includePartitionPaths);
 }
 
 std::unique_ptr<protocol::ConnectorProtocol>
@@ -887,18 +926,31 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
   const auto inputColumns =
       toIcebergColumns(icebergOutputTableHandle->inputColumns, typeParser);
 
+  const auto layout = toWriteLayout(
+      icebergOutputTableHandle->outputPath,
+      icebergOutputTableHandle->includePartitionPaths,
+      velox::connector::hive::LocationHandle::TableType::kNew);
   return std::make_unique<
       velox::connector::hive::iceberg::IcebergInsertTableHandle>(
       inputColumns,
-      std::make_shared<velox::connector::hive::LocationHandle>(
-          fmt::format("{}/data", icebergOutputTableHandle->outputPath),
-          fmt::format("{}/data", icebergOutputTableHandle->outputPath),
-          velox::connector::hive::LocationHandle::TableType::kNew),
+      layout.locationHandle,
       toVeloxFileFormat(icebergOutputTableHandle->fileFormat),
       toVeloxIcebergPartitionSpec(
           icebergOutputTableHandle->partitionSpec, typeParser),
       std::optional(
-          toFileCompressionKind(icebergOutputTableHandle->compressionCodec)));
+          toFileCompressionKind(icebergOutputTableHandle->compressionCodec)),
+      /*serdeParameters=*/std::unordered_map<std::string, std::string>{},
+      velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
+          kData,
+      /*existingDeletionVectors=*/
+      std::unordered_map<
+          std::string,
+          velox::connector::hive::iceberg::IcebergInsertTableHandle::
+              ExistingDeletionVector>{},
+      std::make_shared<
+          const velox::connector::hive::iceberg::IcebergFileNameGenerator>(),
+      /*insertedColumns=*/std::vector<std::string>{},
+      /*includePartitionPaths=*/layout.includePartitionPaths);
 }
 
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
@@ -917,13 +969,14 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
   const auto inputColumns =
       toIcebergColumns(icebergInsertTableHandle->inputColumns, typeParser);
 
+  const auto layout = toWriteLayout(
+      icebergInsertTableHandle->outputPath,
+      icebergInsertTableHandle->includePartitionPaths,
+      velox::connector::hive::LocationHandle::TableType::kExisting);
   return std::make_unique<
       velox::connector::hive::iceberg::IcebergInsertTableHandle>(
       inputColumns,
-      std::make_shared<velox::connector::hive::LocationHandle>(
-          fmt::format("{}/data", icebergInsertTableHandle->outputPath),
-          fmt::format("{}/data", icebergInsertTableHandle->outputPath),
-          velox::connector::hive::LocationHandle::TableType::kExisting),
+      layout.locationHandle,
       toVeloxFileFormat(icebergInsertTableHandle->fileFormat),
       toVeloxIcebergPartitionSpec(
           icebergInsertTableHandle->partitionSpec, typeParser),
@@ -941,7 +994,8 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       /*fileNameGenerator=*/
       std::make_shared<
           const velox::connector::hive::iceberg::IcebergFileNameGenerator>(),
-      /*insertedColumns=*/icebergInsertTableHandle->insertedColumns);
+      /*insertedColumns=*/icebergInsertTableHandle->insertedColumns,
+      /*includePartitionPaths=*/layout.includePartitionPaths);
 }
 
 std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
@@ -974,13 +1028,14 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       : velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
             kData;
 
+  const auto layout = toWriteLayout(
+      icebergDeleteTableHandle->outputPath,
+      icebergDeleteTableHandle->includePartitionPaths,
+      velox::connector::hive::LocationHandle::TableType::kExisting);
   return std::make_unique<
       velox::connector::hive::iceberg::IcebergInsertTableHandle>(
       inputColumns,
-      std::make_shared<velox::connector::hive::LocationHandle>(
-          fmt::format("{}/data", icebergDeleteTableHandle->outputPath),
-          fmt::format("{}/data", icebergDeleteTableHandle->outputPath),
-          velox::connector::hive::LocationHandle::TableType::kExisting),
+      layout.locationHandle,
       toVeloxFileFormat(icebergDeleteTableHandle->fileFormat),
       toVeloxIcebergPartitionSpec(
           icebergDeleteTableHandle->partitionSpec, typeParser),
@@ -991,7 +1046,11 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
       toExistingDeletionVectors(
           icebergDeleteTableHandle->existingDeletionVectors
               ? *icebergDeleteTableHandle->existingDeletionVectors
-              : std::map<std::string, protocol::iceberg::DeleteFile>{}));
+              : std::map<std::string, protocol::iceberg::DeleteFile>{}),
+      std::make_shared<
+          const velox::connector::hive::iceberg::IcebergFileNameGenerator>(),
+      /*insertedColumns=*/std::vector<std::string>{},
+      /*includePartitionPaths=*/layout.includePartitionPaths);
 }
 
 std::vector<velox::connector::hive::iceberg::IcebergColumnHandlePtr>
@@ -1033,20 +1092,25 @@ IcebergPrestoToVeloxConnector::toVeloxInsertTableHandle(
   const auto inputColumns =
       toIcebergColumns(innerInsert.inputColumns, typeParser);
 
+  const auto layout = toWriteLayout(
+      innerInsert.outputPath,
+      innerInsert.includePartitionPaths,
+      velox::connector::hive::LocationHandle::TableType::kExisting);
   return std::make_unique<
       velox::connector::hive::iceberg::IcebergInsertTableHandle>(
       inputColumns,
-      std::make_shared<velox::connector::hive::LocationHandle>(
-          fmt::format("{}/data", innerInsert.outputPath),
-          fmt::format("{}/data", innerInsert.outputPath),
-          velox::connector::hive::LocationHandle::TableType::kExisting),
+      layout.locationHandle,
       toVeloxFileFormat(innerInsert.fileFormat),
       toVeloxIcebergPartitionSpec(innerInsert.partitionSpec, typeParser),
       std::optional(toFileCompressionKind(innerInsert.compressionCodec)),
       std::unordered_map<std::string, std::string>{},
       velox::connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::
           kMerge,
-      toExistingDeletionVectors(innerInsert.existingDeletionVectors));
+      toExistingDeletionVectors(innerInsert.existingDeletionVectors),
+      std::make_shared<
+          const velox::connector::hive::iceberg::IcebergFileNameGenerator>(),
+      /*insertedColumns=*/std::vector<std::string>{},
+      /*includePartitionPaths=*/layout.includePartitionPaths);
 }
 
 } // namespace facebook::presto

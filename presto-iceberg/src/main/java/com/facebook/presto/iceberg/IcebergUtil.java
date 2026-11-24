@@ -900,6 +900,37 @@ public final class IcebergUtil
                 .metricsReporter(new RuntimeStatsMetricsReporter(runtimeStats));
     }
 
+    public static LocationProvider getLocationProvider(SchemaTableName schemaTableName, String outputPath, Map<String, String> storageProperties, boolean includePartitionPaths)
+    {
+        if (!includePartitionPaths) {
+            return new FlatLocationProvider(outputPath);
+        }
+        return getLocationProvider(schemaTableName, outputPath, storageProperties);
+    }
+
+    private static final class FlatLocationProvider
+            implements LocationProvider
+    {
+        private final String writeLocation;
+
+        private FlatLocationProvider(String writeLocation)
+        {
+            this.writeLocation = org.apache.iceberg.util.LocationUtil.stripTrailingSlash(requireNonNull(writeLocation, "writeLocation is null"));
+        }
+
+        @Override
+        public String newDataLocation(String filename)
+        {
+            return writeLocation + "/" + filename;
+        }
+
+        @Override
+        public String newDataLocation(PartitionSpec spec, StructLike partitionData, String filename)
+        {
+            return newDataLocation(filename);
+        }
+    }
+
     public static Map<String, Integer> columnNameToPositionInSchema(Schema schema)
     {
         return mapWithIndex(schema.columns().stream(),
