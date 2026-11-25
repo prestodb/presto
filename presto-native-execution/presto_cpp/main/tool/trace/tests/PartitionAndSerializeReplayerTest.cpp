@@ -22,13 +22,23 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
 #include "presto_cpp/main/tool/trace/PartitionAndSerializeReplayer.h"
+#include "velox/common/memory/Memory.h"
+#include "velox/common/serialization/DeserializationRegistry.h"
+#include "velox/common/testutil/TempDirectoryPath.h"
+#include "velox/core/ITypedExpr.h"
+#include "velox/core/PlanNode.h"
+#include "velox/exec/BlockingReason.h"
+#include "velox/exec/Operator.h"
 #include "velox/exec/PartitionFunction.h"
-#include "velox/exec/TraceUtil.h"
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/HiveConnectorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "velox/exec/trace/TraceUtil.h"
 #include "velox/serializers/PrestoSerializer.h"
+#include "velox/type/Filter.h"
+#include "velox/type/Type.h"
+#include "velox/type/TypeKind.h"
+#include "velox/vector/VectorStream.h"
 
 using namespace facebook::velox;
 using namespace facebook::velox::exec;
@@ -156,7 +166,7 @@ class PartitionAndSerializeReplayerTest : public HiveConnectorTestBase {
 };
 
 TEST_F(PartitionAndSerializeReplayerTest, basicReplay) {
-  auto traceDirPath = exec::test::TempDirectoryPath::create();
+  auto traceDirPath = common::testutil::TempDirectoryPath::create();
   const std::string traceRoot = traceDirPath->getPath();
 
   // Register mock operator for trace phase
