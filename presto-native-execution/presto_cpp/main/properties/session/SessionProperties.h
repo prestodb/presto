@@ -117,6 +117,11 @@ class SessionProperties : public SessionPropertiesProvider {
   static constexpr const char* kRpcRateLimiterMaxLimit =
       "native_rpc_ratelimiter_max_limit";
 
+  /// Whether native_rpc_ratelimiter_max_limit can only lower a function's
+  /// ceiling instead of replacing it.
+  static constexpr const char* kRpcRateLimiterTightenLimit =
+      "native_rpc_ratelimiter_tighten_limit";
+
   /// Versioned hard ceiling. Minus one preserves legacy semantics.
   static constexpr const char* kRpcRateLimiterHardLimit =
       "native_rpc_ratelimiter_hard_limit";

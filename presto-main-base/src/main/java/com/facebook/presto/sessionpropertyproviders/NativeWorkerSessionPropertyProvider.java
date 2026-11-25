@@ -111,6 +111,7 @@ public class NativeWorkerSessionPropertyProvider
     public static final String NATIVE_RPC_RATELIMITER_MIN_LIMIT = "native_rpc_ratelimiter_min_limit";
     public static final String NATIVE_RPC_RATELIMITER_DECREASE_FACTOR = "native_rpc_ratelimiter_decrease_factor";
     public static final String NATIVE_RPC_RATELIMITER_MAX_LIMIT = "native_rpc_ratelimiter_max_limit";
+    public static final String NATIVE_RPC_RATELIMITER_TIGHTEN_LIMIT = "native_rpc_ratelimiter_tighten_limit";
     public static final String NATIVE_RPC_RATELIMITER_HARD_LIMIT = "native_rpc_ratelimiter_hard_limit";
     public static final String NATIVE_RPC_CONGESTION_BATCH_START_WINDOW = "native_rpc_congestion_batch_start_window";
     public static final String NATIVE_RPC_CONGESTION_ASYNC_GROWTH_MAX_WINDOW = "native_rpc_congestion_async_growth_max_window";
@@ -593,6 +594,13 @@ public class NativeWorkerSessionPropertyProvider
                                 "Default 200; zero defers to the function or built-in legacy limit. " +
                                 "Superseded by native_rpc_ratelimiter_hard_limit when that property is non-negative.",
                         200L,
+                        !nativeExecution),
+                booleanProperty(
+                        NATIVE_RPC_RATELIMITER_TIGHTEN_LIMIT,
+                        "Native Execution only. When true, a positive native_rpc_ratelimiter_max_limit can only " +
+                                "lower the function ceiling instead of replacing it: the smaller applies. " +
+                                "Ignored when native_rpc_ratelimiter_hard_limit is zero or more.",
+                        false,
                         !nativeExecution),
                 longProperty(
                         NATIVE_RPC_RATELIMITER_HARD_LIMIT,
