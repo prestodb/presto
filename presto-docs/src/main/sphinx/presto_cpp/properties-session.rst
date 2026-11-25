@@ -663,8 +663,20 @@ default 0.5 halves the window. Only used when ``native_rpc_ratelimiter_adaptive_
 
 Native Execution only. Legacy session ceiling for the per-tier RPC rate limiter. Zero defers to
 the function ceiling or the built-in legacy limit; a positive value overrides the function
-ceiling. This property remains unchanged for coordinator/worker compatibility and is superseded by
+ceiling, or only lowers it when ``native_rpc_ratelimiter_tighten_limit`` is true. This property
+remains unchanged for coordinator/worker compatibility and is superseded by
 ``native_rpc_ratelimiter_hard_limit`` when that property is non-negative.
+
+``native_rpc_ratelimiter_tighten_limit``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Native Execution only. When true, a positive ``native_rpc_ratelimiter_max_limit`` can only lower
+the function ceiling instead of replacing it: the smaller of the two applies. Zero keeps its
+meaning, and the floor is unchanged. Ignored when ``native_rpc_ratelimiter_hard_limit`` is zero or
+more.
 
 ``native_rpc_ratelimiter_hard_limit``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

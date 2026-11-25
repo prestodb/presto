@@ -206,6 +206,17 @@ SessionProperties::SessionProperties() {
       folly::to<std::string>(c.rpcRateLimiterMaxLimit()));
 
   addSessionProperty(
+      kRpcRateLimiterTightenLimit,
+      "Native Execution only. When true, a positive "
+      "native_rpc_ratelimiter_max_limit can only lower the function ceiling "
+      "instead of replacing it: the smaller applies. Ignored when "
+      "native_rpc_ratelimiter_hard_limit is zero or more.",
+      BOOLEAN(),
+      false,
+      QueryConfig::kRpcRateLimiterTightenLimit,
+      util::boolToLowerCaseString(c.rpcRateLimiterTightenLimit()));
+
+  addSessionProperty(
       kRpcRateLimiterHardLimit,
       "Native Execution only. Versioned per-tier RPC hard ceiling. Minus one "
       "preserves legacy max-limit semantics for mixed-version rollout. Zero "
