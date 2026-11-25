@@ -104,7 +104,7 @@ class SessionProperties : public SessionPropertiesProvider {
   static constexpr const char* kRpcRateLimiterAdaptiveEnabled =
       "native_rpc_ratelimiter_adaptive_enabled";
 
-  /// Integral adaptive-floor override. Zero delegates to backend policy.
+  /// Floor of the adaptive RPC rate limiter. Zero uses the function's floor.
   static constexpr const char* kRpcRateLimiterMinLimit =
       "native_rpc_ratelimiter_min_limit";
 
@@ -113,11 +113,13 @@ class SessionProperties : public SessionPropertiesProvider {
   static constexpr const char* kRpcRateLimiterDecreaseFactor =
       "native_rpc_ratelimiter_decrease_factor";
 
-  /// Legacy ceiling for the per-tier RPC rate limiter.
+  /// Ceiling of the per-tier RPC rate limiter. Zero uses the function's
+  /// ceiling.
   static constexpr const char* kRpcRateLimiterMaxLimit =
       "native_rpc_ratelimiter_max_limit";
 
-  /// Versioned hard ceiling. Minus one preserves legacy semantics.
+  /// Zero or more lets the function's floor and ceiling win over the
+  /// session's; a positive value also caps that ceiling.
   static constexpr const char* kRpcRateLimiterHardLimit =
       "native_rpc_ratelimiter_hard_limit";
 
