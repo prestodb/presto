@@ -71,6 +71,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import jakarta.inject.Inject;
 
+import java.nio.channels.ClosedByInterruptException;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -86,6 +88,7 @@ import static com.facebook.presto.SystemSessionProperties.getExecutionPolicy;
 import static com.facebook.presto.SystemSessionProperties.getQueryAnalyzerTimeout;
 import static com.facebook.presto.SystemSessionProperties.isEagerPlanValidationEnabled;
 import static com.facebook.presto.SystemSessionProperties.isLogInvokedFunctionNamesEnabled;
+import static com.facebook.presto.SystemSessionProperties.isReportInterruptedPlanningAsTimeout;
 import static com.facebook.presto.SystemSessionProperties.isSpoolingOutputBufferEnabled;
 import static com.facebook.presto.common.RuntimeMetricName.ANALYZE_TIME_NANOS;
 import static com.facebook.presto.common.RuntimeMetricName.CHECK_ACCESS_PERMISSIONS_TIME_NANOS;
@@ -101,12 +104,16 @@ import static com.facebook.presto.execution.buffer.OutputBuffers.createInitialEm
 import static com.facebook.presto.execution.buffer.OutputBuffers.createSpoolingOutputBuffers;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.StandardErrorCode.QUERY_PLANNING_TIMEOUT;
 import static com.facebook.presto.sql.Optimizer.PlanStage.OPTIMIZED_AND_VALIDATED;
 import static com.facebook.presto.sql.planner.PlanNodeCanonicalInfo.getCanonicalInfo;
 import static com.facebook.presto.util.AnalyzerUtil.checkAccessPermissions;
 import static com.facebook.presto.util.AnalyzerUtil.getAnalyzerContext;
+import static com.facebook.presto.util.Failures.toFailure;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static java.lang.String.format;
+import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -215,27 +222,37 @@ public class SqlQueryExecution
 
             stateMachine.beginSemanticAnalyzing();
 
-            try (TimeoutThread unused = new TimeoutThread(
+            TimeoutThread timeoutThread = new TimeoutThread(
                     Thread.currentThread(),
                     timeoutThreadExecutor,
-                    getQueryAnalyzerTimeout(getSession()))) {
-                this.queryAnalysis = getSession()
-                        .getRuntimeStats()
-                        .recordWallAndCpuTime(ANALYZE_TIME_NANOS, () -> queryAnalyzer.analyze(analyzerContext, preparedQuery));
+                    getQueryAnalyzerTimeout(getSession()));
+            try {
+                try (TimeoutThread unused = timeoutThread) {
+                    this.queryAnalysis = getSession()
+                            .getRuntimeStats()
+                            .recordWallAndCpuTime(ANALYZE_TIME_NANOS, () -> queryAnalyzer.analyze(analyzerContext, preparedQuery));
+                }
+
+                stateMachine.setUpdateInfo(queryAnalysis.getUpdateInfo());
+                stateMachine.setExpandedQuery(queryAnalysis.getExpandedQuery());
+                stateMachine.setMaterializedViewRewrittenQuery(queryAnalysis.getMaterializedViewRewrittenQuery());
+
+                stateMachine.beginColumnAccessPermissionChecking();
+                getSession().getRuntimeStats().recordWallAndCpuTime(
+                        CHECK_ACCESS_PERMISSIONS_TIME_NANOS,
+                        () -> {
+                            checkAccessPermissions(queryAnalysis.getAccessControlReferences(), queryAnalysis.getViewDefinitionReferences(), query, getSession().getPreparedStatements(), getSession().getIdentity(), accessControl, getSession().getAccessControlContext());
+                            return null;
+                        });
+                stateMachine.endColumnAccessPermissionChecking();
             }
-
-            stateMachine.setUpdateInfo(queryAnalysis.getUpdateInfo());
-            stateMachine.setExpandedQuery(queryAnalysis.getExpandedQuery());
-            stateMachine.setMaterializedViewRewrittenQuery(queryAnalysis.getMaterializedViewRewrittenQuery());
-
-            stateMachine.beginColumnAccessPermissionChecking();
-            getSession().getRuntimeStats().recordWallAndCpuTime(
-                    CHECK_ACCESS_PERMISSIONS_TIME_NANOS,
-                    () -> {
-                        checkAccessPermissions(queryAnalysis.getAccessControlReferences(), queryAnalysis.getViewDefinitionReferences(), query, getSession().getPreparedStatements(), getSession().getIdentity(), accessControl, getSession().getAccessControlContext());
-                        return null;
-                    });
-            stateMachine.endColumnAccessPermissionChecking();
+            catch (RuntimeException e) {
+                // The timeout's interrupt can outlive analysis and fail the permission check that follows it.
+                if (isPlanningTimeout(timeoutThread, e)) {
+                    throw planningTimeout(e);
+                }
+                throw e;
+            }
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQuerySchedulerInterface> queryScheduler = this.queryScheduler;
@@ -501,23 +518,33 @@ public class SqlQueryExecution
                 PlanRoot plan;
 
                 // set a thread timeout in case query analyzer ends up in an infinite loop
-                try (TimeoutThread unused = new TimeoutThread(
+                TimeoutThread timeoutThread = new TimeoutThread(
                         Thread.currentThread(),
                         timeoutThreadExecutor,
-                        getQueryAnalyzerTimeout(getSession()))) {
-                    // If planFuture has not started, cancel and build plan in current thread
-                    if (planFuture != null && !planFutureLocked.compareAndSet(false, true)) {
-                        plan = planFuture.get();
+                        getQueryAnalyzerTimeout(getSession()));
+                try {
+                    try (TimeoutThread unused = timeoutThread) {
+                        // If planFuture has not started, cancel and build plan in current thread
+                        if (planFuture != null && !planFutureLocked.compareAndSet(false, true)) {
+                            plan = planFuture.get();
+                        }
+                        else {
+                            plan = createLogicalPlanAndOptimize();
+                        }
                     }
-                    else {
-                        plan = createLogicalPlanAndOptimize();
-                    }
+
+                    metadata.beginQuery(getSession(), plan.getConnectors());
+
+                    // plan distribution of query
+                    getSession().getRuntimeStats().recordWallAndCpuTime(CREATE_SCHEDULER_TIME_NANOS, () -> createQueryScheduler(plan));
                 }
-
-                metadata.beginQuery(getSession(), plan.getConnectors());
-
-                // plan distribution of query
-                getSession().getRuntimeStats().recordWallAndCpuTime(CREATE_SCHEDULER_TIME_NANOS, () -> createQueryScheduler(plan));
+                catch (Exception e) {
+                    // The timeout's interrupt can outlive planning and fail the scheduling that follows it.
+                    if (isPlanningTimeout(timeoutThread, e)) {
+                        throw planningTimeout(e);
+                    }
+                    throw e;
+                }
 
                 // transition to starting
                 if (!stateMachine.transitionToStarting()) {
@@ -576,6 +603,33 @@ public class SqlQueryExecution
     public void addFinalQueryInfoListener(StateChangeListener<QueryInfo> stateChangeListener)
     {
         stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
+    }
+
+    // The analyzer timeout interrupts this thread, and an interrupted call, such as a metastore request, can fail with its
+    // own error before any timeout check runs. A failure whose cause chain holds that interrupt is the timeout; any other
+    // failure, even after the timeout expired, keeps its own error.
+    private boolean isPlanningTimeout(TimeoutThread timeoutThread, Exception failure)
+    {
+        if (!isReportInterruptedPlanningAsTimeout(getSession()) || !timeoutThread.hasExpired()) {
+            return false;
+        }
+        Set<Throwable> seen = newSetFromMap(new IdentityHashMap<>());
+        for (Throwable cause = failure; cause != null && seen.add(cause); cause = cause.getCause()) {
+            if (cause instanceof InterruptedException || cause instanceof ClosedByInterruptException) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private PrestoException planningTimeout(Exception cause)
+    {
+        // Names the error code the query would have reported, which a wrapper takes from its cause.
+        String interruptedCallError = toFailure(cause).getErrorCode().getName();
+        return new PrestoException(
+                QUERY_PLANNING_TIMEOUT,
+                format("The query planner exceeded the timeout of %s. The interrupted call failed with %s.", getQueryAnalyzerTimeout(getSession()), interruptedCallError),
+                cause);
     }
 
     private PlanRoot createLogicalPlanAndOptimize()
