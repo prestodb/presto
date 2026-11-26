@@ -84,8 +84,8 @@ For plugin-loaded string functions, see :ref:`functions/plugin-loaded-functions:
 
     Left pads ``string`` to ``size`` characters with ``padstring``.
     If ``size`` is less than the length of ``string``, the result is
-    truncated to ``size`` characters. ``size`` must not be negative
-    and ``padstring`` must be non-empty.
+    truncated to ``size`` characters. ``size`` must be in the inclusive
+    range ``[0, 1048576]`` (characters) and ``padstring`` must be non-empty.
 
 .. function:: ltrim(string) -> varchar
 
@@ -119,8 +119,8 @@ For plugin-loaded string functions, see :ref:`functions/plugin-loaded-functions:
 
     Right pads ``string`` to ``size`` characters with ``padstring``.
     If ``size`` is less than the length of ``string``, the result is
-    truncated to ``size`` characters. ``size`` must not be negative
-    and ``padstring`` must be non-empty.
+    truncated to ``size`` characters. ``size`` must be in the inclusive
+    range ``[0, 1048576]`` (characters) and ``padstring`` must be non-empty.
 
 .. function:: rtrim(string) -> varchar
 

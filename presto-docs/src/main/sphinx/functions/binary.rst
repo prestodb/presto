@@ -106,16 +106,16 @@ Binary Functions
 
     Left pads ``binary`` to ``size`` bytes with ``padbinary``.
     If ``size`` is less than the length of ``binary``, the result is
-    truncated to ``size`` characters. ``size`` must not be negative
-    and ``padbinary`` must be non-empty.
+    truncated to ``size`` bytes. ``size`` must be in the inclusive
+    range ``[0, 1048576]`` (bytes) and ``padbinary`` must be non-empty.
 
 .. function:: rpad(binary, size, padbinary) -> varbinary
     :noindex:
 
     Right pads ``binary`` to ``size`` bytes with ``padbinary``.
     If ``size`` is less than the length of ``binary``, the result is
-    truncated to ``size`` characters. ``size`` must not be negative
-    and ``padbinary`` must be non-empty.
+    truncated to ``size`` bytes. ``size`` must be in the inclusive
+    range ``[0, 1048576]`` (bytes) and ``padbinary`` must be non-empty.
 
 .. function:: crc32(binary) -> bigint
 
