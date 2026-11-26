@@ -18,7 +18,6 @@
 #include <folly/SocketAddress.h>
 #include <proxygen/lib/http/HTTPException.h>
 #include <re2/re2.h>
-#include <sstream>
 
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
@@ -50,22 +49,11 @@ void onFinalFailure(
   queue->setError(errorMessage);
 }
 
-std::string bodyAsString(
-    http::HttpResponse& response,
-    memory::MemoryPool* pool) {
+std::string bodyAsString(const http::HttpResponse& response) {
   if (response.hasError()) {
     return response.error();
   }
-  std::ostringstream oss;
-  auto iobufs = response.consumeBody();
-  for (auto& body : iobufs) {
-    oss << std::string(
-        reinterpret_cast<const char*>(body->data()), body->length());
-    if (pool != nullptr) {
-      pool->free(body->writableData(), body->capacity());
-    }
-  }
-  return oss.str();
+  return response.empty() ? "" : response.dumpBodyChain();
 }
 
 std::string formatExchangeError(const folly::exception_wrapper& error) {
@@ -81,6 +69,55 @@ std::string formatExchangeError(const std::exception& error) {
     return httpException->describe();
   }
   return error.what();
+}
+
+int64_t exchangeMaxErrorDurationMs() {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(
+             SystemConfig::instance()->exchangeMaxErrorDuration())
+      .count();
+}
+
+// Producer cleanup can outlive the exchange source and its query.
+struct AbortResults {
+  const std::string path;
+  const std::shared_ptr<http::HttpClient> client;
+  const http::JwtOptions jwtOptions;
+  folly::Executor* const executor;
+  const std::weak_ptr<exec::ExchangeQueue> queue;
+  PrestoExchangeSource::RetryState retry{exchangeMaxErrorDurationMs()};
+};
+
+void sendAbortResults(const std::shared_ptr<AbortResults>& abort) {
+  http::RequestBuilder()
+      .jwtOptions(abort->jwtOptions)
+      .method(proxygen::HTTPMethod::DELETE)
+      .url(abort->path)
+      .send(abort->client.get(), "", abort->retry.nextDelayMs())
+      .via(abort->executor)
+      .thenTry([abort](
+                   folly::Try<std::unique_ptr<http::HttpResponse>> response) {
+        std::string error;
+        if (response.hasException()) {
+          error = formatExchangeError(response.exception());
+        } else {
+          const auto statusCode = response.value()->headers()->getStatusCode();
+          if (statusCode == http::kHttpOk ||
+              statusCode == http::kHttpNoContent) {
+            return;
+          }
+          error = std::to_string(statusCode);
+        }
+        if (!abort->retry.isExhausted()) {
+          sendAbortResults(abort);
+          return;
+        }
+        const auto message = fmt::format(
+            "Abort results failed: {}, path {}", error, abort->path);
+        LOG(ERROR) << message;
+        if (auto queue = abort->queue.lock()) {
+          onFinalFailure(message, queue);
+        }
+      });
 }
 } // namespace
 
@@ -128,20 +165,27 @@ PrestoExchangeSource::PrestoExchangeSource(
       address,
       requestTimeoutMs,
       connectTimeoutMs,
-      immediateBufferTransfer_ ? pool_ : nullptr,
+      nullptr,
       sslContext_,
       std::move(httpClientOptions));
   jwtOptions_ = systemConfig->jwtOptions();
 }
 
 void PrestoExchangeSource::close() {
-  closed_.store(true);
+  {
+    std::lock_guard<std::mutex> l(queue_->mutex());
+    closed_.store(true);
+    if (responseBodyBuffer_) {
+      responseBodyBuffer_->close();
+      responseBodyBuffer_.reset();
+    }
+  }
   checkSetRequestPromise();
   abortResults();
 }
 
 bool PrestoExchangeSource::shouldRequestLocked() {
-  if (atEnd_) {
+  if (closed_.load() || atEnd_) {
     return false;
   }
 
@@ -179,10 +223,7 @@ folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
   }
 
   failedAttempts_ = 0;
-  dataRequestRetryState_ = RetryState(
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          SystemConfig::instance()->exchangeMaxErrorDuration())
-          .count());
+  dataRequestRetryState_ = RetryState(exchangeMaxErrorDurationMs());
   doRequest(dataRequestRetryState_.nextDelayMs(), maxBytes, maxWait);
 
   return future;
@@ -192,13 +233,19 @@ void PrestoExchangeSource::doRequest(
     int64_t delayMs,
     uint32_t maxBytes,
     std::chrono::microseconds maxWait) {
-  if (closed_.load()) {
-    queue_->setError("PrestoExchangeSource closed");
-    return;
+  http::HttpResponse::WeakBodyBuffer bodyBuffer;
+  {
+    std::lock_guard<std::mutex> l(queue_->mutex());
+    if (closed_.load()) {
+      return;
+    }
+    if (immediateBufferTransfer_) {
+      responseBodyBuffer_ = httpClient_->makeResponseBodyBuffer(pool_);
+      bodyBuffer.emplace(responseBodyBuffer_);
+    }
   }
 
   auto path = fmt::format("{}/{}", basePath_, sequence_);
-  auto self = getSelfPtr();
   proxygen::HTTPMethod method;
   if (maxBytes == 0) {
     method = proxygen::HTTPMethod::HEAD;
@@ -208,8 +255,6 @@ void PrestoExchangeSource::doRequest(
   auto requestBuilder =
       http::RequestBuilder().jwtOptions(jwtOptions_).method(method).url(path);
 
-  velox::common::testutil::TestValue::adjust(
-      "facebook::presto::PrestoExchangeSource::doRequest", this);
   requestBuilder
       .header(
           protocol::PRESTO_MAX_SIZE_HTTP_HEADER,
@@ -219,14 +264,23 @@ void PrestoExchangeSource::doRequest(
           protocol::Duration(maxWait.count(), protocol::TimeUnit::MICROSECONDS)
               .toString())
       .header(proxygen::HTTP_HEADER_HOST, fmt::format("{}:{}", host_, port_))
-      .send(httpClient_.get(), "", delayMs)
+      .send(httpClient_.get(), "", delayMs, std::move(bodyBuffer))
       .via(driverExecutor_)
       .thenTry(
-          [this, path, maxBytes, maxWait, self = getSelfPtr()](
+          [weak = weak_from_this(), path, maxBytes, maxWait](
               folly::Try<std::unique_ptr<http::HttpResponse>> responseTry) {
-            // self needs to be held for keeping 'this' source alive during
-            // processing
-            handleDataResponse(std::move(responseTry), maxWait, maxBytes, path);
+            auto source = weak.lock();
+            if (!source) {
+              return;
+            }
+            auto& self = static_cast<PrestoExchangeSource&>(*source);
+            if (self.closed_.load() ||
+                (responseTry.hasValue() &&
+                 !responseTry.value()->takeBufferedBody())) {
+              return;
+            }
+            self.handleDataResponse(
+                std::move(responseTry), maxWait, maxBytes, path);
           });
 };
 
@@ -235,8 +289,6 @@ void PrestoExchangeSource::handleDataResponse(
     std::chrono::microseconds maxWait,
     uint32_t maxBytes,
     const std::string& httpRequestPath) {
-  velox::common::testutil::TestValue::adjust(
-      "facebook::presto::PrestoExchangeSource::handleDataResponse", this);
   if (responseTry.hasException()) {
     processDataError(
         httpRequestPath,
@@ -261,9 +313,7 @@ void PrestoExchangeSource::handleDataResponse(
                 "Received HTTP {} {} {}",
                 headers->getStatusCode(),
                 headers->getStatusMessage(),
-                bodyAsString(
-                    *response,
-                    immediateBufferTransfer_ ? pool_.get() : nullptr)));
+                bodyAsString(*response)));
       } else if (response->hasError()) {
         processDataError(httpRequestPath, maxBytes, maxWait, response->error());
       } else {
@@ -300,13 +350,6 @@ void PrestoExchangeSource::processDataResponse(
         kCounterExchangeRequestDuration, dataRequestRetryState_.durationMs());
     RECORD_HISTOGRAM_METRIC_VALUE(
         kCounterExchangeRequestNumTries, dataRequestRetryState_.numTries());
-  }
-  if (closed_.load()) {
-    // If PrestoExchangeSource is already closed, just free all buffers
-    // allocated without doing any processing. This can happen when a super slow
-    // response comes back after its owning 'Task' gets destroyed.
-    response->freeBuffers();
-    return;
   }
   auto* headers = response->headers();
   if (!SystemConfig::instance()->httpClientHttp2Enabled()) {
@@ -355,6 +398,9 @@ void PrestoExchangeSource::processDataResponse(
   }
 
   std::unique_ptr<exec::SerializedPageBase> page;
+  if (closed_.load()) {
+    return;
+  }
   const bool empty = response->empty();
   if (!empty) {
     std::vector<std::unique_ptr<folly::IOBuf>> iobufs;
@@ -409,6 +455,9 @@ void PrestoExchangeSource::processDataResponse(
   std::vector<ContinuePromise> queuePromises;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
+    if (closed_.load()) {
+      return;
+    }
     if (page) {
       VLOG(1) << "Enqueuing page for " << basePath_ << "/" << sequence_ << ": "
               << pageSize << " bytes";
@@ -450,6 +499,9 @@ void PrestoExchangeSource::processDataError(
     uint32_t maxBytes,
     std::chrono::microseconds maxWait,
     const std::string& error) {
+  if (closed_.load()) {
+    return;
+  }
   ++failedAttempts_;
   if (!dataRequestRetryState_.isExhausted()) {
     VLOG(1) << "Failed to fetch data from " << host_ << ":" << port_ << " "
@@ -481,6 +533,9 @@ void PrestoExchangeSource::pause() {
   int64_t ackSequence;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
+    if (closed_.load()) {
+      return;
+    }
     ackSequence = sequence_;
   }
   acknowledgeResults(ackSequence);
@@ -495,13 +550,7 @@ void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {
       .url(ackPath)
       .send(httpClient_.get())
       .via(driverExecutor_)
-      .thenTry(
-          [this, self = getSelfPtr()](
-              folly::Try<std::unique_ptr<http::HttpResponse>> responseTry) {
-            // self needs to be held for keeping 'this' source alive during
-            // processing
-            handleAckResponse(std::move(responseTry));
-          });
+      .thenTry(handleAckResponse);
 }
 
 void PrestoExchangeSource::handleAckResponse(
@@ -525,48 +574,10 @@ void PrestoExchangeSource::abortResults() {
     return;
   }
 
-  abortRetryState_ = RetryState(
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          SystemConfig::instance()->exchangeMaxErrorDuration())
-          .count());
   VLOG(1) << "Sending abort results " << basePath_;
-  doAbortResults(abortRetryState_.nextDelayMs());
-}
-
-void PrestoExchangeSource::doAbortResults(int64_t delayMs) {
-  http::RequestBuilder()
-      .jwtOptions(jwtOptions_)
-      .method(proxygen::HTTPMethod::DELETE)
-      .url(basePath_)
-      .send(httpClient_.get(), "", delayMs)
-      .via(driverExecutor_)
-      .thenTry([this, self = getSelfPtr()](
-                   folly::Try<std::unique_ptr<http::HttpResponse>> response) {
-        handleAbortResponse(std::move(response));
-      });
-}
-
-void PrestoExchangeSource::handleAbortResponse(
-    folly::Try<std::unique_ptr<http::HttpResponse>> responseTry) {
-  std::optional<std::string> error;
-  if (responseTry.hasException()) {
-    error = formatExchangeError(responseTry.exception());
-  } else {
-    auto statusCode = responseTry.value()->headers()->getStatusCode();
-    if (statusCode != http::kHttpOk && statusCode != http::kHttpNoContent) {
-      error = std::to_string(statusCode);
-    }
-  }
-  if (!error.has_value()) {
-    return;
-  }
-  if (abortRetryState_.isExhausted()) {
-    const std::string errMsg = fmt::format(
-        "Abort results failed: {}, path {}", error.value(), basePath_);
-    LOG(ERROR) << errMsg;
-    return onFinalFailure(errMsg, queue_);
-  }
-  doAbortResults(abortRetryState_.nextDelayMs());
+  sendAbortResults(
+      std::make_shared<AbortResults>(
+          basePath_, httpClient_, jwtOptions_, driverExecutor_, queue_));
 }
 
 bool PrestoExchangeSource::checkSetRequestPromise() {
@@ -581,10 +592,6 @@ bool PrestoExchangeSource::checkSetRequestPromise() {
   }
 
   return false;
-}
-
-std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::getSelfPtr() {
-  return std::dynamic_pointer_cast<PrestoExchangeSource>(shared_from_this());
 }
 
 // static
