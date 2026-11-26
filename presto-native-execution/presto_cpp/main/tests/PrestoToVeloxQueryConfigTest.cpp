@@ -1011,3 +1011,18 @@ TEST_F(PrestoToVeloxQueryConfigTest, systemConfigsWithoutSessionOverride) {
   }
   std::cout << "Total: " << veloxConfigs.size() << std::endl;
 }
+
+TEST_F(PrestoToVeloxQueryConfigTest, rpcStreamingModeReachesNativeFunctions) {
+  auto request = createBasicTaskUpdateRequest();
+  EXPECT_EQ(
+      toTaskConfigs(request).queryConfig.get<std::string>(
+          "rpc_streaming_mode", "PER_ROW"),
+      "PER_ROW");
+  for (const auto* mode : {"PER_ROW", "BATCH", "AUTOMATIC", "BATCH_DEFERRED"}) {
+    request.session.systemProperties["rpc_streaming_mode"] = mode;
+    EXPECT_EQ(
+        toTaskConfigs(request).queryConfig.get<std::string>(
+            "rpc_streaming_mode", "PER_ROW"),
+        mode);
+  }
+}

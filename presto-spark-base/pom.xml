@@ -48,6 +48,13 @@
 
     <dependencies>
 
+        <!-- Use Presto's patched Hadoop classes before the copies bundled in Spark during tests. -->
+        <dependency>
+            <groupId>com.facebook.presto.hadoop</groupId>
+            <artifactId>hadoop-apache</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-spark-classloader-interface</artifactId>
@@ -318,12 +325,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.facebook.presto.hadoop</groupId>
-            <artifactId>hadoop-apache</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>com.facebook.presto</groupId>
             <artifactId>presto-tpch</artifactId>
             <scope>test</scope>
@@ -587,7 +588,7 @@
                 <dependency>
                     <groupId>com.facebook.presto.spark</groupId>
                     <artifactId>spark-core</artifactId>
-                    <version>3.4.1-1</version>
+                    <version>3.4.1-2</version>
                     <scope>provided</scope>
                 </dependency>
 

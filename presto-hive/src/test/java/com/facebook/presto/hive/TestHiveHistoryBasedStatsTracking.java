@@ -206,13 +206,13 @@ public class TestHiveHistoryBasedStatsTracking
                     createSession(ImmutableMap.of(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, "IGNORE_SAFE_CONSTANTS,IGNORE_SCAN_CONSTANTS")));
             assertPlan(createSession(ImmutableMap.of(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, "IGNORE_SAFE_CONSTANTS,IGNORE_SCAN_CONSTANTS")),
                     "SELECT *, 2 FROM test_orders where ds = '2020-09-02' and orderpriority = '1-URGENT'",
-                    anyTree(node(ProjectNode.class, any()).withOutputRowCount(48)));
+                    node(OutputNode.class, anyTree(any())).withOutputRowCount(48, "HBO"));
             assertPlan(createSession(ImmutableMap.of(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, "IGNORE_SAFE_CONSTANTS,IGNORE_SCAN_CONSTANTS")),
                     "SELECT *, 2 FROM test_orders where ds = '2020-09-02' and orderpriority = '2-HIGH'",
-                    anyTree(node(ProjectNode.class, any()).withOutputRowCount(48)));
+                    node(OutputNode.class, anyTree(any())).withOutputRowCount(48, "HBO"));
             assertPlan(createSession(ImmutableMap.of(HISTORY_BASED_OPTIMIZATION_PLAN_CANONICALIZATION_STRATEGY, "IGNORE_SAFE_CONSTANTS")),
                     "SELECT *, 2 FROM test_orders where ds = '2020-09-02' and orderpriority = '2-HIGH'",
-                    anyTree(node(ProjectNode.class, any()).withOutputRowCount(49.6)));
+                    node(OutputNode.class, anyTree(any())).withOutputRowCount(49.6, "CBO"));
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS test_orders");

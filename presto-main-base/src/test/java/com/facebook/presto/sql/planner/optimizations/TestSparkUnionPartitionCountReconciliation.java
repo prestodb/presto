@@ -63,7 +63,8 @@ public class TestSparkUnionPartitionCountReconciliation
                 {true, true, 8, createSystemPartitioning(FIXED, HASH, 8), false, false},
                 {true, false, 8, createSystemPartitioning(FIXED, HASH, 8), false, false},
                 {true, true, 8, createSystemPartitioning(FIXED, HASH, 16), true, true},
-                {true, true, 128, FIXED_HASH_DISTRIBUTION, false, false},
+                {true, true, 128, FIXED_HASH_DISTRIBUTION, true, false},
+                {true, false, 128, FIXED_HASH_DISTRIBUTION, true, false},
         };
     }
 

@@ -30,6 +30,7 @@ EnumMap:
 
   RPCNode:
     StreamingMode: RPCNodeStreamingMode
+    ExecutionPhase: RPCNodeExecutionPhase
 
 ExtraFields:
   RowExpression:
@@ -53,8 +54,25 @@ ExtraFields:
     Optional<String>: dummy
 
 UpdateFields:
+  MemoryInfo:
+    int64_t: systemMemoryBytes
+
+  RPCNode:
+    std::shared_ptr<RPCNodeExecutionPhase>: executionPhase
+
   RemoteSourceNode:
     std::shared_ptr<TransportType>: transportType
+
+ExcludeFields:
+  JsonBasedUdfFunctionMetadata:
+    - body
+
+OptionalJsonFields:
+  RPCNode:
+    - inputGroupingExpressions
+  NodeStatus:
+    - asyncDataCacheBytes
+    - queryMemoryBytes
 
 AbstractClasses:
   ColumnHandle:

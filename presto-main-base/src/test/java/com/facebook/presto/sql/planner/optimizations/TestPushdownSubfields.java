@@ -13,28 +13,46 @@
  */
 package com.facebook.presto.sql.planner.optimizations;
 
+import com.facebook.presto.Session;
 import com.facebook.presto.common.type.RowType;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.VariableAllocator;
+import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.Assignments;
+import com.facebook.presto.spi.plan.OutputNode;
 import com.facebook.presto.spi.plan.PlanNode;
+import com.facebook.presto.spi.plan.PlanNodeIdAllocator;
 import com.facebook.presto.spi.plan.ProjectNode;
 import com.facebook.presto.spi.plan.ValuesNode;
+import com.facebook.presto.spi.relation.ConstantExpression;
+import com.facebook.presto.spi.relation.SpecialFormExpression;
 import com.facebook.presto.spi.relation.VariableReferenceExpression;
 import com.facebook.presto.sql.planner.iterative.rule.test.BaseRuleTest;
+import com.facebook.presto.sql.planner.iterative.rule.test.PlanBuilder;
 import com.facebook.presto.sql.planner.iterative.rule.test.RuleTester;
 import com.facebook.presto.sql.planner.plan.MergeProcessorNode;
 import com.facebook.presto.sql.planner.plan.MergeWriterNode;
+import com.facebook.presto.sql.planner.plan.RPCNode;
+import com.facebook.presto.sql.planner.sanity.ValidateDependenciesChecker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.facebook.presto.SystemSessionProperties.PUSHDOWN_SUBFIELDS_ENABLED;
+import static com.facebook.presto.common.type.BigintType.BIGINT;
+import static com.facebook.presto.common.type.IntegerType.INTEGER;
 import static com.facebook.presto.common.type.UnknownType.UNKNOWN;
+import static com.facebook.presto.common.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.relation.SpecialFormExpression.Form.DEREFERENCE;
 import static com.facebook.presto.sql.planner.assertions.PlanMatchPattern.node;
+import static com.facebook.presto.sql.planner.plan.RPCNode.ExecutionPhase.COLLECT;
+import static com.facebook.presto.sql.planner.plan.RPCNode.StreamingMode.BATCH;
 import static java.util.Collections.emptyList;
+import static org.testng.Assert.assertEquals;
 
 /**
  * Regression tests for {@link PushdownSubfields#visitMergeWriter} and
@@ -64,6 +82,42 @@ public class TestPushdownSubfields
     {
         PushdownSubfields optimizer = new PushdownSubfields(tester().getMetadata(), tester().getExpressionManager());
         return optimizer;
+    }
+
+    @Test
+    public void testDeferredRpcGroupingOnlySubfieldSurvivesPruning()
+    {
+        Session session = tester().getSession();
+        PlanNodeIdAllocator ids = new PlanNodeIdAllocator();
+        PlanBuilder builder = new PlanBuilder(session, ids, getMetadata());
+        VariableReferenceExpression ready = builder.variable("ready", VARCHAR);
+        VariableReferenceExpression keyRow = builder.variable("key_row", RowType.from(ImmutableList.of(
+                RowType.field("job_key", VARCHAR), RowType.field("unused", BIGINT))));
+        VariableReferenceExpression unused = builder.variable("unused", VARCHAR);
+        VariableReferenceExpression result = builder.variable("result", VARCHAR);
+        PlanNode source = builder.project(
+                Assignments.builder().put(ready, ready).put(keyRow, keyRow).put(unused, unused).build(),
+                builder.values(ready, keyRow, unused));
+        SpecialFormExpression grouping = new SpecialFormExpression(DEREFERENCE, VARCHAR,
+                ImmutableList.of(keyRow, new ConstantExpression(0L, INTEGER)));
+        RPCNode collect = new RPCNode(Optional.empty(), ids.getNextId(), Optional.empty(), source, "test_collect",
+                ImmutableList.of(ready), ImmutableList.of(ready.getName()), result,
+                BATCH, 2, 2, COLLECT, ImmutableList.of(grouping));
+        OutputNode output = builder.output(ImmutableList.of("result"), ImmutableList.of(result), collect);
+        VariableAllocator variables = new VariableAllocator(builder.getTypes().allVariables());
+
+        PlanNode pruned = new PruneUnreferencedOutputs()
+                .optimize(output, session, builder.getTypes(), variables, ids, WarningCollector.NOOP, false).getPlanNode();
+        PlanNode optimized = newOptimizer()
+                .optimize(pruned, session, builder.getTypes(), variables, ids, WarningCollector.NOOP, false).getPlanNode();
+
+        assertEquals(optimized.getOutputVariables(), ImmutableList.of(result));
+        RPCNode plannedCollect = (RPCNode) ((OutputNode) optimized).getSource();
+        assertEquals(plannedCollect.getExecutionPhase(), COLLECT);
+        assertEquals(plannedCollect.getArguments(), ImmutableList.of(ready));
+        assertEquals(plannedCollect.getInputGroupingExpressions(), ImmutableList.of(grouping));
+        assertEquals(plannedCollect.getSource().getOutputVariables(), ImmutableList.of(ready, keyRow));
+        new ValidateDependenciesChecker().validate(optimized);
     }
 
     @Test

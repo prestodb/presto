@@ -1337,7 +1337,7 @@ public class PlanPrinter
         {
             addNode(
                     node,
-                    "RPC",
+                    node.getDisplayName(),
                     format(
                             "function: %s, output: %s, mode: %s, dispatch batch size: %s, recommended tasks: %s",
                             node.getFunctionName(),

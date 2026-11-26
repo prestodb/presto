@@ -551,6 +551,7 @@ public class PushdownSubfields
         public PlanNode visitRPC(RPCNode node, RewriteContext<Context> context)
         {
             context.get().variables.add(node.getOutputVariable());
+            node.getInputGroupingExpressions().forEach(expression -> expression.accept(subfieldExtractor, context.get()));
             Set<String> argColumnNames = ImmutableSet.copyOf(node.getArgumentColumns());
             for (VariableReferenceExpression var : node.getSource().getOutputVariables()) {
                 if (argColumnNames.contains(var.getName())) {
