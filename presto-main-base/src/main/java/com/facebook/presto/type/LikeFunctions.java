@@ -28,6 +28,7 @@ import io.airlift.joni.Regex;
 import io.airlift.joni.Syntax;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import jakarta.annotation.Nullable;
 
 import static com.facebook.presto.common.type.Chars.padSpaces;
 import static com.facebook.presto.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -221,13 +222,13 @@ public final class LikeFunctions
     }
 
     @SuppressWarnings("NumericCastThatLosesPrecision")
-    private static char getEscapeChar(Slice escape)
+    private static char getEscapeChar(@Nullable Slice escape)
     {
-        String escapeString = escape.toStringUtf8();
-        if (escapeString.isEmpty()) {
+        if (escape == null) {
             // escaping disabled
             return (char) -1; // invalid character
         }
+        String escapeString = escape.toStringUtf8();
         if (escapeString.length() == 1) {
             return escapeString.charAt(0);
         }
