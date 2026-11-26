@@ -98,4 +98,23 @@ public class TestPrestoNativeIcebergMaterializedViews
     {
         // Disabled: Velox does not support timestamp partition filters in stitching scans
     }
+
+    @Test
+    public void testRefreshMaterializedViewWithTransformPartitioning()
+    {
+        assertUpdate("CREATE TABLE test_mv_transform_base (id BIGINT, value BIGINT, dt VARCHAR) " +
+                "WITH (\"format-version\" = '3', partitioning = ARRAY['dt'])");
+        assertUpdate("INSERT INTO test_mv_transform_base VALUES (1, 15, '2024-01-01'), (2, 27, '2024-01-02')", 2);
+
+        assertUpdate("CREATE MATERIALIZED VIEW test_mv_transform " +
+                "WITH (\"format-version\" = '3', partitioning = ARRAY['dt', 'bucket(id, 4)', 'truncate(value, 10)']) " +
+                "AS SELECT id, value, dt FROM test_mv_transform_base");
+
+        assertUpdate("REFRESH MATERIALIZED VIEW test_mv_transform", 2);
+        assertQuery("SELECT * FROM \"__mv_storage__test_mv_transform\" ORDER BY id",
+                "VALUES (1, 15, '2024-01-01'), (2, 27, '2024-01-02')");
+
+        assertUpdate("DROP MATERIALIZED VIEW test_mv_transform");
+        assertUpdate("DROP TABLE test_mv_transform_base");
+    }
 }
