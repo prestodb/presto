@@ -373,8 +373,7 @@ public class SfmSketch
             for (int i = 0; i < bitmap.length(); i++) {
                 double bit1 = bitmap.getBit(i) ? 1 : 0;
                 double bit2 = other.bitmap.getBit(i) ? 1 : 0;
-                double x = 1 - 2 * p - normalizer * (1 - p1 - bit1) * (1 - p2 - bit2);
-                double probability = p + normalizer * x;
+                double probability = 1 - p - normalizer * (1 - p1 - bit1) * (1 - p2 - bit2);
                 probability = Math.min(1.0, Math.max(0.0, probability));
                 bitmap.setBit(i, randomizationStrategy.nextBoolean(probability));
             }
