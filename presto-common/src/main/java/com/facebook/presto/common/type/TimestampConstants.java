@@ -16,6 +16,7 @@ package com.facebook.presto.common.type;
 public final class TimestampConstants
 {
     public static final int MAX_PICOS_OF_MICRO = 999_999;
+    public static final int MAX_PICOS_OF_MILLI = 999_999_999;
 
     private TimestampConstants() {}
 
@@ -24,6 +25,14 @@ public final class TimestampConstants
         if (picosOfMicro < 0 || picosOfMicro > MAX_PICOS_OF_MICRO) {
             throw new IllegalArgumentException(
                     "picosOfMicro must be in [0, " + MAX_PICOS_OF_MICRO + "]: " + picosOfMicro);
+        }
+    }
+
+    public static void checkPicosOfMilli(int picosOfMilli)
+    {
+        if (picosOfMilli < 0 || picosOfMilli > MAX_PICOS_OF_MILLI) {
+            throw new IllegalArgumentException(
+                    "picosOfMilli must be in [0, " + MAX_PICOS_OF_MILLI + "]: " + picosOfMilli);
         }
     }
 }
