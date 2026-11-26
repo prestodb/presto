@@ -24,6 +24,7 @@ from topological import topological
 
 PRESTO_HOME = os.environ.get("PRESTO_HOME", os.environ.get("HOME") + "/presto")
 IGNORED_TYPES = {
+    "Boolean",
     "byte",
     "Integer",
     "Map",
@@ -47,6 +48,7 @@ language = {
             r"byte\[\]": "List<byte>",
             "OptionalInt": "Optional<int>",
             "boolean": "bool",
+            "Boolean": "bool",
             "long": "int64_t",
             "List<byte>": "String",
             r"Set<(.*)>": r"List<\1>",
@@ -63,6 +65,7 @@ language = {
             "OptionalInt": "Optional<int>",
             "boolean": "bool",
             "int": "int32",
+            "Boolean": "bool",
             "long": "int64",
             "String": "string",
             "List<byte>": "bytes",

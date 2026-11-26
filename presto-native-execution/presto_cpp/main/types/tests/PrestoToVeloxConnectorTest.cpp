@@ -1664,7 +1664,7 @@ protocol::iceberg::PrestoIcebergPartitionSpec makeIdentityPartitionSpec() {
 }
 
 // Asserts the parts every write handle shares: a partitioned Iceberg insert
-// handle whose location points at "<outputPath>/data".
+// handle with the legacy layout, under <outputPath>/data.
 void verifyIcebergWriteHandle(
     const std::unique_ptr<connector::ConnectorInsertTableHandle>& result,
     connector::hive::LocationHandle::TableType expectedTableType,
@@ -1679,6 +1679,9 @@ void verifyIcebergWriteHandle(
   EXPECT_EQ(icebergInsert->writeKind(), expectedWriteKind);
   EXPECT_EQ(
       icebergInsert->locationHandle()->targetPath(), "/path/to/table/data");
+  EXPECT_EQ(
+      icebergInsert->locationHandle()->writePath(), "/path/to/table/data");
+  EXPECT_TRUE(icebergInsert->includePartitionPaths());
   EXPECT_EQ(icebergInsert->locationHandle()->tableType(), expectedTableType);
 
   ASSERT_EQ(icebergInsert->inputColumns().size(), 1);
@@ -1805,6 +1808,156 @@ TEST_F(PrestoToVeloxConnectorTest, icebergDistributedProcedureHandle) {
       result,
       connector::hive::LocationHandle::TableType::kExisting,
       connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::kData);
+}
+
+TEST_F(
+    PrestoToVeloxConnectorTest,
+    icebergWriteHandlesWriteFlatWithoutPartitionPaths) {
+  const auto verifyFlat =
+      [](const std::unique_ptr<connector::ConnectorInsertTableHandle>& result) {
+        auto* icebergInsert =
+            dynamic_cast<connector::hive::iceberg::IcebergInsertTableHandle*>(
+                result.get());
+        ASSERT_NE(icebergInsert, nullptr);
+        EXPECT_EQ(
+            icebergInsert->locationHandle()->targetPath(), "/path/to/table");
+        EXPECT_EQ(
+            icebergInsert->locationHandle()->writePath(), "/path/to/table");
+        EXPECT_FALSE(icebergInsert->includePartitionPaths());
+      };
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+
+  {
+    auto protoHandle =
+        std::make_shared<protocol::iceberg::IcebergOutputTableHandle>();
+    protoHandle->outputPath = "/path/to/table";
+    protoHandle->includePartitionPaths = std::make_shared<bool>(false);
+    protoHandle->inputColumns = {makeIcebergIdColumn()};
+    protoHandle->partitionSpec = makeIdentityPartitionSpec();
+    protocol::CreateHandle handle;
+    handle.handle.connectorHandle = protoHandle;
+    verifyFlat(
+        icebergConnector.toVeloxInsertTableHandle(&handle, *typeParser_));
+  }
+  {
+    auto protoHandle =
+        std::make_shared<protocol::iceberg::IcebergInsertTableHandle>();
+    protoHandle->outputPath = "/path/to/table";
+    protoHandle->includePartitionPaths = std::make_shared<bool>(false);
+    protoHandle->inputColumns = {makeIcebergIdColumn()};
+    protoHandle->partitionSpec = makeIdentityPartitionSpec();
+    protocol::InsertHandle handle;
+    handle.handle.connectorHandle = protoHandle;
+    verifyFlat(
+        icebergConnector.toVeloxInsertTableHandle(&handle, *typeParser_));
+  }
+  {
+    auto protoHandle =
+        std::make_shared<protocol::iceberg::IcebergMergeTableHandle>();
+    protoHandle->insertTableHandle.outputPath = "/path/to/table";
+    protoHandle->insertTableHandle.includePartitionPaths =
+        std::make_shared<bool>(false);
+    protoHandle->insertTableHandle.inputColumns = {makeIcebergIdColumn()};
+    protoHandle->insertTableHandle.partitionSpec = makeIdentityPartitionSpec();
+    protocol::MergeHandle handle;
+    handle.connectorMergeTableHandle = protoHandle;
+    verifyFlat(
+        icebergConnector.toVeloxInsertTableHandle(&handle, *typeParser_));
+  }
+  {
+    auto protoHandle =
+        std::make_shared<protocol::iceberg::IcebergDeleteTableHandle>();
+    protoHandle->outputPath = "/path/to/table";
+    protoHandle->includePartitionPaths = std::make_shared<bool>(false);
+    protoHandle->fileContent = protocol::iceberg::FileContent::DELETION_VECTOR;
+    protocol::DeleteHandle handle;
+    handle.handle.connectorHandle = protoHandle;
+    verifyFlat(
+        icebergConnector.toVeloxInsertTableHandle(&handle, *typeParser_));
+  }
+  {
+    auto protoHandle = std::make_shared<
+        protocol::iceberg::IcebergDistributedProcedureHandle>();
+    protoHandle->outputPath = "/path/to/table";
+    protoHandle->includePartitionPaths = std::make_shared<bool>(false);
+    protoHandle->inputColumns = {makeIcebergIdColumn()};
+    protoHandle->partitionSpec = makeIdentityPartitionSpec();
+    protocol::ExecuteProcedureHandle handle;
+    handle.handle.connectorHandle = protoHandle;
+    verifyFlat(
+        icebergConnector.toVeloxInsertTableHandle(&handle, *typeParser_));
+  }
+}
+
+// A coordinator that predates includePartitionPaths omits it. The worker must
+// deserialize the handle and keep the legacy layout.
+TEST_F(
+    PrestoToVeloxConnectorTest,
+    icebergWriteHandleWithoutIncludePartitionPathsUsesLegacyLayout) {
+  protocol::iceberg::IcebergInsertTableHandle protoHandle;
+  protoHandle._type = "hive-iceberg";
+  protoHandle.schemaName = "test_schema";
+  protoHandle.tableName.tableName = "test_table";
+  protoHandle.outputPath = "/path/to/table";
+  protoHandle.includePartitionPaths = std::make_shared<bool>(false);
+  protoHandle.fileFormat = protocol::iceberg::FileFormat::PARQUET;
+  protoHandle.compressionCodec = protocol::hive::HiveCompressionCodec::NONE;
+  protoHandle.inputColumns = {makeIcebergIdColumn()};
+  protoHandle.partitionSpec = makeIdentityPartitionSpec();
+  json payload = protoHandle;
+  payload.erase("includePartitionPaths");
+
+  auto parsed = std::make_shared<protocol::iceberg::IcebergInsertTableHandle>(
+      payload.get<protocol::iceberg::IcebergInsertTableHandle>());
+  EXPECT_EQ(parsed->includePartitionPaths, nullptr);
+
+  protocol::InsertHandle insertHandle;
+  insertHandle.handle.connectorHandle = parsed;
+  insertHandle.handle.connectorId = "iceberg";
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  verifyIcebergWriteHandle(
+      icebergConnector.toVeloxInsertTableHandle(&insertHandle, *typeParser_),
+      connector::hive::LocationHandle::TableType::kExisting,
+      connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::kData);
+}
+
+// An explicit true behaves exactly like an absent field.
+TEST_F(PrestoToVeloxConnectorTest, icebergWriteHandleWithPartitionPaths) {
+  auto protoHandle =
+      std::make_shared<protocol::iceberg::IcebergInsertTableHandle>();
+  protoHandle->_type = "hive-iceberg";
+  protoHandle->outputPath = "/path/to/table";
+  protoHandle->includePartitionPaths = std::make_shared<bool>(true);
+  protoHandle->fileFormat = protocol::iceberg::FileFormat::PARQUET;
+  protoHandle->compressionCodec = protocol::hive::HiveCompressionCodec::NONE;
+  protoHandle->inputColumns = {makeIcebergIdColumn()};
+  protoHandle->partitionSpec = makeIdentityPartitionSpec();
+
+  protocol::InsertHandle insertHandle;
+  insertHandle.handle.connectorHandle = protoHandle;
+  insertHandle.handle.connectorId = "iceberg";
+  IcebergPrestoToVeloxConnector icebergConnector("iceberg");
+  verifyIcebergWriteHandle(
+      icebergConnector.toVeloxInsertTableHandle(&insertHandle, *typeParser_),
+      connector::hive::LocationHandle::TableType::kExisting,
+      connector::hive::iceberg::IcebergInsertTableHandle::WriteKind::kData);
+}
+
+// The field round-trips through JSON, and an absent field is not serialized.
+TEST_F(PrestoToVeloxConnectorTest, icebergIncludePartitionPathsJsonRoundTrip) {
+  protocol::iceberg::IcebergOutputTableHandle protoHandle;
+  protoHandle._type = "hive-iceberg";
+  protoHandle.outputPath = "/path/to/table";
+
+  json withoutField = protoHandle;
+  EXPECT_FALSE(withoutField.contains("includePartitionPaths"));
+
+  protoHandle.includePartitionPaths = std::make_shared<bool>(false);
+  json withField = protoHandle;
+  ASSERT_TRUE(withField.contains("includePartitionPaths"));
+  auto copy = withField.get<protocol::iceberg::IcebergOutputTableHandle>();
+  ASSERT_NE(copy.includePartitionPaths, nullptr);
+  EXPECT_FALSE(*copy.includePartitionPaths);
 }
 
 namespace {

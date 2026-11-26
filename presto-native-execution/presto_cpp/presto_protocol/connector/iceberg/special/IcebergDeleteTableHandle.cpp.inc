@@ -64,6 +64,13 @@ void to_json(json& j, const IcebergDeleteTableHandle& p) {
       "outputPath");
   to_json_key(
       j,
+      "includePartitionPaths",
+      p.includePartitionPaths,
+      "IcebergDeleteTableHandle",
+      "bool",
+      "includePartitionPaths");
+  to_json_key(
+      j,
       "fileFormat",
       p.fileFormat,
       "IcebergDeleteTableHandle",
@@ -157,6 +164,13 @@ void from_json(const json& j, IcebergDeleteTableHandle& p) {
       "IcebergDeleteTableHandle",
       "String",
       "outputPath");
+  from_json_key(
+      j,
+      "includePartitionPaths",
+      p.includePartitionPaths,
+      "IcebergDeleteTableHandle",
+      "bool",
+      "includePartitionPaths");
   from_json_key(
       j,
       "fileFormat",
