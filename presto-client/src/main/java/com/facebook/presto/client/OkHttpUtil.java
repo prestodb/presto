@@ -15,14 +15,17 @@ package com.facebook.presto.client;
 
 import com.facebook.airlift.security.pem.PemReader;
 import com.google.common.base.CharMatcher;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import okhttp.internal.tls.LegacyHostnameVerifier;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.Credentials;
+import okhttp3.HttpUrl;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
 import okhttp3.Response;
 
 import javax.net.ssl.KeyManager;
@@ -50,15 +53,18 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
+import static java.lang.String.format;
 import static java.net.Proxy.Type.HTTP;
 import static java.net.Proxy.Type.SOCKS;
 import static java.nio.file.Files.newInputStream;
 import static java.util.Collections.list;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class OkHttpUtil
@@ -82,7 +88,24 @@ public final class OkHttpUtil
                 .build());
     }
 
+    /**
+     * Interceptor that adds basic authentication credentials when the request has no
+     * {@code Authorization} header. An existing header, such as the one an {@code Authenticator}
+     * supplies when retrying after a 401, is left untouched.
+     * Credentials are forwarded on redirects only to the original origin (same scheme, host and port);
+     * see {@link #isTrustedRedirectTarget}.
+     * Must be registered with {@code addNetworkInterceptor} so it runs on each hop in the redirect chain.
+     */
     public static Interceptor basicAuth(String user, String password)
+    {
+        return basicAuth(user, password, ImmutableSet.of());
+    }
+
+    /**
+     * Same as {@link #basicAuth(String, String)}, but additionally forwards credentials to the
+     * HTTPS destinations listed in {@code trustedRedirectHosts}; see {@link #isTrustedRedirectTarget}.
+     */
+    public static Interceptor basicAuth(String user, String password, Set<String> trustedRedirectHosts)
     {
         requireNonNull(user, "user is null");
         requireNonNull(password, "password is null");
@@ -90,20 +113,107 @@ public final class OkHttpUtil
             throw new ClientException("Illegal character ':' found in username");
         }
 
-        String credential = Credentials.basic(user, password);
-        return chain -> chain.proceed(chain.request().newBuilder()
-                .header(AUTHORIZATION, credential)
-                .build());
+        return authorizationInterceptor(Credentials.basic(user, password), trustedRedirectHosts);
     }
 
+    /**
+     * Interceptor that adds a bearer token when the request has no {@code Authorization} header.
+     * Credentials are forwarded on redirects only to the original origin;
+     * see {@link #basicAuth(String, String)} and {@link #isTrustedRedirectTarget}.
+     */
     public static Interceptor tokenAuth(String accessToken)
+    {
+        return tokenAuth(accessToken, ImmutableSet.of());
+    }
+
+    /**
+     * Same as {@link #tokenAuth(String)}, but additionally forwards the token to the HTTPS
+     * destinations listed in {@code trustedRedirectHosts}; see {@link #isTrustedRedirectTarget}.
+     */
+    public static Interceptor tokenAuth(String accessToken, Set<String> trustedRedirectHosts)
     {
         requireNonNull(accessToken, "accessToken is null");
         checkArgument(CharMatcher.inRange((char) 33, (char) 126).matchesAllOf(accessToken));
 
-        return chain -> chain.proceed(chain.request().newBuilder()
-                .addHeader(AUTHORIZATION, "Bearer " + accessToken)
-                .build());
+        return authorizationInterceptor("Bearer " + accessToken, trustedRedirectHosts);
+    }
+
+    private static Interceptor authorizationInterceptor(String credential, Set<String> trustedRedirectHosts)
+    {
+        Set<String> trustedHosts = normalizeTrustedRedirectHosts(trustedRedirectHosts);
+        return chain -> {
+            Request request = chain.request();
+            // Only fill in a missing Authorization header, never replace one that is already present.
+            // A header set by an Authenticator (e.g. ExternalAuthenticator's bearer token on a 401
+            // retry) or by an application interceptor must be preserved. The header is missing on the
+            // first request and after OkHttp strips it on a redirect to a different host. The original
+            // request of the call tells us where the user intended to send credentials, so we add
+            // them only when the target is a trusted one.
+            if (request.header(AUTHORIZATION) == null
+                    && isTrustedRedirectTarget(chain.call().request().url(), request.url(), trustedHosts)) {
+                request = request.newBuilder().header(AUTHORIZATION, credential).build();
+            }
+            return chain.proceed(request);
+        };
+    }
+
+    /**
+     * Credentials may be sent to {@code target} only if it is the same origin as the URL the user
+     * originally connected to (same scheme, host and port).
+     * Sibling hosts under the same registrable domain are intentionally excluded — a different
+     * hostname may be an independently controlled service that should not receive credentials.
+     */
+    static boolean isTrustedRedirectTarget(HttpUrl origin, HttpUrl target)
+    {
+        return isTrustedRedirectTarget(origin, target, ImmutableSet.of());
+    }
+
+    /**
+     * Same-origin redirects are always trusted. In addition, credentials may be sent to a different
+     * host only if the user explicitly listed it in {@code trustedHosts} (entries as returned by
+     * {@link #normalizeTrustedRedirectHosts}: {@code host} or {@code host:port}, lower case), and both
+     * the original request and the target use HTTPS. A target that is not listed, or any redirect
+     * involving plain HTTP, is rejected, so there is no HTTPS downgrade and no wildcard or
+     * domain-suffix matching.
+     */
+    static boolean isTrustedRedirectTarget(HttpUrl origin, HttpUrl target, Set<String> trustedHosts)
+    {
+        if (origin.scheme().equals(target.scheme())
+                && origin.host().equalsIgnoreCase(target.host())
+                && origin.port() == target.port()) {
+            return true;
+        }
+        if (!origin.isHttps() || !target.isHttps()) {
+            return false;
+        }
+        String host = target.host().toLowerCase(ENGLISH);
+        return trustedHosts.contains(host) || trustedHosts.contains(host + ":" + target.port());
+    }
+
+    /**
+     * Validates and normalizes user supplied trusted redirect hosts. Each entry must be a bare
+     * {@code host} (any port) or {@code host:port}. URLs, paths, wildcards and empty entries are rejected.
+     */
+    public static Set<String> normalizeTrustedRedirectHosts(Set<String> hosts)
+    {
+        requireNonNull(hosts, "hosts is null");
+        ImmutableSet.Builder<String> normalized = ImmutableSet.builder();
+        for (String entry : hosts) {
+            String value = entry.trim();
+            checkArgument(!value.isEmpty() && !value.contains("*") && !value.contains("/") && !value.contains("@"),
+                    "Invalid trusted redirect host '%s': expected host or host:port", entry);
+            HostAndPort hostAndPort;
+            try {
+                hostAndPort = HostAndPort.fromString(value);
+            }
+            catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(format("Invalid trusted redirect host '%s': expected host or host:port", entry), e);
+            }
+            checkArgument(!hostAndPort.getHost().isEmpty(), "Invalid trusted redirect host '%s': expected host or host:port", entry);
+            String host = hostAndPort.getHost().toLowerCase(ENGLISH);
+            normalized.add(hostAndPort.hasPort() ? host + ":" + hostAndPort.getPort() : host);
+        }
+        return normalized.build();
     }
 
     public static void setupTimeouts(OkHttpClient.Builder clientBuilder, int timeout, TimeUnit unit)
