@@ -47,9 +47,9 @@ public class HdfsEnvironment
         this.hdfsConfiguration = requireNonNull(hdfsConfiguration, "hdfsConfiguration is null");
         this.verifyChecksum = requireNonNull(config, "config is null").isVerifyChecksum();
         this.hdfsAuthentication = requireNonNull(hdfsAuthentication, "hdfsAuthentication is null");
-        if (config.isRequireHadoopNative()) {
-            HadoopNative.requireHadoopNative();
-        }
+//        if (config.isRequireHadoopNative()) {
+//            HadoopNative.requireHadoopNative();
+//        }
     }
 
     public Configuration getConfiguration(HdfsContext context, Path path)
