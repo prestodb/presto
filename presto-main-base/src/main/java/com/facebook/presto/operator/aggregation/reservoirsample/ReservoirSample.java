@@ -18,12 +18,14 @@ import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.block.BlockBuilder;
 import com.facebook.presto.common.type.ArrayType;
 import com.facebook.presto.common.type.Type;
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SizeOf;
 import jakarta.annotation.Nullable;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -105,17 +107,24 @@ public class ReservoirSample
                 .collect(Collectors.toCollection(ArrayList::new));
     }
 
-    private static ArrayList<Block> mergeBlockSamples(ArrayList<Block> samples1, ArrayList<Block> samples2, long seenCount1, long seenCount2)
+    private static ArrayList<Block> mergeBlockSamples(ArrayList<Block> samples1, ArrayList<Block> samples2, long seenCount1, long seenCount2, Random random)
     {
+        // Every set of rows must be equally likely. That holds when the number of values taken
+        // from each side matches drawing rows without replacement from both inputs: each draw
+        // picks a side with probability proportional to its remaining rows.
+        long remaining1 = seenCount1;
+        long remaining2 = seenCount2;
         int nextIndex = 0;
         int otherNextIndex = 0;
         ArrayList<Block> merged = new ArrayList<>(samples1.size());
         for (int i = 0; i < samples1.size(); i++) {
-            if (ThreadLocalRandom.current().nextLong(0, seenCount1 + seenCount2) < seenCount1) {
+            if (random.nextLong(0, remaining1 + remaining2) < remaining1) {
                 merged.add(samples1.get(nextIndex++));
+                remaining1--;
             }
             else {
                 merged.add(samples2.get(otherNextIndex++));
+                remaining2--;
             }
         }
         return merged;
@@ -197,7 +206,7 @@ public class ReservoirSample
         }
     }
 
-    private void addSingleBlock(Block block)
+    private void addSingleBlock(Block block, Random random)
     {
         processedCount++;
         int sampleSize = getMaxSampleSize();
@@ -205,7 +214,7 @@ public class ReservoirSample
             samples.add(block);
         }
         else {
-            long index = ThreadLocalRandom.current().nextLong(0L, processedCount);
+            long index = random.nextLong(0L, processedCount);
             if (index < samples.size()) {
                 samples.set((int) index, block);
             }
@@ -213,6 +222,12 @@ public class ReservoirSample
     }
 
     public void merge(ReservoirSample other)
+    {
+        merge(other, ThreadLocalRandom.current());
+    }
+
+    @VisibleForTesting
+    void merge(ReservoirSample other, Random random)
     {
         if (sampleNotInitialized()) {
             tryInitialize(other.getMaxSampleSize());
@@ -225,21 +240,21 @@ public class ReservoirSample
                 format("maximum number of samples %s must be equal to that of other %s", getMaxSampleSize(), other.getMaxSampleSize()));
         if (other.processedCount < getMaxSampleSize()) {
             for (int i = 0; i < other.samples.size(); i++) {
-                addSingleBlock(other.samples.get(i));
+                addSingleBlock(other.samples.get(i), random);
             }
             return;
         }
         if (processedCount < getMaxSampleSize()) {
             for (int i = 0; i < processedCount; i++) {
-                other.addSingleBlock(samples.get(i));
+                other.addSingleBlock(samples.get(i), random);
             }
             processedCount = other.processedCount;
             samples = other.samples;
             return;
         }
-        Collections.shuffle(samples);
-        Collections.shuffle(other.samples);
-        samples = mergeBlockSamples(samples, other.samples, processedCount, other.processedCount);
+        Collections.shuffle(samples, random);
+        Collections.shuffle(other.samples, random);
+        samples = mergeBlockSamples(samples, other.samples, processedCount, other.processedCount, random);
         processedCount += other.processedCount;
     }
 
