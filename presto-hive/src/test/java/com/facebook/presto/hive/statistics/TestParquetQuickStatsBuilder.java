@@ -30,6 +30,7 @@ import com.facebook.presto.hive.TestingExtendedHiveMetastore;
 import com.facebook.presto.hive.authentication.NoHdfsAuthentication;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HiveColumnStatistics;
 import com.facebook.presto.hive.metastore.MetastoreContext;
 import com.facebook.presto.hive.metastore.PartitionStatistics;
 import com.facebook.presto.hive.metastore.PrincipalPrivileges;
@@ -98,6 +99,9 @@ public class TestParquetQuickStatsBuilder
             false)));
     public static final String TEST_SCHEMA = "test_schema";
     public static final String TEST_TABLE = "quick_stats";
+    // 2022-01-09T10:30:00 and 99 minutes later, as microseconds since the epoch. See min_max_fixture.py
+    private static final long TIMESTAMP_MIN_MICROS = 1_641_724_200_000_000L;
+    private static final long TIMESTAMP_MAX_MICROS = 1_641_730_140_000_000L;
     private ParquetQuickStatsBuilder parquetQuickStatsBuilder;
     private MetastoreContext metastoreContext;
     private ExtendedHiveMetastore metastore;
@@ -160,6 +164,14 @@ public class TestParquetQuickStatsBuilder
         return result;
     }
 
+    private static <T extends Comparable<T>> ColumnQuickStats<T> createStatsWithoutMinMax(String columnName, Class<T> statType, long nullsCount)
+    {
+        ColumnQuickStats<T> result = new ColumnQuickStats<>(columnName, statType);
+        result.addToNullsCount(nullsCount);
+
+        return result;
+    }
+
     private static ColumnQuickStats<Slice> createBinaryStats(String columnName, long nullsCount)
     {
         ColumnQuickStats<Slice> result = new ColumnQuickStats<>(columnName, Slice.class);
@@ -171,6 +183,16 @@ public class TestParquetQuickStatsBuilder
     private static ColumnQuickStats<Double> createDoubleStats(String columnName, long nullsCount, double min, double max)
     {
         ColumnQuickStats<Double> result = new ColumnQuickStats<>(columnName, Double.class);
+        result.addToNullsCount(nullsCount);
+        result.setMinValue(min);
+        result.setMaxValue(max);
+
+        return result;
+    }
+
+    private static ColumnQuickStats<Float> createFloatStats(String columnName, long nullsCount, float min, float max)
+    {
+        ColumnQuickStats<Float> result = new ColumnQuickStats<>(columnName, Float.class);
         result.addToNullsCount(nullsCount);
         result.setMinValue(min);
         result.setMaxValue(max);
@@ -321,6 +343,63 @@ public class TestParquetQuickStatsBuilder
         assertFalse(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("comment")).isPresent());
         assertEquals(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("orderdate")), OptionalLong.of(100L));
         assertEquals(estimateNdv(partitionQuickStats, columnQuickStatsMap.get("totalprice")), OptionalLong.of(100L));
+    }
+
+    @Test
+    public void testMinMaxStatsUseNonDeprecatedFields()
+    {
+        String resourceDir = TestParquetQuickStatsBuilder.class.getClassLoader().getResource("quick_stats").toString();
+
+        ImmutableList<HiveFileInfo> hiveFileInfos = buildHiveFileInfos(resourceDir, "min_max_stats", 1);
+        PartitionQuickStats partitionQuickStats = parquetQuickStatsBuilder.buildQuickStats(SESSION, metastore, new SchemaTableName(TEST_SCHEMA, TEST_TABLE),
+                metastoreContext, UNPARTITIONED_ID.getPartitionName(), hiveFileInfos.iterator());
+
+        assertEquals(partitionQuickStats.getFileCount(), 1);
+        // The fixture only sets min_value/max_value; the deprecated min/max fields are unset
+        Map<String, ? extends ColumnQuickStats<?>> columnQuickStatsMap = partitionQuickStats.getStats().stream().collect(toMap(ColumnQuickStats::getColumnName, v -> v));
+        assertEquals(columnQuickStatsMap.size(), 27);
+
+        // Columns with only min_value/max_value : always read
+        assertEquals(columnQuickStatsMap.get("i32"), createIntegerStats("i32", 0L, 1, 100));
+        assertEquals(columnQuickStatsMap.get("i64"), createLongStats("i64", 0L, 1_000_000_000L, 100_000_000_000L));
+        assertEquals(columnQuickStatsMap.get("d"), createDateStats("d", 0L, parse("2022-01-09"), parse("2022-04-18")));
+        assertEquals(columnQuickStatsMap.get("dbl"), createDoubleStats("dbl", 0L, 1.5, 100.5));
+        assertEquals(columnQuickStatsMap.get("flt"), createFloatStats("flt", 0L, 1.25f, 100.25f));
+        assertEquals(columnQuickStatsMap.get("i8"), createIntegerStats("i8", 0L, 1, 100));
+        assertEquals(columnQuickStatsMap.get("i16"), createIntegerStats("i16", 0L, 100, 10_000));
+        assertEquals(columnQuickStatsMap.get("ts"), createLongStats("ts", 0L, TIMESTAMP_MIN_MICROS, TIMESTAMP_MAX_MICROS));
+        // DECIMAL(9, 2) and DECIMAL(18, 3) are stored as INT32 and INT64 in this file; stats are the unscaled values
+        assertEquals(columnQuickStatsMap.get("dec32"), createIntegerStats("dec32", 0L, 1, 100));
+        assertEquals(columnQuickStatsMap.get("dec64"), createLongStats("dec64", 0L, 1_000_000L, 100_000_000L));
+        assertEquals(columnQuickStatsMap.get("u8"), createIntegerStats("u8", 0L, 1, 100));
+        assertEquals(columnQuickStatsMap.get("u32"), createIntegerStats("u32", 0L, 10_000_000, 1_000_000_000));
+        assertEquals(columnQuickStatsMap.get("u64"), createLongStats("u64", 0L, 1_000_000_000L, 100_000_000_000L));
+
+        // Columns with only the deprecated min/max and a signed sort order : read
+        assertEquals(columnQuickStatsMap.get("i32_legacy"), createIntegerStats("i32_legacy", 0L, 1, 100));
+        assertEquals(columnQuickStatsMap.get("i64_legacy"), createLongStats("i64_legacy", 0L, 1_000_000_000L, 100_000_000_000L));
+        assertEquals(columnQuickStatsMap.get("d_legacy"), createDateStats("d_legacy", 0L, parse("2022-01-09"), parse("2022-04-18")));
+        assertEquals(columnQuickStatsMap.get("dbl_legacy"), createDoubleStats("dbl_legacy", 0L, 1.5, 100.5));
+        assertEquals(columnQuickStatsMap.get("flt_legacy"), createFloatStats("flt_legacy", 0L, 1.25f, 100.25f));
+        assertEquals(columnQuickStatsMap.get("i8_legacy"), createIntegerStats("i8_legacy", 0L, 1, 100));
+        assertEquals(columnQuickStatsMap.get("i16_legacy"), createIntegerStats("i16_legacy", 0L, 100, 10_000));
+        assertEquals(columnQuickStatsMap.get("ts_legacy"), createLongStats("ts_legacy", 0L, TIMESTAMP_MIN_MICROS, TIMESTAMP_MAX_MICROS));
+
+        // Columns with only the deprecated min/max, and an unsigned or unknown sort order : not read, so there is no min/max
+        assertEquals(columnQuickStatsMap.get("u8_legacy"), createStatsWithoutMinMax("u8_legacy", Integer.class, 0L));
+        assertEquals(columnQuickStatsMap.get("u32_legacy"), createStatsWithoutMinMax("u32_legacy", Integer.class, 0L));
+        assertEquals(columnQuickStatsMap.get("u64_legacy"), createStatsWithoutMinMax("u64_legacy", Long.class, 0L));
+        assertEquals(columnQuickStatsMap.get("dec32_legacy"), createStatsWithoutMinMax("dec32_legacy", Integer.class, 0L));
+        assertEquals(columnQuickStatsMap.get("dec64_legacy"), createStatsWithoutMinMax("dec64_legacy", Long.class, 0L));
+        // ...unless min == max, where the sort order does not matter
+        assertEquals(columnQuickStatsMap.get("u32_const_legacy"), createIntegerStats("u32_const_legacy", 0L, 7, 7));
+
+        // Columns without min/max can be converted to Hive statistics, with an empty min/max
+        Map<String, HiveColumnStatistics> hiveColumnStatistics = PartitionQuickStats.convertToPartitionStatistics(partitionQuickStats).getColumnStatistics();
+        assertEquals(hiveColumnStatistics.get("i32_legacy").getIntegerStatistics().get().getMin(), OptionalLong.of(1));
+        assertEquals(hiveColumnStatistics.get("u32_legacy").getIntegerStatistics().get().getMin(), OptionalLong.empty());
+        assertEquals(hiveColumnStatistics.get("u32_legacy").getIntegerStatistics().get().getMax(), OptionalLong.empty());
+        assertEquals(hiveColumnStatistics.get("u64_legacy").getIntegerStatistics().get().getMin(), OptionalLong.empty());
     }
 
     @Test
