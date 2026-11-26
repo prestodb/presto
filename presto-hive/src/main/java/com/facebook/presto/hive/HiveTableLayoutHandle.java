@@ -321,6 +321,9 @@ public class HiveTableLayoutHandle
 
     public Table getTable(SemiTransactionalHiveMetastore metastore, MetastoreContext metastoreContext)
     {
+        if (hiveTableHandle.isPresent() && hiveTableHandle.get().getSyntheticTable().isPresent()) {
+            return hiveTableHandle.get().getSyntheticTable().get();
+        }
         Optional<Table> table;
         if (hiveTableHandle.isPresent()) {
             table = metastore.getTable(metastoreContext, hiveTableHandle.get());
