@@ -18,14 +18,22 @@ import com.facebook.presto.cassandra.CassandraType;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
+import java.time.LocalDate;
 import java.util.List;
 
+import static com.facebook.presto.cassandra.util.CassandraCqlUtils.cqlValue;
+import static com.facebook.presto.cassandra.util.CassandraCqlUtils.isPushdownSafeValue;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.quoteStringLiteral;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.quoteStringLiteralForJson;
+import static com.facebook.presto.cassandra.util.CassandraCqlUtils.toCQLCompatibleString;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validColumnName;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validSchemaName;
 import static com.facebook.presto.cassandra.util.CassandraCqlUtils.validTableName;
+import static io.airlift.slice.Slices.utf8Slice;
+import static java.lang.Float.floatToRawIntBits;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestCassandraCqlUtils
 {
@@ -66,6 +74,66 @@ public class TestCassandraCqlUtils
         assertEquals("\"foo\"", quoteStringLiteralForJson("foo"));
         assertEquals("\"Presto's\"", quoteStringLiteralForJson("Presto's"));
         assertEquals("\"xx\\\"xx\"", quoteStringLiteralForJson("xx\"xx"));
+    }
+
+    @Test
+    public void testCqlValueDate()
+    {
+        long days = LocalDate.parse("2026-09-06").toEpochDay();
+        assertEquals(cqlValue(toCQLCompatibleString(days), CassandraType.DATE), "'2026-09-06'");
+        assertEquals(cqlValue(toCQLCompatibleString(0L), CassandraType.DATE), "'1970-01-01'");
+        assertEquals(cqlValue(toCQLCompatibleString(-1L), CassandraType.DATE), "'1969-12-31'");
+    }
+
+    @Test
+    public void testCqlValueFloat()
+    {
+        assertEquals(cqlValue(toCQLCompatibleString((long) floatToRawIntBits(6.5f)), CassandraType.FLOAT), "6.5");
+        assertEquals(cqlValue(toCQLCompatibleString((long) floatToRawIntBits(-0.25f)), CassandraType.FLOAT), "-0.25");
+        assertEquals(cqlValue(toCQLCompatibleString((long) floatToRawIntBits(1.0e10f)), CassandraType.FLOAT), "1.0E10");
+    }
+
+    @Test
+    public void testCqlValueInet()
+    {
+        assertEquals(cqlValue(toCQLCompatibleString(utf8Slice("10.0.0.6")), CassandraType.INET), "'10.0.0.6'");
+        assertEquals(cqlValue(toCQLCompatibleString(utf8Slice("127.0.0.1")), CassandraType.INET), "'127.0.0.1'");
+        assertEquals(cqlValue(toCQLCompatibleString(utf8Slice("::1")), CassandraType.INET), "'::1'");
+    }
+
+    @Test
+    public void testIsPushdownSafeValueInet()
+    {
+        // already in the form the connector reads back
+        assertTrue(isPushdownSafeValue(utf8Slice("10.0.0.6"), CassandraType.INET));
+        assertTrue(isPushdownSafeValue(utf8Slice("::1"), CassandraType.INET));
+        assertTrue(isPushdownSafeValue(utf8Slice("2001:db8::1"), CassandraType.INET));
+
+        // same address as a stored row, but a different string
+        assertFalse(isPushdownSafeValue(utf8Slice("0:0:0:0:0:0:0:1"), CassandraType.INET));
+        assertFalse(isPushdownSafeValue(utf8Slice("2001:0db8::1"), CassandraType.INET));
+        assertFalse(isPushdownSafeValue(utf8Slice("2001:DB8::1"), CassandraType.INET));
+        assertFalse(isPushdownSafeValue(utf8Slice("::ffff:10.0.0.6"), CassandraType.INET));
+        assertFalse(isPushdownSafeValue(utf8Slice("fe80::1%1"), CassandraType.INET));
+
+        // not an address, so Cassandra would reject the query
+        assertFalse(isPushdownSafeValue(utf8Slice("not-an-ip"), CassandraType.INET));
+        assertFalse(isPushdownSafeValue(utf8Slice(""), CassandraType.INET));
+    }
+
+    @Test
+    public void testIsPushdownSafeValueOtherTypes()
+    {
+        assertTrue(isPushdownSafeValue(utf8Slice("not-an-ip"), CassandraType.TEXT));
+        assertTrue(isPushdownSafeValue(60L, CassandraType.INT));
+    }
+
+    @Test
+    public void testCqlValueUnchangedTypes()
+    {
+        assertEquals(cqlValue(toCQLCompatibleString(60L), CassandraType.INT), "60");
+        assertEquals(cqlValue(toCQLCompatibleString(6.5), CassandraType.DOUBLE), "6.5");
+        assertEquals(cqlValue(toCQLCompatibleString(utf8Slice("o'brien")), CassandraType.TEXT), "'o''brien'");
     }
 
     @Test

@@ -90,7 +90,14 @@ public class CassandraClusteringPredicatesExtractor
                             if (range.isAll()) {
                                 return null;
                             }
+                            // Presto compares inet as varchar and Cassandra compares by address, so leave ranges to Presto
+                            if (!range.isSingleValue() && columnHandle.getCassandraType() == CassandraType.INET) {
+                                return null;
+                            }
                             if (range.isSingleValue()) {
+                                if (!CassandraCqlUtils.isPushdownSafeValue(range.getSingleValue(), columnHandle.getCassandraType())) {
+                                    return null;
+                                }
                                 singleValues.add(CassandraCqlUtils.cqlValue(toCQLCompatibleString(range.getSingleValue()),
                                         columnHandle.getCassandraType()));
                             }
@@ -132,6 +139,9 @@ public class CassandraClusteringPredicatesExtractor
                         if (discreteValues.isWhiteList()) {
                             ImmutableList.Builder<Object> discreteValuesList = ImmutableList.builder();
                             for (Object discreteValue : discreteValues.getValues()) {
+                                if (!CassandraCqlUtils.isPushdownSafeValue(discreteValue, columnHandle.getCassandraType())) {
+                                    return null;
+                                }
                                 discreteValuesList.add(CassandraCqlUtils.cqlValue(toCQLCompatibleString(discreteValue),
                                         columnHandle.getCassandraType()));
                             }

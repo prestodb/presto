@@ -20,14 +20,17 @@ import com.facebook.presto.cassandra.CassandraTableHandle;
 import com.facebook.presto.cassandra.CassandraType;
 import com.facebook.presto.spi.ColumnHandle;
 import com.fasterxml.jackson.core.io.JsonStringEncoder;
+import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import static com.facebook.presto.common.type.DateTimeEncoding.unpackMillisUtc;
+import static java.lang.Float.intBitsToFloat;
 
 public final class CassandraCqlUtils
 {
@@ -172,11 +175,37 @@ public final class CassandraCqlUtils
             case VARCHAR:
                 return quoteStringLiteral(value);
             case INET:
-                // remove '/' in the string. e.g. /127.0.0.1
-                return quoteStringLiteral(value.substring(1));
+                // value comes from InetAddresses.toAddrString(), so it has no leading '/'
+                return quoteStringLiteral(value);
+            case DATE:
+                // Cassandra reads a bare integer as days since 2^31, not since 1970-01-01
+                return quoteStringLiteral(LocalDate.ofEpochDay(Long.parseLong(value)).toString());
+            case FLOAT:
+                // REAL is stored as the raw int bits of the float
+                return Float.toString(intBitsToFloat((int) Long.parseLong(value)));
             default:
                 return value;
         }
+    }
+
+    /**
+     * Returns whether a predicate on {@code nativeValue} can be enforced by Cassandra with the same result as Presto.
+     * Presto exposes inet as varchar and compares strings, while Cassandra compares addresses. So an inet literal is
+     * pushed down only when it is a valid address already in the form the connector reads, from
+     * {@link InetAddresses#toAddrString}. Otherwise {@code '0:0:0:0:0:0:0:1'} would match a row read as {@code '::1'},
+     * and an invalid address would make Cassandra reject a valid varchar comparison.
+     */
+    public static boolean isPushdownSafeValue(Object nativeValue, CassandraType cassandraType)
+    {
+        if (cassandraType != CassandraType.INET) {
+            return true;
+        }
+        String value = toCQLCompatibleString(nativeValue);
+        // Cassandra does not store an IPv6 scope ID, so a row never reads back with one
+        if (value.indexOf('%') >= 0 || !InetAddresses.isInetAddress(value)) {
+            return false;
+        }
+        return InetAddresses.toAddrString(InetAddresses.forString(value)).equals(value);
     }
 
     public static String toCQLCompatibleString(Object value)
