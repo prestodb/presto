@@ -177,8 +177,10 @@ SessionProperties::SessionProperties() {
 
   addSessionProperty(
       kRpcRateLimiterMinLimit,
-      "Native Execution only. Integral override for the adaptive RPC "
-      "congestion-window floor. Zero delegates to the backend policy.",
+      "Native Execution only. Floor of the adaptive RPC congestion window. A "
+      "positive value replaces the function's floor unless "
+      "native_rpc_ratelimiter_hard_limit is zero or more; zero uses the "
+      "function's floor.",
       BIGINT(),
       false,
       QueryConfig::kRpcRateLimiterMinLimit,
@@ -197,9 +199,10 @@ SessionProperties::SessionProperties() {
 
   addSessionProperty(
       kRpcRateLimiterMaxLimit,
-      "Native Execution only. Legacy per-tier RPC rate-limiter ceiling. "
-      "Default 200; zero defers to the function or built-in legacy limit. "
-      "Superseded by native_rpc_ratelimiter_hard_limit when non-negative.",
+      "Native Execution only. Per-tier RPC rate-limiter ceiling. Default "
+      "200; a positive value replaces the function ceiling, and zero uses it, "
+      "or 20 when none is declared. "
+      "Ignored when native_rpc_ratelimiter_hard_limit is zero or more.",
       BIGINT(),
       false,
       QueryConfig::kRpcRateLimiterMaxLimit,
@@ -207,10 +210,13 @@ SessionProperties::SessionProperties() {
 
   addSessionProperty(
       kRpcRateLimiterHardLimit,
-      "Native Execution only. Versioned per-tier RPC hard ceiling. Minus one "
-      "preserves legacy max-limit semantics for mixed-version rollout. Zero "
-      "adds no session ceiling; a positive value combines with the function "
-      "ceiling.",
+      "Native Execution only. Zero or more makes the function's floor and "
+      "ceiling win over native_rpc_ratelimiter_min_limit and "
+      "native_rpc_ratelimiter_max_limit; a positive value also caps that "
+      "ceiling. Minus one, the default, keeps the session's precedence. To use "
+      "the function's floor and declared ceiling, prefer setting "
+      "native_rpc_ratelimiter_min_limit and native_rpc_ratelimiter_max_limit to "
+      "0; with no declared ceiling, max_limit=0 gives 20.",
       BIGINT(),
       false,
       "rpc.ratelimiter.hard_limit",

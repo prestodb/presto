@@ -630,8 +630,8 @@ Native Execution only. Enable the adaptive per-tier RPC rate limiter. When enabl
 uses multiplicative decrease on backend rate-limit/timeout overload signals, doubles a fractional
 window during healthy recovery until it reaches one, and then uses additive increase. Set to
 ``true`` by default (protective for shared, rate-limited inference backends); set to ``false`` to
-keep a static cap at the resolved hard ceiling: the smaller positive function/session bound, or
-200 when neither is set.
+keep a static cap at the resolved ceiling (see ``native_rpc_ratelimiter_max_limit`` and
+``native_rpc_ratelimiter_hard_limit``).
 
 ``native_rpc_ratelimiter_min_limit``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -639,10 +639,11 @@ keep a static cap at the resolved hard ceiling: the smaller positive function/se
 * **Type:** ``bigint``
 * **Default value:** ``50``
 
-Native Execution only. Integral override for the adaptive RPC congestion-window floor. Positive
-values preserve the legacy in-flight floor. Zero delegates to the function's backend policy,
-which may choose a fractional floor and pace discrete admissions using a smoothed successful
-completion duration. Only used when ``native_rpc_ratelimiter_adaptive_enabled`` is true.
+Native Execution only. Floor of the adaptive RPC congestion window. A positive value replaces the
+function's floor unless ``native_rpc_ratelimiter_hard_limit`` is zero or more. Zero uses the
+function's floor, which may be fractional and pace discrete admissions using a smoothed successful
+completion duration. This value, or 50 if it is zero, applies when the function declares no floor.
+Only used when ``native_rpc_ratelimiter_adaptive_enabled`` is true.
 
 ``native_rpc_ratelimiter_decrease_factor``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -661,10 +662,10 @@ default 0.5 halves the window. Only used when ``native_rpc_ratelimiter_adaptive_
 * **Type:** ``bigint``
 * **Default value:** ``200``
 
-Native Execution only. Legacy session ceiling for the per-tier RPC rate limiter. Zero defers to
-the function ceiling or the built-in legacy limit; a positive value overrides the function
-ceiling. This property remains unchanged for coordinator/worker compatibility and is superseded by
-``native_rpc_ratelimiter_hard_limit`` when that property is non-negative.
+Native Execution only. Session ceiling for the per-tier RPC rate limiter. A positive value
+replaces the function ceiling, even a smaller one. Zero uses the function ceiling or, when the
+function declares none, the built-in default of 20. Ignored when
+``native_rpc_ratelimiter_hard_limit`` is zero or more.
 
 ``native_rpc_ratelimiter_hard_limit``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -672,12 +673,18 @@ ceiling. This property remains unchanged for coordinator/worker compatibility an
 * **Type:** ``bigint``
 * **Default value:** ``-1``
 
-Native Execution only. Versioned session hard ceiling for the per-tier RPC rate limiter. Minus one
-preserves ``native_rpc_ratelimiter_max_limit`` semantics during a mixed-version rollout. Zero adds
-no session ceiling; a positive value is combined with a positive function ceiling using the
-smaller value. With no positive ceiling, adaptive mode starts at 200 with a 1,000,000 safety
-ceiling and fixed mode uses 200. Deploy workers that understand this property before setting it to
-zero or a positive value.
+Native Execution only. Zero or more makes the function's floor and ceiling win over the session's:
+``native_rpc_ratelimiter_max_limit`` is ignored, and ``native_rpc_ratelimiter_min_limit`` applies
+only when the function declares no floor. A positive value also caps the ceiling: the smaller of
+this value and the function ceiling, or this value when the function declares none. Zero adds no
+cap: with no function ceiling, adaptive mode starts at 200 and may grow to a 1,000,000 safety
+ceiling, and fixed mode uses 200. Minus one, the default, keeps the session's precedence.
+
+To use the function's floor and declared ceiling, prefer setting
+``native_rpc_ratelimiter_min_limit`` and ``native_rpc_ratelimiter_max_limit`` to ``0``. That gives
+the same bounds when the function declares a ceiling; with no declared ceiling,
+``native_rpc_ratelimiter_max_limit=0`` gives the built-in 20. To cap the function's ceiling without
+raising it, set this property to the cap.
 
 The first query to use an admission key fixes these settings for that worker process. Changing a
 session property does not reconfigure an existing key; canaries and rollbacks require isolated or
