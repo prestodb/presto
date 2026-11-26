@@ -230,7 +230,10 @@ public class RowType
         {
             this.type = requireNonNull(type, "type is null");
             this.name = requireNonNull(name, "name is null");
-            this.delimited = delimited;
+            // Names that are not simple identifiers must be treated as delimited so that
+            // JSON key matching is case-sensitive, matching the behavior of RowFieldName
+            // and the type signature round-trip.
+            this.delimited = delimited || !name.map(TypeSignature::isSimpleIdentifier).orElse(true);
         }
 
         @JsonProperty
