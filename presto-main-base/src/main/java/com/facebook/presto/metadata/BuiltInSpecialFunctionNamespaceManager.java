@@ -253,6 +253,7 @@ public abstract class BuiltInSpecialFunctionNamespaceManager
                 typeManager.getType(aggregationMetadata.getIntermediateType()),
                 typeManager.getType(function.getSignature().getReturnType()),
                 aggregationMetadata.isOrderSensitive(),
+                aggregationMetadata.isDistinctSensitive(),
                 parameters);
     }
 

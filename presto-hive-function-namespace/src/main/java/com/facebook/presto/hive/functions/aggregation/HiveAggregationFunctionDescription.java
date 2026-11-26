@@ -29,6 +29,7 @@ public class HiveAggregationFunctionDescription
     private final Type finalType;
     private final boolean decomposable;
     private final boolean orderSensitive;
+    private final boolean distinctSensitive;
 
     public HiveAggregationFunctionDescription(
             QualifiedObjectName name,
@@ -36,7 +37,8 @@ public class HiveAggregationFunctionDescription
             List<Type> intermediateTypes,
             Type finalType,
             boolean decomposable,
-            boolean orderSensitive)
+            boolean orderSensitive,
+            boolean distinctSensitive)
     {
         this.name = requireNonNull(name);
         this.parameterTypes = requireNonNull(parameterTypes);
@@ -44,6 +46,7 @@ public class HiveAggregationFunctionDescription
         this.finalType = requireNonNull(finalType);
         this.decomposable = decomposable;
         this.orderSensitive = orderSensitive;
+        this.distinctSensitive = distinctSensitive;
     }
 
     public String getName()
@@ -74,5 +77,10 @@ public class HiveAggregationFunctionDescription
     public boolean isOrderSensitive()
     {
         return orderSensitive;
+    }
+
+    public boolean isDistinctSensitive()
+    {
+        return distinctSensitive;
     }
 }
