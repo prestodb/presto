@@ -339,6 +339,7 @@ public class FeaturesConfig
     private boolean removeCrossJoinWithSingleConstantRow = true;
     private ViewSecurity defaultViewSecurityMode = DEFINER;
     private boolean useHistograms;
+    private boolean disjointStringOrEstimationEnabled = true;
 
     private boolean isInlineProjectionsOnValuesEnabled;
     private boolean evaluateFilterOnValues;
@@ -3537,6 +3538,19 @@ public class FeaturesConfig
     public FeaturesConfig setUseHistograms(boolean useHistograms)
     {
         this.useHistograms = useHistograms;
+        return this;
+    }
+
+    public boolean isDisjointStringOrEstimationEnabled()
+    {
+        return disjointStringOrEstimationEnabled;
+    }
+
+    @Config("optimizer.disjoint-string-or-estimation-enabled")
+    @ConfigDescription("Estimate an OR whose branches pin a string column to different literals as the sum of its branches")
+    public FeaturesConfig setDisjointStringOrEstimationEnabled(boolean disjointStringOrEstimationEnabled)
+    {
+        this.disjointStringOrEstimationEnabled = disjointStringOrEstimationEnabled;
         return this;
     }
 
