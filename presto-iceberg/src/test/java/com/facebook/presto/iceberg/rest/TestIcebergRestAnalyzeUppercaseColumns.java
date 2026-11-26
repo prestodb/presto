@@ -87,6 +87,7 @@ public class TestIcebergRestAnalyzeUppercaseColumns
         Catalog hadoopCatalog = loadHadoopCatalog();
         setupUnpartitionedTable(hadoopCatalog, TABLE_NAME);
         setupPartitionedTable(hadoopCatalog, PARTITIONED_TABLE);
+        setupWideTable(hadoopCatalog, getWideTableName());
     }
 
     @AfterClass
@@ -95,6 +96,7 @@ public class TestIcebergRestAnalyzeUppercaseColumns
     {
         unregisterTableQuietly(TABLE_NAME);
         unregisterTableQuietly(PARTITIONED_TABLE);
+        unregisterTableQuietly(getWideTableName());
         if (restServer != null) {
             restServer.stop();
         }

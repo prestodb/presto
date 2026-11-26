@@ -128,6 +128,7 @@ import static com.facebook.presto.iceberg.IcebergTableProperties.getSortOrder;
 import static com.facebook.presto.iceberg.IcebergTableProperties.getTableLocation;
 import static com.facebook.presto.iceberg.IcebergTableType.DATA;
 import static com.facebook.presto.iceberg.IcebergUtil.createIcebergViewProperties;
+import static com.facebook.presto.iceberg.IcebergUtil.getColumnMetricsMode;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.IcebergUtil.getHiveIcebergTable;
 import static com.facebook.presto.iceberg.IcebergUtil.isIcebergTable;
@@ -678,7 +679,7 @@ public class IcebergHiveMetadata
         MetricsConfig metricsConfig = MetricsConfig.forTable(table);
         return tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden())
-                .filter(column -> metricsConfig.columnMode(column.getName()) != None.get())
+                .filter(column -> getColumnMetricsMode(table.schema(), metricsConfig, column.getName()) != None.get())
                 .flatMap(meta -> {
                     try {
                         return metastore.getSupportedColumnStatistics(getMetastoreContext(session), meta.getType())

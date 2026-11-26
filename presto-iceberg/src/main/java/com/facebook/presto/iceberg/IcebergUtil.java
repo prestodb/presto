@@ -78,6 +78,8 @@ import org.apache.iceberg.HistoryEntry;
 import org.apache.iceberg.ManageSnapshots;
 import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.MetadataTableType;
+import org.apache.iceberg.MetricsConfig;
+import org.apache.iceberg.MetricsModes.MetricsMode;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.RowLevelOperationMode;
@@ -472,6 +474,13 @@ public final class IcebergUtil
         }
 
         return partitionFields;
+    }
+
+    // MetricsConfig keys per-column modes by the exact Iceberg name, while Presto column names are lowercase
+    public static MetricsMode getColumnMetricsMode(Schema schema, MetricsConfig metricsConfig, String columnName)
+    {
+        NestedField field = schema.caseInsensitiveFindField(columnName);
+        return metricsConfig.columnMode(field == null ? columnName : schema.findColumnName(field.fieldId()));
     }
 
     public static List<IcebergColumnHandle> getColumns(Schema schema, PartitionSpec partitionSpec, TypeManager typeManager)

@@ -246,6 +246,7 @@ import static com.facebook.presto.iceberg.IcebergUtil.checkNotSupported;
 import static com.facebook.presto.iceberg.IcebergUtil.convertToIcebergLiteral;
 import static com.facebook.presto.iceberg.IcebergUtil.createDomainFromIcebergPartitionValue;
 import static com.facebook.presto.iceberg.IcebergUtil.findDataFileWithNullValues;
+import static com.facebook.presto.iceberg.IcebergUtil.getColumnMetricsMode;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumns;
 import static com.facebook.presto.iceberg.IcebergUtil.getColumnsForWrite;
 import static com.facebook.presto.iceberg.IcebergUtil.getDeleteMode;
@@ -1479,7 +1480,7 @@ public abstract class IcebergAbstractMetadata
         Table table = getIcebergTable(session, tableMetadata.getTable());
         MetricsConfig metricsConfig = MetricsConfig.forTable(table);
         Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
-                .filter(column -> !column.isHidden() && metricsConfig.columnMode(column.getName()) != None.get())
+                .filter(column -> !column.isHidden() && getColumnMetricsMode(table.schema(), metricsConfig, column.getName()) != None.get())
                 .flatMap(meta -> getSupportedColumnStatistics(session, meta.getName(), meta.getType()).stream())
                 .collect(toImmutableSet());
 
