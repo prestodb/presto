@@ -29,6 +29,8 @@ import com.facebook.presto.common.type.TinyintType;
 import com.facebook.presto.common.type.Type;
 import com.facebook.presto.common.type.TypeSignature;
 import com.facebook.presto.common.type.VarcharType;
+import com.facebook.presto.cost.PlanNodeStatsEstimate;
+import com.facebook.presto.cost.StatsAndCosts;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ColumnHandle;
@@ -41,26 +43,31 @@ import com.facebook.presto.spi.plan.PlanNode;
 import com.facebook.presto.spi.plan.TableFinishNode;
 import com.facebook.presto.spi.plan.TableScanNode;
 import com.facebook.presto.spi.plan.TableWriterNode;
+import com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel;
 import com.facebook.presto.sql.planner.plan.InternalPlanVisitor;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.IOPlan.IOPlanBuilder;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.SystemSessionProperties.isExplainIoIncludeEstimates;
 import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
 import static com.facebook.presto.util.DateTimeUtils.printDate;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithTimeZone;
 import static com.facebook.presto.util.DateTimeUtils.printTimestampWithoutTimeZone;
+import static com.fasterxml.jackson.annotation.JsonInclude.Include.NON_ABSENT;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -71,21 +78,24 @@ public class IOPlanPrinter
 {
     private final Metadata metadata;
     private final Session session;
+    private final Optional<StatsAndCosts> estimates;
 
-    private IOPlanPrinter(Metadata metadata, Session session)
+    private IOPlanPrinter(Metadata metadata, Session session, Optional<StatsAndCosts> estimates)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.session = requireNonNull(session, "session is null");
+        this.estimates = requireNonNull(estimates, "estimates is null");
     }
 
-    public static String textIOPlan(PlanNode plan, Metadata metadata, Session session)
+    public static String textIOPlan(PlanNode plan, StatsAndCosts statsAndCosts, Metadata metadata, Session session)
     {
-        return new IOPlanPrinter(metadata, session).print(plan);
+        Optional<StatsAndCosts> estimates = isExplainIoIncludeEstimates(session) ? Optional.of(statsAndCosts) : Optional.empty();
+        return new IOPlanPrinter(metadata, session, estimates).print(plan);
     }
 
     private String print(PlanNode plan)
     {
-        IOPlanBuilder ioPlanBuilder = new IOPlanBuilder();
+        IOPlanBuilder ioPlanBuilder = new IOPlanBuilder(estimates.isPresent());
         plan.accept(new IOPlanVisitor(), ioPlanBuilder);
         return jsonCodec(IOPlan.class).toJson(ioPlanBuilder.build());
     }
@@ -94,14 +104,22 @@ public class IOPlanPrinter
     {
         private final Set<TableColumnInfo> inputTableColumnInfos;
         private final Optional<CatalogSchemaTableName> outputTable;
+        private final Optional<EstimatedStats> totalEstimate;
+
+        public IOPlan(Set<TableColumnInfo> inputTableColumnInfos, Optional<CatalogSchemaTableName> outputTable)
+        {
+            this(inputTableColumnInfos, outputTable, Optional.empty());
+        }
 
         @JsonCreator
         public IOPlan(
                 @JsonProperty("inputTableColumnInfos") Set<TableColumnInfo> inputTableColumnInfos,
-                @JsonProperty("outputTable") Optional<CatalogSchemaTableName> outputTable)
+                @JsonProperty("outputTable") Optional<CatalogSchemaTableName> outputTable,
+                @JsonProperty("totalEstimate") Optional<EstimatedStats> totalEstimate)
         {
             this.inputTableColumnInfos = ImmutableSet.copyOf(requireNonNull(inputTableColumnInfos, "inputTableColumnInfos is null"));
             this.outputTable = requireNonNull(outputTable, "outputTable is null");
+            this.totalEstimate = requireNonNull(totalEstimate, "totalEstimate is null");
         }
 
         @JsonProperty
@@ -116,6 +134,17 @@ public class IOPlanPrinter
             return outputTable;
         }
 
+        /**
+         * Sum of the estimates of every table scan in the plan, and so of the estimates in
+         * {@link #getInputTableColumnInfos()}.
+         */
+        @JsonProperty
+        @JsonInclude(NON_ABSENT)
+        public Optional<EstimatedStats> getTotalEstimate()
+        {
+            return totalEstimate;
+        }
+
         @Override
         public boolean equals(Object obj)
         {
@@ -127,13 +156,14 @@ public class IOPlanPrinter
             }
             IOPlan o = (IOPlan) obj;
             return Objects.equals(inputTableColumnInfos, o.inputTableColumnInfos) &&
-                    Objects.equals(outputTable, o.outputTable);
+                    Objects.equals(outputTable, o.outputTable) &&
+                    Objects.equals(totalEstimate, o.totalEstimate);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(inputTableColumnInfos, outputTable);
+            return Objects.hash(inputTableColumnInfos, outputTable, totalEstimate);
         }
 
         @Override
@@ -142,23 +172,37 @@ public class IOPlanPrinter
             return toStringHelper(this)
                     .add("inputTableColumnInfos", inputTableColumnInfos)
                     .add("outputTable", outputTable)
+                    .add("totalEstimate", totalEstimate)
                     .toString();
         }
 
         protected static class IOPlanBuilder
         {
-            private Set<TableColumnInfo> inputTableColumnInfos;
+            // Keyed by table and constraints alone, so scans that differ only in their estimates
+            // still share an entry, whose estimate is their sum.
+            private Map<TableColumnInfo, Optional<EstimatedStats>> inputTableColumnInfos;
             private Optional<CatalogSchemaTableName> outputTable;
+            private Optional<EstimatedStats> totalEstimate;
 
-            private IOPlanBuilder()
+            private IOPlanBuilder(boolean includeEstimates)
             {
-                this.inputTableColumnInfos = new HashSet<>();
+                this.inputTableColumnInfos = new HashMap<>();
                 this.outputTable = Optional.empty();
+                this.totalEstimate = includeEstimates ? Optional.of(EstimatedStats.ZERO) : Optional.empty();
             }
 
             private void addInputTableColumnInfo(TableColumnInfo tableColumnInfo)
             {
-                inputTableColumnInfos.add(tableColumnInfo);
+                inputTableColumnInfos.merge(
+                        new TableColumnInfo(tableColumnInfo.getTable(), tableColumnInfo.getColumnConstraints()),
+                        tableColumnInfo.getEstimate(),
+                        IOPlanBuilder::plus);
+                totalEstimate = plus(totalEstimate, tableColumnInfo.getEstimate());
+            }
+
+            private static Optional<EstimatedStats> plus(Optional<EstimatedStats> left, Optional<EstimatedStats> right)
+            {
+                return left.flatMap(leftEstimate -> right.map(leftEstimate::plus));
             }
 
             private void setOutputTable(CatalogSchemaTableName outputTable)
@@ -168,7 +212,12 @@ public class IOPlanPrinter
 
             private IOPlan build()
             {
-                return new IOPlan(inputTableColumnInfos, outputTable);
+                return new IOPlan(
+                        inputTableColumnInfos.entrySet().stream()
+                                .map(entry -> new TableColumnInfo(entry.getKey().getTable(), entry.getKey().getColumnConstraints(), entry.getValue()))
+                                .collect(toImmutableSet()),
+                        outputTable,
+                        totalEstimate);
             }
         }
 
@@ -176,14 +225,22 @@ public class IOPlanPrinter
         {
             private final CatalogSchemaTableName table;
             private final Set<ColumnConstraint> columnConstraints;
+            private final Optional<EstimatedStats> estimate;
+
+            public TableColumnInfo(CatalogSchemaTableName table, Set<ColumnConstraint> columnConstraints)
+            {
+                this(table, columnConstraints, Optional.empty());
+            }
 
             @JsonCreator
             public TableColumnInfo(
                     @JsonProperty("table") CatalogSchemaTableName table,
-                    @JsonProperty("columnConstraints") Set<ColumnConstraint> columnConstraints)
+                    @JsonProperty("columnConstraints") Set<ColumnConstraint> columnConstraints,
+                    @JsonProperty("estimate") Optional<EstimatedStats> estimate)
             {
                 this.table = requireNonNull(table, "table is null");
                 this.columnConstraints = requireNonNull(columnConstraints, "columnConstraints is null");
+                this.estimate = requireNonNull(estimate, "estimate is null");
             }
 
             @JsonProperty
@@ -198,6 +255,16 @@ public class IOPlanPrinter
                 return columnConstraints;
             }
 
+            /**
+             * Sum of the estimates of every scan of this table with these constraints.
+             */
+            @JsonProperty
+            @JsonInclude(NON_ABSENT)
+            public Optional<EstimatedStats> getEstimate()
+            {
+                return estimate;
+            }
+
             @Override
             public boolean equals(Object obj)
             {
@@ -209,9 +276,12 @@ public class IOPlanPrinter
                 }
                 TableColumnInfo o = (TableColumnInfo) obj;
                 return Objects.equals(table, o.table) &&
-                        Objects.equals(columnConstraints, o.columnConstraints);
+                        Objects.equals(columnConstraints, o.columnConstraints) &&
+                        Objects.equals(estimate, o.estimate);
             }
 
+            // Leaves out the estimate, so that the order of IOPlanBuilder's entries, which follows
+            // these hashes, is the same as before estimates were added.
             @Override
             public int hashCode()
             {
@@ -224,8 +294,115 @@ public class IOPlanPrinter
                 return toStringHelper(this)
                         .add("table", table)
                         .add("columnConstraints", columnConstraints)
+                        .add("estimate", estimate)
                         .toString();
             }
+        }
+    }
+
+    /**
+     * The statistics the planner uses for a table scan. Unknown values are {@link Double#NaN}.
+     * When history-based optimization replaces the scan's statistics with those recorded in
+     * earlier runs, {@code totalSizeInBytes} is the size of the data the scan produced, not a
+     * connector statistic, and so is {@code outputSizeInBytes} when that size was recorded,
+     * unless {@code history_based_optimizer_estimate_size_using_variables} is set.
+     */
+    public static class EstimatedStats
+    {
+        private static final EstimatedStats ZERO = new EstimatedStats(0, 0, 0, FACT);
+
+        private final double outputRowCount;
+        private final double outputSizeInBytes;
+        private final double totalSizeInBytes;
+        private final ConfidenceLevel confidence;
+
+        /**
+         * @param outputRowCount the number of rows the scan produces, after any filters pushed
+         *     into it
+         * @param outputSizeInBytes the size of the data the scan produces, as EXPLAIN shows it
+         * @param totalSizeInBytes the connector's total size statistic for the data the scan reads,
+         *     whose meaning the connector defines
+         * @param confidence how much the estimates can be trusted, which depends on where the
+         *     statistics behind them came from
+         */
+        @JsonCreator
+        public EstimatedStats(
+                @JsonProperty("outputRowCount") double outputRowCount,
+                @JsonProperty("outputSizeInBytes") double outputSizeInBytes,
+                @JsonProperty("totalSizeInBytes") double totalSizeInBytes,
+                @JsonProperty("confidence") ConfidenceLevel confidence)
+        {
+            this.outputRowCount = outputRowCount;
+            this.outputSizeInBytes = outputSizeInBytes;
+            this.totalSizeInBytes = totalSizeInBytes;
+            this.confidence = requireNonNull(confidence, "confidence is null");
+        }
+
+        @JsonProperty
+        public double getOutputRowCount()
+        {
+            return outputRowCount;
+        }
+
+        @JsonProperty
+        public double getOutputSizeInBytes()
+        {
+            return outputSizeInBytes;
+        }
+
+        @JsonProperty
+        public double getTotalSizeInBytes()
+        {
+            return totalSizeInBytes;
+        }
+
+        @JsonProperty
+        public ConfidenceLevel getConfidence()
+        {
+            return confidence;
+        }
+
+        // A sum is only as trustworthy as its least trustworthy part.
+        private EstimatedStats plus(EstimatedStats other)
+        {
+            return new EstimatedStats(
+                    outputRowCount + other.outputRowCount,
+                    outputSizeInBytes + other.outputSizeInBytes,
+                    totalSizeInBytes + other.totalSizeInBytes,
+                    confidence.compareTo(other.confidence) <= 0 ? confidence : other.confidence);
+        }
+
+        @Override
+        public boolean equals(Object obj)
+        {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null || getClass() != obj.getClass()) {
+                return false;
+            }
+            EstimatedStats o = (EstimatedStats) obj;
+            return Double.compare(outputRowCount, o.outputRowCount) == 0 &&
+                    Double.compare(outputSizeInBytes, o.outputSizeInBytes) == 0 &&
+                    Double.compare(totalSizeInBytes, o.totalSizeInBytes) == 0 &&
+                    confidence == o.confidence;
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(outputRowCount, outputSizeInBytes, totalSizeInBytes, confidence);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("outputRowCount", outputRowCount)
+                    .add("outputSizeInBytes", outputSizeInBytes)
+                    .add("totalSizeInBytes", totalSizeInBytes)
+                    .add("confidence", confidence)
+                    .toString();
         }
     }
 
@@ -484,7 +661,8 @@ public class IOPlanPrinter
                             tableMetadata.getConnectorId().getCatalogName(),
                             tableMetadata.getTable().getSchemaName(),
                             tableMetadata.getTable().getTableName()),
-                    parseConstraints(node.getTable(), constraints)));
+                    parseConstraints(node.getTable(), constraints),
+                    estimate(node)));
             return null;
         }
 
@@ -500,7 +678,8 @@ public class IOPlanPrinter
                             tableMetadata.getConnectorId().getCatalogName(),
                             tableMetadata.getTable().getSchemaName(),
                             tableMetadata.getTable().getTableName()),
-                    parseConstraints(tableHandle, constraints)));
+                    parseConstraints(tableHandle, constraints),
+                    estimate(node)));
             return processChildren(node, context);
         }
 
@@ -513,6 +692,14 @@ public class IOPlanPrinter
                     writerTarget.getSchemaTableName().getSchemaName(),
                     writerTarget.getSchemaTableName().getTableName()));
             return processChildren(node, context);
+        }
+
+        private Optional<EstimatedStats> estimate(PlanNode node)
+        {
+            return estimates.map(statsAndCosts -> {
+                PlanNodeStatsEstimate stats = statsAndCosts.getStats().getOrDefault(node.getId(), PlanNodeStatsEstimate.unknown());
+                return new EstimatedStats(stats.getOutputRowCount(), stats.getOutputSizeInBytes(node), stats.getOutputSizeInBytes(), stats.confidenceLevel());
+            });
         }
 
         private Set<ColumnConstraint> parseConstraints(TableHandle tableHandle, TupleDomain<ColumnHandle> constraint)

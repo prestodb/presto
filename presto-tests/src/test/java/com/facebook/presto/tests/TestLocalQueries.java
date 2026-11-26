@@ -19,6 +19,7 @@ import com.facebook.presto.scalar.sql.SqlInvokedFunctionsPlugin;
 import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.ColumnConstraint;
+import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.EstimatedStats;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedDomain;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedMarker;
 import com.facebook.presto.sql.planner.planPrinter.IOPlanPrinter.FormattedRange;
@@ -35,6 +36,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.SystemSessionProperties.EXPLAIN_IO_INCLUDE_ESTIMATES;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOP_N_USING_ROW_ID;
 import static com.facebook.presto.SystemSessionProperties.OPTIMIZE_TOP_N_USING_ROW_ID_MIN_COLUMN_SAVINGS;
 import static com.facebook.presto.SystemSessionProperties.PULL_CONSTANT_PROJECTION_ABOVE_EXCHANGE;
@@ -43,12 +45,15 @@ import static com.facebook.presto.common.predicate.Marker.Bound.EXACTLY;
 import static com.facebook.presto.common.type.DoubleType.DOUBLE;
 import static com.facebook.presto.common.type.VarcharType.VARCHAR;
 import static com.facebook.presto.common.type.VarcharType.createVarcharType;
+import static com.facebook.presto.spi.statistics.SourceInfo.ConfidenceLevel.FACT;
 import static com.facebook.presto.testing.MaterializedResult.resultBuilder;
 import static com.facebook.presto.testing.TestingSession.TESTING_CATALOG;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.testing.assertions.Assert.assertEquals;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestLocalQueries
         extends AbstractTestQueries
@@ -152,9 +157,64 @@ public class TestLocalQueries
                                                 new FormattedRange(
                                                         new FormattedMarker(Optional.of("P"), EXACTLY),
                                                         new FormattedMarker(Optional.of("P"), EXACTLY)))))));
-        assertEquals(
-                jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IOPlan(ImmutableSet.of(input), Optional.empty()));
+        String json = (String) getOnlyElement(result.getOnlyColumnAsSet());
+        assertEquals(jsonCodec(IOPlan.class).fromJson(json), new IOPlan(ImmutableSet.of(input), Optional.empty()));
+        assertFalse(json.contains("estimate"), json);
+        assertFalse(json.contains("totalEstimate"), json);
+    }
+
+    @Test
+    public void testIOExplainWithEstimates()
+    {
+        IOPlan plan = explainIOWithEstimates("SELECT orderkey FROM orders");
+
+        EstimatedStats estimate = getOnlyElement(plan.getInputTableColumnInfos()).getEstimate().orElseThrow(AssertionError::new);
+        assertEquals(estimate.getOutputRowCount(), 15000.0);
+        // 15000 rows of an 8-byte bigint, plus a null flag per row
+        assertEquals(estimate.getOutputSizeInBytes(), 135000.0);
+        // tpch reports no total size
+        assertTrue(Double.isNaN(estimate.getTotalSizeInBytes()), estimate.toString());
+        assertEquals(plan.getTotalEstimate(), Optional.of(estimate));
+    }
+
+    @Test
+    public void testIOExplainOutputSizeCountsOnlyTheColumnsRead()
+    {
+        EstimatedStats oneColumn = explainIOWithEstimates("SELECT orderkey FROM orders").getTotalEstimate().orElseThrow(AssertionError::new);
+        EstimatedStats allColumns = explainIOWithEstimates("SELECT * FROM orders").getTotalEstimate().orElseThrow(AssertionError::new);
+
+        assertEquals(allColumns.getOutputRowCount(), oneColumn.getOutputRowCount());
+        assertTrue(allColumns.getOutputSizeInBytes() > oneColumn.getOutputSizeInBytes(), allColumns + " vs " + oneColumn);
+    }
+
+    @Test
+    public void testIOExplainWithEstimatesCountsEveryScan()
+    {
+        IOPlan plan = explainIOWithEstimates("SELECT a.orderkey FROM orders a JOIN orders b ON a.orderkey = b.orderkey");
+
+        // Both scans read orderkey with the same constraints, so they share one entry, which sums them.
+        EstimatedStats estimate = getOnlyElement(plan.getInputTableColumnInfos()).getEstimate().orElseThrow(AssertionError::new);
+        assertEquals(estimate.getOutputRowCount(), 30000.0);
+        assertEquals(estimate.getOutputSizeInBytes(), 270000.0);
+        assertEquals(plan.getTotalEstimate(), Optional.of(estimate));
+    }
+
+    @Test
+    public void testIOExplainWithEstimatesWithoutInputs()
+    {
+        IOPlan plan = explainIOWithEstimates("SELECT 1");
+
+        assertTrue(plan.getInputTableColumnInfos().isEmpty());
+        assertEquals(plan.getTotalEstimate(), Optional.of(new EstimatedStats(0, 0, 0, FACT)));
+    }
+
+    private IOPlan explainIOWithEstimates(String query)
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(EXPLAIN_IO_INCLUDE_ESTIMATES, "true")
+                .build();
+        MaterializedResult result = computeActual(session, "EXPLAIN (TYPE IO, FORMAT JSON) " + query);
+        return jsonCodec(IOPlan.class).fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()));
     }
 
     @Override
