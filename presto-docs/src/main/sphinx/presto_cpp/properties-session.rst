@@ -57,6 +57,25 @@ that a final aggregation operation can utilize before it starts spilling to disk
 If set to ``0``, there is no limit, allowing the aggregation to consume unlimited memory resources,
 which may impact system performance.
 
+``native_cudf_enabled``
+^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** worker dependent
+
+Native Execution only. Whether this query may run on the GPU.
+
+Leaving this property unset lets each worker decide, which is what the default
+shown by ``SHOW SESSION`` cannot express: a worker that registered cuDF at
+startup, meaning ``cudf.enabled`` is set in its configuration properties and it
+was built with cuDF, runs the query on the GPU, and every other worker runs it
+on the CPU.
+
+Setting it to ``false`` keeps the whole query on CPU operators and the
+in-memory exchange, even on a GPU worker. Setting it to ``true`` on a worker
+without cuDF fails the query rather than silently running it on the CPU, so it
+is not the same as leaving the property unset.
+
 ``native_max_partial_aggregation_memory``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
