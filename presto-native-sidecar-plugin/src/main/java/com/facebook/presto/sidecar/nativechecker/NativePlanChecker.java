@@ -29,7 +29,6 @@ import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.PrestoException;
-import com.facebook.presto.spi.TableHandle;
 import com.facebook.presto.spi.WarningCollector;
 import com.facebook.presto.spi.plan.Assignments;
 import com.facebook.presto.spi.plan.CallDistributedProcedureNode;
@@ -85,6 +84,7 @@ public final class NativePlanChecker
     private static final JsonCodec<PlanConversionResponse> PLAN_CONVERSION_RESPONSE_JSON_CODEC = JsonCodec.jsonCodec(PlanConversionResponse.class);
     public static final String PLAN_CONVERSION_ENDPOINT = "/v1/velox/plan";
     private static final TimeStat latency = new TimeStat();
+    private static final String JMX_CATALOG_NAME = "jmx";
 
     private final NodeManager nodeManager;
     private final JsonCodec<SimplePlanFragment> planFragmentJsonCodec;
@@ -257,8 +257,9 @@ public final class NativePlanChecker
         @Override
         public Boolean visitTableScan(TableScanNode tableScan, Void context)
         {
-            TableHandle handle = tableScan.getTable();
-            return ConnectorId.isInternalSystemConnector(handle.getConnectorId());
+            ConnectorId connectorId = tableScan.getTable().getConnectorId();
+            return ConnectorId.isInternalSystemConnector(connectorId)
+                    || JMX_CATALOG_NAME.equals(connectorId.getCatalogName());
         }
 
         @Override
