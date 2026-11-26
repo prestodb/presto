@@ -11,8 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <folly/ExceptionWrapper.h>
 #include <folly/Uri.h>
+#include <folly/executors/GlobalExecutor.h>
+#include <folly/futures/Future.h>
 #include "folly/init/Init.h"
+
+#include <chrono>
+#include <memory>
+#include <stdexcept>
+#include <utility>
 
 #include <boost/algorithm/cxx11/iota.hpp>
 #include <boost/range/algorithm/find_if.hpp>
@@ -22,11 +30,13 @@
 #include "presto_cpp/main/operators/LocalShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleExchangeSource.h"
+#include "presto_cpp/main/operators/ShuffleInterface.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
 #include "presto_cpp/main/operators/tests/TestCursor.h"
 
+#include "velox/common/base/VeloxException.h"
 #include "velox/common/base/tests/GTestUtils.h"
 #include "velox/common/testutil/TestValue.h"
 #include "velox/exec/Exchange.h"
@@ -1228,6 +1238,68 @@ TEST_F(ShuffleTest, partitionAndSerializeEndToEnd) {
   });
 
   runPartitionAndSerializeSerdeTest(data, 2, {{"c2", "c0"}});
+}
+
+// Fails every next() with 'error' through the future it returns, as a reader
+// whose read fails on its own threads does.
+class FailingShuffleReader : public ShuffleReader {
+ public:
+  explicit FailingShuffleReader(folly::exception_wrapper error) noexcept
+      : error_(std::move(error)) {}
+
+  folly::SemiFuture<std::vector<std::unique_ptr<ShuffleSerializedPage>>> next(
+      uint64_t /*maxBytes*/) noexcept override {
+    return folly::makeSemiFuture<
+        std::vector<std::unique_ptr<ShuffleSerializedPage>>>(error_);
+  }
+
+  void noMoreData(bool /*success*/) noexcept override {}
+
+  folly::F14FastMap<std::string, int64_t> stats() const noexcept override {
+    return {};
+  }
+
+ private:
+  folly::exception_wrapper error_;
+};
+
+TEST_F(ShuffleTest, exchangeSourceKeepsReaderVeloxError) {
+  auto queue = std::make_shared<exec::ExchangeQueue>(
+      /*numberOfConsumers=*/1, /*minOutputBatchBytes=*/0);
+  const auto request = [&queue,
+                        leafPool = pool()](folly::exception_wrapper error) {
+    auto source = std::make_shared<ShuffleExchangeSource>(
+        makeTaskId("exchangeSourceKeepsReaderVeloxError", 0),
+        /*destination=*/0,
+        queue,
+        std::make_shared<FailingShuffleReader>(std::move(error)),
+        leafPool);
+    return source->request(1U << 20U, std::chrono::microseconds(0))
+        .via(folly::getGlobalCPUExecutor())
+        .get();
+  };
+
+  // A reader's memory error keeps its error code, so the engine handles it as
+  // running out of memory.
+  VELOX_ASSERT_RUNTIME_THROW_CODE(
+      request(
+          folly::make_exception_wrapper<VeloxRuntimeError>(
+              __FILE__,
+              __LINE__,
+              __FUNCTION__,
+              /*expression=*/"",
+              "Exceeded memory pool capacity.",
+              error_source::kErrorSourceRuntime,
+              error_code::kMemCapExceeded,
+              /*isRetriable=*/true)),
+      error_code::kMemCapExceeded,
+      "Exceeded memory pool capacity.");
+
+  // Any other error is still a shuffle failure.
+  VELOX_ASSERT_RUNTIME_THROW_CODE(
+      request(folly::make_exception_wrapper<std::runtime_error>("Disk gone")),
+      error_code::kInvalidState,
+      "ShuffleReader::next failed: std::runtime_error: Disk gone");
 }
 
 class DummyShuffleInterfaceFactory : public ShuffleInterfaceFactory {
