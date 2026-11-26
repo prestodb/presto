@@ -25,6 +25,16 @@ import java.util.Set;
 
 public interface NodeSelector
 {
+    default boolean requiresFullSplitSet()
+    {
+        return false;
+    }
+
+    default void prepareForSplits(Set<Split> splits)
+    {
+        throw new UnsupportedOperationException("Full split-set placement is not supported");
+    }
+
     void lockDownNodes();
 
     List<InternalNode> getActiveNodes();
