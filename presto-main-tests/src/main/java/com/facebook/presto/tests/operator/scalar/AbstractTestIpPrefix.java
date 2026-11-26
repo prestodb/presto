@@ -269,6 +269,12 @@ public interface AbstractTestIpPrefix
     {
         assertInvalidFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '192.168.0.0/22', IPPREFIX '2409:4043:251a:d200::/56'])",
                 "All IPPREFIX elements must be the same IP version.");
+        assertInvalidFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '2200::/64', IPPREFIX '1.1.1.1/32', IPPREFIX '::1/32'])",
+                "All IPPREFIX elements must be the same IP version.");
+        assertInvalidFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '2200::/64', IPPREFIX '1.1.1.1/32', IPPREFIX '::8000:0:0/81'])",
+                "All IPPREFIX elements must be the same IP version.");
+        assertInvalidFunction("IP_PREFIX_COLLAPSE(ARRAY[IPPREFIX '::8000:0:0/81', IPPREFIX '2200::/64', IPPREFIX '1.1.1.1/32'])",
+                "All IPPREFIX elements must be the same IP version.");
     }
 
     @Test (dataProvider = "private-ip-provider")
