@@ -77,6 +77,7 @@ import static com.facebook.presto.iceberg.CatalogType.HADOOP;
 import static com.facebook.presto.iceberg.CatalogType.HIVE;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static com.facebook.presto.iceberg.IcebergQueryRunner.getIcebergDataDirectoryPath;
+import static com.facebook.presto.iceberg.IcebergSessionProperties.PARQUET_DEREFERENCE_PUSHDOWN_ENABLED;
 import static com.facebook.presto.iceberg.IcebergTableProperties.COMMIT_RETRIES;
 import static com.facebook.presto.iceberg.IcebergTableProperties.DELETE_MODE;
 import static com.facebook.presto.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -1531,6 +1532,267 @@ public abstract class IcebergDistributedSmokeTestBase
         }
         finally {
             dropTable(session, "test_nested_drop_readd");
+        }
+    }
+
+    @Test
+    public void testRenameNestedField()
+    {
+        testWithAllFileFormats(this::testRenameNestedField);
+    }
+
+    @Test
+    public void testRenameNestedFieldHistoricalData()
+    {
+        runRenameNestedFieldHistoricalData();
+    }
+
+    private void testRenameNestedField(Session session, FileFormat fileFormat)
+    {
+        String format = "\"write.format.default\" = '" + fileFormat + "'";
+
+        assertUpdate(session, "CREATE TABLE test_nested_rename_field (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_rename_field VALUES (1, ROW('alice', 30))", 1);
+        assertQuery(session, "SELECT id, info.name, info.age FROM test_nested_rename_field",
+                "VALUES (1, 'alice', 30)");
+
+        assertUpdate(session, "ALTER TABLE test_nested_rename_field RENAME COLUMN info.age TO years");
+
+        assertQuery(session, "SELECT id, info.name, info.years FROM test_nested_rename_field",
+                "VALUES (1, 'alice', 30)");
+
+        assertQueryFails(session,
+                "SELECT info.age FROM test_nested_rename_field",
+                ".*'info\\.age' cannot be resolved.*");
+
+        MaterializedResult infoAfterRename = computeActual(session,
+                "SELECT info FROM test_nested_rename_field");
+        assertEquals(infoAfterRename.getRowCount(), 1);
+        assertEquals(infoAfterRename.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30));
+
+        assertUpdate(session, "INSERT INTO test_nested_rename_field VALUES (2, ROW('bob', 25))", 1);
+        assertQuery(session, "SELECT id, info.name, info.years FROM test_nested_rename_field ORDER BY id",
+                "VALUES (1, 'alice', 30), (2, 'bob', 25)");
+
+        dropTable(session, "test_nested_rename_field");
+
+        assertUpdate(session, "CREATE TABLE test_nested_rename_deep (" +
+                "id BIGINT, " +
+                "outer_col ROW(inner_col ROW(a VARCHAR, b BIGINT))" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO test_nested_rename_deep VALUES (1, ROW(ROW('hello', 42)))", 1);
+
+        assertUpdate(session, "ALTER TABLE test_nested_rename_deep RENAME COLUMN outer_col.inner_col.b TO value");
+
+        assertQuery(session, "SELECT outer_col.inner_col.a, outer_col.inner_col.value FROM test_nested_rename_deep",
+                "VALUES ('hello', 42)");
+
+        dropTable(session, "test_nested_rename_deep");
+
+        assertUpdate(session, "CREATE TABLE test_nested_rename_ifexists (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "ALTER TABLE test_nested_rename_ifexists RENAME COLUMN IF EXISTS info.age TO years");
+        assertUpdate(session, "ALTER TABLE test_nested_rename_ifexists RENAME COLUMN IF EXISTS info.age TO years");
+        dropTable(session, "test_nested_rename_ifexists");
+
+        assertUpdate(session, "CREATE TABLE test_nested_rename_missing (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_rename_missing RENAME COLUMN info.nonexistent TO new_name",
+                ".*Field 'info\\.nonexistent' does not exist.*");
+        dropTable(session, "test_nested_rename_missing");
+
+        assertUpdate(session, "CREATE TABLE test_nested_rename_collision (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        assertQueryFails(session,
+                "ALTER TABLE test_nested_rename_collision RENAME COLUMN info.age TO name",
+                ".*Cannot rename field 'info\\.age'.*field with that name already exists.*");
+        dropTable(session, "test_nested_rename_collision");
+    }
+
+    @Test
+    public void testRenameNestedFieldTimeTravel()
+    {
+        testWithAllFileFormats(this::testRenameNestedFieldTimeTravel);
+    }
+
+    private void testRenameNestedFieldTimeTravel(Session session, FileFormat fileFormat)
+    {
+        String format = "\"write.format.default\" = '" + fileFormat + "'";
+        String tableName = "test_nested_rename_timetravel";
+        assertUpdate(session, "CREATE TABLE " + tableName + " (" +
+                "id BIGINT, " +
+                "info ROW(name VARCHAR, age INTEGER)" +
+                ") WITH (" + format + ")");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (1, ROW('alice', 30))", 1);
+
+        long snapshotBeforeRename = latestSnapshotId(tableName);
+
+        assertUpdate(session, "ALTER TABLE " + tableName + " RENAME COLUMN info.age TO years");
+
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (2, ROW('bob', 25))", 1);
+
+        assertQuery(session, "SELECT id, info.years FROM " + tableName + " ORDER BY id",
+                "VALUES (1, 30), (2, 25)");
+        assertQueryFails(session,
+                "SELECT info.age FROM " + tableName,
+                ".*'info\\.age' cannot be resolved.*");
+
+        // The pre-rename snapshot still uses 'age'
+        assertQuery(session,
+                "SELECT id, info.age FROM " + tableName + " FOR SYSTEM_VERSION AS OF " + snapshotBeforeRename,
+                "VALUES (1, 30)");
+        assertQueryFails(session,
+                "SELECT info.years FROM " + tableName + " FOR SYSTEM_VERSION AS OF " + snapshotBeforeRename,
+                ".*'info\\.years' cannot be resolved.*");
+
+        dropTable(session, tableName);
+    }
+
+    /**
+     * Reads pre-rename Parquet/ORC files after nested field renames, with dereference pushdown
+     * both disabled and enabled. Historical rows must not read as NULL.
+     */
+    private void runRenameNestedFieldHistoricalData()
+    {
+        for (String fileFormat : new String[]{"PARQUET", "ORC"}) {
+            String format = "\"write.format.default\" = '" + fileFormat + "'";
+
+            for (boolean pushdownEnabled : new boolean[]{false, true}) {
+                Session session = Session.builder(getSession())
+                        .setCatalogSessionProperty(ICEBERG_CATALOG, PARQUET_DEREFERENCE_PUSHDOWN_ENABLED,
+                                String.valueOf(pushdownEnabled))
+                        .build();
+
+                assertUpdate(session, "CREATE TABLE test_rename_hist (" +
+                        "id BIGINT, " +
+                        "info ROW(name VARCHAR, age INTEGER)" +
+                        ") WITH (" + format + ")");
+
+                // id=1 is written before the rename, so it lives in a historical file
+                assertUpdate(session, "INSERT INTO test_rename_hist VALUES (1, ROW('alice', 30))", 1);
+
+                assertQuery(session, "SELECT id, info.name, info.age FROM test_rename_hist",
+                        "VALUES (1, 'alice', 30)");
+                MaterializedResult priorStruct = computeActual(session,
+                        "SELECT info FROM test_rename_hist");
+                assertEquals(priorStruct.getRowCount(), 1);
+                assertEquals(priorStruct.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30));
+
+                assertUpdate(session, "ALTER TABLE test_rename_hist RENAME COLUMN info.age TO years");
+
+                assertUpdate(session, "INSERT INTO test_rename_hist VALUES (2, ROW('bob', 25))", 1);
+
+                assertQuery(session, "SELECT id, info.years FROM test_rename_hist ORDER BY id",
+                        "VALUES (1, 30), (2, 25)");
+
+                assertQuery(session, "SELECT id, info.name FROM test_rename_hist ORDER BY id",
+                        "VALUES (1, 'alice'), (2, 'bob')");
+
+                assertQuery(session, "SELECT id, info.name, info.years FROM test_rename_hist ORDER BY id",
+                        "VALUES (1, 'alice', 30), (2, 'bob', 25)");
+
+                MaterializedResult result = computeActual(session,
+                        "SELECT info FROM test_rename_hist ORDER BY id");
+                assertEquals(result.getRowCount(), 2);
+                assertEquals(result.getMaterializedRows().get(0).getField(0), Arrays.asList("alice", 30));
+                assertEquals(result.getMaterializedRows().get(1).getField(0), Arrays.asList("bob", 25));
+
+                dropTable(session, "test_rename_hist");
+
+                assertUpdate(session, "CREATE TABLE test_rename_hist_deep (" +
+                        "id BIGINT, " +
+                        "outer_col ROW(inner_col ROW(a VARCHAR, b BIGINT))" +
+                        ") WITH (" + format + ")");
+
+                assertUpdate(session, "INSERT INTO test_rename_hist_deep VALUES (1, ROW(ROW('hello', 42)))", 1);
+
+                assertUpdate(session, "ALTER TABLE test_rename_hist_deep RENAME COLUMN outer_col.inner_col.b TO value");
+
+                assertUpdate(session, "INSERT INTO test_rename_hist_deep VALUES (2, ROW(ROW('world', 99)))", 1);
+
+                assertQuery(session,
+                        "SELECT outer_col.inner_col.value FROM test_rename_hist_deep ORDER BY id",
+                        "VALUES (42), (99)");
+
+                assertQuery(session,
+                        "SELECT outer_col.inner_col.a FROM test_rename_hist_deep ORDER BY id",
+                        "VALUES ('hello'), ('world')");
+
+                assertQuery(session,
+                        "SELECT outer_col.inner_col.a, outer_col.inner_col.value FROM test_rename_hist_deep ORDER BY id",
+                        "VALUES ('hello', 42), ('world', 99)");
+
+                // Intermediate struct projection with a renamed child
+                MaterializedResult deepSubstruct = computeActual(session,
+                        "SELECT outer_col.inner_col FROM test_rename_hist_deep ORDER BY id");
+                assertEquals(deepSubstruct.getRowCount(), 2);
+                assertEquals(deepSubstruct.getMaterializedRows().get(0).getField(0), Arrays.asList("hello", 42L));
+                assertEquals(deepSubstruct.getMaterializedRows().get(1).getField(0), Arrays.asList("world", 99L));
+
+                dropTable(session, "test_rename_hist_deep");
+
+                // Swap-rename: values must follow the field ID, not the current name
+                assertUpdate(session, "CREATE TABLE test_rename_hist_swap (" +
+                        "id BIGINT, " +
+                        "info ROW(a INTEGER, b INTEGER)" +
+                        ") WITH (" + format + ")");
+
+                assertUpdate(session, "INSERT INTO test_rename_hist_swap VALUES (1, ROW(10, 20))", 1);
+
+                assertUpdate(session, "ALTER TABLE test_rename_hist_swap RENAME COLUMN info.a TO tmp");
+                assertUpdate(session, "ALTER TABLE test_rename_hist_swap RENAME COLUMN info.b TO a");
+                assertUpdate(session, "ALTER TABLE test_rename_hist_swap RENAME COLUMN info.tmp TO b");
+
+                // Renaming does not reorder fields, so the struct is now ROW(b, a)
+                assertUpdate(session, "INSERT INTO test_rename_hist_swap VALUES (2, ROW(200, 100))", 1);
+
+                assertQuery(session, "SELECT id, info.a, info.b FROM test_rename_hist_swap ORDER BY id",
+                        "VALUES (1, 20, 10), (2, 100, 200)");
+
+                dropTable(session, "test_rename_hist_swap");
+
+                // Recycled name: after dropping info.b and renaming info.a to b, historical files still
+                // hold the dropped b (20) under the physical name 'b'; resolution by ID must return 10
+                assertUpdate(session, "CREATE TABLE test_rename_hist_recycled (" +
+                        "id BIGINT, " +
+                        "info ROW(a INTEGER, b INTEGER)" +
+                        ") WITH (" + format + ")");
+                assertUpdate(session, "INSERT INTO test_rename_hist_recycled VALUES (1, ROW(10, 20))", 1);
+
+                assertUpdate(session, "ALTER TABLE test_rename_hist_recycled DROP COLUMN info.b");
+                assertUpdate(session, "ALTER TABLE test_rename_hist_recycled RENAME COLUMN info.a TO b");
+
+                assertQuery(session, "SELECT id, info.b FROM test_rename_hist_recycled",
+                        "VALUES (1, 10)");
+                MaterializedResult recycledStruct = computeActual(session,
+                        "SELECT id, info FROM test_rename_hist_recycled");
+                assertEquals(recycledStruct.getRowCount(), 1);
+                assertEquals(recycledStruct.getMaterializedRows().get(0).getField(0), 1L);
+                assertEquals(recycledStruct.getMaterializedRows().get(0).getField(1), Arrays.asList(10));
+
+                assertUpdate(session, "INSERT INTO test_rename_hist_recycled VALUES (2, ROW(30))", 1);
+                assertQuery(session, "SELECT id, info.b FROM test_rename_hist_recycled ORDER BY id",
+                        "VALUES (1, 10), (2, 30)");
+                MaterializedResult recycledStructs = computeActual(session,
+                        "SELECT id, info FROM test_rename_hist_recycled ORDER BY id");
+                assertEquals(recycledStructs.getRowCount(), 2);
+                assertEquals(recycledStructs.getMaterializedRows().get(0).getField(0), 1L);
+                assertEquals(recycledStructs.getMaterializedRows().get(0).getField(1), Arrays.asList(10));
+                assertEquals(recycledStructs.getMaterializedRows().get(1).getField(0), 2L);
+                assertEquals(recycledStructs.getMaterializedRows().get(1).getField(1), Arrays.asList(30));
+
+                dropTable(session, "test_rename_hist_recycled");
+            }
         }
     }
 

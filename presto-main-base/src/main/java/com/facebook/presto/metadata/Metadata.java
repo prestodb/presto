@@ -240,6 +240,17 @@ public interface Metadata
     void renameColumn(Session session, TableHandle tableHandle, ColumnHandle source, String target);
 
     /**
+     * Rename a field inside a nested struct column.
+     *
+     * <p>{@code fieldPath} (for example {@code ["info", "age"]}) has at least 2 elements and, like
+     * {@code target}, is already normalized. {@code target} is the new name of the last segment.
+     *
+     * <p>When {@code ignoreNonExistent} is {@code true}, returns silently if the field or a parent
+     * does not exist ({@code IF EXISTS}); otherwise the connector throws {@code COLUMN_NOT_FOUND}.
+     */
+    void renameField(Session session, TableHandle tableHandle, List<String> fieldPath, String target, boolean ignoreNonExistent);
+
+    /**
      * Set the default value for the specified column
      */
     void setColumnDefault(Session session, TableHandle tableHandle, String columnName, Object defaultValue);
