@@ -128,6 +128,13 @@
         <dependency>
             <groupId>org.lance</groupId>
             <artifactId>lance-namespace-apache-client</artifactId>
+            <exclusions>
+                <!-- Unused by the client; its jaxb module pins jakarta.activation-api 1.2.x, which shadows the 2.x Jersey needs in tests -->
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.jaxrs</groupId>
+                    <artifactId>jackson-jaxrs-json-provider</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

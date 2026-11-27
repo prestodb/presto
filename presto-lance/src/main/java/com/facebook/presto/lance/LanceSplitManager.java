@@ -55,6 +55,14 @@ public class LanceSplitManager
                 tableHandle.getTablePath(),
                 tableHandle.getDatasetVersion());
 
+        // Vector (ANN) search runs as a single split over all fragments: one nearest query returns
+        // the exact global top-k. It cannot be split by fragment, because lance-core silently turns
+        // a nearest scan restricted to fragment IDs into a plain scan and drops _distance.
+        if (tableHandle.hasVectorSearch()) {
+            List<Integer> allFragmentIds = fragments.stream().map(Fragment::getId).collect(toImmutableList());
+            return new FixedSplitSource(ImmutableList.of(new LanceSplit(allFragmentIds)));
+        }
+
         // With a pushed-down LIMIT, coalesce just enough leading fragments to cover it into a single
         // split instead of one-split-per-fragment (which would scan numFragments * LIMIT rows).
         // getNumRows() is deletion-aware and read from the already-loaded manifest, so this needs no extra IO.
