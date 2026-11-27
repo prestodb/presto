@@ -21,7 +21,7 @@ import static java.util.Objects.requireNonNull;
 
 public class RowGroupIndex
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowGroupIndex.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(RowGroupIndex.class).instanceSize();
 
     private final int[] positions;
     private final ColumnStatistics statistics;

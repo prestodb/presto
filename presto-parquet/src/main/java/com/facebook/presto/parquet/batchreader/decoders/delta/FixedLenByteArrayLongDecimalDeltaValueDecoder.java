@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 public class FixedLenByteArrayLongDecimalDeltaValueDecoder
         implements LongDecimalValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(FixedLenByteArrayLongDecimalDeltaValueDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(FixedLenByteArrayLongDecimalDeltaValueDecoder.class).instanceSize();
 
     private final ValuesReader delegate;
 

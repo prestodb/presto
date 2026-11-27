@@ -23,7 +23,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 public class Int64PlainValuesDecoder
         implements Int64ValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64PlainValuesDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Int64PlainValuesDecoder.class).instanceSize();
 
     private final byte[] byteBuffer;
     private final int bufferEnd;

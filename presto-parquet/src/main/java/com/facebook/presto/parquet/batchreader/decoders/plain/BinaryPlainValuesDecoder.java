@@ -24,7 +24,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 public class BinaryPlainValuesDecoder
         implements BinaryValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryPlainValuesDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BinaryPlainValuesDecoder.class).instanceSize();
 
     private final byte[] buffer;
     private final int bufEnd;

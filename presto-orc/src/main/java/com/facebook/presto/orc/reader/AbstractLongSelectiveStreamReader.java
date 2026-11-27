@@ -38,7 +38,7 @@ import static java.util.Objects.requireNonNull;
 abstract class AbstractLongSelectiveStreamReader
         implements SelectiveStreamReader
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(AbstractLongSelectiveStreamReader.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(AbstractLongSelectiveStreamReader.class).instanceSize();
 
     protected final SelectiveReaderContext context;
 

@@ -55,7 +55,7 @@ public class LongOutputStreamV2
         }
     }
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(LongOutputStreamV2.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(LongOutputStreamV2.class).instanceSize();
     private static final int MAX_SCOPE = 512;
     private static final int MIN_REPEAT = 3;
     private static final int MAX_SHORT_REPEAT_LENGTH = 10;

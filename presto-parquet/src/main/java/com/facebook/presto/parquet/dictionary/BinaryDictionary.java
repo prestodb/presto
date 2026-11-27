@@ -28,7 +28,7 @@ import static org.apache.parquet.bytes.BytesUtils.readIntLittleEndian;
 public class BinaryDictionary
         extends Dictionary
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryDictionary.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BinaryDictionary.class).instanceSize();
 
     private final Binary[] content;
 

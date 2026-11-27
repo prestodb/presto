@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
 // This implementation assumes arrays used in the hash are always a power of 2
 public final class PagesHash
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(PagesHash.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(PagesHash.class).instanceSize();
     private static final DataSize CACHE_SIZE = new DataSize(128, KILOBYTE);
     private final AdaptiveLongBigArray addresses;
     private final int positionCount;

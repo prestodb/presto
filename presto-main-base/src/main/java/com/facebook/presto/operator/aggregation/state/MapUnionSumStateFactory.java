@@ -73,7 +73,7 @@ public class MapUnionSumStateFactory
             extends AbstractGroupedAccumulatorState
             implements MapUnionSumState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
         private final Type keyType;
         private final Type valueType;
         private final Adder adder;
@@ -147,7 +147,7 @@ public class MapUnionSumStateFactory
     public static class SingleState
             implements MapUnionSumState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleState.class).instanceSize();
         private final Type keyType;
         private final Type valueType;
         private final Adder adder;

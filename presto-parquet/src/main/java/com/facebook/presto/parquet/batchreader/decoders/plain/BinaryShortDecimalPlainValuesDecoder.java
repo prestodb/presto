@@ -25,7 +25,7 @@ import static java.util.Objects.requireNonNull;
 public class BinaryShortDecimalPlainValuesDecoder
         implements ShortDecimalValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryShortDecimalPlainValuesDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BinaryShortDecimalPlainValuesDecoder.class).instanceSize();
 
     private final BinaryPlainValuesDecoder delegate;
 

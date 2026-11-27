@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 public class SimplePagesHashStrategy
         implements PagesHashStrategy
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(SimplePagesHashStrategy.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(SimplePagesHashStrategy.class).instanceSize();
     private final List<Type> types;
     private final List<Integer> outputChannels;
     private final List<List<Block>> channels;

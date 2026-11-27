@@ -617,7 +617,7 @@ public class OptimizedPartitionedOutputOperator
 
     private static class PartitionBuffer
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(PartitionBuffer.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(PartitionBuffer.class).instanceSize();
 
         private final int partition;
         private final AtomicLong rowsAdded;

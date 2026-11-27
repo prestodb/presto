@@ -57,7 +57,7 @@ public class MapBlockEncodingBuffer
 
     private static final int POSITION_SIZE_WITH_HASHTABLE = SIZE_OF_INT + SIZE_OF_BYTE + SIZE_OF_INT * HASH_MULTIPLIER;
     private static final String NAME = "MAP";
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(MapBlockEncodingBuffer.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(MapBlockEncodingBuffer.class).instanceSize();
 
     // The buffer for the hashtables for all incoming blocks so far
     private byte[] hashTablesBuffer;

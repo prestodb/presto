@@ -25,7 +25,7 @@ import static java.lang.Math.toIntExact;
 public class OrcLazyChunkedOutputBuffer
         implements OrcChunkedOutputBuffer
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(ChunkedSliceOutput.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(ChunkedSliceOutput.class).instanceSize();
     private byte[] buffer;
     private final List<byte[]> closedBuffers = new ArrayList<>();
     private final List<Integer> closedBufferLengths = new ArrayList<>();

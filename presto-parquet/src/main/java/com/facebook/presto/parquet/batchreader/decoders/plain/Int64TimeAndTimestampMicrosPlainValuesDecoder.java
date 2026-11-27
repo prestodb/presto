@@ -26,7 +26,7 @@ import static java.util.concurrent.TimeUnit.MICROSECONDS;
 public class Int64TimeAndTimestampMicrosPlainValuesDecoder
         implements Int64TimeAndTimestampMicrosValuesDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(Int64TimeAndTimestampMicrosPlainValuesDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(Int64TimeAndTimestampMicrosPlainValuesDecoder.class).instanceSize();
 
     private final byte[] byteBuffer;
     private final int bufferEnd;

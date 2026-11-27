@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 public class BooleanColumnStatistics
         extends ColumnStatistics
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BooleanColumnStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BooleanColumnStatistics.class).instanceSize();
 
     private final BooleanStatistics booleanStatistics;
 

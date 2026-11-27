@@ -235,7 +235,7 @@ public class TestBitmap
     @Test
     public static void testRetainedSize()
     {
-        int instanceSizes = ClassLayout.parseClass(Bitmap.class).instanceSize() + ClassLayout.parseClass(BitSet.class).instanceSize();
+        long instanceSizes = ClassLayout.parseClass(Bitmap.class).instanceSize() + ClassLayout.parseClass(BitSet.class).instanceSize();
 
         // The underlying BitSet stores a long[] array of size length / 64,
         // even though toBytes() returns a truncated array of bytes.

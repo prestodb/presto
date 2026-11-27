@@ -27,7 +27,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 public class RepetitionLevelDecoder
         extends BaseRLEBitPackedDecoder
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(BaseRLEBitPackedDecoder.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(BaseRLEBitPackedDecoder.class).instanceSize();
 
     private int remaining;
     private int currentOffsetPackedBuffer;

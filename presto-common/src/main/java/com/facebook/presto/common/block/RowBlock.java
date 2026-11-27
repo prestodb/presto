@@ -32,7 +32,7 @@ public class RowBlock
         extends AbstractRowBlock
         implements Block
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(RowBlock.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(RowBlock.class).instanceSize();
 
     private final int startOffset;
     private final int positionCount;

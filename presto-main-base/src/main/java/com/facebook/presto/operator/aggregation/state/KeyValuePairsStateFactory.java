@@ -61,7 +61,7 @@ public class KeyValuePairsStateFactory
             extends AbstractGroupedAccumulatorState
             implements KeyValuePairsState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedState.class).instanceSize();
         private final Type keyType;
         private final Type valueType;
         private final ObjectBigArray<KeyValuePairs> pairs = new ObjectBigArray<>();
@@ -127,7 +127,7 @@ public class KeyValuePairsStateFactory
     public static class SingleState
             implements KeyValuePairsState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(SingleState.class).instanceSize();
         private final Type keyType;
         private final Type valueType;
         private KeyValuePairs pair;

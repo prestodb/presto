@@ -106,7 +106,7 @@ public class UnnestOperator
         }
     }
 
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(UnnestOperator.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(UnnestOperator.class).instanceSize();
     private static final int MAX_ROWS_PER_BLOCK = 1000;
 
     private final OperatorContext operatorContext;

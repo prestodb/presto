@@ -23,7 +23,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 public class TestStringStatistics
         extends AbstractRangeStatisticsTest<StringStatistics, Slice>
 {
-    private static final int INSTANCE_SIZE = ClassLayout.parseClass(StringStatistics.class).instanceSize();
+    private static final long INSTANCE_SIZE = ClassLayout.parseClass(StringStatistics.class).instanceSize();
 
     // U+0000 to U+D7FF
     private static final Slice LOW_BOTTOM_VALUE = utf8Slice("foo \u0000");

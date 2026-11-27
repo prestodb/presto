@@ -189,7 +189,7 @@ public interface KllSketchAggregationState
             extends AbstractGroupedAccumulatorState
             implements KllSketchAggregationState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(ThetaSketchStateFactory.GroupedThetaSketchState.class).instanceSize();
+        private static final long INSTANCE_SIZE = ClassLayout.parseClass(ThetaSketchStateFactory.GroupedThetaSketchState.class).instanceSize();
         private final ObjectBigArray<KllItemsSketch> sketches = new ObjectBigArray<>();
         private long accumulatedSizeInBytes;
 
