@@ -50,5 +50,41 @@ TEST_F(CoordinatorDiscovererTest, basic) {
   EXPECT_EQ(cachedAddress.getPort(), 8888);
 }
 
+// Verify that getHostHeader() returns the coordinator's hostname:port string
+// derived from discovery.uri. This value is used to set the HTTP Host header
+// on announcements so that http-server.https.sni-host-check passes.
+// Use a DNS name (localhost) so that the stored host header differs from the
+// resolved IP address -- that is the exact scenario the bug covered.
+TEST_F(CoordinatorDiscovererTest, hostnameStoredFromDiscoveryUri) {
+  auto systemConfig = SystemConfig::instance();
+  auto coordinatorDiscoverer = std::make_unique<CoordinatorDiscoverer>();
+
+  // Before any update, host header is empty.
+  EXPECT_TRUE(coordinatorDiscoverer->getHostHeader().empty());
+
+  systemConfig->setValue(
+      std::string(SystemConfig::kDiscoveryUri), "http://localhost:8888");
+
+  coordinatorDiscoverer->updateAddress();
+  // Host header preserves the DNS name from discovery.uri unchanged.
+  EXPECT_EQ(coordinatorDiscoverer->getHostHeader(), "localhost:8888");
+  // The resolved socket address must be a loopback IP (127.0.0.1 or ::1),
+  // confirming DNS resolution occurred and the stored hostname was not used.
+  EXPECT_TRUE(coordinatorDiscoverer->getAddress().isLoopbackAddress());
+}
+
+// Verify that IPv6 literal hostnames are bracketed in the Host header value
+// (RFC 7230 §5.4) so that "::1:8580" is not produced.
+TEST_F(CoordinatorDiscovererTest, ipv6HostnameBracketed) {
+  auto systemConfig = SystemConfig::instance();
+  auto coordinatorDiscoverer = std::make_unique<CoordinatorDiscoverer>();
+
+  systemConfig->setValue(
+      std::string(SystemConfig::kDiscoveryUri), "http://[::1]:8580");
+
+  coordinatorDiscoverer->updateAddress();
+  EXPECT_EQ(coordinatorDiscoverer->getHostHeader(), "[::1]:8580");
+}
+
 } // namespace
 } // namespace facebook::presto
