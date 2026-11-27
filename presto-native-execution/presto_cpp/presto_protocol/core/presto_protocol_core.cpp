@@ -1875,6 +1875,13 @@ void to_json(json& j, const TypeVariableConstraint& p) {
       "TypeVariableConstraint",
       "bool",
       "nonDecimalNumericRequired");
+  to_json_key(
+      j,
+      "hashableRequired",
+      p.hashableRequired,
+      "TypeVariableConstraint",
+      "bool",
+      "hashableRequired");
 }
 
 void from_json(const json& j, TypeVariableConstraint& p) {
@@ -1907,6 +1914,13 @@ void from_json(const json& j, TypeVariableConstraint& p) {
       "TypeVariableConstraint",
       "bool",
       "nonDecimalNumericRequired");
+  from_json_key(
+      j,
+      "hashableRequired",
+      p.hashableRequired,
+      "TypeVariableConstraint",
+      "bool",
+      "hashableRequired");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
