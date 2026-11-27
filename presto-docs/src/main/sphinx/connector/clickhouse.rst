@@ -62,6 +62,9 @@ Property Name                             Default Value    Description
                                                             When disabled, names are matched case-insensitively using lowercase normalization.
                                                             Defaults to ``false``.
 
+``clickhouse.fetch-size``                 20000             Number of rows to fetch from the database at a time. Higher values can improve
+                                                            performance for large result sets but may increase memory usage.
+
 ========================================= ================ ==============================================================================================================
 
 
