@@ -48,7 +48,7 @@ public abstract class AbstractVerifyCommand
                         getClientInfoFactory()))
                 .add(new SourceQueryModule(getCustomSourceQuerySupplierTypes()))
                 .add(new EventClientModule(getCustomEventClientTypes()))
-                .add(new QueryActionsModule(getSqlExceptionClassifier(), getCustomQueryActionTypes()))
+                .add(getQueryActionsModule())
                 .addAll(getAdditionalModules())
                 .build());
         Injector injector = null;
@@ -69,5 +69,10 @@ public abstract class AbstractVerifyCommand
                 }
             }
         }
+    }
+
+    protected Module getQueryActionsModule()
+    {
+        return new QueryActionsModule(getSqlExceptionClassifier(), getCustomQueryActionTypes());
     }
 }
