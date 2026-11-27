@@ -137,7 +137,7 @@ public final class TimestampOperators
             long millis = date + chronology.getZone().getOffset(date);
             return TimeUnit.MILLISECONDS.toDays(millis);
         }
-        return floorDiv(value, MILLISECONDS_PER_DAY);
+        return floorDiv(value, (long) MILLISECONDS_PER_DAY);
     }
 
     @ScalarOperator(CAST)
