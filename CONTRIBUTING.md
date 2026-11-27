@@ -494,11 +494,8 @@ New project and module committers are approved by majority vote of the TSC ([see
 
 ## <a id="pullrequests">Pull Requests</a>
 * #### PR size and structure
-    * A PR can consist of multiple small commits, preferably not more than 20.
+    * A PR should contain exactly one commit.
     * The total number of lines modified in a single PR shall not exceed 5000. An exception to this rule is for changes that include checked in code generated files (such as [presto_protocol.cpp](https://github.com/prestodb/presto/blob/master/presto-native-execution/presto_cpp/presto_protocol/presto_protocol.cpp)).
-    * The commits sequence shall be in the dependencies order, not in date created/modified order
-    * Every commit in the PR shall pass all the tests
-      Example: https://github.com/prestodb/presto/pull/12991/commits
 
 * #### Follow the PR template provided
 * #### Backport PR
