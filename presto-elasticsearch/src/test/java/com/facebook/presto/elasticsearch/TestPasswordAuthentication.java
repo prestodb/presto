@@ -16,7 +16,6 @@ package com.facebook.presto.elasticsearch;
 import co.elastic.clients.transport.rest5_client.low_level.Request;
 import co.elastic.clients.transport.rest5_client.low_level.RequestOptions;
 import co.elastic.clients.transport.rest5_client.low_level.Rest5Client;
-import com.amazonaws.util.Base64;
 import com.facebook.presto.sql.query.QueryAssertions;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,6 +29,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Map;
 
 import static com.facebook.presto.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
@@ -92,7 +92,7 @@ public class TestPasswordAuthentication
         request.setJsonEntity(json);
         request.addParameter("refresh", "true");
 
-        String auth = Base64.encodeAsString((USER + ":" + PASSWORD).getBytes(StandardCharsets.UTF_8));
+        String auth = Base64.getEncoder().encodeToString((USER + ":" + PASSWORD).getBytes(StandardCharsets.UTF_8));
         request.setOptions(RequestOptions.DEFAULT.toBuilder()
                 .addHeader("Authorization", "Basic " + auth)
                 .build());
