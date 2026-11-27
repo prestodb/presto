@@ -42,7 +42,6 @@ import static com.facebook.presto.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_E
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class JdbcPageSink
@@ -79,7 +78,7 @@ public class JdbcPageSink
         columnWriters = columnTypes.stream().map(type -> {
             WriteFunction writeFunction = jdbcClient.toWriteMapping(session, type).getWriteFunction();
             verify(type.getJavaType() == writeFunction.getJavaType(),
-                    format("Presto type %s is not compatible with write function %s accepting %s", type, writeFunction, writeFunction.getJavaType()));
+                    "Presto type %s is not compatible with write function %s accepting %s", type, writeFunction, writeFunction.getJavaType());
             return writeFunction;
         }).collect(toImmutableList());
     }
