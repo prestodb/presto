@@ -54,59 +54,59 @@ class ThriftIOTest : public ::testing::Test {
 
 TEST_F(ThriftIOTest, thriftHostAddressRoundTrip) {
   thrift::HostAddress original;
-  original.hostPortString_ref() = "localhost:8080";
+  original.hostPortString() = "localhost:8080";
 
   testThriftRoundTrips(original);
 }
 
 TEST_F(ThriftIOTest, thriftStageIdRoundTrip) {
   thrift::StageId original;
-  original.queryId_ref() = "test_query_123";
-  original.id_ref() = 42;
+  original.queryId() = "test_query_123";
+  original.id() = 42;
 
   testThriftRoundTrips(original);
 }
 
 TEST_F(ThriftIOTest, thriftPlanNodeIdRoundTrip) {
   thrift::PlanNodeId original;
-  original.id_ref() = "test_plan_node_123";
+  original.id() = "test_plan_node_123";
 
   testThriftRoundTrips(original);
 }
 
 TEST_F(ThriftIOTest, thriftEmptyStringRoundTrip) {
   thrift::HostAddress original;
-  original.hostPortString_ref() = ""; // Empty string
+  original.hostPortString() = ""; // Empty string
 
   testThriftRoundTrips(original);
 }
 
 TEST_F(ThriftIOTest, thriftLargeDataRoundTrip) {
   thrift::StageId original;
-  original.queryId_ref() = std::string(1000, 'x'); // Large string
-  original.id_ref() = INT32_MAX;
+  original.queryId() = std::string(1000, 'x'); // Large string
+  original.id() = INT32_MAX;
 
   testThriftRoundTrips(original);
 }
 
 TEST_F(ThriftIOTest, thriftNegativeValuesRoundTrip) {
   thrift::StageId original;
-  original.queryId_ref() = "negative_test";
-  original.id_ref() = -12345;
+  original.queryId() = "negative_test";
+  original.id() = -12345;
 
   testThriftRoundTrips(original);
 }
 
 TEST_F(ThriftIOTest, thriftOutputBufferIdRoundTrip) {
   thrift::OutputBufferId original;
-  original.id_ref() = 98765;
+  original.id() = 98765;
 
   testThriftRoundTrips(original);
 }
 
 TEST_F(ThriftIOTest, thriftZeroValuesRoundTrip) {
   thrift::OutputBufferId original;
-  original.id_ref() = 0;
+  original.id() = 0;
 
   testThriftRoundTrips(original);
 }
@@ -117,14 +117,14 @@ TEST_F(ThriftIOTest, thriftTaskIdRoundTrip) {
   // Create nested StageExecutionId
   thrift::StageExecutionId stageExecutionId;
   thrift::StageId stageId;
-  stageId.queryId_ref() = "complex_query_789";
-  stageId.id_ref() = 555;
-  stageExecutionId.stageId_ref() = stageId;
-  stageExecutionId.id_ref() = 777;
-  original.stageExecutionId_ref() = stageExecutionId;
+  stageId.queryId() = "complex_query_789";
+  stageId.id() = 555;
+  stageExecutionId.stageId() = stageId;
+  stageExecutionId.id() = 777;
+  original.stageExecutionId() = stageExecutionId;
 
-  original.id_ref() = 999;
-  original.attemptNumber_ref() = 3;
+  original.id() = 999;
+  original.attemptNumber() = 3;
 
   testThriftRoundTrips(original);
 }
@@ -134,11 +134,11 @@ TEST_F(ThriftIOTest, thriftStageExecutionIdRoundTrip) {
 
   // Create nested StageId
   thrift::StageId stageId;
-  stageId.queryId_ref() = "nested_stage_query";
-  stageId.id_ref() = 111;
-  original.stageId_ref() = stageId;
+  stageId.queryId() = "nested_stage_query";
+  stageId.id() = 111;
+  original.stageId() = stageId;
 
-  original.id_ref() = 222;
+  original.id() = 222;
 
   testThriftRoundTrips(original);
 }
@@ -147,19 +147,19 @@ TEST_F(ThriftIOTest, thriftBroadcastFileFooterRoundTrip) {
   thrift::BroadcastFileFooter original;
 
   // Test with empty page sizes
-  original.pageSizes_ref() = std::vector<int64_t>{};
+  original.pageSizes() = std::vector<int64_t>{};
   testThriftRoundTrips(original);
 
   // Test with single page size
-  original.pageSizes_ref() = std::vector<int64_t>{1024};
+  original.pageSizes() = std::vector<int64_t>{1024};
   testThriftRoundTrips(original);
 
   // Test with multiple page sizes
-  original.pageSizes_ref() = std::vector<int64_t>{1024, 2048, 4096, 8192};
+  original.pageSizes() = std::vector<int64_t>{1024, 2048, 4096, 8192};
   testThriftRoundTrips(original);
 
   // Test with large page sizes
-  original.pageSizes_ref() = std::vector<int64_t>{
+  original.pageSizes() = std::vector<int64_t>{
       1073741824, // 1GB
       2147483648, // 2GB
       268435456, // 256MB
@@ -168,6 +168,6 @@ TEST_F(ThriftIOTest, thriftBroadcastFileFooterRoundTrip) {
   testThriftRoundTrips(original);
 
   // Test with zero and negative values (edge cases)
-  original.pageSizes_ref() = std::vector<int64_t>{0, -1, 100, 0, 50};
+  original.pageSizes() = std::vector<int64_t>{0, -1, 100, 0, 50};
   testThriftRoundTrips(original);
 }
