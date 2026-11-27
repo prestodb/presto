@@ -139,7 +139,15 @@ public class TaskThresholdMemoryRevokingScheduler
     {
         try {
             SqlTask task = taskSupplier.apply(taskId);
-            if (!memoryRevokingNeeded(task)) {
+            if (task == null) {
+                return;
+            }
+            Optional<TaskContext> taskContext = task.getTaskContext();
+            if (!taskContext.isPresent()) {
+                return;
+            }
+            long taskRevocableBytes = taskContext.get().getTaskMemoryContext().getRevocableMemory();
+            if (taskRevocableBytes <= maxRevocableMemoryPerTask) {
                 return;
             }
 
@@ -190,7 +198,7 @@ public class TaskThresholdMemoryRevokingScheduler
                     @Override
                     public Void visitOperatorContext(OperatorContext operatorContext, AtomicLong remainingBytesToRevoke)
                     {
-                        if (remainingBytesToRevoke.get() > 0) {
+                        if (remainingBytesToRevoke.get() > 0 && !operatorContext.isMemoryRevokingRequested()) {
                             long revokedBytes = operatorContext.requestMemoryRevoking();
                             if (revokedBytes > 0) {
                                 remainingBytesToRevoke.addAndGet(-revokedBytes);
