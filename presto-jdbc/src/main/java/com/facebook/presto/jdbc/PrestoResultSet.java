@@ -1863,7 +1863,7 @@ public class PrestoResultSet
                     .setTableName("") // TODO
                     .setColumnLabel(column.getName())
                     .setColumnName(column.getName()) // TODO
-                    .setColumnTypeSignature(parseTypeSignature(column.getType().toUpperCase(ENGLISH)))
+                    .setColumnTypeSignature(parseTypeSignature(column.getType().toLowerCase(ENGLISH)))
                     .setNullable(Nullable.UNKNOWN)
                     .setCurrency(false);
             setTypeInfo(builder, parseTypeSignature(column.getType()));
