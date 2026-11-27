@@ -48,6 +48,8 @@ Property Name                         Description                               
 ``lance.metadata-cache-size``         Size of Lance metadata cache per worker.                       ``128MB``
 ``lance.dataset-cache-max-entries``   Maximum number of cached Lance datasets per worker.            ``100``
 ``lance.dataset-cache-ttl``           TTL for cached Lance datasets.                                ``60m``
+``lance.gcs.json-key-file-path``      Google Cloud Storage service account key file, read on the    (none)
+                                      coordinator. See `Storage Credentials`_.
 ===================================== ============================================================= ===============
 
 ``lance.impl``
@@ -181,6 +183,34 @@ how object store credentials are configured:
     lance.storage.aws_secret_access_key=...
     lance.storage.region=us-east-1
 
+Storage Credentials
+^^^^^^^^^^^^^^^^^^^
+
+Storage options for a table are resolved on the coordinator when the query is
+planned, and sent to workers with the table handle. Workers never read
+credentials from their local disk. The connector uses the first of these
+sources that provides options:
+
+1. Storage options returned by the Lance namespace for the table.
+2. ``lance.storage.*`` catalog properties.
+3. The service account key in ``lance.gcs.json-key-file-path``, passed to Lance
+   as ``google_service_account_key``.
+
+``lance.gcs.json-key-file-path``      Google Cloud Storage service account key file, read on the    (none)
+JSON key file that only needs to exist on the coordinator:
+
+.. code-block:: none
+
+    connector.name=lance
+    lance.root=gs://my-bucket/lance
+    lance.gcs.json-key-file-path=/etc/presto/lance-gcs-key.json
+
+.. warning::
+
+    Storage options, including any credential material, are sent to workers
+    as part of the query plan. Secure the communication between the
+    coordinator and workers accordingly.
+
 Breaking Changes
 ----------------
 
@@ -271,6 +301,38 @@ Append data to an existing Lance table:
     INSERT INTO lance.default.my_table
     SELECT * FROM tpch.tiny.nation;
 
+DELETE
+^^^^^^
+
+Delete rows from a Lance table:
+
+.. code-block:: sql
+
+    DELETE FROM lance.default.my_table
+    WHERE score < 0.5;
+
+Deleted rows are recorded in Lance deletion files, so the data files
+themselves are not rewritten. A ``DELETE`` without a ``WHERE`` clause is a
+metadata-only operation that removes every row in a single commit.
+
+UPDATE
+^^^^^^
+
+Update rows in a Lance table:
+
+.. code-block:: sql
+
+    UPDATE lance.default.my_table
+    SET score = score * 2
+    WHERE name = 'ALGERIA';
+
+An ``UPDATE`` deletes the matched rows and writes their new values to new
+fragments in a single commit.
+
+``DELETE`` and ``UPDATE`` commit against the dataset version the query read.
+If another writer commits a conflicting change first, the statement fails
+instead of overwriting that change.
+
 SELECT
 ^^^^^^
 
@@ -333,6 +395,44 @@ Presto Type               Lance Filter Literal
     Correctness is always guaranteed because Presto re-evaluates all
     predicates regardless of pushdown.
 
+Vector Search Pushdown
+^^^^^^^^^^^^^^^^^^^^^^
+
+A query that orders a Lance table by the distance between a vector column and
+a constant query vector, and keeps the first ``k`` rows, is pushed into Lance
+as a nearest-neighbor search. If the column has a vector index, Lance answers
+the query from the index instead of scanning and sorting every row:
+
+.. code-block:: sql
+
+    SELECT id, title
+    FROM lance.default.documents
+    ORDER BY l2_distance(embedding, ARRAY[0.1, 0.2, 0.3, 0.4])
+    LIMIT 10;
+
+The following distance functions are recognized. The sort direction must put
+the nearest rows first:
+
+============================= ================ ===============
+Function                      Lance metric     Sort order
+============================= ================ ===============
+``l2_distance``               ``l2``           ``ASC``
+``cosine_similarity``         ``cosine``       ``DESC``
+``dot_product``               ``dot``          ``DESC``
+============================= ================ ===============
+
+The query vector must be a constant array and the limit must be a positive
+constant. Queries that don't match this shape are run normally. Index search
+behavior can be tuned with the ``vector_search_nprobes``,
+``vector_search_ef``, and ``vector_search_refine_factor`` session properties,
+and the pushdown can be turned off with ``vector_search_pushdown_enabled``.
+
+.. note::
+
+    An approximate (ANN) index can return different rows than an exact
+    search. Set ``vector_search_pushdown_enabled`` to ``false`` to get exact
+    results from a full scan.
+
 DROP TABLE
 ^^^^^^^^^^
 
@@ -374,18 +474,37 @@ Property Name                                     Description                   
 ================================================= ================================================================ =========
 ``filter_pushdown_enabled``                        Enable SQL predicate pushdown to the Lance scanner. Disable     ``true``
                                                    to fall back to executor-level filtering only.
+``vector_search_pushdown_enabled``                 Push ``ORDER BY <distance> LIMIT k`` queries into a Lance       ``true``
+                                                   nearest-neighbor search. See `Vector Search Pushdown`_.
+``vector_search_nprobes``                          Number of IVF partitions to probe per search. ``0`` uses the     ``0``
+                                                   Lance default.
+``vector_search_ef``                               HNSW ``ef`` search parameter. ``0`` uses the Lance default.      ``0``
+``vector_search_refine_factor``                    Re-rank ``k * refine_factor`` candidates with exact distances.   ``0``
+                                                   ``0`` uses the Lance default.
 ================================================= ================================================================ =========
+
+Native Execution
+----------------
+
+Presto C++ workers can read Lance tables, including vector search queries,
+through the Velox Lance connector. Both Velox and Presto C++ must be built with
+Lance support, which requires `lance-c <https://github.com/lance-format/lance-c>`_:
+
+* Build Velox with ``-DVELOX_ENABLE_LANCE_CONNECTOR=ON``. Running Velox's
+  ``scripts/setup-*.sh`` with ``BUILD_LANCE=true`` installs lance-c.
+* Build Presto C++ with ``-DPRESTO_ENABLE_LANCE=ON``.
+
+The catalog is configured on the coordinator as described above. Workers
+receive the dataset location, the dataset version the coordinator planned
+against, and the storage options with each query. ``DELETE`` and ``UPDATE``
+are not supported on Presto C++ workers.
 
 Limitations
 -----------
 
 * Only a single schema (``default``) is supported when ``lance.single-level-ns``
   is ``true``.
-* The following SQL statements are not supported:
-
-  * :doc:`/sql/alter-table`
-  * :doc:`/sql/delete`
-  * :doc:`/sql/update`
+* :doc:`/sql/alter-table` is not supported.
 
 * Predicate pushdown is not supported for ``VARBINARY`` and ``ARRAY`` types.
   Only column projection is pushed down for these types.

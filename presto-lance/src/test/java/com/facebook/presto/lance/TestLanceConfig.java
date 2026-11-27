@@ -42,7 +42,8 @@ public class TestLanceConfig
                 .setIndexCacheSize(new DataSize(128, MEGABYTE))
                 .setMetadataCacheSize(new DataSize(128, MEGABYTE))
                 .setDatasetCacheMaxEntries(100)
-                .setDatasetCacheTtl(new Duration(60, TimeUnit.MINUTES)));
+                .setDatasetCacheTtl(new Duration(60, TimeUnit.MINUTES))
+                .setGcsJsonKeyFilePath(null));
     }
 
     @Test
@@ -60,6 +61,7 @@ public class TestLanceConfig
                 .put("lance.metadata-cache-size", "512MB")
                 .put("lance.dataset-cache-max-entries", "50")
                 .put("lance.dataset-cache-ttl", "30m")
+                .put("lance.gcs.json-key-file-path", "/etc/lance/gcs-key.json")
                 .build();
 
         LanceConfig expected = new LanceConfig()
@@ -73,7 +75,8 @@ public class TestLanceConfig
                 .setIndexCacheSize(new DataSize(256, MEGABYTE))
                 .setMetadataCacheSize(new DataSize(512, MEGABYTE))
                 .setDatasetCacheMaxEntries(50)
-                .setDatasetCacheTtl(new Duration(30, TimeUnit.MINUTES));
+                .setDatasetCacheTtl(new Duration(30, TimeUnit.MINUTES))
+                .setGcsJsonKeyFilePath("/etc/lance/gcs-key.json");
 
         assertFullMapping(properties, expected);
     }
