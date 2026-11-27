@@ -183,6 +183,9 @@ public class AvroColumnDecoder
             if (value instanceof Long || value instanceof Integer) {
                 return ((Number) value).longValue();
             }
+            if (value instanceof Float && columnType == RealType.REAL) {
+                return floatToIntBits((float) value);
+            }
             throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("cannot decode object of '%s' as '%s' for column '%s'", value.getClass(), columnType, columnName));
         }
 
