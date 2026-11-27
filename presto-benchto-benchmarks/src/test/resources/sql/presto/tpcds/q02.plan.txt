@@ -9,7 +9,7 @@ remote exchange (GATHER, SINGLE, [])
                                 remote exchange (REPARTITION, HASH, [d_week_seq_232])
                                     partial aggregation over (d_week_seq_232)
                                         join (INNER, REPLICATED):
-                                            remote exchange (REPARTITION, ROUND_ROBIN, [])
+                                            local exchange (REPARTITION, ROUND_ROBIN, [])
                                                 scan web_sales
                                                 scan catalog_sales
                                             local exchange (GATHER, SINGLE, [])
@@ -24,7 +24,7 @@ remote exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, [d_week_seq])
                                 partial aggregation over (d_week_seq)
                                     join (INNER, REPLICATED):
-                                        remote exchange (REPARTITION, ROUND_ROBIN, [])
+                                        local exchange (REPARTITION, ROUND_ROBIN, [])
                                             scan web_sales
                                             scan catalog_sales
                                         local exchange (GATHER, SINGLE, [])
