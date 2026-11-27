@@ -187,7 +187,7 @@ public class TestMetadata
         }
     }
 
-    @Test(enabled = false) // Investigate
+    @Test
     public void testMetadataWithAllPrimitiveTypes()
     {
         String tableName = "all_types_metadata";
