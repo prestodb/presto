@@ -25,27 +25,38 @@ import com.facebook.presto.spark.classloader_interface.PrestoSparkFailure;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkSession;
 import com.facebook.presto.spark.classloader_interface.PrestoSparkTaskExecutorFactoryProvider;
 import com.facebook.presto.spark.classloader_interface.SparkProcessType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import org.apache.spark.TaskContext;
 import org.apache.spark.util.CollectionAccumulator;
 import scala.Option;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.Principal;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spark.launcher.LauncherUtils.checkDirectory;
+import static com.facebook.presto.spark.launcher.LauncherUtils.listFiles;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Ticker.systemTicker;
 import static java.lang.String.format;
@@ -79,7 +90,9 @@ public class PrestoSparkRunner
                 distribution.getFunctionNamespaceProperties(),
                 distribution.getTempStorageProperties(),
                 distribution.getExpressionManagerProperties(),
-                Optional.empty());
+                Optional.empty(),
+                false,
+                () -> {}).service;
     }
 
     public void run(
@@ -209,31 +222,110 @@ public class PrestoSparkRunner
         DistributionBasedPrestoSparkTaskExecutorFactoryProvider.close();
     }
 
-    private static IPrestoSparkServiceFactory createServiceFactory(File directory)
+    /** A service factory, and whether it was loaded from a narrowed lib/. */
+    @VisibleForTesting
+    static final class LoadedServiceFactory
     {
-        checkDirectory(directory);
-        List<URL> urls = new ArrayList<>();
-        File[] files = directory.listFiles();
-        if (files != null) {
-            sort(files);
+        final IPrestoSparkServiceFactory factory;
+        final boolean narrowed;
+
+        private LoadedServiceFactory(IPrestoSparkServiceFactory factory, boolean narrowed)
+        {
+            this.factory = requireNonNull(factory, "factory is null");
+            this.narrowed = narrowed;
         }
-        for (File file : files) {
+    }
+
+    /** The service factory, from {@code narrowed} (the copy of lib/) if possible, else from {@code directory}. */
+    @VisibleForTesting
+    static LoadedServiceFactory createServiceFactory(File directory, Optional<File> narrowed)
+    {
+        if (narrowed.isPresent()) {
+            // Fall back if the copy lacks the provider or a class it needs (a bare LinkageError);
+            // later failures are retried by startService.
+            PrestoSparkLoader narrowedLoader = null;
             try {
-                urls.add(file.toURI().toURL());
+                narrowedLoader = createLoader(linkTargets(narrowed.get()));
+                Iterator<IPrestoSparkServiceFactory> providers = ServiceLoader.load(IPrestoSparkServiceFactory.class, narrowedLoader).iterator();
+                if (providers.hasNext()) {
+                    return new LoadedServiceFactory(providers.next(), true);
+                }
+                System.err.println("[presto-spark] " + narrowed.get() + " lacks the " + IPrestoSparkServiceFactory.class.getSimpleName()
+                        + " provider; using " + directory);
             }
-            catch (MalformedURLException e) {
+            catch (ServiceConfigurationError | LinkageError | UncheckedIOException e) {
+                System.err.println("[presto-spark] could not load the " + IPrestoSparkServiceFactory.class.getSimpleName() + " provider from "
+                        + narrowed.get() + "; using " + directory + ". Cause: " + e);
+            }
+            if (narrowedLoader != null) {
+                try {
+                    narrowedLoader.close();
+                }
+                catch (IOException e) {
+                    // nothing to do: the loader is discarded either way
+                }
+            }
+        }
+        checkDirectory(directory);
+        File[] files = listFiles(directory);
+        sort(files);
+        List<URL> urls = new ArrayList<>();
+        for (File file : files) {
+            urls.add(toUrl(file.toPath()));
+        }
+        return new LoadedServiceFactory(ServiceLoader.load(IPrestoSparkServiceFactory.class, createLoader(urls)).iterator().next(), false);
+    }
+
+    /** The link targets, resolved lexically, so the jars open by their lib/ paths. */
+    private static List<URL> linkTargets(File narrowed)
+    {
+        File[] links = listFiles(narrowed);
+        sort(links);
+        List<URL> urls = new ArrayList<>();
+        for (File link : links) {
+            try {
+                urls.add(toUrl(link.toPath().toAbsolutePath().resolveSibling(Files.readSymbolicLink(link.toPath())).normalize()));
+            }
+            catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
         }
-        PrestoSparkLoader prestoSparkLoader = new PrestoSparkLoader(
+        return urls;
+    }
+
+    private static URL toUrl(Path file)
+    {
+        try {
+            return file.toUri().toURL();
+        }
+        catch (MalformedURLException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private static PrestoSparkLoader createLoader(List<URL> urls)
+    {
+        return new PrestoSparkLoader(
                 urls,
                 PrestoSparkLauncher.class.getClassLoader(),
                 asList("org.apache.spark.", "com.facebook.presto.spark.classloader_interface.", "scala.", "com.facebook.di.security.token_service."));
-        ServiceLoader<IPrestoSparkServiceFactory> serviceLoader = ServiceLoader.load(IPrestoSparkServiceFactory.class, prestoSparkLoader);
-        return serviceLoader.iterator().next();
     }
 
-    private static IPrestoSparkService createService(
+    /** A service, and whether it runs on a narrowed classpath. */
+    @VisibleForTesting
+    static final class CreatedService
+    {
+        final IPrestoSparkService service;
+        final boolean classpathNarrowed;
+
+        private CreatedService(IPrestoSparkService service, boolean classpathNarrowed)
+        {
+            this.service = requireNonNull(service, "service is null");
+            this.classpathNarrowed = classpathNarrowed;
+        }
+    }
+
+    private static CreatedService createService(
             SparkProcessType sparkProcessType,
             PackageSupplier packageSupplier,
             Map<String, String> configProperties,
@@ -247,15 +339,19 @@ public class PrestoSparkRunner
             Optional<Map<String, Map<String, String>>> functionNamespaceProperties,
             Optional<Map<String, Map<String, String>>> tempStorageProperties,
             Optional<Map<String, Map<String, String>>> expressionManagerProperties,
-            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector)
+            Optional<CollectionAccumulator<Map<String, Long>>> bootstrapMetricsCollector,
+            boolean narrowClasspath,
+            Runnable onRetryFailure)
     {
         PrestoSparkBootstrapTimer bootstrapTimer = new PrestoSparkBootstrapTimer(systemTicker(), !sparkProcessType.equals(SparkProcessType.DRIVER));
         bootstrapTimer.beginRunnerServiceCreation();
 
         String packagePath = getPackagePath(packageSupplier);
-        File pluginsDirectory = checkDirectory(new File(packagePath, "plugin"));
-        PrestoSparkConfiguration configuration = new PrestoSparkConfiguration(
-                configProperties,
+        File pluginsRoot = checkDirectory(new File(packagePath, "plugin"));
+        File libDirectory = checkDirectory(new File(packagePath, "lib"));
+        Map<String, String> serviceConfig = NarrowedExecutorClasspath.serviceConfig(configProperties);
+        Function<File, PrestoSparkConfiguration> configuration = pluginsDirectory -> new PrestoSparkConfiguration(
+                serviceConfig,
                 pluginsDirectory.getAbsolutePath(),
                 catalogProperties,
                 prestoSparkProperties,
@@ -267,13 +363,81 @@ public class PrestoSparkRunner
                 functionNamespaceProperties,
                 tempStorageProperties,
                 expressionManagerProperties);
-        IPrestoSparkServiceFactory serviceFactory = createServiceFactory(checkDirectory(new File(packagePath, "lib")));
-        IPrestoSparkService service = serviceFactory.createService(sparkProcessType, configuration, bootstrapTimer);
+
+        Optional<File> narrowedLib = Optional.empty();
+        Optional<File> narrowedPlugins = Optional.empty();
+        if (narrowClasspath) {
+            narrowedLib = NarrowedExecutorClasspath.narrowedLib(libDirectory, System.err);
+            narrowedPlugins = NarrowedExecutorClasspath.narrowedPlugins(pluginsRoot, System.err);
+            if (!narrowedLib.isPresent() && !narrowedPlugins.isPresent()) {
+                System.err.println(format("[presto-spark] %s is set, but the package has no usable %s or %s; using the full classpath",
+                        NarrowedExecutorClasspath.CONFIG_PROPERTY, NarrowedExecutorClasspath.LIB_DIRECTORY, NarrowedExecutorClasspath.PLUGIN_DIRECTORY));
+            }
+        }
+        LoadedServiceFactory serviceFactory = createServiceFactory(libDirectory, narrowedLib);
+        File pluginsDirectory = narrowedPlugins.orElse(pluginsRoot);
+        CreatedService created = startService(
+                serviceFactory.narrowed || narrowedPlugins.isPresent(),
+                () -> serviceFactory.factory.createService(sparkProcessType, configuration.apply(pluginsDirectory), bootstrapTimer),
+                () -> createServiceFactory(libDirectory, Optional.empty()).factory
+                        .createService(sparkProcessType, configuration.apply(pluginsRoot), bootstrapTimer),
+                PrestoSparkRunner::isTaskInterrupted,
+                onRetryFailure,
+                System.err);
         bootstrapTimer.endRunnerServiceCreation();
         if (bootstrapMetricsCollector.isPresent() && bootstrapTimer.isExecutorBootstrap()) {
             bootstrapMetricsCollector.get().add(bootstrapTimer.exportBootstrapDurations());
         }
-        return service;
+        return created;
+    }
+
+    /**
+     * Starts the service, and if that fails on a narrowed classpath, once more on the full one: a
+     * left-out jar may be needed only once the service starts. A failure the narrowing did not
+     * cause fails the retry too, and is thrown with the first one suppressed. The failed attempt is
+     * not stopped and stays until the executor exits.
+     *
+     * <p>Not retried if the task is being killed (the interrupt, not the classpath, failed it). If
+     * the retry fails too, {@code onRetryFailure} runs, unless the task is being killed, so later
+     * tasks use the full classpath only.
+     */
+    @VisibleForTesting
+    static CreatedService startService(
+            boolean narrowed,
+            Supplier<IPrestoSparkService> first,
+            Supplier<IPrestoSparkService> onFullClasspath,
+            BooleanSupplier interrupted,
+            Runnable onRetryFailure,
+            PrintStream err)
+    {
+        try {
+            return new CreatedService(first.get(), narrowed);
+        }
+        catch (RuntimeException | LinkageError | ServiceConfigurationError e) {
+            if (!narrowed || interrupted.getAsBoolean()) {
+                throw e;
+            }
+            err.println("[presto-spark] the Presto on Spark service failed to start on the classpath narrowed by "
+                    + NarrowedExecutorClasspath.CONFIG_PROPERTY + "; retrying once with the full classpath. Cause:");
+            e.printStackTrace(err);
+            try {
+                return new CreatedService(onFullClasspath.get(), false);
+            }
+            catch (RuntimeException | Error retryFailure) {
+                retryFailure.addSuppressed(e);
+                if (!interrupted.getAsBoolean()) {
+                    onRetryFailure.run();
+                }
+                throw retryFailure;
+            }
+        }
+    }
+
+    private static boolean isTaskInterrupted()
+    {
+        // Spark marks the task killed before interrupting its thread
+        TaskContext task = TaskContext.get();
+        return Thread.currentThread().isInterrupted() || (task != null && task.isInterrupted());
     }
 
     private static String getPackagePath(PackageSupplier packageSupplier)
@@ -325,19 +489,21 @@ public class PrestoSparkRunner
         public IPrestoSparkTaskExecutorFactory get()
         {
             checkState(TaskContext.get() != null, "this method is expected to be called only from the main task thread on the spark executor");
-            IPrestoSparkService prestoSparkService = getOrCreatePrestoSparkService();
-            return prestoSparkService.getTaskExecutorFactory();
+            CreatedService created = getOrCreatePrestoSparkService();
+            NarrowedExecutorClasspath.checkJavaEngineAllowed(created.classpathNarrowed);
+            return created.service.getTaskExecutorFactory();
         }
 
         @Override
         public IPrestoSparkTaskExecutorFactory getNative()
         {
             checkState(TaskContext.get() != null, "this method is expected to be called only from the main task thread on the spark executor");
-            IPrestoSparkService prestoSparkService = getOrCreatePrestoSparkService();
-            return prestoSparkService.getNativeTaskExecutorFactory();
+            return getOrCreatePrestoSparkService().service.getNativeTaskExecutorFactory();
         }
 
-        private static IPrestoSparkService service;
+        private static CreatedService service;
+        // set once both classpaths failed: later tasks use the full classpath only
+        private static boolean fullClasspathOnly;
         private static String currentPackagePath;
         private static Map<String, String> currentConfigProperties;
         private static Map<String, String> currentNativeWorkerConfigProperties;
@@ -351,12 +517,20 @@ public class PrestoSparkRunner
         private static Map<String, Map<String, String>> currentTempStorageProperties;
         private static Map<String, Map<String, String>> currentExpressionManagerProperties;
 
-        private IPrestoSparkService getOrCreatePrestoSparkService()
+        private CreatedService getOrCreatePrestoSparkService()
         {
             synchronized (DistributionBasedPrestoSparkTaskExecutorFactoryProvider.class) {
                 if (service == null) {
+                    SparkProcessType sparkProcessType = isLocal ? SparkProcessType.LOCAL_EXECUTOR : SparkProcessType.EXECUTOR;
+                    String packagePath = getPackagePath(packageSupplier);
+                    boolean narrowClasspath = NarrowedExecutorClasspath.isEnabled(sparkProcessType, configProperties, nativeWorkerConfigProperties != null);
+                    if (narrowClasspath && fullClasspathOnly) {
+                        System.err.println("[presto-spark] the Presto on Spark service failed to start on both the narrowed and the full classpath "
+                                + "earlier on this executor; starting it on the full classpath only");
+                        narrowClasspath = false;
+                    }
                     service = createService(
-                            isLocal ? SparkProcessType.LOCAL_EXECUTOR : SparkProcessType.EXECUTOR,
+                            sparkProcessType,
                             packageSupplier,
                             configProperties,
                             catalogProperties,
@@ -369,9 +543,11 @@ public class PrestoSparkRunner
                             Optional.ofNullable(functionNamespaceProperties),
                             Optional.ofNullable(tempStorageProperties),
                             Optional.ofNullable(expressionManagerProperties),
-                            Optional.of(bootstrapMetricsCollector));
+                            Optional.of(bootstrapMetricsCollector),
+                            narrowClasspath,
+                            () -> fullClasspathOnly = true);
 
-                    currentPackagePath = getPackagePath(packageSupplier);
+                    currentPackagePath = packagePath;
                     currentConfigProperties = configProperties;
                     currentNativeWorkerConfigProperties = nativeWorkerConfigProperties;
                     currentCatalogProperties = catalogProperties;
@@ -414,7 +590,7 @@ public class PrestoSparkRunner
         public static synchronized void close()
         {
             if (service != null) {
-                service.close();
+                service.service.close();
             }
         }
     }

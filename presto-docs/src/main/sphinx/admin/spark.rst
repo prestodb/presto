@@ -67,3 +67,51 @@ When the executors run on a native (Velox) execution engine, the driver can laun
 short-lived ``presto_server`` sidecar at bootstrap to register native-only functions
 into the planner. See :ref:`Driver-side Metadata Sidecar Properties
 <admin/properties:Driver-side Metadata Sidecar Properties>` for the configuration.
+
+Narrowed Executor Classpath
+---------------------------
+
+When executors run on a native (Velox) execution engine, the executor JVM only coordinates
+the native worker and never uses most of the jars in the package. Every jar the JVM opens
+keeps a copy of the jar's ZIP central directory on the heap for the life of the process, so
+a few large unused jars can cost tens of MiB of executor heap. A package can therefore carry
+narrowed copies of ``lib`` and ``plugin`` that leave such jars out, and executors can be told
+to load them.
+
+The copies are directories of symbolic links next to the originals, created when the package
+is built:
+
+* ``lib-native`` holds one link for each file of ``lib`` that executors keep.
+* ``plugin-native`` is used as the plugin directory, so it has the same layout as ``plugin``:
+  an entry for each entry of ``plugin``, by the same name, either a link to the original or a
+  directory of links to the files the plugin keeps. A plugin directory left without jars finds
+  no plugin, so a plugin that would lose every jar must be linked whole.
+
+Either copy may be left out or left empty, which keeps that directory whole. Make the links relative, so
+that the package can be extracted anywhere, and distribute the package in an archive that
+preserves symbolic links.
+
+To make executors load the copies, set the following in ``config.properties``:
+
+.. code-block:: none
+
+    presto.spark.narrowed-executor-classpath-enabled=true
+
+The property is ``false`` by default, and when it is not set every executor keeps the full
+classpath. The copies are used only on cluster executors -- never on the driver, and never on
+a local-mode executor -- and only when ``native-execution-enabled`` is ``true`` and a native
+worker configuration is provided.
+
+An executor uses a copy only if every entry in it is a symbolic link that resolves, or a
+directory of such links, and only if ``plugin-native`` has the same entries as ``plugin``;
+otherwise it uses the original directory and writes the reason to its standard error. The same happens if ``lib-native`` lacks the jar that provides the Presto on
+Spark service, or a jar holding a class that service provider needs to load. If the Presto on
+Spark service then fails to start on the narrowed classpath -- for example because a left-out
+jar is needed only once the service or a plugin is being created -- the executor writes the
+cause to its standard error and starts the service once more with the full classpath. Whatever
+the failed attempt started stays in memory until the executor exits, so add the jar that caused
+it back to the copy.
+
+A query that runs on the Java engine (``native_execution_enabled=false``) is refused on an
+executor whose classpath was narrowed, because the Java engine needs jars that native
+execution does not. To run such queries, keep native execution enabled or remove the setting.
