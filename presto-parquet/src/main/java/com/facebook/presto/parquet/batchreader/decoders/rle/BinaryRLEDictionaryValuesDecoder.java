@@ -26,7 +26,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
 
 public class BinaryRLEDictionaryValuesDecoder
-        extends BaseRLEBitPackedDecoder
+        extends GenericRLEDictionaryValuesDecoder
         implements BinaryValuesDecoder
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(BinaryRLEDictionaryValuesDecoder.class).instanceSize();
@@ -48,17 +48,17 @@ public class BinaryRLEDictionaryValuesDecoder
         int bufferSize = 0;
         int remainingToCopy = length;
         while (remainingToCopy > 0) {
-            if (currentCount == 0) {
+            if (getCurrentCount() == 0) {
                 if (!decode()) {
                     break;
                 }
             }
 
-            int numEntriesToFill = Math.min(remainingToCopy, currentCount);
+            int numEntriesToFill = Math.min(remainingToCopy, getCurrentCount());
             int endIndex = destinationIndex + numEntriesToFill;
-            switch (mode) {
+            switch (getCurrentMode()) {
                 case RLE: {
-                    final int rleValue = currentValue;
+                    final int rleValue = getDecodedInt();
                     final int rleValueLength = dictionary.getLength(rleValue);
                     while (destinationIndex < endIndex) {
                         dictionaries[destinationIndex++] = rleValue;
@@ -67,9 +67,9 @@ public class BinaryRLEDictionaryValuesDecoder
                     break;
                 }
                 case PACKED: {
-                    final int[] localBuffer = currentBuffer;
+                    final int[] localBuffer = getDecodedInts();
                     final BinaryBatchDictionary localDictionary = dictionary;
-                    for (int srcIndex = currentBuffer.length - currentCount; destinationIndex < endIndex; srcIndex++, destinationIndex++) {
+                    for (int srcIndex = localBuffer.length - getCurrentCount(); destinationIndex < endIndex; srcIndex++, destinationIndex++) {
                         int dictionaryId = localBuffer[srcIndex];
                         dictionaries[destinationIndex] = dictionaryId;
                         bufferSize += localDictionary.getLength(dictionaryId);
@@ -77,9 +77,9 @@ public class BinaryRLEDictionaryValuesDecoder
                     break;
                 }
                 default:
-                    throw new ParquetDecodingException("not a valid mode " + this.mode);
+                    throw new ParquetDecodingException("not a valid mode " + getCurrentMode());
             }
-            currentCount -= numEntriesToFill;
+            decrementCurrentCount(numEntriesToFill);
             remainingToCopy -= numEntriesToFill;
         }
 
@@ -110,14 +110,14 @@ public class BinaryRLEDictionaryValuesDecoder
     {
         int remaining = length;
         while (remaining > 0) {
-            if (currentCount == 0) {
+            if (getCurrentCount() == 0) {
                 if (!decode()) {
                     break;
                 }
             }
 
-            int chunkSize = Math.min(remaining, currentCount);
-            currentCount -= chunkSize;
+            int chunkSize = Math.min(remaining, getCurrentCount());
+            decrementCurrentCount(chunkSize);
             remaining -= chunkSize;
         }
         checkState(remaining == 0, "Invalid read size request");
