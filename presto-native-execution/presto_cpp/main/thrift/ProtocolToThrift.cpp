@@ -143,7 +143,7 @@ void fromThrift(
 
 template <typename P, typename T>
 void fromThrift(
-    const apache::thrift::optional_field_ref<T>& thrift,
+    apache::thrift::optional_field_ref<T> thrift,
     std::shared_ptr<P>& proto) {
   if (thrift.has_value()) {
     proto = std::make_shared<P>();
