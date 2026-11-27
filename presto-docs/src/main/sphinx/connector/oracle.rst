@@ -78,6 +78,15 @@ Property Name                                      Description                  
 ``jdbc-fetch-size``                                Number of rows to fetch from the database at a time. Higher          ``20000``
                                                    values can improve performance for large result sets but may
                                                    increase memory usage.
+
+``table-statistics-cache-ttl``                     How long to cache table statistics. Set to ``0s`` to disable         ``0s``
+                                                   caching and fetch statistics from Oracle on every query.
+
+``table-statistics-cache-refresh-interval``        How often to refresh cached statistics in the background.            ``0s``
+                                                   Must be set to a value smaller than ``table-statistics-cache-ttl``
+                                                   to take effect. Set to ``0s`` to disable background refresh.
+
+``table-statistics-cache-maximum-size``            Maximum number of tables whose statistics are held in the cache.     ``10000``
 ================================================== ==================================================================== ===========
 
 Oracle-Specific Configuration Properties
@@ -108,6 +117,20 @@ To enable secure connections to Oracle using TLS/SSL, configure the following pr
 
 The truststore file must contain the Oracle server's SSL certificate or the certificate
 authority (CA) certificate that signed the Oracle server's certificate.
+
+
+Table Statistics
+----------------
+
+The Oracle connector reads table and column statistics from Oracle and uses them
+during query planning to choose efficient join strategies and execution plans.
+Statistics must be gathered on Oracle using ``DBMS_STATS.GATHER_TABLE_STATS``
+before they are available to the connector, if statistics have not been gathered,
+the optimizer falls back to default estimates.
+
+By default, statistics are fetched from Oracle on every query. To reduce planning
+time, you can enable a statistics cache using the ``table-statistics-cache``
+properties in the General Configuration Properties table above.
 
 
 Procedures
