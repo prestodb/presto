@@ -34,6 +34,8 @@ import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 public class WebUiResource
 {
     public static final String UI_ENDPOINT = "/";
+    public static final String LOGOUT_PATH = "/logout";
+    public static final String LOGOUT_HTML_PATH = "/ui/oauth2/logout.html";
 
     @GET
     public Response redirectIndexHtml(
@@ -56,7 +58,7 @@ public class WebUiResource
     }
 
     @GET
-    @Path("/logout")
+    @Path(LOGOUT_PATH)
     public Response logout(
             @HeaderParam(X_FORWARDED_PROTO) String proto,
             @Context UriInfo uriInfo)
@@ -65,7 +67,7 @@ public class WebUiResource
             proto = uriInfo.getRequestUri().getScheme();
         }
         return Response
-                .temporaryRedirect(uriInfo.getBaseUriBuilder().scheme(proto).path("/ui/logout.html").build())
+                .temporaryRedirect(uriInfo.getBaseUriBuilder().scheme(proto).path(LOGOUT_HTML_PATH).build())
                 .cookie(OAuthWebUiCookie.delete())
                 .build();
     }

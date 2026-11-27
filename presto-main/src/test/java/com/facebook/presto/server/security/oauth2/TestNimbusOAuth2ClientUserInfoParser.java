@@ -14,11 +14,19 @@
 package com.facebook.presto.server.security.oauth2;
 
 import com.facebook.airlift.http.client.HttpClient;
+import com.facebook.airlift.http.client.Request;
 import com.facebook.airlift.http.client.testing.TestingHttpClient;
+import com.facebook.airlift.http.client.testing.TestingResponse;
 import com.facebook.airlift.units.Duration;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ListMultimap;
+import com.google.common.net.HttpHeaders;
+import com.google.common.net.MediaType;
 import com.nimbusds.oauth2.sdk.ParseException;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
+import com.nimbusds.oauth2.sdk.token.BearerAccessToken;
 import com.nimbusds.openid.connect.sdk.UserInfoErrorResponse;
+import com.nimbusds.openid.connect.sdk.UserInfoRequest;
 import com.nimbusds.openid.connect.sdk.UserInfoResponse;
 import com.nimbusds.openid.connect.sdk.UserInfoSuccessResponse;
 import net.minidev.json.JSONArray;
@@ -26,8 +34,13 @@ import net.minidev.json.JSONObject;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.time.Instant;
+import java.util.Date;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static com.facebook.airlift.http.client.HttpStatus.OK;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -372,6 +385,101 @@ public class TestNimbusOAuth2ClientUserInfoParser
         response.setContentType("application/json");
         return response;
     }
-}
+    /**
+     * Verifies that NimbusAirliftHttpClient injects Accept: application/json and
+     * User-Agent: Presto on every outbound request without dropping existing headers
+     * (for example, the Authorization: Bearer header set by the Nimbus SDK).
+     */
+    @Test
+    public void testAcceptAndUserAgentHeadersAreAlwaysInjected()
+    {
+        AtomicReference<Request> captured = new AtomicReference<>();
 
-// Made with Bob
+        ListMultimap<String, String> responseHeaders = ArrayListMultimap.create();
+        responseHeaders.put("Content-Type", "application/json");
+        HttpClient httpClient = new TestingHttpClient(request -> {
+            captured.set(request);
+            return new TestingResponse(OK, responseHeaders, "{}".getBytes());
+        });
+        NimbusAirliftHttpClient nimbusClient = new NimbusAirliftHttpClient(httpClient);
+
+        nimbusClient.execute(
+                new UserInfoRequest(URI.create("https://idp.example.com/userinfo"), new BearerAccessToken("opaque_token")),
+                httpResponse -> null);
+
+        Request sent = captured.get();
+        assertThat(sent.getHeader("Authorization")).isNotNull();
+        assertThat(sent.getHeader(HttpHeaders.ACCEPT)).isEqualTo(MediaType.JSON_UTF_8.withoutParameters().toString());
+        assertThat(sent.getHeader(HttpHeaders.USER_AGENT)).isEqualTo("Presto");
+    }
+
+    /**
+     * When an opaque access token carries no 'exp' claim and the token endpoint reports
+     * no lifetime, determineExpiration falls back to challengeTimeout so the session
+     * still gets a valid expiry instead of throwing ChallengeFailedException.
+     */
+    @Test
+    public void testDetermineExpirationFallsBackToChallengeTimeoutForOpaqueTokens()
+            throws ChallengeFailedException
+    {
+        Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
+        Instant before = Instant.now();
+
+        Instant result = NimbusOAuth2Client.determineExpiration(
+                Optional.empty(),
+                null,
+                challengeTimeout);
+
+        Instant after = Instant.now();
+
+        // Result should be ~now + 15 minutes (allow 2 s of wall-clock drift in CI)
+        assertThat(result)
+                .isAfterOrEqualTo(before.plusSeconds(14 * 60 + 58))
+                .isBeforeOrEqualTo(after.plusSeconds(15 * 60 + 2));
+    }
+
+    /**
+     * When the claims set carries an 'exp' Date but validUntil is absent (e.g. some
+     * providers return exp in the UserInfo body), exp is used directly instead of
+     * the fallback.
+     */
+    @Test
+    public void testDetermineExpirationPrefersExpClaimOverFallback()
+            throws ChallengeFailedException
+    {
+        // Use Date.from() for both construction and expected value so nanoseconds are stripped consistently
+        Instant expected = Date.from(Instant.now().plusSeconds(300)).toInstant();
+        Duration fallback = new Duration(15, TimeUnit.MINUTES);
+
+        assertThat(NimbusOAuth2Client.determineExpiration(Optional.empty(), Date.from(expected), fallback))
+                .isEqualTo(expected);
+    }
+
+    /**
+     * When both validUntil and expiration are present, the earlier of the two wins
+     * (regression guard — existing behaviour must not change).
+     */
+    @Test
+    public void testDetermineExpirationChoosesEarlierOfValidUntilAndExp()
+            throws ChallengeFailedException
+    {
+        // Use Date round-trip to strip sub-millisecond precision, matching what determineExpiration returns
+        Instant soon = Date.from(Instant.now().plusSeconds(30)).toInstant();
+        Instant later = Date.from(Instant.now().plusSeconds(120)).toInstant();
+
+        assertThat(NimbusOAuth2Client.determineExpiration(Optional.of(soon), Date.from(later))).isEqualTo(soon);
+        assertThat(NimbusOAuth2Client.determineExpiration(Optional.of(later), Date.from(soon))).isEqualTo(soon);
+    }
+
+    /**
+     * Without a fallback (two-arg overload), absent validUntil and absent exp must still
+     * throw ChallengeFailedException (regression guard).
+     */
+    @Test
+    public void testDetermineExpirationThrowsWhenBothAbsentAndNoFallback()
+    {
+        assertThatThrownBy(() -> NimbusOAuth2Client.determineExpiration(Optional.empty(), null))
+                .isInstanceOf(ChallengeFailedException.class)
+                .hasMessageContaining("no valid expiration date");
+    }
+}
