@@ -16,6 +16,7 @@ package com.facebook.presto.iceberg;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.MaterializedRow;
 import com.facebook.presto.tests.AbstractTestQueryFramework;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.CatalogUtil;
@@ -32,15 +33,21 @@ import org.apache.iceberg.hadoop.HadoopCatalog;
 import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.io.DataWriter;
 import org.apache.iceberg.parquet.Parquet;
+import org.apache.iceberg.types.Types;
 import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
+import static org.apache.iceberg.TableProperties.DEFAULT_WRITE_METRICS_MODE;
+import static org.apache.iceberg.TableProperties.METRICS_MODE_COLUMN_CONF_PREFIX;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 
 /**
  * Abstract base class for E2E tests that verify ANALYZE succeeds on Iceberg tables
@@ -50,6 +57,9 @@ public abstract class AbstractTestIcebergAnalyzeUppercaseColumns
         extends AbstractTestQueryFramework
 {
     protected static final String TEST_SCHEMA = "tpch";
+    protected static final int WIDE_TABLE_EXTRA_COLUMNS = 101;
+    // U+0130 lowercases to two characters, so this name and its normalized form differ in length
+    protected static final String DOTTED_I_COLUMN = "\u0130X";
 
     /**
      * Rows written into the partitioned table: {id, value, region}.
@@ -237,11 +247,18 @@ public abstract class AbstractTestIcebergAnalyzeUppercaseColumns
     protected void setupUnpartitionedTable(Catalog hadoopCatalog, String tableName)
             throws Exception
     {
+        setupUnpartitionedTable(hadoopCatalog, tableName, ImmutableMap.of());
+    }
+
+    protected void setupUnpartitionedTable(Catalog hadoopCatalog, String tableName, Map<String, String> tableProperties)
+            throws Exception
+    {
         Schema schema = createUnpartitionedSchema();
         Table table = hadoopCatalog.createTable(
                 org.apache.iceberg.catalog.TableIdentifier.of(TEST_SCHEMA, tableName),
                 schema,
-                PartitionSpec.unpartitioned());
+                PartitionSpec.unpartitioned(),
+                tableProperties);
 
         writeRecord(table, GenericRecord.create(schema).copy("ID", 1, "VALUE", "one"));
         table.refresh();
@@ -277,6 +294,163 @@ public abstract class AbstractTestIcebergAnalyzeUppercaseColumns
         }
 
         registerTable(tableName, table.location());
+    }
+
+    protected String getWideTableName()
+    {
+        return getTableName() + "_wide";
+    }
+
+    protected String getValueMetricsNoneTableName()
+    {
+        return getTableName() + "_value_none";
+    }
+
+    protected String getValueMetricsFullTableName()
+    {
+        return getTableName() + "_value_full";
+    }
+
+    protected String getDottedIMetricsNoneTableName()
+    {
+        return getTableName() + "_dotted_i_none";
+    }
+
+    /**
+     * Creates the tables whose ANALYZE depends on looking up Iceberg metrics modes by the exact
+     * (uppercase) column name: one with more than 100 columns, and two with per-column
+     * metrics properties on {@code VALUE}.
+     */
+    protected void setupMetricsModeTables(Catalog hadoopCatalog)
+            throws Exception
+    {
+        setupWideTable(hadoopCatalog, getWideTableName());
+        setupUnpartitionedTable(hadoopCatalog, getValueMetricsNoneTableName(), ImmutableMap.of(
+                METRICS_MODE_COLUMN_CONF_PREFIX + "VALUE", "none"));
+        setupUnpartitionedTable(hadoopCatalog, getValueMetricsFullTableName(), ImmutableMap.of(
+                DEFAULT_WRITE_METRICS_MODE, "none",
+                METRICS_MODE_COLUMN_CONF_PREFIX + "VALUE", "full"));
+        setupDottedIMetricsNoneTable(hadoopCatalog, getDottedIMetricsNoneTableName());
+    }
+
+    protected void unregisterMetricsModeTables()
+    {
+        unregisterTableQuietly(getWideTableName());
+        unregisterTableQuietly(getValueMetricsNoneTableName());
+        unregisterTableQuietly(getValueMetricsFullTableName());
+        unregisterTableQuietly(getDottedIMetricsNoneTableName());
+    }
+
+    protected void setupDottedIMetricsNoneTable(Catalog hadoopCatalog, String tableName)
+            throws Exception
+    {
+        Schema schema = new Schema(
+                Types.NestedField.required(1, "ID", Types.IntegerType.get()),
+                Types.NestedField.optional(2, DOTTED_I_COLUMN, Types.IntegerType.get()));
+        Table table = hadoopCatalog.createTable(
+                org.apache.iceberg.catalog.TableIdentifier.of(TEST_SCHEMA, tableName),
+                schema,
+                PartitionSpec.unpartitioned(),
+                ImmutableMap.of(METRICS_MODE_COLUMN_CONF_PREFIX + DOTTED_I_COLUMN, "none"));
+
+        for (int row = 1; row <= 3; row++) {
+            writeRecord(table, GenericRecord.create(schema).copy("ID", row, DOTTED_I_COLUMN, row));
+            table.refresh();
+        }
+
+        registerTable(tableName, table.location());
+    }
+
+    /**
+     * {@code ID} followed by {@code C001} ... {@code C101}. With more than 100 columns Iceberg's
+     * default metrics mode becomes {@code none} and only the first 100 columns get
+     * {@code truncate(16)}, keyed by their exact (uppercase) names.
+     */
+    protected static Schema createWideSchema()
+    {
+        ImmutableList.Builder<Types.NestedField> fields = ImmutableList.builder();
+        fields.add(Types.NestedField.required(1, "ID", Types.IntegerType.get()));
+        for (int i = 1; i <= WIDE_TABLE_EXTRA_COLUMNS; i++) {
+            fields.add(Types.NestedField.optional(i + 1, format("C%03d", i), Types.IntegerType.get()));
+        }
+        return new Schema(fields.build());
+    }
+
+    protected void setupWideTable(Catalog hadoopCatalog, String tableName)
+            throws Exception
+    {
+        Schema schema = createWideSchema();
+        Table table = hadoopCatalog.createTable(
+                org.apache.iceberg.catalog.TableIdentifier.of(TEST_SCHEMA, tableName),
+                schema,
+                PartitionSpec.unpartitioned());
+
+        for (int row = 1; row <= 3; row++) {
+            GenericRecord record = GenericRecord.create(schema);
+            for (Types.NestedField field : schema.columns()) {
+                record.setField(field.name(), row);
+            }
+            writeRecord(table, record);
+            table.refresh();
+        }
+
+        registerTable(tableName, table.location());
+    }
+
+    @Test
+    public void testShowStatsAfterAnalyzeOnWideTable()
+    {
+        assertQuerySucceeds(format("ANALYZE %s.%s", TEST_SCHEMA, getWideTableName()));
+
+        MaterializedResult stats = getQueryRunner().execute(format("SHOW STATS FOR %s.%s", TEST_SCHEMA, getWideTableName()));
+
+        assertNotNull(distinctValuesCount(stats, "id"), "distinct_values_count for 'id' must be populated after ANALYZE " +
+                "on a table with more than 100 uppercase columns");
+        assertNotNull(distinctValuesCount(stats, "c099"), "distinct_values_count for 'c099' (100th column) must be populated after ANALYZE");
+        assertNull(distinctValuesCount(stats, "c100"), "'c100' is the 101st column, so its metrics mode is none and ANALYZE must skip it");
+        assertNull(distinctValuesCount(stats, "c101"), "'c101' is beyond the first 100 columns, so its metrics mode is none and ANALYZE must skip it");
+    }
+
+    @Test
+    public void testAnalyzeSkipsUppercaseColumnWithMetricsModeNone()
+    {
+        assertQuerySucceeds(format("ANALYZE %s.%s", TEST_SCHEMA, getValueMetricsNoneTableName()));
+
+        MaterializedResult stats = getQueryRunner().execute(format("SHOW STATS FOR %s.%s", TEST_SCHEMA, getValueMetricsNoneTableName()));
+
+        assertNotNull(distinctValuesCount(stats, "id"), "'id' has the default metrics mode, so ANALYZE must collect its distinct_values_count");
+        assertNull(distinctValuesCount(stats, "value"), "'VALUE' has metrics mode none, so ANALYZE must skip it");
+    }
+
+    @Test
+    public void testAnalyzeCollectsUppercaseColumnWithMetricsModeFull()
+    {
+        assertQuerySucceeds(format("ANALYZE %s.%s", TEST_SCHEMA, getValueMetricsFullTableName()));
+
+        MaterializedResult stats = getQueryRunner().execute(format("SHOW STATS FOR %s.%s", TEST_SCHEMA, getValueMetricsFullTableName()));
+
+        assertNull(distinctValuesCount(stats, "id"), "the table's default metrics mode is none, so ANALYZE must skip 'id'");
+        assertNotNull(distinctValuesCount(stats, "value"), "'VALUE' has metrics mode full, so ANALYZE must collect its distinct_values_count");
+    }
+
+    @Test
+    public void testAnalyzeSkipsColumnWithMetricsModeNoneWhenLowercaseChangesLength()
+    {
+        assertQuerySucceeds(format("ANALYZE %s.%s", TEST_SCHEMA, getDottedIMetricsNoneTableName()));
+
+        MaterializedResult stats = getQueryRunner().execute(format("SHOW STATS FOR %s.%s", TEST_SCHEMA, getDottedIMetricsNoneTableName()));
+
+        assertNotNull(distinctValuesCount(stats, "id"), "'id' has the default metrics mode, so ANALYZE must collect its distinct_values_count");
+        assertNull(distinctValuesCount(stats, DOTTED_I_COLUMN.toLowerCase(ENGLISH)), "'\\u0130X' has metrics mode none, so ANALYZE must skip it");
+    }
+
+    private static Object distinctValuesCount(MaterializedResult stats, String columnName)
+    {
+        return stats.getMaterializedRows().stream()
+                .filter(row -> columnName.equals(row.getField(0)))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("SHOW STATS returned no row for column " + columnName))
+                .getField(2);
     }
 
     @Test
