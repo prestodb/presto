@@ -827,9 +827,9 @@ public class OperatorStats
 
             totalDrivers += operator.totalDrivers;
 
-            isBlockedCalls += operator.getGetOutputCalls();
-            isBlockedWall += operator.getGetOutputWall().roundTo(NANOSECONDS);
-            isBlockedCpu += operator.getGetOutputCpu().roundTo(NANOSECONDS);
+            isBlockedCalls += operator.getIsBlockedCalls();
+            isBlockedWall += operator.getIsBlockedWall().roundTo(NANOSECONDS);
+            isBlockedCpu += operator.getIsBlockedCpu().roundTo(NANOSECONDS);
             isBlockedAllocation += operator.getIsBlockedAllocationInBytes();
 
             addInputCalls += operator.getAddInputCalls();
