@@ -14,6 +14,7 @@
 package com.facebook.presto.hive;
 
 import com.facebook.presto.common.predicate.Domain;
+import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.hive.cache.HiveCachingHdfsConfiguration;
 import com.facebook.presto.hive.filesystem.ExtendedFileSystem;
 import com.facebook.presto.hive.metastore.Partition;
@@ -118,6 +119,7 @@ public class StoragePartitionLoader
     public StoragePartitionLoader(
             Table table,
             Map<Integer, Domain> infoColumnConstraints,
+            TupleDomain<String> dataColumnPredicate,
             Optional<BucketSplitInfo> tableBucketInfo,
             ConnectorSession session,
             HdfsEnvironment hdfsEnvironment,
@@ -150,7 +152,7 @@ public class StoragePartitionLoader
                         table.getStorage().getStorageFormat().getSerDe(),
                         false);
                 if (isHudiParquetInputFormat(inputFormat)) {
-                    directoryListerOverride = Optional.of(new HudiDirectoryLister(configuration, session, table));
+                    directoryListerOverride = Optional.of(new HudiDirectoryLister(configuration, session, table, dataColumnPredicate, hdfsEnvironment));
                 }
             }
             catch (PrestoException ex) {
