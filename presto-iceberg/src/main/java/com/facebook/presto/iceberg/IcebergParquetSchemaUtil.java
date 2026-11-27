@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.parquet.ParquetSchemaUtil;
 import org.apache.iceberg.types.EdgeAlgorithm;
-import org.apache.iceberg.types.Type.TypeID;
 import org.apache.iceberg.types.Types;
 import org.apache.parquet.column.schema.EdgeInterpolationAlgorithm;
 import org.apache.parquet.schema.GroupType;
@@ -32,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.facebook.presto.iceberg.IcebergGeospatialUtils.isGeospatialType;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static org.apache.parquet.schema.Types.primitive;
 
@@ -164,10 +162,21 @@ public final class IcebergParquetSchemaUtil
 
     private static LogicalTypeAnnotation toLogicalTypeAnnotation(org.apache.iceberg.types.Type type, String fieldName)
     {
-        // Writes to geometry columns are rejected before the write begins, by
-        // IcebergGeospatialUtils.validateGeospatialWrite
-        verify(type.typeId() == TypeID.GEOGRAPHY, "Unexpected geospatial type for Parquet column '%s': %s", fieldName, type);
-        Types.GeographyType geographyType = (Types.GeographyType) type;
+        switch (type.typeId()){
+            case GEOGRAPHY:
+                return toGeographyAnnotation((Types.GeographyType) type);
+            case GEOMETRY:
+                return toGeometryAnnotation((Types.GeometryType) type);
+            default:
+                throw new IllegalArgumentException(String.format(
+                        "Column '%s' is not a geospatial type; expected geography or geometry but found %s",
+                        fieldName,
+                        type));
+        }
+    }
+
+    private static LogicalTypeAnnotation toGeographyAnnotation(Types.GeographyType geographyType)
+    {
         // Iceberg 1.10 reports an unset CRS and algorithm as null, while later versions
         // report the defaults instead, so both forms are treated as the default
         String crs = geographyType.crs();
@@ -182,6 +191,12 @@ public final class IcebergParquetSchemaUtil
         return LogicalTypeAnnotation.geographyType(
                 defaultCrs ? Types.GeographyType.DEFAULT_CRS : crs,
                 defaultAlgorithm ? LogicalTypeAnnotation.DEFAULT_ALGO : EdgeInterpolationAlgorithm.valueOf(algorithm.name()));
+    }
+
+    private static LogicalTypeAnnotation toGeometryAnnotation(Types.GeometryType geometryType)
+    {
+        String crs = geometryType.crs();
+        return LogicalTypeAnnotation.geometryType(crs == null ? Types.GeometryType.DEFAULT_CRS : crs);
     }
 
     private static List<Type> restoreAnnotations(List<Type> fields, Map<Integer, LogicalTypeAnnotation> annotations)

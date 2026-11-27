@@ -3352,10 +3352,10 @@ Map of Iceberg types to the relevant PrestoDB types:
     - ``MAP``
   * - ``STRUCT``
     - ``ROW``
-  * - ``GEOMETRY``
-    - ``GEOMETRY``
   * - ``VARIANT``
     - ``JSON``
+  * - ``GEOMETRY``
+    - ``GEOMETRY``
   * - ``GEOGRAPHY``
     - ``SphericalGeography``
   * - ``UNKNOWN``
@@ -3447,6 +3447,8 @@ Map of PrestoDB types to the relevant Iceberg types:
     - ``MAP``
   * - ``ROW``
     - ``STRUCT``
+  * - ``GEOMETRY``
+    - ``GEOMETRY``
   * - ``SphericalGeography``
     - ``GEOGRAPHY``
   * - ``UNKNOWN``

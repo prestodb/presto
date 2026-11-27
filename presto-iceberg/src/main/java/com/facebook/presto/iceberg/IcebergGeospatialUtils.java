@@ -63,6 +63,7 @@ import static java.lang.String.format;
 public final class IcebergGeospatialUtils
 {
     private static final int MIN_FORMAT_VERSION_FOR_GEOSPATIAL = 3;
+    private static final int MIN_FORMAT_VERSION_FOR_GEOMETRY = 3;
 
     private IcebergGeospatialUtils() {}
 
@@ -341,9 +342,21 @@ public final class IcebergGeospatialUtils
     public static void validateGeospatialWrite(String columnName, org.apache.iceberg.types.Type type, int formatVersion, FileFormat fileFormat)
     {
         if (type.typeId() == TypeID.GEOMETRY) {
-            throw new PrestoException(NOT_SUPPORTED, format(
-                    "Writing to Iceberg geometry column '%s' is not supported. Only geography columns can be written",
-                    columnName));
+            if (formatVersion < MIN_FORMAT_VERSION_FOR_GEOMETRY) {
+                throw new PrestoException(NOT_SUPPORTED, format(
+                        "Iceberg geometry column '%s' requires format version %d or higher, but the table is at format version %d",
+                        columnName,
+                        MIN_FORMAT_VERSION_FOR_GEOSPATIAL,
+                        formatVersion));
+            }
+            if (fileFormat != FileFormat.PARQUET) {
+                throw new PrestoException(NOT_SUPPORTED, format(
+                        "Writing to Iceberg geometry column '%s' is only supported for the %s file format, but the table uses %s",
+                        columnName,
+                        FileFormat.PARQUET,
+                        fileFormat));
+            }
+            return;
         }
         if (type.typeId() == TypeID.GEOGRAPHY) {
             if (formatVersion < MIN_FORMAT_VERSION_FOR_GEOSPATIAL) {
