@@ -910,10 +910,14 @@ public class InternalResourceGroup
     {
         checkState(Thread.holdsLock(root), "Must hold lock to generate cpu quota");
         synchronized (root) {
+            boolean oldCanRun = canRunMore();
             long newQuota = saturatedMultiply(elapsedSeconds, cpuQuotaGenerationMillisPerSecond);
             cpuUsageMillis = saturatedSubtract(cpuUsageMillis, newQuota);
             if (cpuUsageMillis < 0 || cpuUsageMillis == Long.MAX_VALUE) {
                 cpuUsageMillis = 0;
+            }
+            if (canRunMore() != oldCanRun) {
+                updateEligibility();
             }
             for (InternalResourceGroup group : subGroups.values()) {
                 group.internalGenerateCpuQuota(elapsedSeconds);
