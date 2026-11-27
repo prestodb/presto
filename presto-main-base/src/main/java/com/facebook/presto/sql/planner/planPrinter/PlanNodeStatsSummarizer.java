@@ -114,15 +114,15 @@ public class PlanNodeStatsSummarizer
                 PlanNodeId planNodeId = operatorStats.getPlanNodeId();
                 planNodeIds.add(planNodeId);
 
-                long scheduledMillis = operatorStats.getAddInputWall().toMillis() + operatorStats.getGetOutputWall().toMillis() + operatorStats.getFinishWall().toMillis();
+                long scheduledMillis = (operatorStats.getAddInputWallInNanos() + operatorStats.getGetOutputWallInNanos() + operatorStats.getFinishWallInNanos()) / 1_000_000;
                 planNodeScheduledMillis.merge(planNodeId, scheduledMillis, Long::sum);
 
-                long cpuMillis = operatorStats.getAddInputCpu().toMillis() + operatorStats.getGetOutputCpu().toMillis() + operatorStats.getFinishCpu().toMillis();
+                long cpuMillis = (operatorStats.getAddInputCpuInNanos() + operatorStats.getGetOutputCpuInNanos() + operatorStats.getFinishCpuInNanos()) / 1_000_000;
                 planNodeCpuMillis.merge(planNodeId, cpuMillis, Long::sum);
-                planNodeBlockedMillis.merge(planNodeId, operatorStats.getBlockedWall().toMillis(), Long::sum);
-                planNodeAddInputMillis.merge(planNodeId, operatorStats.getAddInputWall().toMillis(), Long::sum);
-                planNodeFinishMillis.merge(planNodeId, operatorStats.getFinishWall().toMillis(), Long::sum);
-                planNodeGetOutputMillis.merge(planNodeId, operatorStats.getGetOutputWall().toMillis(), Long::sum);
+                planNodeBlockedMillis.merge(planNodeId, (long) (operatorStats.getBlockedWallInNanos() / 1_000_000), Long::sum);
+                planNodeAddInputMillis.merge(planNodeId, (long) (operatorStats.getAddInputWallInNanos() / 1_000_000), Long::sum);
+                planNodeFinishMillis.merge(planNodeId, (long) (operatorStats.getFinishWallInNanos() / 1_000_000), Long::sum);
+                planNodeGetOutputMillis.merge(planNodeId, (long) (operatorStats.getGetOutputWallInNanos() / 1_000_000), Long::sum);
                 planNodePeakMemory.merge(planNodeId, operatorStats.getPeakTotalMemoryReservationInBytes(), Math::max);
 
                 // A pipeline like hash build before join might link to another "internal" pipelines which provide actual input for this plan node
