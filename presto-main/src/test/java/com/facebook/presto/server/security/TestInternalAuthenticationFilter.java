@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.hash.Hashing;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 import jakarta.ws.rs.container.ResourceInfo;
 import org.testng.annotations.Test;
 
@@ -84,7 +85,7 @@ public class TestInternalAuthenticationFilter
         InternalAuthenticationFilter internalAuthenticationFilter =
                 new InternalAuthenticationFilter(internalAuthenticationManager, new ResourceInfoBuilder(TaskResource.class, null, null).build());
         String jwtToken = Jwts.builder()
-                .signWith(SignatureAlgorithm.HS256, Hashing.sha256().hashString("secret", UTF_8).asBytes())
+                .signWith(Keys.hmacShaKeyFor(Hashing.sha256().hashString("secret", UTF_8).asBytes()), SignatureAlgorithm.HS256)
                 .setSubject(principalString)
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .compact();
@@ -109,7 +110,7 @@ public class TestInternalAuthenticationFilter
         InternalAuthenticationFilter internalAuthenticationFilter =
                 new InternalAuthenticationFilter(internalAuthenticationManager, new ResourceInfoBuilder(TaskResource.class, null, null).build());
         String jwtToken = Jwts.builder()
-                .signWith(SignatureAlgorithm.HS256, Hashing.sha256().hashString("secret", UTF_8).asBytes())
+                .signWith(Keys.hmacShaKeyFor(Hashing.sha256().hashString("secret", UTF_8).asBytes()), SignatureAlgorithm.HS256)
                 .setSubject(principalString)
                 .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(5).toInstant()))
                 .compact();

@@ -18,6 +18,11 @@ import io.airlift.compress.zstd.ZstdDecompressor;
 import io.jsonwebtoken.CompressionCodec;
 import io.jsonwebtoken.CompressionException;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+
 import static java.lang.Math.toIntExact;
 import static java.util.Arrays.copyOfRange;
 
@@ -25,6 +30,12 @@ public class ZstdCodec
         implements CompressionCodec
 {
     public static final String CODEC_NAME = "ZSTD";
+
+    @Override
+    public String getId()
+    {
+        return CODEC_NAME;
+    }
 
     @Override
     public String getAlgorithmName()
@@ -49,5 +60,39 @@ public class ZstdCodec
         byte[] output = new byte[toIntExact(ZstdDecompressor.getDecompressedSize(bytes, 0, bytes.length))];
         new ZstdDecompressor().decompress(bytes, 0, bytes.length, output, 0, output.length);
         return output;
+    }
+
+    @Override
+    public OutputStream compress(OutputStream out)
+            throws CompressionException
+    {
+        return new ByteArrayOutputStream()
+        {
+            @Override
+            public void close()
+            {
+                try {
+                    byte[] bytes = toByteArray();
+                    out.write(compress(bytes));
+                    out.close();
+                }
+                catch (Exception e) {
+                    throw new CompressionException("Unable to compress", e);
+                }
+            }
+        };
+    }
+
+    @Override
+    public InputStream decompress(InputStream input)
+            throws CompressionException
+    {
+        try {
+            byte[] bytes = input.readAllBytes();
+            return new ByteArrayInputStream(decompress(bytes));
+        }
+        catch (Exception e) {
+            throw new CompressionException("Unable to decompress", e);
+        }
     }
 }

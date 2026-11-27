@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.HttpServletRequest;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
@@ -91,7 +92,7 @@ public class TestJsonWebTokenAuthenticator
     {
         byte[] key = getMimeDecoder().decode(readAllBytes(keyFile.toAbsolutePath()));
         return Jwts.builder()
-                .signWith(HS256, key)
+                .signWith(Keys.hmacShaKeyFor(key), HS256)
                 .setHeaderParam(KEY_ID, KEY_ID_FOO)
                 .setSubject(principal)
                 .claim(AUTHORIZED_IDENTITY_ATTRIBUTE, authorizedIdentity)
