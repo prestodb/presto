@@ -84,6 +84,21 @@ public class TestSqlStandardAccessControlChecks
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testAccessControlUpdate()
+    {
+        assertThat(() -> bobExecutor.executeQuery(format("UPDATE %s SET month=3, day=22", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot update columns [month, day] in table default.%s", tableName));
+
+        aliceExecutor.executeQuery(format("GRANT INSERT ON %s TO bob", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("UPDATE %s SET month=3, day=22", tableName)))
+                .failsWithMessage(format("Access Denied: Cannot update columns [month, day] in table default.%s", tableName));
+
+        aliceExecutor.executeQuery(format("GRANT UPDATE ON %s TO bob", tableName));
+        assertThat(() -> bobExecutor.executeQuery(format("UPDATE %s SET month=3, day=22", tableName)))
+                .failsWithMessage("Hive update is only supported for ACID transactional tables");
+    }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAccessControlDelete()
     {
         aliceExecutor.executeQuery(format("INSERT INTO %s VALUES (4, 13)", tableName));

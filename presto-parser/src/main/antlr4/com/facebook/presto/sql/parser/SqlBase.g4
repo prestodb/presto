@@ -639,7 +639,7 @@ callArgument
     ;
 
 privilege
-    : SELECT | DELETE | INSERT | identifier
+    : SELECT | DELETE | INSERT | UPDATE | identifier
     ;
 
 qualifiedName
