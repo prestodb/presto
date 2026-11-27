@@ -351,19 +351,25 @@ public class PredicatePushDown
 
         private boolean isInliningCandidate(RowExpression expression, ProjectNode node)
         {
-            // candidate symbols for inlining are
+            // Candidate symbols for inlining are:
             //   1. references to simple constants
-            //   2. references to complex expressions that appear only once
-            // which come from the node, as opposed to an enclosing scope,
-            // and the expression does not contain remote functions.
+            //   2. references to identity projections (variable references) - cheap leaves,
+            //      safe to inline any number of times without duplicating work
+            //   3. references to complex expressions that appear only once, provided the
+            //      expression does not contain remote functions
             Set<VariableReferenceExpression> childOutputSet = ImmutableSet.copyOf(node.getOutputVariables());
             Map<VariableReferenceExpression, Long> dependencies = VariablesExtractor.extractAll(expression).stream()
                     .filter(childOutputSet::contains)
                     .collect(Collectors.groupingBy(identity(), Collectors.counting()));
 
-            return dependencies.entrySet().stream()
-                    .allMatch(entry -> (entry.getValue() == 1 && !node.getAssignments().get(entry.getKey()).accept(new ExternalCallExpressionChecker(functionAndTypeManager), null)) ||
-                            node.getAssignments().get(entry.getKey()) instanceof ConstantExpression);
+            ExternalCallExpressionChecker externalCallChecker = new ExternalCallExpressionChecker(functionAndTypeManager);
+            return dependencies.entrySet().stream().allMatch(entry -> {
+                RowExpression assignment = node.getAssignments().get(entry.getKey());
+                if (assignment instanceof ConstantExpression || assignment instanceof VariableReferenceExpression) {
+                    return true;
+                }
+                return entry.getValue() == 1 && !assignment.accept(externalCallChecker, null);
+            });
         }
 
         @Override
