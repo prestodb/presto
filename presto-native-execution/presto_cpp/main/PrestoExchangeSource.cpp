@@ -451,10 +451,22 @@ void PrestoExchangeSource::processDataError(
     std::chrono::microseconds maxWait,
     const std::string& error) {
   ++failedAttempts_;
+  const bool isGetDataSizeRequest = (maxBytes == 0);
   if (!dataRequestRetryState_.isExhausted()) {
-    VLOG(1) << "Failed to fetch data from " << host_ << ":" << port_ << " "
-            << path << ", duration: " << dataRequestRetryState_.durationMs()
-            << "ms - Retrying: " << error;
+    // Log the first failure per request at WARNING so a persistently-failing
+    // fetch (e.g. coordinator returning 500 on the HEAD get-data-size probe) is
+    // visible without VLOG. Subsequent retries stay at VLOG to avoid spam.
+    if (failedAttempts_ == 1) {
+      LOG(WARNING) << "Failed to fetch "
+                   << (isGetDataSizeRequest ? "data-size" : "data") << " from "
+                   << host_ << ":" << port_ << " " << path
+                   << ", will retry (budget "
+                   << dataRequestRetryState_.durationMs() << "ms): " << error;
+    } else {
+      VLOG(1) << "Failed to fetch data from " << host_ << ":" << port_ << " "
+              << path << ", duration: " << dataRequestRetryState_.durationMs()
+              << "ms - Retrying: " << error;
+    }
 
     doRequest(dataRequestRetryState_.nextDelayMs(), maxBytes, maxWait);
     return;

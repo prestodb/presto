@@ -287,6 +287,7 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kTaskSyncTerminateEnabled, false),
           NUM_PROP(kTaskSyncTerminateTimeoutMs, 3'000),
           BOOL_PROP(kEnableOldTaskCleanUp, true),
+          BOOL_PROP(kInternalCommunicationHttpsRequired, true),
           BOOL_PROP(kInternalCommunicationJwtEnabled, false),
           STR_PROP(kInternalCommunicationSharedSecret, ""),
           NUM_PROP(kInternalCommunicationJwtExpirationSeconds, 300),
@@ -1192,6 +1193,10 @@ uint64_t SystemConfig::taskSyncTerminateTimeoutMs() const {
 
 bool SystemConfig::enableOldTaskCleanUp() const {
   return optionalProperty<bool>(kEnableOldTaskCleanUp).value();
+}
+
+bool SystemConfig::internalCommunicationHttpsRequired() const noexcept {
+  return optionalProperty<bool>(kInternalCommunicationHttpsRequired).value();
 }
 
 // The next three toggles govern the use of JWT for authentication
