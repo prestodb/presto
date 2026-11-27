@@ -16,7 +16,6 @@ package com.facebook.presto.metadata;
 import com.facebook.presto.connector.ConnectorManager;
 import com.facebook.presto.spi.ConnectorCodec;
 import com.facebook.presto.spi.ConnectorDeleteTableHandle;
-import com.facebook.presto.spi.ConnectorId;
 import com.facebook.presto.spi.connector.ConnectorCodecProvider;
 import com.facebook.presto.sql.analyzer.FeaturesConfig;
 import jakarta.inject.Inject;
@@ -38,15 +37,15 @@ public class DeleteTableHandleJacksonModule
                 handleResolver::getId,
                 handleResolver::getDeleteTableHandleClass,
                 featuresConfig.isUseConnectorProvidedSerializationCodecs(),
-                connectorId -> connectorManagerProvider.get()
-                        .getConnectorCodecProvider(connectorId)
+                connectorName -> connectorManagerProvider.get()
+                        .getConnectorCodecProvider(connectorName)
                         .flatMap(ConnectorCodecProvider::getConnectorDeleteTableHandleCodec));
     }
 
     public DeleteTableHandleJacksonModule(
             HandleResolver handleResolver,
             FeaturesConfig featuresConfig,
-            Function<ConnectorId, Optional<ConnectorCodec<ConnectorDeleteTableHandle>>> codecExtractor)
+            Function<String, Optional<ConnectorCodec<ConnectorDeleteTableHandle>>> codecExtractor)
     {
         super(ConnectorDeleteTableHandle.class,
                 handleResolver::getId,

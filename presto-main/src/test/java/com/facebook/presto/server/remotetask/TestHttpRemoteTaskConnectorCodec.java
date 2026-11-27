@@ -655,30 +655,30 @@ public class TestHttpRemoteTaskConnectorCodec
                         handleResolver.addConnectorName(connectorWithoutCodec, new TestConnectorWithoutCodecHandleResolver());
                         binder.bind(HandleResolver.class).toInstance(handleResolver);
 
-                        Function<ConnectorId, Optional<ConnectorCodec<ConnectorTableHandle>>> tableHandleCodecExtractor =
-                                connectorId -> Optional.ofNullable(tableHandleCodecMap.get(connectorId.getCatalogName()));
-                        Function<ConnectorId, Optional<ConnectorCodec<ConnectorTableLayoutHandle>>> tableLayoutHandleCodecExtractor =
-                                connectorId -> Optional.ofNullable(tableLayoutHandleCodecMap.get(connectorId.getCatalogName()));
-                        Function<ConnectorId, Optional<ConnectorCodec<ColumnHandle>>> columnHandleCodecExtractor =
-                                connectorId -> Optional.ofNullable(columnHandleCodecMap.get(connectorId.getCatalogName()));
-                        Function<ConnectorId, Optional<ConnectorCodec<ConnectorOutputTableHandle>>> outputTableHandleCodecExtractor =
-                                connectorId -> Optional.ofNullable(outputTableHandleCodecMap.get(connectorId.getCatalogName()));
-                        Function<ConnectorId, Optional<ConnectorCodec<ConnectorInsertTableHandle>>> insertTableHandleCodecExtractor =
-                                connectorId -> Optional.ofNullable(insertTableHandleCodecMap.get(connectorId.getCatalogName()));
-                        Function<ConnectorId, Optional<ConnectorCodec<ConnectorDeleteTableHandle>>> deleteTableHandleCodecExtractor =
-                                connectorId -> Optional.ofNullable(deleteTableHandleCodecMap.get(connectorId.getCatalogName()));
-                        Function<ConnectorId, Optional<ConnectorCodec<ConnectorMergeTableHandle>>> mergeTableHandleCodecExtractor =
-                                connectorId -> Optional.ofNullable(mergeTableHandleCodecMap.get(connectorId.getCatalogName()));
-                        Function<ConnectorId, Optional<ConnectorCodec<ConnectorIndexHandle>>> noOpIndexCodec =
-                                connectorId -> Optional.empty();
-                        Function<ConnectorId, Optional<ConnectorCodec<ConnectorTransactionHandle>>> noOpTransactionCodec =
-                                connectorId -> Optional.empty();
-                        Function<ConnectorId, Optional<ConnectorCodec<ConnectorPartitioningHandle>>> noOpPartitioningCodec =
-                                connectorId -> Optional.empty();
-                        Function<ConnectorId, Optional<ConnectorCodec<ConnectorDistributedProcedureHandle>>> noOpDistributedProcedureCodec =
-                                connectorId -> Optional.empty();
-                        Function<ConnectorId, Optional<ConnectorCodec<ConnectorSplit>>> splitCodecExtractor =
-                                connectorId -> Optional.ofNullable(splitCodecMap.get(connectorId.getCatalogName()));
+                        Function<String, Optional<ConnectorCodec<ConnectorTableHandle>>> tableHandleCodecExtractor =
+                                connectorName -> Optional.ofNullable(tableHandleCodecMap.get(connectorName));
+                        Function<String, Optional<ConnectorCodec<ConnectorTableLayoutHandle>>> tableLayoutHandleCodecExtractor =
+                                connectorName -> Optional.ofNullable(tableLayoutHandleCodecMap.get(connectorName));
+                        Function<String, Optional<ConnectorCodec<ColumnHandle>>> columnHandleCodecExtractor =
+                                connectorName -> Optional.ofNullable(columnHandleCodecMap.get(connectorName));
+                        Function<String, Optional<ConnectorCodec<ConnectorOutputTableHandle>>> outputTableHandleCodecExtractor =
+                                connectorName -> Optional.ofNullable(outputTableHandleCodecMap.get(connectorName));
+                        Function<String, Optional<ConnectorCodec<ConnectorInsertTableHandle>>> insertTableHandleCodecExtractor =
+                                connectorName -> Optional.ofNullable(insertTableHandleCodecMap.get(connectorName));
+                        Function<String, Optional<ConnectorCodec<ConnectorDeleteTableHandle>>> deleteTableHandleCodecExtractor =
+                                connectorName -> Optional.ofNullable(deleteTableHandleCodecMap.get(connectorName));
+                        Function<String, Optional<ConnectorCodec<ConnectorMergeTableHandle>>> mergeTableHandleCodecExtractor =
+                                connectorName -> Optional.ofNullable(mergeTableHandleCodecMap.get(connectorName));
+                        Function<String, Optional<ConnectorCodec<ConnectorIndexHandle>>> noOpIndexCodec =
+                                connectorName -> Optional.empty();
+                        Function<String, Optional<ConnectorCodec<ConnectorTransactionHandle>>> noOpTransactionCodec =
+                                connectorName -> Optional.empty();
+                        Function<String, Optional<ConnectorCodec<ConnectorPartitioningHandle>>> noOpPartitioningCodec =
+                                connectorName -> Optional.empty();
+                        Function<String, Optional<ConnectorCodec<ConnectorDistributedProcedureHandle>>> noOpDistributedProcedureCodec =
+                                connectorName -> Optional.empty();
+                        Function<String, Optional<ConnectorCodec<ConnectorSplit>>> splitCodecExtractor =
+                                connectorName -> Optional.ofNullable(splitCodecMap.get(connectorName));
 
                         jsonBinder(binder).addModuleBinding().toInstance(new TableHandleJacksonModule(handleResolver, featuresConfig, tableHandleCodecExtractor));
                         jsonBinder(binder).addModuleBinding().toInstance(new TableLayoutHandleJacksonModule(handleResolver, featuresConfig, tableLayoutHandleCodecExtractor));
@@ -788,7 +788,7 @@ public class TestHttpRemoteTaskConnectorCodec
         handleResolver.addConnectorName("test", new com.facebook.presto.testing.TestingHandleResolver());
 
         ConnectorCodecManager codecManager = injector.getInstance(ConnectorCodecManager.class);
-        codecManager.addConnectorCodecProvider(new ConnectorId(connectorWithCodec), new TestConnectorWithCodecProvider());
+        codecManager.addConnectorCodecProvider(connectorWithCodec, new TestConnectorWithCodecProvider());
 
         return injector;
     }
