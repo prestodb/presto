@@ -15,6 +15,8 @@ package com.facebook.presto.lance;
 
 import com.facebook.airlift.log.Logger;
 import com.facebook.presto.spi.PrestoException;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.RemovalListener;
@@ -28,14 +30,15 @@ import org.lance.Fragment;
 import org.lance.FragmentMetadata;
 import org.lance.FragmentOperation;
 import org.lance.ReadOptions;
+import org.lance.SourcedTransaction;
 import org.lance.WriteParams;
 import org.lance.namespace.LanceNamespace;
 import org.lance.namespace.errors.ErrorCode;
 import org.lance.namespace.errors.LanceNamespaceException;
 import org.lance.namespace.errors.NamespaceNotFoundException;
 import org.lance.namespace.errors.TableNotFoundException;
-import org.lance.namespace.model.CreateEmptyTableRequest;
-import org.lance.namespace.model.CreateEmptyTableResponse;
+import org.lance.namespace.model.DeclareTableRequest;
+import org.lance.namespace.model.DeclareTableResponse;
 import org.lance.namespace.model.DescribeTableRequest;
 import org.lance.namespace.model.DescribeTableResponse;
 import org.lance.namespace.model.DropTableRequest;
@@ -44,16 +47,24 @@ import org.lance.namespace.model.ListNamespacesResponse;
 import org.lance.namespace.model.ListTablesRequest;
 import org.lance.namespace.model.ListTablesResponse;
 import org.lance.namespace.model.NamespaceExistsRequest;
+import org.lance.operation.Delete;
+import org.lance.operation.Update;
 
 import javax.inject.Inject;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -61,7 +72,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -86,6 +96,11 @@ public class LanceNamespaceHolder
     private final boolean singleLevelNs;
     private final Optional<List<String>> parentPrefix;
     private final Map<String, String> namespaceStorageOptions;
+    /**
+     * Memoized so a missing or unreadable key file is read (and warned about) once
+     * per process rather than on every table handle resolution.
+     */
+    private final Supplier<Optional<Map<String, String>>> gcsJsonKeyStorageOptions;
     private final ReadOptions readOptions;
     private final Cache<DatasetCacheKey, Dataset> datasetCache;
 
@@ -125,6 +140,8 @@ public class LanceNamespaceHolder
             }
         }
         this.namespaceStorageOptions = ImmutableMap.copyOf(storageOpts);
+        Optional<String> keyFilePath = Optional.ofNullable(config.getGcsJsonKeyFilePath());
+        this.gcsJsonKeyStorageOptions = Suppliers.memoize(() -> readGcsJsonKeyFile(keyFilePath));
 
         // Validate that 'root' is set for directory namespace
         if ("dir".equals(impl) && !properties.containsKey("root")) {
@@ -202,13 +219,10 @@ public class LanceNamespaceHolder
         try {
             return datasetCache.get(cacheKey, () -> {
                 if (version.isPresent()) {
-                    long v = version.get();
-                    checkArgument(v <= Integer.MAX_VALUE,
-                            "Dataset version %s exceeds maximum supported version", v);
                     ReadOptions versionedOptions = new ReadOptions.Builder()
                             .setIndexCacheSizeBytes(readOptions.getIndexCacheSizeBytes())
                             .setMetadataCacheSizeBytes(readOptions.getMetadataCacheSizeBytes())
-                            .setVersion((int) v)
+                            .setVersion(version.get())
                             .build();
                     return Dataset.open(tablePath, versionedOptions);
                 }
@@ -405,7 +419,39 @@ public class LanceNamespaceHolder
             return namespaceStorageOptions;
         }
 
-        return ImmutableMap.of();
+        return gcsJsonKeyStorageOptions.get().orElse(ImmutableMap.of());
+    }
+
+    /**
+     * Last-resort storage options built from a locally provisioned service-account key.
+     * <p>
+     * The key material is emitted rather than its path. Only the coordinator has the
+     * file on disk, and workers resolve storage options from the table handle, so a
+     * path would not resolve on the node that actually opens the dataset.
+     */
+    private static Optional<Map<String, String>> readGcsJsonKeyFile(Optional<String> gcsJsonKeyFilePath)
+    {
+        if (!gcsJsonKeyFilePath.isPresent()) {
+            return Optional.empty();
+        }
+        Path path = Paths.get(gcsJsonKeyFilePath.get());
+        if (!Files.isReadable(path)) {
+            log.warn("Lance GCS JSON key file %s is missing or unreadable; continuing with no storage options", path);
+            return Optional.empty();
+        }
+        try {
+            // Never log the contents of this file: it is a private key.
+            String key = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+            if (key.trim().isEmpty()) {
+                log.warn("Lance GCS JSON key file %s is empty; continuing with no storage options", path);
+                return Optional.empty();
+            }
+            return Optional.of(ImmutableMap.of("google_service_account_key", key));
+        }
+        catch (IOException e) {
+            log.warn(e, "Failed to read Lance GCS JSON key file %s", path);
+            return Optional.empty();
+        }
     }
 
     /**
@@ -473,9 +519,9 @@ public class LanceNamespaceHolder
     public String createTable(String schemaName, String tableName, Schema arrowSchema)
     {
         List<String> tableId = getTableId(schemaName, tableName);
-        CreateEmptyTableRequest createRequest = new CreateEmptyTableRequest()
+        DeclareTableRequest createRequest = new DeclareTableRequest()
                 .id(tableId);
-        CreateEmptyTableResponse createResponse = namespace.createEmptyTable(createRequest);
+        DeclareTableResponse createResponse = namespace.declareTable(createRequest);
         String tablePath = createResponse.getLocation();
 
         try {
@@ -517,6 +563,118 @@ public class LanceNamespaceHolder
             Dataset.commit(allocator, tablePath, appendOp, Optional.of(dataset.version()), Collections.emptyMap()).close();
         }
         invalidateByTablePath(tablePath);
+    }
+
+    /**
+     * Delete every row of a table via a metadata-only predicate delete and return the
+     * number of rows that were removed. Used for the whole-table metadata delete fast path.
+     */
+    public long deleteAll(String tablePath)
+    {
+        try (Dataset dataset = Dataset.open(tablePath, readOptions)) {
+            long count = dataset.countRows();
+            dataset.delete("true");
+            invalidateByTablePath(tablePath);
+            return count;
+        }
+    }
+
+    /**
+     * Apply row-level deletions (merge-on-read) by writing deletion vectors for the
+     * affected fragments and committing a Delete transaction against {@code readVersion}.
+     */
+    public void commitDeletions(String tablePath, long readVersion, Map<Integer, List<Integer>> deletionsByFragment)
+    {
+        if (deletionsByFragment.isEmpty()) {
+            return;
+        }
+        try {
+            Dataset dataset = getCachedDataset(tablePath, Optional.of(readVersion));
+            List<FragmentMetadata> updatedFragments = new ArrayList<>();
+            List<Long> deletedFragmentIds = new ArrayList<>();
+            collectFragmentDeletions(dataset, deletionsByFragment, updatedFragments, deletedFragmentIds);
+
+            Delete deleteOp = Delete.builder()
+                    .updatedFragments(updatedFragments)
+                    .deletedFragmentIds(deletedFragmentIds)
+                    .build();
+            commitTransaction(dataset, deleteOp, readVersion);
+            invalidateByTablePath(tablePath);
+        }
+        catch (PrestoException e) {
+            throw e;
+        }
+        catch (Exception e) {
+            throw wrapCommitException(e);
+        }
+    }
+
+    /**
+     * Apply a row-level UPDATE (merge-on-read): delete the old rows via deletion vectors
+     * and append the rewritten rows as new fragments, committed atomically against
+     * {@code readVersion}.
+     */
+    public void commitUpdate(String tablePath, long readVersion, Map<Integer, List<Integer>> deletionsByFragment, List<FragmentMetadata> newFragments)
+    {
+        try {
+            Dataset dataset = getCachedDataset(tablePath, Optional.of(readVersion));
+            List<FragmentMetadata> updatedFragments = new ArrayList<>();
+            List<Long> deletedFragmentIds = new ArrayList<>();
+            collectFragmentDeletions(dataset, deletionsByFragment, updatedFragments, deletedFragmentIds);
+
+            Update updateOp = Update.builder()
+                    .updatedFragments(updatedFragments)
+                    .removedFragmentIds(deletedFragmentIds)
+                    .newFragments(newFragments)
+                    .build();
+            commitTransaction(dataset, updateOp, readVersion);
+            invalidateByTablePath(tablePath);
+        }
+        catch (PrestoException e) {
+            throw e;
+        }
+        catch (Exception e) {
+            throw wrapCommitException(e);
+        }
+    }
+
+    private static void collectFragmentDeletions(
+            Dataset dataset,
+            Map<Integer, List<Integer>> deletionsByFragment,
+            List<FragmentMetadata> updatedFragments,
+            List<Long> deletedFragmentIds)
+    {
+        for (Map.Entry<Integer, List<Integer>> entry : deletionsByFragment.entrySet()) {
+            Fragment fragment = new Fragment(dataset, entry.getKey());
+            FragmentMetadata updated = fragment.deleteRows(entry.getValue());
+            if (updated == null || updated.getNumRows() == 0) {
+                deletedFragmentIds.add((long) entry.getKey());
+            }
+            else {
+                updatedFragments.add(updated);
+            }
+        }
+    }
+
+    private void commitTransaction(Dataset dataset, org.lance.operation.Operation operation, long readVersion)
+    {
+        try (SourcedTransaction transaction = dataset.newTransactionBuilder()
+                .operation(operation)
+                .readVersion(readVersion)
+                .build()) {
+            transaction.commit().close();
+        }
+    }
+
+    private static PrestoException wrapCommitException(Exception e)
+    {
+        String message = e.getMessage() == null ? "" : e.getMessage().toLowerCase(Locale.ENGLISH);
+        if (message.contains("conflict") || message.contains("version") || message.contains("retry")) {
+            return new PrestoException(LanceErrorCode.LANCE_TRANSACTION_CONFLICT,
+                    "Lance transaction conflict: " + e.getMessage(), e);
+        }
+        return new PrestoException(LanceErrorCode.LANCE_ERROR,
+                "Failed to commit Lance transaction: " + e.getMessage(), e);
     }
 
     private void invalidateByTablePath(String tablePath)
