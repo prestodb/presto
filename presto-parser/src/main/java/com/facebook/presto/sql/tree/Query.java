@@ -61,6 +61,7 @@ public class Query
             Optional<String> limit)
     {
         super(location);
+
         requireNonNull(with, "with is null");
         requireNonNull(queryBody, "queryBody is null");
         requireNonNull(orderBy, "orderBy is null");
@@ -68,6 +69,17 @@ public class Query
         requireNonNull(limit, "limit is null");
 
         this.with = with;
+        with.ifPresent(w -> {
+            for (WithQuery withQuery : w.getQueries()) {
+                String cteName = withQuery.getName().getValue();
+                int count = queryBody.toString().split(cteName, -1).length - 1;
+
+                if (count > 1) {
+                    System.out.println("⚠️ Warning: CTE '" + cteName + "' is referenced more than once in the query body.");
+                }
+            }
+        });
+
         this.queryBody = queryBody;
         this.orderBy = orderBy;
         this.offset = offset;
