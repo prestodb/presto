@@ -98,6 +98,10 @@ public class BuiltInQueryAnalysis
             connectors.add(target.getConnectorId());
         }
 
+        if (analysis.getCreateTableDestination().isPresent()) {
+            connectors.add(new ConnectorId(analysis.getCreateTableDestination().get().getCatalogName()));
+        }
+
         return connectors.build();
     }
 }
