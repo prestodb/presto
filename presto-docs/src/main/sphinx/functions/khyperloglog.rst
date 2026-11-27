@@ -29,6 +29,20 @@ Functions
     columns ``x`` and ``y``. The MinHash structure summarizes ``x`` and the HyperLogLog
     sketches represent ``y`` values linked to ``x`` values.
 
+.. function:: khyperloglog_agg_java_compat(x, y) -> KHyperLogLog
+
+    Alias of :func:`khyperloglog_agg`, provided for cross-engine portability.
+
+    The native (C++) engine's ``khyperloglog_agg`` hashes its inputs differently
+    from the Java implementation, so sketches built by the two engines are not
+    byte compatible and cannot be merged with each other. The native engine
+    registers ``khyperloglog_agg_java_compat`` as a separate aggregate that
+    reproduces the Java hashing exactly, leaving its own ``khyperloglog_agg``
+    unchanged so existing sketches stay reproducible.
+
+    Use this name when a sketch must be built by either engine and later merged
+    or compared. On Java it behaves identically to :func:`khyperloglog_agg`.
+
 .. function:: cardinality(khll) -> bigint
     :noindex:
 

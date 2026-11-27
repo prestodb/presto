@@ -29,7 +29,21 @@ import static com.facebook.presto.common.type.StandardTypes.BIGINT;
 import static com.facebook.presto.common.type.StandardTypes.DOUBLE;
 import static com.facebook.presto.common.type.StandardTypes.K_HYPER_LOG_LOG;
 
-@AggregationFunction("khyperloglog_agg")
+/**
+ * The {@code khyperloglog_agg_java_compat} alias exists for cross-engine
+ * portability. Velox's {@code khyperloglog_agg} hashes its inputs differently
+ * from this implementation, so sketches built by the two engines are not byte
+ * compatible. Velox therefore registers a second aggregate,
+ * {@code khyperloglog_agg_java_compat}, that reproduces this implementation's
+ * hashing exactly.
+ *
+ * <p>Registering the same name here lets a single query resolve and produce
+ * identical sketches on both engines. On a native cluster the coordinator still
+ * resolves the name against this registry before dispatching execution to the
+ * worker, so the alias is required there too, not only when the query runs on
+ * Java. It is deliberately an alias rather than a second implementation.
+ */
+@AggregationFunction(value = "khyperloglog_agg", alias = "khyperloglog_agg_java_compat")
 public final class KHyperLogLogAggregationFunction
 {
     private static final KHyperLogLogStateSerializer SERIALIZER = new KHyperLogLogStateSerializer();
