@@ -267,6 +267,10 @@ class MaterializedOutputBuffer {
     /// still uses the flusher gate to preserve writer ordering.
     int64_t noMoreData();
 
+    /// Frees queued RowGroups without flushing them. Skips the partition while
+    /// another flusher holds it. Returns bytes freed.
+    int64_t discard();
+
     folly::UMPMCQueue<std::unique_ptr<folly::IOBuf>, /*MayBlock=*/false>
         rowGroupsQueue_;
     std::atomic_int64_t bufferedBytes_{0};
@@ -322,7 +326,8 @@ class MaterializedOutputBuffer {
       int32_t partition,
       std::deque<std::unique_ptr<folly::IOBuf>>& rowGroups);
 
-  /// Wake parked producers after crossing the low watermark.
+  /// Wake parked producers after crossing the low watermark, or unconditionally
+  /// once aborted.
   void maybeWakeBlockedDrivers();
 
   /// Merge a deque of RowGroup IOBufs into a single contiguous IOBuf.
@@ -379,7 +384,8 @@ class MaterializedOutputBuffer {
   std::atomic_int64_t zeroCopyCollectCount_{0};
 
   // Producer promises parked by backpressure, fulfilled by
-  // maybeWakeBlockedDrivers() once buffered drops below the low watermark.
+  // maybeWakeBlockedDrivers() once buffered drops below the low watermark or
+  // the buffer is aborted.
   folly::Synchronized<std::vector<velox::ContinuePromise>> blockedPromises_;
 
   // Process-wide registry of buffers keyed by taskId, following the same
