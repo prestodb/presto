@@ -58,6 +58,10 @@ public class MergeFilters
     {
         FilterNode child = captures.get(CHILD);
 
+        if (parent.isDoNotMerge() || child.isDoNotMerge()) {
+            return Result.empty();
+        }
+
         return Result.ofPlanNode(
                 new FilterNode(
                         parent.getSourceLocation(),
