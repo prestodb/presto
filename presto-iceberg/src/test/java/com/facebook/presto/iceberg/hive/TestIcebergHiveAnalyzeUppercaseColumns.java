@@ -73,7 +73,7 @@ public class TestIcebergHiveAnalyzeUppercaseColumns
         Catalog hadoopCatalog = loadHadoopCatalog();
         setupUnpartitionedTable(hadoopCatalog, TABLE_NAME);
         setupPartitionedTable(hadoopCatalog, PARTITIONED_TABLE_NAME);
-        setupWideTable(hadoopCatalog, getWideTableName());
+        setupMetricsModeTables(hadoopCatalog);
     }
 
     @AfterClass
@@ -82,7 +82,7 @@ public class TestIcebergHiveAnalyzeUppercaseColumns
     {
         unregisterTableQuietly(TABLE_NAME);
         unregisterTableQuietly(PARTITIONED_TABLE_NAME);
-        unregisterTableQuietly(getWideTableName());
+        unregisterMetricsModeTables();
         deleteRecursively(hadoopWarehouseLocation.toPath(), ALLOW_INSECURE);
     }
 
