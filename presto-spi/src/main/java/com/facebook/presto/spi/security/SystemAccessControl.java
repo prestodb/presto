@@ -274,7 +274,7 @@ public interface SystemAccessControl
      */
     default List<ColumnMetadata> filterColumns(Identity identity, AccessControlContext context, CatalogSchemaTableName table, List<ColumnMetadata> columns)
     {
-        return Collections.emptyList();
+        return columns;
     }
 
     /**
