@@ -43,6 +43,7 @@ import java.util.UUID;
 
 import static com.facebook.presto.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.apache.iceberg.TableProperties.DEFAULT_WRITE_METRICS_MODE;
 import static org.apache.iceberg.TableProperties.METRICS_MODE_COLUMN_CONF_PREFIX;
 import static org.testng.Assert.assertNotNull;
@@ -57,6 +58,8 @@ public abstract class AbstractTestIcebergAnalyzeUppercaseColumns
 {
     protected static final String TEST_SCHEMA = "tpch";
     protected static final int WIDE_TABLE_EXTRA_COLUMNS = 101;
+    // U+0130 lowercases to two characters, so this name and its normalized form differ in length
+    protected static final String DOTTED_I_COLUMN = "\u0130X";
 
     /**
      * Rows written into the partitioned table: {id, value, region}.
@@ -308,6 +311,11 @@ public abstract class AbstractTestIcebergAnalyzeUppercaseColumns
         return getTableName() + "_value_full";
     }
 
+    protected String getDottedIMetricsNoneTableName()
+    {
+        return getTableName() + "_dotted_i_none";
+    }
+
     /**
      * Creates the tables whose ANALYZE depends on looking up Iceberg metrics modes by the exact
      * (uppercase) column name: one with more than 100 columns, and two with per-column
@@ -322,6 +330,7 @@ public abstract class AbstractTestIcebergAnalyzeUppercaseColumns
         setupUnpartitionedTable(hadoopCatalog, getValueMetricsFullTableName(), ImmutableMap.of(
                 DEFAULT_WRITE_METRICS_MODE, "none",
                 METRICS_MODE_COLUMN_CONF_PREFIX + "VALUE", "full"));
+        setupDottedIMetricsNoneTable(hadoopCatalog, getDottedIMetricsNoneTableName());
     }
 
     protected void unregisterMetricsModeTables()
@@ -329,6 +338,27 @@ public abstract class AbstractTestIcebergAnalyzeUppercaseColumns
         unregisterTableQuietly(getWideTableName());
         unregisterTableQuietly(getValueMetricsNoneTableName());
         unregisterTableQuietly(getValueMetricsFullTableName());
+        unregisterTableQuietly(getDottedIMetricsNoneTableName());
+    }
+
+    protected void setupDottedIMetricsNoneTable(Catalog hadoopCatalog, String tableName)
+            throws Exception
+    {
+        Schema schema = new Schema(
+                Types.NestedField.required(1, "ID", Types.IntegerType.get()),
+                Types.NestedField.optional(2, DOTTED_I_COLUMN, Types.IntegerType.get()));
+        Table table = hadoopCatalog.createTable(
+                org.apache.iceberg.catalog.TableIdentifier.of(TEST_SCHEMA, tableName),
+                schema,
+                PartitionSpec.unpartitioned(),
+                ImmutableMap.of(METRICS_MODE_COLUMN_CONF_PREFIX + DOTTED_I_COLUMN, "none"));
+
+        for (int row = 1; row <= 3; row++) {
+            writeRecord(table, GenericRecord.create(schema).copy("ID", row, DOTTED_I_COLUMN, row));
+            table.refresh();
+        }
+
+        registerTable(tableName, table.location());
     }
 
     /**
@@ -401,6 +431,17 @@ public abstract class AbstractTestIcebergAnalyzeUppercaseColumns
 
         assertNull(distinctValuesCount(stats, "id"), "the table's default metrics mode is none, so ANALYZE must skip 'id'");
         assertNotNull(distinctValuesCount(stats, "value"), "'VALUE' has metrics mode full, so ANALYZE must collect its distinct_values_count");
+    }
+
+    @Test
+    public void testAnalyzeSkipsColumnWithMetricsModeNoneWhenLowercaseChangesLength()
+    {
+        assertQuerySucceeds(format("ANALYZE %s.%s", TEST_SCHEMA, getDottedIMetricsNoneTableName()));
+
+        MaterializedResult stats = getQueryRunner().execute(format("SHOW STATS FOR %s.%s", TEST_SCHEMA, getDottedIMetricsNoneTableName()));
+
+        assertNotNull(distinctValuesCount(stats, "id"), "'id' has the default metrics mode, so ANALYZE must collect its distinct_values_count");
+        assertNull(distinctValuesCount(stats, DOTTED_I_COLUMN.toLowerCase(ENGLISH)), "'\\u0130X' has metrics mode none, so ANALYZE must skip it");
     }
 
     private static Object distinctValuesCount(MaterializedResult stats, String columnName)

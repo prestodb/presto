@@ -678,7 +678,7 @@ public class IcebergHiveMetadata
         MetricsConfig metricsConfig = MetricsConfig.forTable(table);
         return tableMetadata.getColumns().stream()
                 .filter(column -> !column.isHidden())
-                .filter(column -> getColumnMetricsMode(table.schema(), metricsConfig, column.getName()) != None.get())
+                .filter(column -> getColumnMetricsMode(session, table.schema(), metricsConfig, column.getName()) != None.get())
                 .flatMap(meta -> {
                     try {
                         return metastore.getSupportedColumnStatistics(getMetastoreContext(session), meta.getType())
