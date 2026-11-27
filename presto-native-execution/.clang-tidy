@@ -16,6 +16,8 @@ Checks: >
   -cppcoreguidelines-pro-type-vararg,
   -cppcoreguidelines-pro-type-vararg,
   -cppcoreguidelines-special-member-functions,
+  -facebook-single-target-typedef-spreader,
+  -facebook-single-target-map-usage-validator,
   -fuchsia-*,
   -google-*,
   -hicpp-avoid-c-arrays,
