@@ -372,4 +372,39 @@ public class TestMergePartialAggregationsWithFilter
                                                         tableScan("lineitem", ImmutableMap.of("orderkey", "orderkey", "partkey", "partkey"))))))),
                 false);
     }
+
+    @Test
+    public void testSimpleFilterOptimizationCase()
+    {
+        assertPlan("SELECT partkey, sum(quantity) filter (where suppkey = 1), sum(quantity) filter (where suppkey = 2), sum(quantity) filter (where suppkey = 3) from lineitem group by partkey",
+                enableOptimization(),
+                anyTree(
+                        aggregation(
+                                singleGroupingSet("partkey"),
+                                ImmutableMap.of(Optional.of("sum1"), functionCall("sum", ImmutableList.of("maskSum1")),
+                                        Optional.of("sum2"), functionCall("sum", ImmutableList.of("maskSum2")),
+                                        Optional.of("sum3"), functionCall("sum", ImmutableList.of("maskSum3"))),
+                                ImmutableMap.of(),
+                                Optional.empty(),
+                                AggregationNode.Step.FINAL,
+                                anyTree(
+                                        project(
+                                                ImmutableMap.of("maskSum1", expression("IF(expr1, partialSum, null)"),
+                                                        "maskSum2", expression("IF(expr2, partialSum, null)"),
+                                                        "maskSum3", expression("IF(expr3, partialSum, null)")),
+                                                anyTree(
+                                                        aggregation(
+                                                                singleGroupingSet("partkey", "expr1", "expr2", "expr3"),
+                                                                ImmutableMap.of(Optional.of("partialSum"), functionCall("sum", ImmutableList.of("quantity"))),
+                                                                ImmutableMap.of(new Symbol("partialSum"), new Symbol("expr_or")),
+                                                                Optional.empty(),
+                                                                AggregationNode.Step.PARTIAL,
+                                                                anyTree(
+                                                                        project(
+                                                                                ImmutableMap.of("expr_or", expression("expr1 or expr2 or expr3")),
+                                                                                project(
+                                                                                        ImmutableMap.of("expr1", expression("suppkey = 1"), "expr2", expression("suppkey = 2"), "expr3", expression("suppkey = 3")),
+                                                                                        tableScan("lineitem", ImmutableMap.of("partkey", "partkey", "quantity", "quantity", "suppkey", "suppkey"))))))))))),
+                false);
+    }
 }
