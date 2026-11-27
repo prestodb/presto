@@ -245,19 +245,8 @@ public class BaseJdbcClient
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 while (resultSet.next()) {
                     allColumns++;
-                    JdbcTypeHandle typeHandle = new JdbcTypeHandle(
-                            resultSet.getInt("DATA_TYPE"),
-                            resultSet.getString("TYPE_NAME"),
-                            resultSet.getInt("COLUMN_SIZE"),
-                            resultSet.getInt("DECIMAL_DIGITS"));
-                    Optional<ReadMapping> readMapping = toPrestoType(session, typeHandle);
                     // skip unsupported column types
-                    if (readMapping.isPresent()) {
-                        String columnName = resultSet.getString("COLUMN_NAME");
-                        boolean nullable = columnNullable == resultSet.getInt("NULLABLE");
-                        Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
-                        columns.add(new JdbcColumnHandle(connectorId, columnName, typeHandle, readMapping.get().getType(), nullable, comment));
-                    }
+                    toColumnHandle(session, resultSet).ifPresent(columns::add);
                 }
                 if (columns.isEmpty()) {
                     // A table may have no supported columns. In rare cases (e.g. PostgreSQL) a table might have no columns at all.
@@ -273,6 +262,30 @@ public class BaseJdbcClient
         catch (SQLException e) {
             throw new PrestoException(JDBC_ERROR, e);
         }
+    }
+
+    /**
+     * Maps the current row of a {@link DatabaseMetaData#getColumns} result to a column handle, or
+     * returns empty when Presto has no mapping for the column type. A client that reads the
+     * columns of several tables in one metadata call uses this to map them exactly as
+     * {@link #getColumns(ConnectorSession, JdbcTableHandle)} does.
+     */
+    protected Optional<JdbcColumnHandle> toColumnHandle(ConnectorSession session, ResultSet resultSet)
+            throws SQLException
+    {
+        JdbcTypeHandle typeHandle = new JdbcTypeHandle(
+                resultSet.getInt("DATA_TYPE"),
+                resultSet.getString("TYPE_NAME"),
+                resultSet.getInt("COLUMN_SIZE"),
+                resultSet.getInt("DECIMAL_DIGITS"));
+        Optional<ReadMapping> readMapping = toPrestoType(session, typeHandle);
+        if (!readMapping.isPresent()) {
+            return Optional.empty();
+        }
+        String columnName = resultSet.getString("COLUMN_NAME");
+        boolean nullable = columnNullable == resultSet.getInt("NULLABLE");
+        Optional<String> comment = Optional.ofNullable(emptyToNull(resultSet.getString("REMARKS")));
+        return Optional.of(new JdbcColumnHandle(connectorId, columnName, typeHandle, readMapping.get().getType(), nullable, comment));
     }
 
     @Override
@@ -851,11 +864,21 @@ public class BaseJdbcClient
     private static ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
             throws SQLException
     {
+        return getColumns(metadata, tableHandle.getCatalogName(), tableHandle.getSchemaName(), tableHandle.getTableName());
+    }
+
+    /**
+     * Calls {@link DatabaseMetaData#getColumns} with the schema and table names escaped, so they
+     * match literally rather than as patterns. A null name matches every schema or table.
+     */
+    protected static ResultSet getColumns(DatabaseMetaData metadata, @Nullable String catalogName, @Nullable String schemaName, @Nullable String tableName)
+            throws SQLException
+    {
         Optional<String> escape = Optional.ofNullable(metadata.getSearchStringEscape());
         return metadata.getColumns(
-                tableHandle.getCatalogName(),
-                escapeNamePattern(Optional.ofNullable(tableHandle.getSchemaName()), escape).orElse(null),
-                escapeNamePattern(Optional.ofNullable(tableHandle.getTableName()), escape).orElse(null),
+                catalogName,
+                escapeNamePattern(Optional.ofNullable(schemaName), escape).orElse(null),
+                escapeNamePattern(Optional.ofNullable(tableName), escape).orElse(null),
                 null);
     }
 }
