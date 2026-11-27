@@ -160,13 +160,13 @@ public class PrometheusSplitManager
         return new BigDecimal(Long.toString(millis)).divide(new BigDecimal(1000L)).toPlainString();
     }
 
-    // URIBuilder handles URI encode
+    // HttpUriBuilder handles URI encode
     private static URI buildQuery(URI baseURI, String time, String metricName, Duration queryChunkSizeDuration)
             throws URISyntaxException
     {
         return HttpUriBuilder
                 .uriBuilderFrom(baseURI)
-                .replacePath("api/v1/query")
+                .appendPath("api/v1/query")
                 .addParameter("query", metricName + "[" + queryChunkSizeDuration.roundTo(queryChunkSizeDuration.getUnit()) +
                         Duration.timeUnitToString(queryChunkSizeDuration.getUnit()) + "]")
                 .addParameter("time", time)
