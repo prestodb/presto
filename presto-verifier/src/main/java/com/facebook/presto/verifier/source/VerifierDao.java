@@ -35,6 +35,7 @@ public interface VerifierDao
             "  control_catalog varchar(256) NOT NULL,\n" +
             "  control_schema varchar(256) NOT NULL,\n" +
             "  control_query text NOT NULL,\n" +
+            "  control_query_utf8 text DEFAULT NULL,\n" +
             "  control_query_id mediumtext DEFAULT NULL,\n" +
             "  control_username varchar(256) DEFAULT NULL,\n" +
             "  control_password varchar(256) DEFAULT NULL,\n" +
@@ -44,6 +45,7 @@ public interface VerifierDao
             "  test_catalog varchar(256) NOT NULL,\n" +
             "  test_schema varchar(256) NOT NULL,\n" +
             "  test_query text NOT NULL,\n" +
+            "  test_query_utf8 text DEFAULT NULL,\n" +
             "  test_query_id mediumtext DEFAULT NULL,\n" +
             "  test_username varchar(256) DEFAULT NULL,\n" +
             "  test_password varchar(256) DEFAULT NULL,\n" +
@@ -56,6 +58,7 @@ public interface VerifierDao
             "  suite,\n" +
             "  name,\n" +
             "  control_query,\n" +
+            "  control_query_utf8,\n" +
             "  name control_query_id,\n" +
             "  control_catalog,\n" +
             "  control_schema,\n" +
@@ -65,6 +68,7 @@ public interface VerifierDao
             "  control_client_tags,\n" +
             "  control_partitions,\n" +
             "  test_query,\n" +
+            "  test_query_utf8,\n" +
             "  test_query_id,\n" +
             "  test_catalog,\n" +
             "  test_schema,\n" +
