@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.common.predicate;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.DataTypeMismatchException;
 import com.facebook.presto.common.function.SqlFunctionProperties;
 import com.facebook.presto.common.type.Type;
@@ -47,6 +50,7 @@ import static java.util.stream.Collectors.toMap;
  * allows iteration across these compacted Ranges in increasing order, as well as other common
  * set-related operation.
  */
+@ThriftStruct
 public final class SortedRangeSet
         implements ValueSet
 {
@@ -63,6 +67,12 @@ public final class SortedRangeSet
         }
         this.type = type;
         this.lowIndexedRanges = lowIndexedRanges;
+    }
+
+    @ThriftConstructor
+    public SortedRangeSet(@ThriftField(2) List<Range> ranges, @ThriftField(1) Type type)
+    {
+        this(type, copyOf(type, (Iterable<Range>) ranges).lowIndexedRanges);
     }
 
     static SortedRangeSet none(Type type)
@@ -127,12 +137,14 @@ public final class SortedRangeSet
 
     @Override
     @JsonProperty
+    @ThriftField(1)
     public Type getType()
     {
         return type;
     }
 
     @JsonProperty("ranges")
+    @ThriftField(value = 2, name = "ranges")
     public List<Range> getOrderedRanges()
     {
         return new ArrayList<>(lowIndexedRanges.values());
@@ -421,6 +433,26 @@ public final class SortedRangeSet
                                 TreeMap::new)));
     }
 
+    private static NavigableMap<Marker, Range> normalizeBooleanRanges(Type type, NavigableMap<Marker, Range> ranges)
+    {
+        if (type != BOOLEAN) {
+            return ranges;
+        }
+        boolean trueAllowed = false;
+        boolean falseAllowed = false;
+        for (Range range : ranges.values()) {
+            trueAllowed |= range.includes(Marker.exactly(BOOLEAN, true));
+            falseAllowed |= range.includes(Marker.exactly(BOOLEAN, false));
+        }
+        if (trueAllowed && falseAllowed) {
+            NavigableMap<Marker, Range> result = new TreeMap<>();
+            Range all = Range.all(BOOLEAN);
+            result.put(all.getLow(), all);
+            return result;
+        }
+        return ranges;
+    }
+
     static class Builder
     {
         private final Type type;
@@ -481,26 +513,7 @@ public final class SortedRangeSet
             }
 
             // TODO find a more generic way to do this
-            if (type == BOOLEAN) {
-                boolean trueAllowed = false;
-                boolean falseAllowed = false;
-                for (Map.Entry<Marker, Range> entry : result.entrySet()) {
-                    if (entry.getValue().includes(Marker.exactly(BOOLEAN, true))) {
-                        trueAllowed = true;
-                    }
-                    if (entry.getValue().includes(Marker.exactly(BOOLEAN, false))) {
-                        falseAllowed = true;
-                    }
-                }
-
-                if (trueAllowed && falseAllowed) {
-                    result = new TreeMap<>();
-                    result.put(Range.all(BOOLEAN).getLow(), Range.all(BOOLEAN));
-                    return new SortedRangeSet(BOOLEAN, result);
-                }
-            }
-
-            return new SortedRangeSet(type, result);
+            return new SortedRangeSet(type, normalizeBooleanRanges(type, result));
         }
     }
 }

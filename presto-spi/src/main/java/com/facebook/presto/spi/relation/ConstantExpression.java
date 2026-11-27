@@ -13,6 +13,9 @@
  */
 package com.facebook.presto.spi.relation;
 
+import com.facebook.drift.annotations.ThriftConstructor;
+import com.facebook.drift.annotations.ThriftField;
+import com.facebook.drift.annotations.ThriftStruct;
 import com.facebook.presto.common.Utils;
 import com.facebook.presto.common.block.Block;
 import com.facebook.presto.common.predicate.Primitives;
@@ -30,6 +33,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
+@ThriftStruct
 public final class ConstantExpression
         extends RowExpression
 {
@@ -52,6 +56,12 @@ public final class ConstantExpression
         this(Optional.empty(), value, type);
     }
 
+    @ThriftConstructor
+    public ConstantExpression(@ThriftField(2) Type type, @ThriftField(1) Block valueBlock)
+    {
+        this(Utils.blockToNativeValue(type, valueBlock), type);
+    }
+
     @JsonCreator
     public static ConstantExpression createConstantExpression(
             @JsonProperty("valueBlock") Block valueBlock,
@@ -61,6 +71,7 @@ public final class ConstantExpression
     }
 
     @JsonProperty
+    @ThriftField(1)
     public Block getValueBlock()
     {
         return Utils.nativeValueToBlock(type, value);
@@ -78,6 +89,7 @@ public final class ConstantExpression
 
     @Override
     @JsonProperty
+    @ThriftField(2)
     public Type getType()
     {
         return type;
